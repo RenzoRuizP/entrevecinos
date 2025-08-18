@@ -10,7 +10,8 @@ try {
 
     $email = filter_input(INPUT_POST, 'loginEmail', FILTER_SANITIZE_EMAIL);
     $clave = trim($_POST['loginPassword'] ?? '');
-
+    //var_dump($clave);
+    //exit;
     if (empty($email) || empty($clave)) {
         header("Location: ../views/login-v2.php?error=campos_vacios");
         exit;
@@ -21,7 +22,8 @@ try {
     $objSesion->setClave($clave);
 
     $resultado = $objSesion->iniciarSesionJWT();
-
+    //var_dump($resultado['rol']);
+    //exit;
     switch ($resultado['status']) {
         case "CI":
             header("Location: ../views/login-v2.php?error=CI"); // contraseña incorrecta

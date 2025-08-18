@@ -49,7 +49,7 @@ class SesionJWT extends Conexion {
             // Obtener roles del usuario
             $sqlRoles = "
                 SELECT 
-                    r.nombre_rol
+                    r.nombre as nombre_rol
                 FROM usuario u  INNER JOIN rol r
                 ON
                     u.codigo_rol = r.codigo_rol
@@ -60,23 +60,27 @@ class SesionJWT extends Conexion {
             $stmtRoles->bindParam(':codigo_usuario', $usuario['codigo_usuario']);
             $stmtRoles->execute();
 
-            $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
+            $rol = $stmtRoles->fetch(PDO::FETCH_COLUMN);
 
             // Datos del token
             $datosToken = [
                 'codigo_usuario' => $usuario['codigo_usuario'],
                 'nombre' => $usuario['nombre'],
                 'email' => $usuario['email'],
-                'roles' => $roles
+                //'nombre_rol' => $rol['nombre_rol']
+                 'rol' => $rol
             ];
-
+            //echo json_encode($datosToken, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            //exit;
             // Generar JWT
             $token = JwtConfig::generarToken($datosToken);
-
+           
             return [
                 'status' => 'SI',
-                'token' => $token
+                'token' => $token,
+                'rol' => $rol
             ];
+            
 
         } catch (Exception $e) {
             error_log($e->getMessage());

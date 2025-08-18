@@ -18,7 +18,8 @@ if (!$token) {
 try {
     // Verificar token (esto lanza excepción si expira o es inválido)
     $usuario = SesionJWT::verificarToken($token);
-
+   // var_dump($usuario->rol);
+    //exit;
     if (!$usuario) {
         header("Location: login-v2.php?error=token_expirado");
         exit;
@@ -26,6 +27,7 @@ try {
 
     // Extraer los datos del usuario
     $nombreUsuario = $usuario->nombre ?? 'Usuario';
+    
 
 } catch (Exception $e) {
     // Token inválido o expirado

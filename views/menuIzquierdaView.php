@@ -30,7 +30,7 @@
               id="navigation"
             >
              
-              <li class="nav-header">EXAMPLES</li>
+              <li class="nav-header">EXAMPLES </li>
               <li class="nav-item">
                 <a href="#" class="nav-link">
                   <i class="nav-icon bi bi-box-arrow-in-right"></i>
