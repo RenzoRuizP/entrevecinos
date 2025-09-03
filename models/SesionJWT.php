@@ -37,8 +37,6 @@ class SesionJWT extends Conexion {
 
             $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // var_dump($usuario);
-
             if (!$usuario) 
                 return ['status' => 'NE']; // No existe
             if (!password_verify($this->clave, $usuario['clave'])) 
@@ -70,8 +68,6 @@ class SesionJWT extends Conexion {
                 //'nombre_rol' => $rol['nombre_rol']
                  'rol' => $rol
             ];
-            //echo json_encode($datosToken, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-            //exit;
             // Generar JWT
             $token = JwtConfig::generarToken($datosToken);
            
@@ -103,24 +99,26 @@ class SesionJWT extends Conexion {
         }
     }
 
-    public function obtenerOpcionesMenu($codigoCargo) {
+    public function obtenerOpcionesMenu($nombre_rol) {
         try {
             $sql = "
-                select
-                        distinct 
-                        m.codigo_menu,
-                        m.nombre
-                from
-                        menu m
-                        inner join menu_item_accesos a on ( m.codigo_menu = a.codigo_menu )
-                where
-                        a.codigo_cargo = :p_codigo_cargo
-                        and a.acceso = '1'
-                order by
-                        1
+                SELECT 
+                    distinct m.codigo_menu, 
+                    m.nombre,
+                    m.icono
+                FROM 
+                    rol r INNER JOIN menu_item_accesos m_i_a
+                ON 
+                    r.codigo_rol = m_i_a.codigo_rol INNER JOIN menu_item m_i
+                ON
+                    m_i.codigo_menu_item = m_i_a.codigo_menu_item INNER JOIN menu m
+                ON
+                    m.codigo_menu = m_i.codigo_menu
+                WHERE 
+                    r.nombre like :p_nombre_rol and m_i_a.acceso = 'A';
                 ";
             $sentencia = $this->dblink->prepare($sql);
-            $sentencia->bindParam(":p_codigo_cargo", $codigoCargo);
+            $sentencia->bindParam(":p_nombre_rol", $nombre_rol);
             $sentencia->execute();
             $resultado = $sentencia->fetchAll(PDO::FETCH_ASSOC);
             return $resultado;
@@ -129,33 +127,27 @@ class SesionJWT extends Conexion {
         }
     }
 
-    public function obtenerOpcionesMenuItem($codigoCargo, $codigoMenu) {
+    public function obtenerOpcionesMenuItem($nombreRol, $codigo_menu) {
         try {
             $sql = "
-                    select
-                            m.nombre,
-                            m.archivo
-                    from
-                            menu_item m
-                            inner join menu_item_accesos a 
-                            on 
-                            ( 
-                                    m.codigo_menu = a.codigo_menu and 
-                                    m.codigo_menu_item = a.codigo_menu_item 
-                            )
-
-                    where
-                            a.codigo_cargo = :p_codigo_cargo
-                            and a.codigo_menu = :p_codigo_menu
-                            and a.acceso = '1'
-                    order by
-                            a.codigo_menu_item
+                    SELECT 
+                        m_i.codigo_menu_item ,m_i.nombre, m_i.icono
+                    FROM 
+                        rol r INNER JOIN menu_item_accesos m_i_a
+                    ON 
+                        r.codigo_rol = m_i_a.codigo_rol INNER JOIN menu_item m_i
+                    ON
+                        m_i.codigo_menu_item = m_i_a.codigo_menu_item INNER JOIN menu m
+                    ON
+                        m.codigo_menu = m_i.codigo_menu
+                    WHERE 
+                        r.nombre LIKE :p_nombreRol and m.codigo_menu = :p_codigo_menu and m_i_a.acceso = 'A';
                 ";
             
 //            $sentencia = $this->dbLink->prepare($sql);
             $sentencia = $this->dblink->prepare($sql);
-            $sentencia->bindParam(":p_codigo_cargo", $codigoCargo);
-            $sentencia->bindParam(":p_codigo_menu", $codigoMenu);
+            $sentencia->bindParam(":p_nombreRol", $nombreRol);
+            $sentencia->bindParam(":p_codigo_menu", $codigo_menu);
             $sentencia->execute();
             $resultado = $sentencia->fetchAll(PDO::FETCH_ASSOC);
             return $resultado;

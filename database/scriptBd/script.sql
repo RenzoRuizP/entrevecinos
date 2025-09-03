@@ -35,6 +35,8 @@ CREATE TABLE menu (
     codigo_menu INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(200) NOT NULL
 );
+ALTER TABLE menu
+ADD COLUMN icono VARCHAR(100);
 
 CREATE TABLE menu_item  (
     codigo_menu_item INT AUTO_INCREMENT PRIMARY KEY,
@@ -43,17 +45,26 @@ CREATE TABLE menu_item  (
     codigo_menu INT NOT NULL,
     FOREIGN KEY(codigo_menu) REFERENCES menu(codigo_menu)
 );
+ALTER TABLE menu_item
+ADD COLUMN icono VARCHAR(100);
+
+SELECT * FROM menu;
+
+
+UPDATE menu SET icono = 'fas fa-shopping-cart' WHERE nombre = 'Vender';
+UPDATE menu SET icono = 'fas fa-shopping-bag' WHERE nombre = 'Comprar';
+UPDATE menu SET icono = 'fas fa-id-card' WHERE nombre = 'Mis Datos';
 
 CREATE TABLE menu_item_accesos (
     codigo_menu_item_accesos INT AUTO_INCREMENT PRIMARY KEY,
     codigo_menu_item INT NOT NULL,
 	 -- codigo_menu INT NOT NULL,
     codigo_rol INT NOT NULL,
+    acceso CHAR(1) NULL, -- A: activo, I= inactivo
     FOREIGN KEY(codigo_menu_item) REFERENCES menu_item(codigo_menu_item),
     -- FOREIGN KEY(codigo_menu) REFERENCES menu(codigo_menu),
     FOREIGN KEY(codigo_rol) REFERENCES rol(codigo_rol)    
 );
-
 /*
 CREATE TABLE accesos (
 	 codigo_accesos INT NOT NULL,
@@ -105,36 +116,36 @@ rol:
 
 */
 -- admin
-INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol ) 
-VALUES (1, 1);
-INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol ) 
-VALUES (2, 1);
-INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol ) 
-VALUES (3, 1);
-INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol ) 
-VALUES (4, 1);
-INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol )
-VALUES (5, 1);
-INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol )
-VALUES (6, 1);
-INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol )
-VALUES (7, 1);
+INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol, acceso ) 
+VALUES (1, 1, 'A');
+INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol, acceso ) 
+VALUES (2, 1, 'A');
+INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol, acceso ) 
+VALUES (3, 1, 'A');
+INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol, acceso ) 
+VALUES (4, 1, 'A');
+INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol, acceso )
+VALUES (5, 1, 'A');
+INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol, acceso )
+VALUES (6, 1, 'A');
+INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol, acceso )
+VALUES (7, 1, 'A');
 
 -- vecino
-INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol )
-VALUES (1, 2);
-INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol )
-VALUES (2, 2);
-INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol )
-VALUES (3, 2);
-INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol )
-VALUES (4, 2);
-INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol )
-VALUES (5, 2);
-INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol )
-VALUES (6, 2);
-INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol ) 
-VALUES (7, 2);
+INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol, acceso )
+VALUES (1, 2, 'A');
+INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol, acceso )
+VALUES (2, 2, 'A');
+INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol, acceso )
+VALUES (3, 2, 'A');
+INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol, acceso )
+VALUES (4, 2, 'A');
+INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol, acceso )
+VALUES (5, 2, 'A');
+INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol, acceso )
+VALUES (6, 2, 'A');
+INSERT INTO menu_item_accesos( codigo_menu_item, codigo_rol, acceso ) 
+VALUES (7, 2, 'A');
 
 
 
@@ -143,13 +154,31 @@ SELECT * FROM usuario WHERE email = 'juan@example.com';
 -- roles
 
 SELECT 
-                    r.nombre
+                    r.nombre as nombre_rol
                 FROM usuario u  INNER JOIN rol r
                 ON
                     u.codigo_rol = r.codigo_rol
                 WHERE
                     u.codigo_usuario = 1
 
+
+-- Solo muestra menú según su rol
+SELECT 
+	distinct m.codigo_menu, 
+	m.nombre
+FROM 
+	rol r INNER JOIN menu_item_accesos m_i_a
+ON 
+	r.codigo_rol = m_i_a.codigo_rol INNER JOIN menu_item m_i
+ON
+	m_i.codigo_menu_item = m_i_a.codigo_menu_item INNER JOIN menu m
+ON
+	m.codigo_menu = m_i.codigo_menu
+WHERE 
+	r.nombre like 'vecino' and m_i_a.acceso = 'A';
+	
+
+-- solo muestra los menu items con accesos
 
 SELECT 
 	m_i.codigo_menu_item ,m_i.nombre
@@ -158,59 +187,130 @@ FROM
 ON 
 	r.codigo_rol = m_i_a.codigo_rol INNER JOIN menu_item m_i
 ON
-	m_i.codigo_menu_item = m_i_a.codigo_menu_item
+	m_i.codigo_menu_item = m_i_a.codigo_menu_item INNER JOIN menu m
+ON
+	m.codigo_menu = m_i.codigo_menu
 WHERE 
-	r.codigo_rol = :rol
-ORDER BY 
-	m_i.nombre ASC
+	r.nombre LIKE 'vecino' and m.codigo_menu = 1 and m_i_a.acceso = 'A';
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+SELECT 
+                        m_i.codigo_menu_item ,m_i.nombre
+                    FROM 
+                        rol r INNER JOIN menu_item_accesos m_i_a
+                    ON 
+                        r.codigo_rol = m_i_a.codigo_rol INNER JOIN menu_item m_i
+                    ON
+                        m_i.codigo_menu_item = m_i_a.codigo_menu_item INNER JOIN menu m
+                    ON
+                        m.codigo_menu = m_i.codigo_menu
+                    WHERE 
+                        r.nombre LIKE 'vecino' and m.codigo_menu = 1 and m_i_a.acceso = 'A';
+
+	
+
+
+	
+	
 
 
 
--- Suponiendo que se le asigna ID 1, se le asigna el rol "vecino"
-INSERT INTO accesos (codigo_usuario, codigo_rol)
-VALUES (1, 2);
 
--- Si luego elige ser 'comprador', se le asigna rol adicional
-INSERT INTO usuario_rol (codigo_usuario, codigo_rol)
-VALUES (1, 2); -- 2 = 'comprador'
-
--- rol:
--- 1: admin
--- 2: vecino
-
--- menú:
--- 1: Mis datos
--- 2: Compras
--- 3: Ventas
-SELECT * FROM accesos
-
-INSERT INTO accesos (codigo_accesos, codigo_rol, codigo_menu)
-VALUES (1, 1, 1);
-
-INSERT INTO accesos (codigo_accesos, codigo_rol, codigo_menu)
-VALUES (2, 1, 2);
-
-INSERT INTO accesos (codigo_accesos, codigo_rol, codigo_menu)
-VALUES (3, 1, 3);
-
-INSERT INTO accesos (codigo_accesos, codigo_rol, codigo_menu)
-VALUES (4, 2, 1);
-
-INSERT INTO accesos (codigo_accesos, codigo_rol, codigo_menu)
-VALUES (5, 2, 2);
-
-INSERT INTO accesos (codigo_accesos, codigo_rol, codigo_menu)
-VALUES (6, 2, 3);
 
 SELECT 
-	r.nombre_rol
-FROM usuario u  INNER JOIN rol r
-ON
-	u.codigo_rol = r.codigo_rol
-WHERE
-	u.codigo_usuario = 1
+    m.codigo_menu,
+    m.nombre AS nombre_menu,
+    GROUP_CONCAT(m_i.nombre ORDER BY m_i.codigo_menu_item ASC SEPARATOR ', ') AS menu_items
+FROM 
+    rol r
+INNER JOIN menu_item_accesos m_i_a ON r.codigo_rol = m_i_a.codigo_rol
+INNER JOIN menu_item m_i ON m_i.codigo_menu_item = m_i_a.codigo_menu_item
+INNER JOIN menu m ON m.codigo_menu = m_i.codigo_menu
+WHERE 
+    r.codigo_rol = 2 
+    AND m_i_a.acceso = 'A'
+GROUP BY 
+    m.codigo_menu, m.nombre
+ORDER BY 
+    m.codigo_menu ASC;
 
-SELECT r.nombre_rol
-                FROM accesos a
-                JOIN rol r ON a.codigo_rol = r.codigo_rol
-                WHERE a.codigo_usuario = 1
+
+SELECT * FROM menu;
+SELECT * FROM menu_item;
+SELECT * FROM menu_item_accesos;
+
+
+
+select
+   distinct 
+            m.codigo_menu,
+            m.nombre,
+            m.icono
+from
+   menu m INNER JOIN menu_item mi
+ON
+	( m.codigo_menu = mi.codigo_menu ) INNER JOIN menu_item_accesos mia 
+ON 
+	( mi.codigo_menu_item = mia.codigo_menu_item )
+where
+   mia.codigo_rol = 2
+   and mia.acceso = 'A'
+ORDER by
+   1
+   
+   
+   
+   SELECT * FROM menu_item
+   
+   bi bi-person-badge-fill
+   
+   
+   
+SELECT 
+                    distinct m.codigo_menu, 
+                    m.nombre,
+                    m.icono
+                FROM 
+                    rol r INNER JOIN menu_item_accesos m_i_a
+                ON 
+                    r.codigo_rol = m_i_a.codigo_rol INNER JOIN menu_item m_i
+                ON
+                    m_i.codigo_menu_item = m_i_a.codigo_menu_item INNER JOIN menu m
+                ON
+                    m.codigo_menu = m_i.codigo_menu
+                WHERE 
+                    r.nombre LIKE 'vecino' and m_i_a.acceso = 'A';
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    SELECT 
+                        m_i.codigo_menu_item ,m_i.nombre, m_i.icono
+                    FROM 
+                        rol r INNER JOIN menu_item_accesos m_i_a
+                    ON 
+                        r.codigo_rol = m_i_a.codigo_rol INNER JOIN menu_item m_i
+                    ON
+                        m_i.codigo_menu_item = m_i_a.codigo_menu_item INNER JOIN menu m
+                    ON
+                        m.codigo_menu = m_i.codigo_menu
+                    WHERE 
+                        r.nombre LIKE 'vecino' and m.codigo_menu = 2 and m_i_a.acceso = 'A';

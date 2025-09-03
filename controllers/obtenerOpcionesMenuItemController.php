@@ -1,10 +1,10 @@
 <?php
+
 require_once __DIR__ . '/../models/SesionJWT.php';
 require_once '../resources/util/functions/Helper.class.php';
 
-//header('Content-Type: application/json; charset=utf-8');
-
 try {
+    
     // Recibir la variable POST que envía la vista
     if (!isset($_POST["nombreRol"])) {
         echo json_encode([
@@ -15,16 +15,11 @@ try {
     }
 
     $nombreRol = $_POST["nombreRol"];
-   
+    $codigo_menu  = $_POST["codigo_menu"];
+  
     $objSesion = new SesionJWT();
-    $resultadoOpcionesMenuBD = $objSesion->obtenerOpcionesMenu($nombreRol);
-  /*
-    // Aseguramos que siempre devuelva un array
-    echo json_encode([
-        "error" => false,
-        "menus" => $resultadoOpcionesMenuBD ?: []
-    ], JSON_UNESCAPED_UNICODE);
-*/
+    $resultadoOpcionesMenuItemBD = $objSesion->obtenerOpcionesMenuItem($nombreRol, $codigo_menu);
+    
 } catch (Exception $exc) {
     echo json_encode([
         "error" => true,

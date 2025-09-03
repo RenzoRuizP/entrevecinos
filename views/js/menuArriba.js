@@ -1,19 +1,24 @@
+document.addEventListener("DOMContentLoaded", () => {
+  const btnCerrarSesion = document.getElementById("btnCerrarSesion");
 
-document.getElementById("btnCerrarSesion").addEventListener("click", function(e) {
-    e.preventDefault();
-    Swal.fire({
-        title: '¿Cerrar sesión?',
-        text: "Tu sesión se cerrará y deberás iniciar de nuevo.",
-        icon: 'warning',
+  if (btnCerrarSesion) {
+    btnCerrarSesion.addEventListener("click", (e) => {
+      e.preventDefault();
+
+      Swal.fire({
+        title: "¿Cerrar sesión?",
+        text: "Se cerrará tu sesión actual",
+        icon: "warning",
         showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'Sí, salir',
-        cancelButtonText: 'Cancelar'
-    }).then((result) => {
+        confirmButtonColor: "#d33",
+        cancelButtonColor: "#6c757d",
+        confirmButtonText: "Sí, salir",
+        cancelButtonText: "Cancelar"
+      }).then((result) => {
         if (result.isConfirmed) {
-            window.location.href = '../controllers/logoutController.php';
+          window.location.href = "../controllers/logoutController.php";
         }
+      });
     });
+  }
 });
-
