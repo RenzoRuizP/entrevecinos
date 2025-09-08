@@ -35,24 +35,36 @@ try {
         require_once '../controllers/obtenerOpcionesMenuController.php';
         
         for ($i = 0; $i < count($resultadoOpcionesMenuBD); $i++) {
-          $iconoMenu = $resultadoOpcionesMenuBD[$i]["icono"];
-          echo '<li class="nav-header text-uppercase text-muted small px-3 mt-2">'.
-                strtoupper($resultadoOpcionesMenuBD[$i]["nombre"]).'</li>';
+            $iconoMenu = $resultadoOpcionesMenuBD[$i]["icono"];
+            $nombreMenu = $resultadoOpcionesMenuBD[$i]["nombre"];
+            $codigoMenu = $resultadoOpcionesMenuBD[$i]["codigo_menu"];
 
-          $_POST["codigo_menu"] = $resultadoOpcionesMenuBD[$i]["codigo_menu"];
-          require '../controllers/obtenerOpcionesMenuItemController.php';
-
-          for ($j = 0; $j < count($resultadoOpcionesMenuItemBD); $j++) {
-            $iconoMenuItem = $resultadoOpcionesMenuItemBD[$j]["icono"];
-            $nombreItem = $resultadoOpcionesMenuItemBD[$j]["nombre"];
-
+            // Menú principal
             echo '<li class="nav-item">';
-            echo '  <a href="./docs/color-mode.html" class="nav-link d-flex align-items-center px-3 py-2">';
-            echo '    <i class="nav-icon '.$iconoMenuItem.' me-2"></i>';
-            echo '    <span>'.$nombreItem.'</span>';
+            echo '  <a href="#menu'.$codigoMenu.'" class="nav-link d-flex align-items-center px-3 py-2" data-bs-toggle="collapse">';
+            echo '    <i class="nav-icon '.$iconoMenu.' me-2"></i>';
+            echo '    <span>'.strtoupper($nombreMenu).'</span>';
+            echo '    <i class="bi bi-chevron-down ms-auto"></i>';
             echo '  </a>';
+
+            // Submenús
+            $_POST["codigo_menu"] = $codigoMenu;
+            require '../controllers/obtenerOpcionesMenuItemController.php';
+
+            echo '<ul class="nav nav-treeview collapse ms-3" id="menu'.$codigoMenu.'">';
+            for ($j = 0; $j < count($resultadoOpcionesMenuItemBD); $j++) {
+                $iconoMenuItem = $resultadoOpcionesMenuItemBD[$j]["icono"];
+                $nombreItem    = $resultadoOpcionesMenuItemBD[$j]["nombre"];
+
+                echo '<li class="nav-item">';
+                echo '  <a href="./docs/color-mode.html" class="nav-link d-flex align-items-center px-3 py-2">';
+                echo '    <i class="'.$iconoMenuItem.' me-2"></i>';
+                echo '    <span>'.$nombreItem.'</span>';
+                echo '  </a>';
+                echo '</li>';
+            }
+            echo '</ul>';
             echo '</li>';
-          }
         }
         ?>
       </ul>
@@ -67,27 +79,35 @@ try {
     min-height: 100vh;
   }
 
+  /* Links base */
   .app-sidebar .nav-link {
     color: #e5e7eb; /* gris claro */
     transition: all 0.2s ease-in-out;
     border-radius: .375rem;
     margin: 2px 8px;
+    font-size: 0.95rem;
   }
 
-  .app-sidebar .nav-link:hover {
-    background-color: #22c55e20; /* verde con transparencia */
-    color: #22c55e;
-  }
-
-  .app-sidebar .nav-link.active {
-    background-color: #ff6b00; /* anaranjado activo */
-    color: #fff !important;
+  /* Hover en menú principal */
+  .app-sidebar > .sidebar-wrapper .nav > .nav-item > .nav-link:hover {
+    background-color: #ff6b00;
+    color: #fff;
     font-weight: 600;
   }
 
-  .app-sidebar .nav-header {
-    font-size: 0.75rem;
-    letter-spacing: 1px;
+  /* Hover en submenús */
+  .app-sidebar .nav-treeview .nav-link:hover {
+    background-color: rgba(255, 107, 0, 0.1); /* anaranjado suave */
+    color: #ff6b00;
+    border-radius: .375rem;
+    font-weight: 500;
+  }
+
+  /* Íconos y flechas */
+  .app-sidebar .nav-icon {
+    font-size: 1.1rem;
+  }
+  .app-sidebar .bi-chevron-down {
+    font-size: 0.8rem;
   }
 </style>
-

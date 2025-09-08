@@ -79,7 +79,7 @@ if (isset($_GET['error'])) {
 
   <div class="card login-card col-11 col-sm-8 col-md-6 col-lg-4">
     <div class="card-header">
-      <img src="../resources/images/logo/logo2.png" alt="Logo" class="img-fluid mb-0" style="max-height: 250px;" />
+      <img src="../resources/images/logo/logo2.png" alt="Logo" class="img-fluid mb-0" style="max-height: 200px;" />
       <h5 class="mb-0">Bienvenido a Entre Vecinos</h5>
       <small>Inicia sesión para continuar</small>
     </div>
