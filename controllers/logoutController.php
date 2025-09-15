@@ -16,5 +16,5 @@ if (isset($_COOKIE['auth_token'])) {
 }
 
 // Redirigir al login
-header("Location: ../views/login-v2.php");
+header("Location: ../views/login.php");
 exit;

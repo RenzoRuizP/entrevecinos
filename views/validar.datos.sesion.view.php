@@ -7,7 +7,7 @@ session_start();
 
 if (!isset($_SESSION["s_usuario"])) {
     //No inició sesión
-    Helper::mensaje("Usted no ha iniciado sesión", "e", "index.php", 5);
+    Helper::mensaje("Usted no ha iniciado sesión", "e", "login.php", 5);
     exit();
 }
 

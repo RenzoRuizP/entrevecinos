@@ -12,7 +12,7 @@ $token = $_COOKIE['auth_token'] ?? null;
 
 // Redirigir si no hay token
 if (!$token) {
-    header("Location: ../views/login-v2.php");
+    header("Location: ../views/login.php");
     exit;
 }
 
@@ -21,7 +21,7 @@ try {
     $usuario = SesionJWT::verificarToken($token);
 
     if (!$usuario || !is_object($usuario)) {
-        header("Location: ../views/login-v2.php?error=token_expirado");
+        header("Location: ../views/login.php?error=token_expirado");
         exit;
     }
 
@@ -32,6 +32,6 @@ try {
     $email           = $usuario->email ?? '';
 
 } catch (Exception $e) {
-    header("Location: ../views/login-v2.php?error=token_error");
+    header("Location: ../views/login.php?error=token_error");
     exit;
 }

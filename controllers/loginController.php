@@ -13,7 +13,7 @@ try {
     //var_dump($clave);
     //exit;
     if (empty($email) || empty($clave)) {
-        header("Location: ../views/login-v2.php?error=campos_vacios");
+        header("Location: ../views/login.php?error=campos_vacios");
         exit;
     }
 
@@ -26,13 +26,13 @@ try {
     //exit;
     switch ($resultado['status']) {
         case "CI":
-            header("Location: ../views/login-v2.php?error=CI"); // contraseña incorrecta
+            header("Location: ../views/login.php?error=CI"); // contraseña incorrecta
             exit;
         case "IN":
-            header("Location: ../views/login-v2.php?error=IN"); // usuario inactivo
+            header("Location: ../views/login.php?error=IN"); // usuario inactivo
             exit;
         case "NE":
-            header("Location: ../views/login-v2.php?error=NE"); // usuario no existe
+            header("Location: ../views/login.php?error=NE"); // usuario no existe
             exit;
         case "SI":
             // Guardar token en cookie segura (opcional)
@@ -46,6 +46,20 @@ try {
             ]);
             */
 
+            
+            $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
+                || $_SERVER['SERVER_PORT'] == 443;
+
+            setcookie("auth_token", $resultado['token'], [
+                'expires' => time() + intval($_ENV['JWT_EXPIRATION_SECONDS']),
+                'path' => '/',
+                'httponly' => true,
+                'secure' => $isHttps,
+                'samesite' => $isHttps ? 'Strict' : 'Lax'
+            ]);
+
+
+            /*
             setcookie("auth_token", $resultado['token'], [
                 'expires' => time() + intval($_ENV['JWT_EXPIRATION_SECONDS']),
                 'path' => '/',
@@ -53,7 +67,7 @@ try {
                 'secure' => true,
                 'samesite' => 'Strict'
             ]);
-
+            */
             // Redirigir a vista principal con éxito
             header("Location: ../views/MenuPrincipalView.php?success=login_exitoso");
             exit;
@@ -61,6 +75,6 @@ try {
 
 } catch (Exception $exc) {
     error_log($exc->getMessage());
-    header("Location: ../views/login-v2.php?error=token_error");
+    header("Location: ../views/login.php?error=token_error");
     exit;
 }
