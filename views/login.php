@@ -131,41 +131,122 @@ if (isset($_GET['error'])) {
 
   <!-- Modal crear usuario -->
   <div class="modal fade" id="crear_usuario" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content shadow-lg border-0 rounded-3">
+        
+        <!-- Header -->
         <div class="modal-header bg-success text-white">
           <h5 class="modal-title">
-            <i class="bi bi-life-preserver me-2"></i> Crear mi usuario
+            <i class="bi bi-person-plus me-2"></i> Crear mi usuario
           </h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
-        <div class="modal-body text-center p-4">
-          <p class="mb-3 fs-6 text-muted">
-            Si tienes problemas para acceder a tu cuenta, contáctanos:
-          </p>
-          <div class="p-3 border rounded bg-light">
-            <p class="fw-bold mb-1 text-dark">Soporte técnico</p>
-            <p class="mb-1">Lunes a Viernes: <strong>8:00 AM – 8:00 PM</strong></p>
-            <p class="fs-5 text-success mb-0">
-              <i class="bi bi-whatsapp me-1"></i> 956 969 182
-            </p>
-            <p class="fs-5 text-success mb-0">
-              <i class="bi bi-telephone-fill me-1"></i> 956 969 182
-            </p>
+
+        <!-- Body -->
+        <div class="modal-body">
+          
+          <!-- Progress bar -->
+          <div class="progress mb-4" style="height: 30px;">
+            <div class="progress-bar bg-success fw-bold" id="step1" role="progressbar" style="width: 33%;">
+              1. Datos personales
+            </div>
+            <div class="progress-bar bg-secondary fw-bold" id="step2" role="progressbar" style="width: 33%;">
+              2. Residencia
+            </div>
+            <div class="progress-bar bg-secondary fw-bold" id="step3" role="progressbar" style="width: 34%;">
+              3. Cuenta
+            </div>
           </div>
+
+          <form id="formCrearUsuario">
+            
+            <!-- Paso 1: Datos personales -->
+            <div class="step" id="formStep1">
+              <h6 class="fw-bold text-success mb-3">👤 Datos Personales</h6>
+              <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                  <label for="nombre" class="form-label">Nombre completo</label>
+                  <input type="text" class="form-control" id="nombre" name="nombre" required>
+                </div>
+                <div class="col-md-6">
+                  <label for="documento" class="form-label">Documento de identidad</label>
+                  <input type="text" class="form-control" id="documento" name="documento" required>
+                </div>
+                <div class="col-md-6">
+                  <label for="telefono" class="form-label">Teléfono</label>
+                  <input type="tel" class="form-control" id="telefono" name="telefono" required>
+                </div>
+              </div>
+            </div>
+
+            <!-- Paso 2: Residencia -->
+            <div class="step d-none" id="formStep2">
+              <h6 class="fw-bold text-success mb-3">🏠 Residencia</h6>
+              <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                  <label for="comboCondominio" class="form-label">Condominio</label>
+                  <select class="form-select" id="comboCondominio" name="comboCondominio" required>
+                    <option value="">Seleccione un condominio</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label for="torre" class="form-label">Torre</label>
+                  <select class="form-select" id="torre" name="torre" required>
+                    <option value="">Seleccione torre...</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label for="departamento" class="form-label">Departamento</label>
+                  <select class="form-select" id="departamento" name="departamento" required>
+                    <option value="">Seleccione departamento...</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Paso 3: Cuenta -->
+            <div class="step d-none" id="formStep3">
+              <h6 class="fw-bold text-success mb-3">🔑 Datos de la Cuenta</h6>
+              <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                  <label for="email" class="form-label">Correo electrónico</label>
+                  <input type="email" class="form-control" id="email" name="email" required>
+                </div>
+                <div class="col-md-6">
+                  <label for="clave" class="form-label">Contraseña</label>
+                  <input type="password" class="form-control" id="clave" name="clave" required>
+                  <div class="form-text">Mínimo 8 caracteres, con mayúscula, número y símbolo.</div>
+                </div>
+                <div class="col-md-6">
+                  <label for="confirmar_clave" class="form-label">Confirmar contraseña</label>
+                  <input type="password" class="form-control" id="confirmar_clave" name="confirmar_clave" required>
+                </div>
+              </div>
+            </div>
+            
+          </form>
         </div>
+
+        <!-- Footer -->
         <div class="modal-footer justify-content-between">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-            <i class="bi bi-x-circle me-1"></i> Cerrar
+          <button type="button" class="btn btn-outline-secondary" id="btnAnterior" disabled>
+            <i class="bi bi-arrow-left me-1"></i> Anterior
           </button>
-          <a href="tel:+51956969182" class="btn btn-success">
-            <i class="bi bi-telephone me-1"></i> Registrar
-          </a>
+          <button type="button" class="btn btn-success" id="btnSiguiente">
+            Siguiente <i class="bi bi-arrow-right ms-1"></i>
+          </button>
+          <button type="submit" form="formCrearUsuario" class="btn btn-success d-none" id="btnRegistrar">
+            <i class="bi bi-check-circle me-1"></i> Registrar
+          </button>
         </div>
       </div>
     </div>
   </div>
-
-  <script src="<?= BASE_URL ?>js/login.js"></script>
+  <script>
+    window.BASE_URL = '<?= BASE_URL ?>';
+  </script>
+  <!-- Scripts de validación UX -->
+  <script src="<?= BASE_URL ?>views/js/login.js"></script>
+  <script src="<?= BASE_URL ?>views/js/combo_condominio.js"></script>
 </body>
 </html>

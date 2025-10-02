@@ -1,36 +1,53 @@
 <?php
+// ===============================================
+// index.php - Router principal con rutas estáticas
+// ===============================================
+
+// ✅ Incluir controladores necesarios
 require_once __DIR__ . '/controllers/AuthController.php';
 require_once __DIR__ . '/controllers/MenuPrincipalController.php';
+require_once __DIR__ . '/controllers/CondominioController.php';
+// Aquí irás agregando más controladores según crezca el sistema
 
-// Ruta base de tu proyecto (ajústala si la carpeta tiene otro nombre)
+// Ruta base del proyecto (ajusta si cambia el nombre de la carpeta)
 $basePath = '/entrevecinos';
 
-// Obtener la URI sin el prefijo /entrevecinos
+// Obtener la URI solicitada (sin query string y limpia del basePath)
 $uri = str_replace($basePath, '', parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
 
-switch ($uri) {
-    case '':
-    case '/':
-        $controller = new AuthController();
-        $controller->loginForm();
-        break;
+// ======================================================
+// 1️⃣ Definir rutas estáticas
+// ======================================================
+$routes = [
+    '' => [AuthController::class, 'loginForm'],
+    '/' => [AuthController::class, 'loginForm'],
+    '/login' => [AuthController::class, 'login'],
+    '/MenuPrincipal' => [MenuPrincipalController::class, 'index'],
+    '/registro' => [AuthController::class, 'registroForm'],
 
-    case '/login':
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $controller = new AuthController();
-            $controller->login();
-        } else {
-            header("Location: /entrevecinos/");
-        }
-        break;
+    // 🚀 Nueva ruta para tu combo condominio
+    '/condominios/listar' => [CondominioController::class, 'listar'],
+];
 
-    case '/MenuPrincipal':
-        $controller = new MenuPrincipalController();
-        $controller->index();
-        break;
+// ======================================================
+// 2️⃣ Ejecutar ruta si existe
+// ======================================================
+if (isset($routes[$uri])) {
+    [$controllerClass, $method] = $routes[$uri];
+    $controller = new $controllerClass();
 
-    default:
-        http_response_code(404);
-        echo "404 - Página no encontrada";
-        break;
+    // Caso especial: login requiere POST
+    if ($uri === '/login' && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+        header("Location: $basePath/");
+        exit;
+    }
+
+    $controller->$method();
+    exit;
 }
+
+// ======================================================
+// 3️⃣ Si no existe la ruta → 404
+// ======================================================
+http_response_code(404);
+echo "404 - Página no encontrada";
