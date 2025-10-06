@@ -1,0 +1,37 @@
+Flujo de tu API
+
+index.php
+
+Es tu router principal.
+
+Aquí definiste las rutas (/condominios, /condominios/{id}/torres, etc.).
+
+Toda petición HTTP entra por aquí gracias al .htaccess.
+
+👉 Este archivo es el punto de entrada de la API.
+
+controllers/CondominioController.php
+
+Contiene los métodos que responden a la API.
+
+Ejemplos:
+
+listar() → devuelve condominios en JSON.
+
+listarTorres($condominioId) → devuelve torres según condominio.
+
+Aquí usas echo json_encode(...).
+
+👉 Este archivo es donde realmente "vive" la API para los combos.
+
+models/CondominioModel.php
+
+Contiene la lógica SQL.
+
+Solo devuelve los datos crudos desde la base de datos.
+
+No es API en sí, sino el backend de datos.
+
+.htaccess
+
+Se asegura de que todas las rutas bonitas (/condominios/1/torres) pasen a index.php.

@@ -62,14 +62,14 @@ if (isset($_GET['error'])) {
     </div>
     <div class="card-body p-4">
       <!-- ✅ Ahora apuntas al route /login -->
-      <form action="/login" method="post" class="text-start">
+      <form id="formLogin" class="text-start">
         <div class="mb-3 position-relative">
           <i class="bi bi-envelope-fill input-icon"></i>
-          <input id="loginEmail" name="loginEmail" type="email" class="form-control" placeholder="Correo electrónico" required />
+          <input id="email" name="email" type="email" class="form-control" placeholder="Correo electrónico" required />
         </div>
         <div class="mb-3 position-relative">
           <i class="bi bi-lock-fill input-icon"></i>
-          <input id="loginPassword" name="loginPassword" type="password" class="form-control" placeholder="Contraseña" required />
+          <input id="clave" name="clave" type="password" class="form-control" placeholder="Contraseña" required />
         </div>
         <div class="d-grid mb-3">
           <button type="submit" class="btn btn-success btn-lg">
@@ -77,6 +77,8 @@ if (isset($_GET['error'])) {
           </button>
         </div>
       </form>
+
+
 
       <div class="text-center">
         <a href="#" data-bs-toggle="modal" data-bs-target="#recuperar_cuenta" class="d-block mb-2 text-decoration-none">
@@ -141,104 +143,99 @@ if (isset($_GET['error'])) {
           </h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
-
+        <form id="formCrearUsuario">
         <!-- Body -->
-        <div class="modal-body">
-          
-          <!-- Progress bar -->
-          <div class="progress mb-4" style="height: 30px;">
-            <div class="progress-bar bg-success fw-bold" id="step1" role="progressbar" style="width: 33%;">
-              1. Datos personales
+          <div class="modal-body">
+            <!-- Progress bar -->
+            <div class="progress mb-4" style="height: 30px;">
+              <div class="progress-bar bg-success fw-bold" id="step1" role="progressbar" style="width: 33%;">
+                1. Datos personales
+              </div>
+              <div class="progress-bar bg-secondary fw-bold" id="step2" role="progressbar" style="width: 33%;">
+                2. Residencia
+              </div>
+              <div class="progress-bar bg-secondary fw-bold" id="step3" role="progressbar" style="width: 34%;">
+                3. Cuenta
+              </div>
             </div>
-            <div class="progress-bar bg-secondary fw-bold" id="step2" role="progressbar" style="width: 33%;">
-              2. Residencia
-            </div>
-            <div class="progress-bar bg-secondary fw-bold" id="step3" role="progressbar" style="width: 34%;">
-              3. Cuenta
-            </div>
+              <!-- Paso 1: Datos personales -->
+              <div class="step" id="formStep1">
+                <h6 class="fw-bold text-success mb-3">👤 Datos Personales</h6>
+                <div class="row g-3 mb-4">
+                  <div class="col-md-6">
+                    <label for="nombre" class="form-label">Nombre completo</label>
+                    <input type="text" class="form-control" id="nombre" name="nombre" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="documento" class="form-label">Documento de identidad</label>
+                    <input type="text" class="form-control" id="documento" name="documento" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="telefono" class="form-label">Teléfono</label>
+                    <input type="tel" class="form-control" id="telefono" name="telefono" required>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Paso 2: Residencia -->
+              <div class="step d-none" id="formStep2">
+                <h6 class="fw-bold text-success mb-3">🏠 Residencia</h6>
+                <div class="row g-3 mb-4">
+                  <div class="col-md-4">
+                    <label for="comboCondominio" class="form-label">Condominio</label>
+                    <select class="form-select" id="comboCondominio" name="comboCondominio" required>
+                      <option value="">Seleccione un condominio</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label for="comboTorre" class="form-label">Torre</label>
+                    <select class="form-select" id="comboTorre" name="comboTorre" required>
+                      <option value="">Seleccione torre...</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label for="comboDepartamento" class="form-label">Departamento</label>
+                    <select class="form-select" id="comboDepartamento" name="comboDepartamento" required>
+                      <option value="">Seleccione departamento...</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Paso 3: Cuenta -->
+              <div class="step d-none" id="formStep3">
+                <h6 class="fw-bold text-success mb-3">🔑 Datos de la Cuenta</h6>
+                <div class="row g-3 mb-4">
+                  <div class="col-md-6">
+                    <label for="email" class="form-label">Correo electrónico</label>
+                    <input type="email" class="form-control" id="email" name="email" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="clave" class="form-label">Contraseña</label>
+                    <input type="password" class="form-control" id="clave" name="clave" required>
+                    <div class="form-text">Mínimo 8 caracteres, con mayúscula, número y símbolo.</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="confirmar_clave" class="form-label">Confirmar contraseña</label>
+                    <input type="password" class="form-control" id="confirmar_clave" name="confirmar_clave" required>
+                  </div>
+                </div>
+              </div>
           </div>
 
-          <form id="formCrearUsuario">
-            
-            <!-- Paso 1: Datos personales -->
-            <div class="step" id="formStep1">
-              <h6 class="fw-bold text-success mb-3">👤 Datos Personales</h6>
-              <div class="row g-3 mb-4">
-                <div class="col-md-6">
-                  <label for="nombre" class="form-label">Nombre completo</label>
-                  <input type="text" class="form-control" id="nombre" name="nombre" required>
-                </div>
-                <div class="col-md-6">
-                  <label for="documento" class="form-label">Documento de identidad</label>
-                  <input type="text" class="form-control" id="documento" name="documento" required>
-                </div>
-                <div class="col-md-6">
-                  <label for="telefono" class="form-label">Teléfono</label>
-                  <input type="tel" class="form-control" id="telefono" name="telefono" required>
-                </div>
-              </div>
-            </div>
-
-            <!-- Paso 2: Residencia -->
-            <div class="step d-none" id="formStep2">
-              <h6 class="fw-bold text-success mb-3">🏠 Residencia</h6>
-              <div class="row g-3 mb-4">
-                <div class="col-md-4">
-                  <label for="comboCondominio" class="form-label">Condominio</label>
-                  <select class="form-select" id="comboCondominio" name="comboCondominio" required>
-                    <option value="">Seleccione un condominio</option>
-                  </select>
-                </div>
-                <div class="col-md-4">
-                  <label for="torre" class="form-label">Torre</label>
-                  <select class="form-select" id="torre" name="torre" required>
-                    <option value="">Seleccione torre...</option>
-                  </select>
-                </div>
-                <div class="col-md-4">
-                  <label for="departamento" class="form-label">Departamento</label>
-                  <select class="form-select" id="departamento" name="departamento" required>
-                    <option value="">Seleccione departamento...</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <!-- Paso 3: Cuenta -->
-            <div class="step d-none" id="formStep3">
-              <h6 class="fw-bold text-success mb-3">🔑 Datos de la Cuenta</h6>
-              <div class="row g-3 mb-4">
-                <div class="col-md-6">
-                  <label for="email" class="form-label">Correo electrónico</label>
-                  <input type="email" class="form-control" id="email" name="email" required>
-                </div>
-                <div class="col-md-6">
-                  <label for="clave" class="form-label">Contraseña</label>
-                  <input type="password" class="form-control" id="clave" name="clave" required>
-                  <div class="form-text">Mínimo 8 caracteres, con mayúscula, número y símbolo.</div>
-                </div>
-                <div class="col-md-6">
-                  <label for="confirmar_clave" class="form-label">Confirmar contraseña</label>
-                  <input type="password" class="form-control" id="confirmar_clave" name="confirmar_clave" required>
-                </div>
-              </div>
-            </div>
-            
-          </form>
-        </div>
-
-        <!-- Footer -->
-        <div class="modal-footer justify-content-between">
-          <button type="button" class="btn btn-outline-secondary" id="btnAnterior" disabled>
-            <i class="bi bi-arrow-left me-1"></i> Anterior
-          </button>
-          <button type="button" class="btn btn-success" id="btnSiguiente">
-            Siguiente <i class="bi bi-arrow-right ms-1"></i>
-          </button>
-          <button type="submit" form="formCrearUsuario" class="btn btn-success d-none" id="btnRegistrar">
-            <i class="bi bi-check-circle me-1"></i> Registrar
-          </button>
-        </div>
+          <!-- Footer -->
+          <div class="modal-footer justify-content-between">
+            <button type="button" class="btn btn-outline-secondary" id="btnAnterior" disabled>
+              <i class="bi bi-arrow-left me-1"></i> Anterior
+            </button>
+            <button type="button" class="btn btn-success" id="btnSiguiente">
+              Siguiente <i class="bi bi-arrow-right ms-1"></i>
+            </button>
+            <button type="submit" form="formCrearUsuario" class="btn btn-success d-none" id="btnRegistrar">
+              <i class="bi bi-check-circle me-1"></i> Registrar
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -246,7 +243,9 @@ if (isset($_GET['error'])) {
     window.BASE_URL = '<?= BASE_URL ?>';
   </script>
   <!-- Scripts de validación UX -->
-  <script src="<?= BASE_URL ?>views/js/login.js"></script>
+  <script src="<?= BASE_URL ?>views/js/vistaRegistrarUser.js"></script>
   <script src="<?= BASE_URL ?>views/js/combo_condominio.js"></script>
+  <script src="<?= BASE_URL ?>views/js/registrarUser.js"></script>
+  <script src="<?= BASE_URL ?>views/js/iniciarSesion.js"></script>
 </body>
 </html>

@@ -1,53 +1,63 @@
 <?php
-// ===============================================
-// index.php - Router principal con rutas estáticas
-// ===============================================
+// Maneja toda la lógica de enrutamiento de la aplicación (controladores, acciones, API).
 
-// ✅ Incluir controladores necesarios
+// Cargar controladores
 require_once __DIR__ . '/controllers/AuthController.php';
 require_once __DIR__ . '/controllers/MenuPrincipalController.php';
 require_once __DIR__ . '/controllers/CondominioController.php';
-// Aquí irás agregando más controladores según crezca el sistema
+require_once __DIR__ . '/controllers/UserController.php';
 
-// Ruta base del proyecto (ajusta si cambia el nombre de la carpeta)
+// Ruta base
 $basePath = '/entrevecinos';
 
-// Obtener la URI solicitada (sin query string y limpia del basePath)
+// Obtener URI sin el prefijo base
 $uri = str_replace($basePath, '', parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
+$method = $_SERVER['REQUEST_METHOD'];
 
-// ======================================================
-// 1️⃣ Definir rutas estáticas
-// ======================================================
+// Definir rutas (estáticas y dinámicas)
 $routes = [
-    '' => [AuthController::class, 'loginForm'],
-    '/' => [AuthController::class, 'loginForm'],
-    '/login' => [AuthController::class, 'login'],
-    '/MenuPrincipal' => [MenuPrincipalController::class, 'index'],
-    '/registro' => [AuthController::class, 'registroForm'],
+    // Autenticación y menú (devuelven HTML o JSON según caso)
+    ['GET', '#^/$#', [AuthController::class, 'loginForm'], 'html'],
+    ['POST', '#^/login$#', [AuthController::class, 'login'], 'json'],
+    ['GET', '#^/MenuPrincipal$#', [MenuPrincipalController::class, 'index'], 'html'],
 
-    // 🚀 Nueva ruta para tu combo condominio
-    '/condominios/listar' => [CondominioController::class, 'listar'],
+    // API REST (devuelven JSON)
+    ['GET', '#^/condominios$#', [CondominioController::class, 'listar'], 'json'],
+    ['GET', '#^/condominios/(\d+)/torres$#', [CondominioController::class, 'listarTorres'], 'json'],
+    ['GET', '#^/torres/(\d+)/departamentos$#', [CondominioController::class, 'listarDepartamentos'], 'json'],
+
+    // Registro de vecinos (JSON)
+    ['POST', '#^/usuarios/registrar$#', [UserController::class, 'registrar'], 'json'],
+
+    // Logout
+    ['GET', '#^/logout$#', [AuthController::class, 'logout'], 'html'],
 ];
 
-// ======================================================
-// 2️⃣ Ejecutar ruta si existe
-// ======================================================
-if (isset($routes[$uri])) {
-    [$controllerClass, $method] = $routes[$uri];
-    $controller = new $controllerClass();
+// Buscar coincidencia
+$matched = false;
+foreach ($routes as [$httpMethod, $pattern, $handler, $type]) {
+    if ($method === $httpMethod && preg_match($pattern, $uri, $matches)) {
+        [$controllerClass, $action] = $handler;
+        $controller = new $controllerClass();
 
-    // Caso especial: login requiere POST
-    if ($uri === '/login' && $_SERVER['REQUEST_METHOD'] !== 'POST') {
-        header("Location: $basePath/");
-        exit;
+        // 🔹 Header según tipo de respuesta
+        if ($type === 'json') {
+            header('Content-Type: application/json; charset=utf-8');
+        } else {
+            header('Content-Type: text/html; charset=utf-8');
+        }
+
+        // Si hay parámetros dinámicos, se pasan al método
+        array_shift($matches);
+        call_user_func_array([$controller, $action], $matches);
+
+        $matched = true;
+        break;
     }
-
-    $controller->$method();
-    exit;
 }
 
-// ======================================================
-// 3️⃣ Si no existe la ruta → 404
-// ======================================================
-http_response_code(404);
-echo "404 - Página no encontrada";
+if (!$matched) {
+    http_response_code(404);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['error' => 'Ruta no encontrada']);
+}

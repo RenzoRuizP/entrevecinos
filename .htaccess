@@ -1,16 +1,11 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
-
-    # ✅ Ajusta si tu proyecto no está en la raíz del servidor
     RewriteBase /entrevecinos/
 
-    # Evita reescribir si el archivo o carpeta existe
+    # Si el archivo o directorio existe, no reescribir
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
 
-    # Rutas del tipo /controlador/metodo
-    RewriteRule ^([^/]+)/([^/]+)/?$ index.php?controller=$1&action=$2 [L,QSA]
-
-    # Rutas solo con /controlador → por defecto va a "index"
-    RewriteRule ^([^/]+)/?$ index.php?controller=$1&action=index [L,QSA]
+    # Redirige todo lo demás a index.php
+    RewriteRule ^ index.php [L,QSA]
 </IfModule>
