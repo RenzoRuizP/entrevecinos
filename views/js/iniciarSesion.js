@@ -1,37 +1,38 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const formLogin = document.getElementById("formLogin");
+document.addEventListener('DOMContentLoaded', () => {
+  const formLogin = document.getElementById('formLogin');
 
-  formLogin.addEventListener("submit", async (e) => {
-    e.preventDefault();
+  if (formLogin) {
+    formLogin.addEventListener('submit', function (e) {
+      e.preventDefault();
 
-    const data = {
-      email: document.getElementById("email").value,
-      clave: document.getElementById("clave").value,
-    };
+      const formData = new FormData(formLogin);
 
-    const rawBase = window.BASE_URL || "";
-    const base = rawBase.replace(/\/+$/, "");
-    const endpoint = base + "/login";
-
-    try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        Swal.fire("Éxito", result.message, "success").then(() => {
-          window.location.href = base + "/MenuPrincipal";
+      fetch('/entrevecinos/login', {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'SI') {
+          // ✅ Redirige al menú principal
+          window.location.href = data.redirect;
+        } else {
+          // ⚠️ Muestra error con SweetAlert
+          Swal.fire({
+            icon: 'error',
+            title: 'Oops...',
+            text: data.message || 'Ocurrió un error'
+          });
+        }
+      })
+      .catch(err => {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error de red',
+          text: 'No se pudo conectar al servidor.'
         });
-      } else {
-        Swal.fire("Error", result.message, "error");
-      }
-    } catch (err) {
-      console.error(err);
-      Swal.fire("Error", "No se pudo conectar con el servidor", "error");
-    }
-  });
+        console.error('Error:', err);
+      });
+    });
+  }
 });

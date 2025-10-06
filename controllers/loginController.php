@@ -1,19 +1,18 @@
 <?php
+
+header("Content-Type: application/json"); // 👈 Siempre devolver JSON
+
 try {
     require_once __DIR__ . '/../models/SesionJWT.php';
     require_once __DIR__ . '/../resources/util/functions/Helper.class.php';
 
-    // Evitar que el navegador almacene en caché la página tras logout
-    header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
-    header("Cache-Control: post-check=0, pre-check=0", false);
-    header("Pragma: no-cache");
+    
+    $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
+    $clave = trim($_POST['clave'] ?? '');
 
-    $email = filter_input(INPUT_POST, 'loginEmail', FILTER_SANITIZE_EMAIL);
-    $clave = trim($_POST['loginPassword'] ?? '');
-    //var_dump($clave);
-    //exit;
     if (empty($email) || empty($clave)) {
-        header("Location: ../views/login.php?error=campos_vacios");
+        http_response_code(400); // Bad request
+        echo json_encode(['status' => 'ERROR', 'message' => 'Campos vacíos']);
         exit;
     }
 
@@ -22,31 +21,21 @@ try {
     $objSesion->setClave($clave);
 
     $resultado = $objSesion->iniciarSesionJWT();
-    //var_dump($resultado['rol']);
-    //exit;
+
     switch ($resultado['status']) {
         case "CI":
-            header("Location: ../views/login.php?error=CI"); // contraseña incorrecta
+            http_response_code(401);
+            echo json_encode(['status' => 'CI', 'message' => 'Contraseña incorrecta']);
             exit;
         case "IN":
-            header("Location: ../views/login.php?error=IN"); // usuario inactivo
+            http_response_code(403);
+            echo json_encode(['status' => 'IN', 'message' => 'Usuario inactivo']);
             exit;
         case "NE":
-            header("Location: ../views/login.php?error=NE"); // usuario no existe
+            http_response_code(404);
+            echo json_encode(['status' => 'NE', 'message' => 'Usuario no existe']);
             exit;
         case "SI":
-            // Guardar token en cookie segura (opcional)
-            /*
-            setcookie("auth_token", $resultado['token'], [
-                'expires' => time() + 3600,
-                'path' => '/',
-                'httponly' => true,
-                'secure' => true,
-                'samesite' => 'Strict'
-            ]);
-            */
-
-            
             $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
                 || $_SERVER['SERVER_PORT'] == 443;
 
@@ -58,23 +47,17 @@ try {
                 'samesite' => $isHttps ? 'Strict' : 'Lax'
             ]);
 
-
-            /*
-            setcookie("auth_token", $resultado['token'], [
-                'expires' => time() + intval($_ENV['JWT_EXPIRATION_SECONDS']),
-                'path' => '/',
-                'httponly' => true,
-                'secure' => true,
-                'samesite' => 'Strict'
+            echo json_encode([
+                'status' => 'SI',
+                'message' => 'Inicio de sesión exitoso',
+                'redirect' => '../views/MenuPrincipalView.php'
             ]);
-            */
-            // Redirigir a vista principal con éxito
-            header("Location: ../views/MenuPrincipalView.php?success=login_exitoso");
             exit;
     }
 
 } catch (Exception $exc) {
     error_log($exc->getMessage());
-    header("Location: ../views/login.php?error=token_error");
+    http_response_code(500);
+    echo json_encode(['status' => 'ERROR', 'message' => 'Error en el servidor']);
     exit;
 }

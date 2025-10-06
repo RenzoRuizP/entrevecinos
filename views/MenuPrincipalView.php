@@ -36,7 +36,7 @@ try {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#22c55e">
   <link rel="icon" type="image/png" href="../resources/images/logo/logo.png">
-  
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <?php include_once 'estilos.view.php'; ?>
   <?php include_once 'estilos/MenuPrincipal.estilo.php' ;?>
 </head>
@@ -125,6 +125,6 @@ try {
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.min.js" crossorigin="anonymous"></script>
   <script src="../resources/util/lte4/dist/js/adminlte.js"></script>
-  <script src="js/menuPrincipal.js"></script>
+  <script src="<?= BASE_URL ?>views/js/menuPrincipal.js"></script>
 </body>
 </html>
