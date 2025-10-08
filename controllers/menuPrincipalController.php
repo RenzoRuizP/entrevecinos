@@ -1,21 +1,34 @@
 <?php
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../models/SesionJWT.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
+
 class MenuPrincipalController {
     public function index() {
-        // ✅ Validar token JWT
+        // Validar token y obtener datos del usuario
         $usuario = AuthMiddleware::validarToken();
 
         if (!$usuario) {
-            // Token inválido o expirado
-            header("Location: /?error=token_expirado");
+            header("Location: loginView.php");
             exit;
         }
 
-        // Puedes pasar los datos del usuario a la vista si deseas
-        $nombre = $usuario['nombre'] ?? 'Usuario';
-        $rol = $usuario['rol'] ?? 'Sin rol';
+        $rolUsuario = $usuario['rol'];
 
-        // Cargar vista principal
-        require __DIR__ . '/../views/menuPrincipalView.php';
+        $objSesion = new SesionJWT();
+        $menusBase = $objSesion->obtenerOpcionesMenu($rolUsuario);
+
+        // Agregar submenús a cada menú
+        $menus = [];
+        foreach ($menusBase as $menu) {
+            $codigoMenu = $menu['codigo_menu'];
+            $submenus = $objSesion->obtenerOpcionesMenuItem($rolUsuario, $codigoMenu);
+            $menu['submenus'] = $submenus;
+            $menus[] = $menu;
+        }
+
+        // Pasamos los menús a la vista
+        $menusParaMenuIzquierda = $menus;
+        require_once __DIR__ . '/../views/MenuPrincipalView.php';
     }
 }

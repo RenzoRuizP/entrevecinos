@@ -1,56 +1,38 @@
+
 <?php
-require_once __DIR__ . '/../models/SesionJWT.php';
+require_once __DIR__ . '/../Config/config.php';
+// __DIR__ . = C:\xampp\htdocs\entrevecinos\views/
+$menusParaMenuIzquierda = $menus ?? [];
 
-header("Cache-Control: no-cache, no-store, must-revalidate");
-header("Pragma: no-cache");
-header("Expires: 0");
 
-$token = $_COOKIE['auth_token'] ?? null;
-
-if (!$token) {
-    header("Location: login.php");
-    exit;
-}
-
-try {
-    $usuario = SesionJWT::verificarToken($token);
-
-    if (!$usuario) {
-        header("Location: login.php?error=token_expirado");
-        exit;
-    }
-
-    $nombreUsuario = $usuario->nombre ?? 'Usuario';
-
-} catch (Exception $e) {
-    header("Location: login.php?error=token_error");
-    exit;
-}
 ?>
-
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <title>Entre Vecinos | Inicio</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#22c55e">
-  <link rel="icon" type="image/png" href="../resources/images/logo/logo.png">
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <?php include_once 'estilos.view.php'; ?>
-  <?php include_once 'estilos/MenuPrincipal.estilo.php' ;?>
+    <meta charset="UTF-8">
+    <title>Entre Vecinos - Menú Principal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#22c55e">
+    <link rel="icon" type="image/png" href="<?= BASE_URL ?>resources/images/logo/logo.png">
+    <link rel="stylesheet" href="<?= BASE_URL ?>views/estilos/MenuPrincipal.estilo.php">
+   
+  
+    <?php include_once __DIR__ . '/estilos.view.php'; ?>
+    <?php include_once __DIR__ . '/estilos/MenuPrincipal.estilo.php'; ?>
+
 </head>
+
 <body class="layout-fixed sidebar-expand-lg sidebar-open bg-body-tertiary">
   <div class="app-wrapper">
-    <?php include_once 'menuArribaView.php'; ?>
-    <?php include_once 'menuIzquierdaView.php';?>
+    <?php include __DIR__ . '/menuArribaView.php'; ?>
+    <?php include __DIR__ . '/menuIzquierdaView.php'; ?>
 
     <main class="app-main">
       <div class="app-content-header">
         <div class="container-fluid">
           <div class="row">
             <div class="col-sm-6">
-              <h3 class="mb-0">Hola <?php echo htmlspecialchars($nombreUsuario); ?></h3>
+              <h3 class="mb-0"></h3>
             </div>
             <div class="col-sm-6">
               <ol class="breadcrumb float-sm-end">
@@ -120,11 +102,11 @@ try {
     </footer>
   </div>
 
-  <!-- Scripts necesarios -->
+  <!-- Script JS -->
   <script src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/browser/overlayscrollbars.browser.es6.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.min.js" crossorigin="anonymous"></script>
-  <script src="../resources/util/lte4/dist/js/adminlte.js"></script>
+  <script src="<?= BASE_URL ?>resources/util/lte4/dist/js/adminlte.js"></script>
   <script src="<?= BASE_URL ?>views/js/menuPrincipal.js"></script>
 </body>
 </html>

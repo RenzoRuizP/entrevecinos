@@ -1,4 +1,4 @@
-<link rel="preload" href="../resources/util/lte4/dist/css/adminlte.css" as="style" />
+<link rel="preload" href="<?= BASE_URL ?>resources/util/lte4/dist/css/adminlte.css" as="style" />
 <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css"
@@ -23,11 +23,11 @@
     />
     <!--end::Third Party Plugin(Bootstrap Icons)-->
     <!--begin::Required Plugin(AdminLTE)-->
-    <link rel="stylesheet" href="../resources/util/lte4/dist/css/adminlte.css" />
+    <link rel="stylesheet" href="<?= BASE_URL ?>resources/util/lte4/dist/css/adminlte.css" />
     <!--end::Required Plugin(AdminLTE)-->
     <!--<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">-->
     <!--sweetalert-->
-  <link rel="stylesheet" href="../resources/util/plugins/swa/sweetalert.css">
+  
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
 
@@ -35,7 +35,7 @@
     <!--begin::Accessibility Features-->
       <!-- Skip links will be dynamically added by accessibility.js -->
       <meta name="supported-color-schemes" content="light dark" />
-      <link rel="preload" href="../resources/util/lte4/dist/css/adminlte.css" as="style" />
+      <link rel="preload" href="<?= BASE_URL ?>/resources/util/lte4/dist/css/adminlte.css" as="style" />
       <!--end::Accessibility Features-->
       <!--begin::Fonts-->
       <link
@@ -62,7 +62,7 @@
       />
       <!--end::Third Party Plugin(Bootstrap Icons)-->
       <!--begin::Required Plugin(AdminLTE)-->
-      <link rel="stylesheet" href="../resources/util/lte4/dist/css/adminlte.css" />
+      <link rel="stylesheet" href="<?= BASE_URL ?>/resources/util/lte4/dist/css/adminlte.css" />
       <!--end::Required Plugin(AdminLTE)-->
       <!-- apexcharts -->
       <link
@@ -79,5 +79,3 @@
         crossorigin="anonymous"
       />
   <!-- Fin de Menu principal -->
-
-

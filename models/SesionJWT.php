@@ -115,7 +115,7 @@ class SesionJWT extends Conexion {
                 ON
                     m.codigo_menu = m_i.codigo_menu
                 WHERE 
-                    r.nombre like :p_nombre_rol and m_i_a.acceso = 'A';
+                    r.nombre like :p_nombre_rol;
                 ";
             $sentencia = $this->dblink->prepare($sql);
             $sentencia->bindParam(":p_nombre_rol", $nombre_rol);
@@ -141,7 +141,7 @@ class SesionJWT extends Conexion {
                     ON
                         m.codigo_menu = m_i.codigo_menu
                     WHERE 
-                        r.nombre LIKE :p_nombreRol and m.codigo_menu = :p_codigo_menu and m_i_a.acceso = 'A';
+                        r.nombre LIKE :p_nombreRol and m.codigo_menu = :p_codigo_menu;
                 ";
             
 //            $sentencia = $this->dbLink->prepare($sql);

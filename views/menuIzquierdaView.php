@@ -1,24 +1,21 @@
 <?php
-try {
-    $usuario = SesionJWT::verificarToken($token);
-    if (!$usuario) {
-        header("Location: login.php?error=token_expirado");
-        exit;
-    }
-    $usuarioRol = $usuario->rol;
-    $_POST["nombreRol"] = $usuarioRol;
-} catch (Exception $e) {
-    header("Location: login.php?error=token_error");
-    exit;
-}
+require_once __DIR__ . '/../Config/config.php';
+$menus = $menusParaMenuIzquierda ?? [];
 ?>
-<?php include_once 'estilos/menuIzquierda.estilo.php'; ?>
+
+<?php
+require_once __DIR__ . '/../Config/config.php';
+
+// Usamos $menusParaMenuIzquierda que debe venir del controlador
+$menus = $menusParaMenuIzquierda ?? [];
+?>
+ <?php include_once __DIR__ . '/estilos/menuIzquierda.estilo.php'; ?>
 <aside class="app-sidebar shadow" style="background-color:#1f2937;">
   <!-- Sidebar Brand -->
   <div class="sidebar-brand d-flex align-items-center p-3 border-bottom">
     <a href="./MenuPrincipalView.php" class="d-flex align-items-center text-decoration-none">
        <img
-        src="../resources/images/logo/logo2.png"
+        src="<?= BASE_URL ?>/resources/images/logo/logo2.png"
         alt="Entre Vecinos"
         class="brand-image"
         style="height:120px;"
@@ -31,45 +28,34 @@ try {
   <div class="sidebar-wrapper">
     <nav class="mt-3">
       <ul class="nav flex-column" id="navigation">
-        <?php
-        require_once '../controllers/obtenerOpcionesMenuController.php';
-        
-        for ($i = 0; $i < count($resultadoOpcionesMenuBD); $i++) {
-            $iconoMenu = $resultadoOpcionesMenuBD[$i]["icono"];
-            $nombreMenu = $resultadoOpcionesMenuBD[$i]["nombre"];
-            $codigoMenu = $resultadoOpcionesMenuBD[$i]["codigo_menu"];
-
-            // Menú principal
-            echo '<li class="nav-item">';
-            echo '  <a href="#menu'.$codigoMenu.'" class="nav-link d-flex align-items-center px-3 py-2" data-bs-toggle="collapse">';
-            echo '    <i class="nav-icon '.$iconoMenu.' me-2"></i>';
-            echo '    <span>'.strtoupper($nombreMenu).'</span>';
-            echo '    <i class="bi bi-chevron-down ms-auto"></i>';
-            echo '  </a>';
-
-            // Submenús
-            $_POST["codigo_menu"] = $codigoMenu;
-            require '../controllers/obtenerOpcionesMenuItemController.php';
-
-            echo '<ul class="nav nav-treeview collapse ms-3" id="menu'.$codigoMenu.'">';
-            for ($j = 0; $j < count($resultadoOpcionesMenuItemBD); $j++) {
-                $iconoMenuItem = $resultadoOpcionesMenuItemBD[$j]["icono"];
-                $nombreItem    = $resultadoOpcionesMenuItemBD[$j]["nombre"];
-
-                echo '<li class="nav-item">';
-                echo '  <a href="./docs/color-mode.html" class="nav-link d-flex align-items-center px-3 py-2">';
-                echo '    <i class="'.$iconoMenuItem.' me-2"></i>';
-                echo '    <span>'.$nombreItem.'</span>';
-                echo '  </a>';
-                echo '</li>';
-            }
-            echo '</ul>';
-            echo '</li>';
-        }
+        <?php foreach ($menus as $menu): 
+          $codigoMenu = $menu['codigo_menu'];
+          $nombreMenu = $menu['nombre'];
+          $iconoMenu  = $menu['icono'];
+          $submenus   = $menu['submenus'] ?? [];
         ?>
+          <li class="nav-item">
+            <a href="#menu<?= $codigoMenu ?>" class="nav-link d-flex align-items-center px-3 py-2" data-bs-toggle="collapse" aria-expanded="false" aria-controls="menu<?= $codigoMenu ?>">
+              <i class="nav-icon <?= htmlspecialchars($iconoMenu) ?> me-2"></i>
+              <span><?= strtoupper(htmlspecialchars($nombreMenu)) ?></span>
+              <i class="bi bi-chevron-down ms-auto"></i>
+            </a>
+
+            <?php if (!empty($submenus)): ?>
+              <ul class="nav nav-treeview collapse ms-3" id="menu<?= $codigoMenu ?>">
+                <?php foreach ($submenus as $submenu): ?>
+                  <li class="nav-item">
+                    <a href="<?= htmlspecialchars($submenu['ruta'] ?? '#') ?>" class="nav-link d-flex align-items-center px-3 py-2">
+                      <i class="<?= htmlspecialchars($submenu['icono'] ?? 'fas fa-circle') ?> me-2"></i>
+                      <span><?= htmlspecialchars($submenu['nombre'] ?? '') ?></span>
+                    </a>
+                  </li>
+                <?php endforeach; ?>
+              </ul>
+            <?php endif; ?>
+          </li>
+        <?php endforeach; ?>
       </ul>
     </nav>
   </div>
 </aside>
-
-

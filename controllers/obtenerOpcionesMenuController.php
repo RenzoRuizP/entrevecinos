@@ -1,33 +1,25 @@
 <?php
+require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../models/SesionJWT.php';
-require_once '../resources/util/functions/Helper.class.php';
+require_once __DIR__ . '/../resources/util/functions/Helper.class.php';
 
-//header('Content-Type: application/json; charset=utf-8');
+header('Content-Type: application/json; charset=utf-8');
 
 try {
-    // Recibir la variable POST que envía la vista
-    if (!isset($_POST["nombreRol"])) {
-        echo json_encode([
-            "error" => true,
-            "mensaje" => "No se recibió el rol del usuario"
-        ]);
+    // Obtener el rol directamente del token (cookie)
+    $rol = AuthMiddleware::obtenerRol();
+    
+    if (!$rol) {
+        Helper::imprimeJSON(401, "No autenticado o token inválido", []);
         exit;
     }
 
-    $nombreRol = $_POST["nombreRol"];
-   
     $objSesion = new SesionJWT();
-    $resultadoOpcionesMenuBD = $objSesion->obtenerOpcionesMenu($nombreRol);
-  /*
-    // Aseguramos que siempre devuelva un array
-    echo json_encode([
-        "error" => false,
-        "menus" => $resultadoOpcionesMenuBD ?: []
-    ], JSON_UNESCAPED_UNICODE);
-*/
+    $resultado = $objSesion->obtenerOpcionesMenu($rol);
+    //Helper::imprimeJSON(200, "", ["menus" => $resultado]);
+    //exit;
+    //Helper::imprimeJSON(200, "", ["menus" => $resultado]);
+
 } catch (Exception $exc) {
-    echo json_encode([
-        "error" => true,
-        "mensaje" => $exc->getMessage()
-    ], JSON_UNESCAPED_UNICODE);
+    Helper::imprimeJSON(500, $exc->getMessage(), []);
 }

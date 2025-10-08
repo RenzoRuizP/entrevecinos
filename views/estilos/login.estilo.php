@@ -117,4 +117,32 @@
       padding: 1.5rem;
     }
   }
+
+  /* ======= SPINNER DE CARGA ======= */
+  .spinner-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.85);
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+  }
+
+  .spinner {
+    border: 6px solid #e0e0e0;
+    border-top: 6px solid #4CAF50;
+    border-radius: 50%;
+    width: 65px;
+    height: 65px;
+    animation: spin 0.9s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
 </style>

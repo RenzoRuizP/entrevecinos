@@ -53,6 +53,10 @@ if (isset($_GET['error'])) {
 
 </head>
 <body>
+  <!-- 🔹 SPINNER DE CARGA -->
+  <div class="spinner-overlay" id="spinnerOverlay">
+    <div class="spinner"></div>
+  </div>
 
   <div class="card login-card col-11 col-sm-8 col-md-6 col-lg-4">
     <div class="card-header">
