@@ -52,9 +52,37 @@ class AuthController {
 
 
     public function logout() {
-        // Eliminar la cookie
-        setcookie('auth_token', '', time() - 3600, '/');
-        header("Location: /?error=sin_token");
+        session_start();
+
+        // Borrar cookie JWT
+        if (isset($_COOKIE['auth_token'])) {
+            setcookie("auth_token", "", [
+                'expires' => time() - 3600,
+                'path' => '/',
+                'httponly' => true,
+                'secure' => true,
+                'samesite' => 'Strict'
+            ]);
+        }
+
+        session_destroy();
+
+        // Si es fetch/AJAX, devuelve JSON
+        if ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '' === 'XMLHttpRequest') {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'status' => 'success',
+                'message' => 'Has cerrado sesión correctamente'
+            ]);
+            return;
+        }
+
+        // Acceso directo al /logout → redirige al login
+        header("Location: /entrevecinos/views/login.php"); // Ajusta según ubicación real de login.php
         exit;
     }
+
+
+
+
 }

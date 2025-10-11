@@ -1,12 +1,11 @@
 <?php
-
 header("Content-Type: application/json"); // 👈 Siempre devolver JSON
 
 try {
     require_once __DIR__ . '/../models/SesionJWT.php';
     require_once __DIR__ . '/../resources/util/functions/Helper.class.php';
 
-    
+    // 🔹 Sanitizar datos recibidos
     $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
     $clave = trim($_POST['clave'] ?? '');
 
@@ -27,26 +26,32 @@ try {
             http_response_code(401);
             echo json_encode(['status' => 'CI', 'message' => 'Contraseña incorrecta']);
             exit;
+
         case "IN":
             http_response_code(403);
             echo json_encode(['status' => 'IN', 'message' => 'Usuario inactivo']);
             exit;
+
         case "NE":
             http_response_code(404);
             echo json_encode(['status' => 'NE', 'message' => 'Usuario no existe']);
             exit;
+
         case "SI":
+            // 🔹 Detectar si se está usando HTTPS
             $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
                 || $_SERVER['SERVER_PORT'] == 443;
 
-            setcookie("auth_token", $resultado['token'], [
+            // 🔹 Crear cookie JWT segura y válida para todo el proyecto
+            setcookie("jwt_token", $resultado['token'], [
                 'expires' => time() + intval($_ENV['JWT_EXPIRATION_SECONDS']),
-                'path' => '/',
+                'path' => '/entrevecinos', // ✅ importante para que funcione en todas las rutas
                 'httponly' => true,
                 'secure' => $isHttps,
                 'samesite' => $isHttps ? 'Strict' : 'Lax'
             ]);
 
+            // 🔹 Devolver respuesta JSON para el frontend
             echo json_encode([
                 'status' => 'SI',
                 'message' => 'Inicio de sesión exitoso',

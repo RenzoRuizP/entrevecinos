@@ -2,25 +2,18 @@
 require_once __DIR__ . '/../Config/config.php';
 $menus = $menusParaMenuIzquierda ?? [];
 ?>
+<?php include_once __DIR__ . '/estilos/menuIzquierda.estilo.php'; ?>
 
-<?php
-require_once __DIR__ . '/../Config/config.php';
-
-// Usamos $menusParaMenuIzquierda que debe venir del controlador
-$menus = $menusParaMenuIzquierda ?? [];
-?>
- <?php include_once __DIR__ . '/estilos/menuIzquierda.estilo.php'; ?>
 <aside class="app-sidebar shadow" style="background-color:#1f2937;">
   <!-- Sidebar Brand -->
   <div class="sidebar-brand d-flex align-items-center p-3 border-bottom">
-    <a href="./MenuPrincipalView.php" class="d-flex align-items-center text-decoration-none">
-       <img
+    <a href="<?= BASE_URL ?>index.php" class="d-flex align-items-center text-decoration-none">
+      <img
         src="<?= BASE_URL ?>/resources/images/logo/logo2.png"
         alt="Entre Vecinos"
         class="brand-image"
         style="height:120px;"
       />
-      <!--<span class="brand-text fw-bold text-white">Entre Vecinos</span>-->
     </a>
   </div>
 
@@ -35,7 +28,11 @@ $menus = $menusParaMenuIzquierda ?? [];
           $submenus   = $menu['submenus'] ?? [];
         ?>
           <li class="nav-item">
-            <a href="#menu<?= $codigoMenu ?>" class="nav-link d-flex align-items-center px-3 py-2" data-bs-toggle="collapse" aria-expanded="false" aria-controls="menu<?= $codigoMenu ?>">
+            <a href="#menu<?= $codigoMenu ?>" 
+               class="nav-link d-flex align-items-center px-3 py-2" 
+               data-bs-toggle="collapse" 
+               aria-expanded="false" 
+               aria-controls="menu<?= $codigoMenu ?>">
               <i class="nav-icon <?= htmlspecialchars($iconoMenu) ?> me-2"></i>
               <span><?= strtoupper(htmlspecialchars($nombreMenu)) ?></span>
               <i class="bi bi-chevron-down ms-auto"></i>
@@ -45,7 +42,8 @@ $menus = $menusParaMenuIzquierda ?? [];
               <ul class="nav nav-treeview collapse ms-3" id="menu<?= $codigoMenu ?>">
                 <?php foreach ($submenus as $submenu): ?>
                   <li class="nav-item">
-                    <a href="<?= htmlspecialchars($submenu['ruta'] ?? '#') ?>" class="nav-link d-flex align-items-center px-3 py-2">
+                    <a href="<?= htmlspecialchars($submenu['ruta'] ?? '') ?>" 
+                       class="nav-link submenu-link d-flex align-items-center px-3 py-2">
                       <i class="<?= htmlspecialchars($submenu['icono'] ?? 'fas fa-circle') ?> me-2"></i>
                       <span><?= htmlspecialchars($submenu['nombre'] ?? '') ?></span>
                     </a>
@@ -59,3 +57,5 @@ $menus = $menusParaMenuIzquierda ?? [];
     </nav>
   </div>
 </aside>
+
+<script src="<?= BASE_URL ?>views/js/menu-izquierda.js"></script>

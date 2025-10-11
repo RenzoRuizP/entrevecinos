@@ -1,77 +1,46 @@
-$(document).ready(function () {
-  $.ajax({
-    url: "../controllers/obtenerOpcionesMenuController.php",
-    method: "POST",
-    data: { codigo_cargo_usuario: CODIGO_CARGO },
-    dataType: "json",
-    success: function (menus) {
-      let $nav = $("#navigation");
-      $nav.empty();
+document.addEventListener("DOMContentLoaded", () => {
+  const baseURL = window.BASE_URL || "/entrevecinos";
+  const contenedor = document.getElementById("contenido-principal");
 
-      if (!menus || menus.length === 0) {
-        $nav.append('<li class="nav-header">Sin opciones</li>');
-        return;
-      }
+  // Delegación de eventos para submenús
+  document.querySelectorAll(".submenu-link").forEach(link => {
+    link.addEventListener("click", async e => {
+      e.preventDefault();
 
-      menus.forEach(menu => {
-        let $menuItem = $(`
-          <li class="nav-item">
-            <a href="#" class="nav-link">
-              <i class="nav-icon ${menu.icono || 'bi bi-folder'}"></i>
-              <p>
-                ${menu.nombre}
-                <i class="nav-arrow bi bi-chevron-right"></i>
-              </p>
-            </a>
-            <ul class="nav nav-treeview" id="submenu-${menu.codigo_menu}"></ul>
-          </li>
-        `);
+      const ruta = link.getAttribute("href");
+      if (!ruta || ruta === "#") return;
 
-        $nav.append(`<li class="nav-header">${menu.seccion || ''}</li>`);
-        $nav.append($menuItem);
+      const url = `${baseURL}/index.php?r=${ruta.replace(/^\//, "")}`;
+      console.log("📄 Cargando vista desde:", url);
 
-        // Cargar ítems del menú
-        $.ajax({
-          url: "../controllers/obtenerOpcionesMenuItemController.php",
-          method: "POST",
-          data: {
-            codigo_cargo_usuario: CODIGO_CARGO,
-            codigo_menu: menu.codigo_menu
-          },
-          dataType: "json",
-          success: function (items) {
-            let $submenu = $(`#submenu-${menu.codigo_menu}`);
-            items.forEach(item => {
-              let $subItem = $(`
-                <li class="nav-item">
-                  <a href="${item.archivo}" class="nav-link">
-                    <i class="nav-icon ${item.icono || 'bi bi-circle'}"></i>
-                    <p>${item.nombre}</p>
-                  </a>
-                </li>
-              `);
-              $submenu.append($subItem);
-            });
-          }
-        });
-      });
-    },
-    error: function () {
-      alert("Error al cargar el menú");
-    }
-  });
-});
+      contenedor.innerHTML = `
+        <div class="text-center p-5">
+          <div class="spinner-border text-success" role="status"></div>
+          <p class="mt-3">Cargando...</p>
+        </div>
+      `;
 
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Error HTTP ${response.status}`);
 
-  document.addEventListener("DOMContentLoaded", () => {
-    const currentUrl = window.location.pathname.split("/").pop(); 
-    const links = document.querySelectorAll(".app-sidebar .nav-link");
+        const html = await response.text();
+        contenedor.innerHTML = html;
 
-    links.forEach(link => {
-      const linkUrl = link.getAttribute("href").split("/").pop();
-
-      if (linkUrl === currentUrl) {
+        // ✅ Marcar activo
+        document.querySelectorAll(".submenu-link").forEach(el => el.classList.remove("active"));
         link.classList.add("active");
+
+      } catch (error) {
+        console.error("❌ Error al cargar vista:", error);
+        contenedor.innerHTML = `
+          <div class="alert alert-danger m-5 shadow-sm rounded-3">
+            <h5 class="mb-2"><i class="bi bi-exclamation-triangle-fill"></i> Error</h5>
+            <p>No se pudo cargar el contenido solicitado.</p>
+            <small class="text-muted">${error.message}</small>
+          </div>
+        `;
       }
     });
   });
+});

@@ -131,7 +131,7 @@ class SesionJWT extends Conexion {
         try {
             $sql = "
                     SELECT 
-                        m_i.codigo_menu_item ,m_i.nombre, m_i.icono
+                        m_i.codigo_menu_item ,m_i.nombre, m_i.icono, m_i.ruta
                     FROM 
                         rol r INNER JOIN menu_item_accesos m_i_a
                     ON 

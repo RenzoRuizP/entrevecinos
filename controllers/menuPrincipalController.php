@@ -5,11 +5,20 @@ require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 
 class MenuPrincipalController {
     public function index() {
+
+        session_start();
+
+        // 🔹 Evitar cache del navegador
+        header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+        header("Cache-Control: post-check=0, pre-check=0", false);
+        header("Pragma: no-cache");
+        
         // Validar token y obtener datos del usuario
         $usuario = AuthMiddleware::validarToken();
 
         if (!$usuario) {
-            header("Location: loginView.php");
+            // 🔹 Redirigir siempre al login
+            header("Location: /entrevecinos/views/login.php");
             exit;
         }
 
