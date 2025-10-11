@@ -52,35 +52,48 @@ class AuthController {
 
 
     public function logout() {
+    // ✅ Iniciar sesión si no está iniciada
+    if (session_status() === PHP_SESSION_NONE) {
         session_start();
+    }
 
-        // Borrar cookie JWT
-        if (isset($_COOKIE['auth_token'])) {
-            setcookie("auth_token", "", [
-                'expires' => time() - 3600,
-                'path' => '/',
-                'httponly' => true,
-                'secure' => true,
-                'samesite' => 'Strict'
-            ]);
-        }
+    // ✅ Eliminar cookie JWT
+    if (isset($_COOKIE['auth_token'])) {
+        setcookie('auth_token', '', [
+            'expires' => time() - 3600,
+            'path' => '/',
+            'httponly' => true,
+            'secure' => false, // ⚠️ true solo si usas HTTPS
+            'samesite' => 'Lax'
+        ]);
+        unset($_COOKIE['auth_token']);
+    }
 
-        session_destroy();
+    // ✅ Destruir sesión PHP (por si existiera)
+    session_destroy();
 
-        // Si es fetch/AJAX, devuelve JSON
-        if ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '' === 'XMLHttpRequest') {
-            header('Content-Type: application/json; charset=utf-8');
-            echo json_encode([
-                'status' => 'success',
-                'message' => 'Has cerrado sesión correctamente'
-            ]);
-            return;
-        }
+    // ✅ Si es una solicitud AJAX o fetch → responder con JSON
+    $isAjax = (
+        isset($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+        strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'
+    ) || ($_SERVER['REQUEST_METHOD'] === 'POST');
 
-        // Acceso directo al /logout → redirige al login
-        header("Location: /entrevecinos/views/login.php"); // Ajusta según ubicación real de login.php
+    if ($isAjax) {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'status' => 'success',
+            'message' => 'Has cerrado sesión correctamente.'
+        ]);
         exit;
     }
+
+    // ✅ Si accede directamente desde el navegador → redirigir al login
+    header('Location: /entrevecinos/');
+    exit;
+}
+
+
+
 
 
 

@@ -20,39 +20,40 @@ document.addEventListener("DOMContentLoaded", () => {
       }).then((result) => {
         if (!result.isConfirmed) return;
 
-        fetch(btnCerrarSesion.href, {
-          method: "GET",
+        // 🔹 Usar fetch POST al logout centralizado
+        fetch("/entrevecinos/logout", {
+          method: "GET", // puede ser GET o POST según tu AuthController
           headers: { "X-Requested-With": "XMLHttpRequest" }
         })
-          .then(res => res.json())
-          .then(data => {
-            if (data.status === "success") {
-              Swal.fire({
-                icon: "success",
-                title: "Sesión cerrada",
-                text: data.message,
-                timer: 1500,
-                showConfirmButton: false
-              }).then(() => {
-                // 🔹 Redirección al login usando enrutamiento centralizado
-                window.location.href = "/entrevecinos/";
-              });
-            } else {
-              Swal.fire({
-                icon: "error",
-                title: "Error",
-                text: data.message || "No se pudo cerrar sesión correctamente."
-              });
-            }
-          })
-          .catch(err => {
-            console.error(err);
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === "success") {
+            Swal.fire({
+              icon: "success",
+              title: "Sesión cerrada",
+              text: data.message,
+              timer: 1500,
+              showConfirmButton: false
+            }).then(() => {
+              // 🔹 Redirigir al login
+              window.location.href = "/entrevecinos/";
+            });
+          } else {
             Swal.fire({
               icon: "error",
               title: "Error",
-              text: "No se pudo cerrar sesión."
+              text: data.message || "No se pudo cerrar sesión correctamente."
             });
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: "No se pudo cerrar sesión."
           });
+        });
       });
     });
   }
@@ -62,7 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
     btnPerfil.addEventListener("click", async (e) => {
       e.preventDefault();
 
-      const ruta = "/entrevecinos/mi-perfil"; // ✅ RUTA CENTRALIZADA
+      const ruta = "/entrevecinos/mi-perfil"; // ✅ Ruta centralizada
       contenedor.innerHTML = `
         <div class="text-center p-5">
           <div class="spinner-border text-success" role="status"></div>

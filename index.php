@@ -22,7 +22,12 @@ $publicRoutes = [
     '#^/$#',            // loginForm
     '#^/login$#',       // login POST
     '#^/usuarios/registrar$#', // registro usuario
+    '#^/condominios$#',              // ✅ Permitir sin token
+    '#^/condominios/(\d+)/torres$#', 
+    '#^/torres/(\d+)/departamentos$#'
 ];
+
+
 
 // Definir rutas
 $routes = [
@@ -41,6 +46,7 @@ $routes = [
 
     // Logout
     ['GET', '#^/logout$#', [AuthController::class, 'logout'], 'html'],
+    ['POST', '#^/logout$#', [AuthController::class, 'logout'], 'json'],
 
     // Vista mi perfil
     ['GET', '#^/mi-perfil$#', [miPerfilController::class, 'index'], 'html'],

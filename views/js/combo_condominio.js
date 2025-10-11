@@ -1,47 +1,66 @@
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", function () {
     const comboCondominio = document.getElementById("comboCondominio");
     const comboTorre = document.getElementById("comboTorre");
     const comboDepartamento = document.getElementById("comboDepartamento");
 
-    // Cargar condominios
-    fetch(window.BASE_URL + "condominios")
-        .then(res => res.json())
-        .then(data => {
-            data.forEach(c => {
-                let opt = document.createElement("option");
-                opt.value = c.codigo_condominio;
-                opt.textContent = c.nombre_condominio;
-                comboCondominio.appendChild(opt);
-            });
-        });
+    if (!comboCondominio || !comboTorre || !comboDepartamento) return;
 
-    // Cuando se elija condominio -> cargar torres
-    comboCondominio.addEventListener("change", function() {
-        comboTorre.innerHTML = "<option value=''>--Seleccione Torre--</option>";
-        fetch(window.BASE_URL + "condominios/" + this.value + "/torres")
-            .then(res => res.json())
-            .then(data => {
-                data.forEach(t => {
-                    let opt = document.createElement("option");
-                    opt.value = t.codigo_torre;
-                    opt.textContent = t.nombre_torre;
-                    comboTorre.appendChild(opt);
-                });
+    // 🔹 Normaliza URL evitando doble slash
+    const buildURL = (path) => window.BASE_URL.replace(/\/+$/, '') + '/' + path.replace(/^\/+/, '');
+
+    // 🔹 Función genérica para cargar combos
+    async function cargarCombo(url, combo, placeholder, mapFn) {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Error al cargar datos desde ${url}`);
+            const data = await res.json();
+
+            combo.innerHTML = `<option value="">${placeholder}</option>`;
+            data.forEach(item => {
+                const opt = document.createElement("option");
+                const { value, text } = mapFn(item);
+                opt.value = value;
+                opt.textContent = text;
+                combo.appendChild(opt);
             });
+        } catch (error) {
+            console.error(`Error al cargar ${placeholder}:`, error);
+        }
+    }
+
+    // 🔹 Cargar condominios
+    cargarCombo(
+        buildURL('condominios'),
+        comboCondominio,
+        '--Seleccione Condominio--',
+        c => ({ value: c.codigo_condominio, text: c.nombre_condominio })
+    );
+
+    // 🔹 Cargar torres según condominio
+    comboCondominio.addEventListener("change", function () {
+        comboTorre.innerHTML = "<option value=''>--Seleccione Torre--</option>";
+        comboDepartamento.innerHTML = "<option value=''>--Seleccione Departamento--</option>";
+
+        if (!this.value) return;
+
+        cargarCombo(
+            buildURL(`condominios/${this.value}/torres`),
+            comboTorre,
+            '--Seleccione Torre--',
+            t => ({ value: t.codigo_torre, text: t.nombre_torre })
+        );
     });
 
-    // Cuando se elija torre -> cargar departamentos
-    comboTorre.addEventListener("change", function() {
+    // 🔹 Cargar departamentos según torre
+    comboTorre.addEventListener("change", function () {
         comboDepartamento.innerHTML = "<option value=''>--Seleccione Departamento--</option>";
-        fetch(window.BASE_URL + "torres/" + this.value + "/departamentos")
-            .then(res => res.json())
-            .then(data => {
-                data.forEach(d => {
-                    let opt = document.createElement("option");
-                    opt.value = d.codigo_departamento;
-                    opt.textContent = d.numero_departamento;
-                    comboDepartamento.appendChild(opt);
-                });
-            });
+        if (!this.value) return;
+
+        cargarCombo(
+            buildURL(`torres/${this.value}/departamentos`),
+            comboDepartamento,
+            '--Seleccione Departamento--',
+            d => ({ value: d.codigo_departamento, text: d.numero_departamento })
+        );
     });
 });
