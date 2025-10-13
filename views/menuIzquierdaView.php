@@ -9,7 +9,7 @@ $menus = $menusParaMenuIzquierda ?? [];
   <div class="sidebar-brand d-flex align-items-center p-3 border-bottom">
     <a href="<?= BASE_URL ?>index.php" class="d-flex align-items-center text-decoration-none">
       <img
-        src="<?= BASE_URL ?>/resources/images/logo/logo2.png"
+        src="<?= BASE_URL ?>/resources/images/logo/logo8.png"
         alt="Entre Vecinos"
         class="brand-image"
         style="height:120px;"

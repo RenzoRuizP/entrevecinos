@@ -1,148 +1,143 @@
+
 <!-- login.estilo.php -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
 <style>
-  /* ======= BASE GENERAL ======= */
+  /* 🌿 --- Fondo general --- */
   body {
-    background: linear-gradient(135deg, #4CAF50, #2E7D32);
+    background: radial-gradient(circle at 30% 20%, #FFF9F0 0%, #FFFFFF 50%, #F4FBF5 100%);
+    font-family: 'Poppins', 'Inter', sans-serif;
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Inter', sans-serif;
-    margin: 0;
+    color: #0D0D0D;
   }
+  
 
-  /* ======= TARJETA LOGIN ======= */
+  /* 🌿 --- Tarjeta principal --- */
   .login-card {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border: none;
-    border-radius: 1rem;
-    overflow: hidden;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-    animation: fadeInUp 0.6s ease-out;
-    transition: transform 0.3s ease;
-  }
-
-  .login-card:hover {
-    transform: translateY(-3px);
-  }
-
-  /* ======= HEADER ======= */
-  .login-card .card-header {
-    background: #4CAF50;
-    color: #fff;
-    text-align: center;
-    padding: 1.8rem 1rem;
-  }
-
-  .login-card .card-header img {
-    max-height: 120px;
-    margin-bottom: 0.5rem;
-  }
-
-  .login-card .card-header h5 {
-    font-weight: 600;
-  }
-
-  /* ======= FORMULARIO ======= */
-  .login-card .card-body {
+    background-color: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
     padding: 2rem;
-  }
-
-  .login-card .form-control {
-    border-radius: 0.75rem;
-    padding-left: 2.5rem;
-    height: 48px;
-    border: 1px solid #dcdcdc;
-    transition: border 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  .login-card .form-control:focus {
-    border-color: #4CAF50;
-    box-shadow: 0 0 5px rgba(76,175,80,0.4);
-  }
-
-  .login-card .input-icon {
-    position: absolute;
-    left: 15px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #6c757d;
-  }
-
-  .login-card button {
-    border-radius: 0.75rem;
-    height: 48px;
-    font-weight: 600;
+    text-align: center;
     transition: all 0.3s ease;
   }
-
-  .login-card button:hover {
-    background: #43a047;
-    box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3);
+  .login-card:hover {
+    transform: translateY(-2px);
   }
 
-  /* ======= LINKS Y FOOTER ======= */
-  .login-card a {
-    color: #388e3c;
-    font-weight: 500;
+  /* 🌿 --- Encabezado --- */
+  .login-card .card-header {
+    background: transparent;
+    border: none;
+    margin-bottom: 1rem;
+  }
+  .login-card img {
+    max-width: 350px;
+    margin-bottom: 0.8rem;
+  }
+  .login-card h5 {
+    font-weight: 600;
+    color: #0F592F;
+  }
+  .login-card small {
+    color: #6B7280;
   }
 
-  .login-card a:hover {
-    color: #1b5e20;
-    text-decoration: underline;
+  /* 🌿 --- Inputs e íconos --- */
+  .input-icon {
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    transform: translateY(-50%);
+    color: #9CA3AF;
+  }
+  input.form-control {
+    padding-left: 38px;
+    border-radius: 10px;
+    border: 1px solid #73E7A6;
+    transition: all 0.2s;
+  }
+  input.form-control:focus {
+    border-color: #0F592F;
+    box-shadow: 0 0 0 2px rgba(15, 89, 47, 0.25);
   }
 
+  /* 🌿 --- Botones --- */
+  .btn-success {
+    background-color: #E4691B;
+    border: none;
+    transition: all 0.3s ease;
+  }
+  .btn-success:hover {
+    background-color: #CC6018;
+  }
+  .btn-outline-secondary:hover {
+    background-color: #494F5B;
+  }
+
+  /* 🌿 --- Enlaces --- */
+  .text-center a {
+    color: #0F592F;
+    transition: color 0.3s ease;
+  }
+  .text-center a:hover {
+    color: #E4691B;
+  }
+
+  /* 🌿 --- Footer --- */
   .login-footer {
-    font-size: 0.9rem;
-    color: #6c757d;
-    background: rgba(255,255,255,0.85);
-    padding: 1rem;
+    background: transparent;
+    border-top: none;
+    color: #494F5B;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
   }
 
-  /* ======= ANIMACIONES ======= */
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(25px); }
-    to { opacity: 1; transform: translateY(0); }
+  /* 🌿 --- Modales --- */
+  .modal-content {
+    border-radius: 15px;
+  }
+  .modal-header.bg-success {
+    background-color: #0F592F !important;
+  }
+  .modal-header h5 {
+    font-weight: 600;
   }
 
-  /* ======= RESPONSIVE ======= */
-  @media (max-width: 576px) {
-    .login-card {
-      width: 90%;
-    }
-    .login-card .card-body {
-      padding: 1.5rem;
-    }
-  }
-
-  /* ======= SPINNER DE CARGA ======= */
+  /* 🌿 --- Spinner --- */
   .spinner-overlay {
-    display: none;
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(255, 255, 255, 0.85);
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(255,255,255,0.85);
+    display: flex;
     justify-content: center;
     align-items: center;
     z-index: 9999;
+    display: none;
   }
-
   .spinner {
-    border: 6px solid #e0e0e0;
-    border-top: 6px solid #4CAF50;
+    border: 4px solid #D1FAE5;
+    border-top: 4px solid #0F592F;
     border-radius: 50%;
-    width: 65px;
-    height: 65px;
-    animation: spin 0.9s linear infinite;
+    width: 45px;
+    height: 45px;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+  /* 🌿 --- Responsive --- */
+  @media (max-width: 768px) {
+    .login-card {
+      padding: 1.5rem;
+    }
+    .login-card img {
+      max-width: 130px;
+    }
   }
 </style>
