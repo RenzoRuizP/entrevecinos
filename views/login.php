@@ -48,7 +48,6 @@ if (isset($_GET['error'])) {
 
   <!-- 🔹 Estilos globales y del login -->
   <?php //include_once VIEW_PATH . 'estilos.view.php'; ?>
-  <?php include_once VIEW_PATH . 'estilosLoginView.php'; ?>
   <?php include_once VIEW_STYLE_PATH . 'login.estilo.php'; ?>
 </head>
 
