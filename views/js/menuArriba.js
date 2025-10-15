@@ -97,3 +97,27 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
+// --- 📱 Control del botón hamburguesa en móviles ---
+document.addEventListener("DOMContentLoaded", () => {
+  const sidebar = document.getElementById("sidebar");
+  const backdrop = document.createElement("div");
+  backdrop.id = "sidebar-backdrop";
+  document.body.appendChild(backdrop);
+
+  const toggleButton = document.querySelector('[data-lte-toggle="sidebar"]') 
+                    || document.querySelector(".navbar-toggler");
+
+  if (toggleButton && sidebar) {
+    toggleButton.addEventListener("click", () => {
+      sidebar.classList.toggle("active");
+      backdrop.classList.toggle("show");
+    });
+  }
+
+  backdrop.addEventListener("click", () => {
+    sidebar.classList.remove("active");
+    backdrop.classList.remove("show");
+  });
+});
+

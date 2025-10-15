@@ -2,7 +2,7 @@
 
  /* Colores base */
   .app-sidebar {
-    background-color: #165C4B !important; /* Verde institucional */
+    background-color: #0F592F !important; /* Verde institucional */
     color: #FFF5D9;
   }
 

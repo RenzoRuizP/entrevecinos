@@ -51,7 +51,7 @@ body {
 }
 .login-card h5 {
   font-weight: 600;
-  color: #0F592F;
+  color: #115C41;
   margin-bottom: 0.3rem;
 }
 .login-card small {
@@ -74,7 +74,7 @@ input.form-control {
   transition: all 0.2s;
 }
 input.form-control:focus {
-  border-color: #078C03;
+  border-color: #157251;
   box-shadow: 0 0 0 2px rgba(7, 140, 3, 0.25);
 }
 
@@ -97,7 +97,7 @@ input.form-control:focus {
 
 /* --- Enlaces --- */
 .text-center a {
-  color: #0F592F;
+  color: #115C41;
   transition: color 0.3s ease;
 }
 .text-center a:hover {
@@ -127,7 +127,7 @@ input.form-control:focus {
 }
 .spinner {
   border: 4px solid #D1FAE5;
-  border-top: 4px solid #078C03;
+  border-top: 4px solid #157251;
   border-radius: 50%;
   width: 45px;
   height: 45px;
@@ -142,7 +142,7 @@ input.form-control:focus {
 }
 .modal-header.bg-success {
  
-  color: #0F592F;
+  color: #115C41;
 }
 .modal-header h5 {
   font-weight: 600;
