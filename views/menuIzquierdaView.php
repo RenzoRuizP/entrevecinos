@@ -63,7 +63,7 @@ $menus = $menusParaMenuIzquierda ?? [];
 </aside>
 
 <!-- 🔹 Script del menú izquierdo -->
-<script src="<?= BASE_URL ?>views/js/menu-izquierda.js"></script>
+<script src="<?= BASE_URL ?>views/js/menuIzquierda.js"></script>
 
 <style>
   /* ✅ Estilo limpio sin scroll feo */
