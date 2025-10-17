@@ -83,6 +83,7 @@
     </ul>
   </div>
 </nav>
+
 <script>
   document.addEventListener("DOMContentLoaded", () => {
   const sidebar = document.getElementById("sidebar");
