@@ -83,5 +83,9 @@
       display: none !important;
     }
   }
-  
+  .app-header.navbar {
+  position: relative;
+  z-index: 1030; /* Debe estar por encima del sidebar y otros elementos */
+}
+
 </style>

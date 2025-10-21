@@ -1,9 +1,9 @@
-document.addEventListener("DOMContentLoaded", () => {
-  // --------------------------
-  // 🔹 Mensaje de bienvenida
-  // --------------------------
-  const params = new URLSearchParams(window.location.search);
-  if (params.has('success') && params.get('success') === 'login_exitoso') {
+// --- 🔹 Mensaje de bienvenida tras login exitoso ---
+const params = new URLSearchParams(window.location.search);
+
+if (params.has('success')) {
+  const success = params.get('success');
+  if (success === 'login_exitoso') {
     Swal.fire({
       icon: 'success',
       title: 'Bienvenido',
@@ -11,55 +11,35 @@ document.addEventListener("DOMContentLoaded", () => {
       timer: 2000,
       showConfirmButton: false,
     });
+    // Limpiar el query string para no repetir el mensaje
     window.history.replaceState({}, document.title, window.location.pathname);
   }
+}
 
-  // --------------------------
-  // 🔹 Scrollbar lateral
-  // --------------------------
-  const sidebarWrapper = document.querySelector('.sidebar-wrapper');
-  if (sidebarWrapper && OverlayScrollbarsGlobal?.OverlayScrollbars) {
+// --- 🔹 Configuración del Scrollbar lateral ---
+const SELECTOR_SIDEBAR_WRAPPER = '.sidebar-wrapper';
+const Default = {
+  scrollbarTheme: 'os-theme-light',
+  scrollbarAutoHide: 'leave',
+  scrollbarClickScroll: true,
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  const sidebarWrapper = document.querySelector(SELECTOR_SIDEBAR_WRAPPER);
+  if (sidebarWrapper && OverlayScrollbarsGlobal?.OverlayScrollbars !== undefined) {
     OverlayScrollbarsGlobal.OverlayScrollbars(sidebarWrapper, {
       scrollbars: {
-        theme: 'os-theme-light',
-        autoHide: 'leave',
-        clickScroll: true,
+        theme: Default.scrollbarTheme,
+        autoHide: Default.scrollbarAutoHide,
+        clickScroll: Default.scrollbarClickScroll,
       },
     });
   }
 
-  // --------------------------
-  // 🔹 Sidebar responsive
-  // --------------------------
-  const sidebar = document.getElementById("sidebar");
-  const backdrop = document.getElementById("sidebar-backdrop");
-  const toggleBtn = document.getElementById("btnToggleSidebar");
-
-  if (toggleBtn && sidebar) {
-    toggleBtn.addEventListener("click", () => {
-      const isActive = sidebar.classList.toggle("active");
-      if (backdrop) backdrop.style.display = isActive ? "block" : "none";
-    });
-  }
-
-  if (backdrop) {
-    backdrop.addEventListener("click", () => {
-      sidebar.classList.remove("active");
-      backdrop.style.display = "none";
-    });
-  }
-
-  window.addEventListener("resize", () => {
-    if (window.innerWidth >= 992) {
-      sidebar.classList.remove("active");
-      if (backdrop) backdrop.style.display = "none";
-    }
-  });
-
-  // --------------------------
-  // 🔹 Carga dinámica de vistas
-  // --------------------------
+  // --- 🔹 Base URL del proyecto ---
   const baseURL = window.BASE_URL || '/entrevecinos';
+
+  // --- 🔹 Carga dinámica de vistas ---
   const enlaces = document.querySelectorAll('.submenu-link');
   const contenedor = document.getElementById('contenido-principal');
 
@@ -70,6 +50,7 @@ document.addEventListener("DOMContentLoaded", () => {
       let vistaRuta = link.dataset.vista || link.getAttribute('href');
       if (!vistaRuta || vistaRuta === '#') return;
 
+      // 🔹 Normalizar ruta para evitar "//"
       if (!vistaRuta.startsWith(baseURL)) {
         vistaRuta = `${baseURL}/${vistaRuta.replace(/^\/+/, '')}`;
       }
@@ -77,7 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       console.log('📄 Cargando vista:', vistaRuta);
 
-      // Mostrar spinner mientras carga
+      // 🔹 Mostrar spinner mientras carga
       contenedor.innerHTML = `
         <div class="text-center p-5">
           <div class="spinner-border text-success" role="status"></div>
@@ -88,10 +69,11 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const response = await fetch(vistaRuta);
         if (!response.ok) throw new Error(`Error HTTP ${response.status}`);
+
         const html = await response.text();
         contenedor.innerHTML = html;
 
-        // Marcar enlace activo
+        // ✅ Marcar enlace activo visualmente
         document.querySelectorAll('.submenu-link').forEach(el => el.classList.remove('active'));
         link.classList.add('active');
       } catch (error) {
@@ -106,4 +88,24 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  const sidebar = document.getElementById("sidebar");
+  const backdrop = document.getElementById("sidebar-backdrop");
+  const toggleBtn = document.getElementById("btnToggleSidebar");
+
+  if (toggleBtn && sidebar) {
+    toggleBtn.addEventListener("click", () => {
+      sidebar.classList.toggle("active");
+      backdrop.style.display = sidebar.classList.contains("active") ? "block" : "none";
+    });
+  }
+
+  if (backdrop) {
+    backdrop.addEventListener("click", () => {
+      sidebar.classList.remove("active");
+      backdrop.style.display = "none";
+    });
+  }
 });
