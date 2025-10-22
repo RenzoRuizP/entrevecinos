@@ -1,91 +1,105 @@
-
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
-  /* ======= BASE ======= */
-  .app-navbar {
-    background: linear-gradient(135deg, #4CAF50, #2E7D32);
-    height: 60px;
-    display: flex;
-    align-items: center;
-    font-family: 'Inter', sans-serif;
-    transition: all 0.3s ease;
-    z-index: 1050;
-  }
+/* ============================================================
+   🌿 Estilos para el menú superior (navbar)
+   Entre Vecinos - versión optimizada UX/UI
+============================================================ */
 
-  /* ======= NAV LINKS ======= */
-  .nav-link-main {
-    color: #ffffff !important;
-    transition: color 0.3s ease;
-  }
-
-  .nav-link-main:hover {
-    color: #C8E6C9 !important;
-  }
-
-  /* ======= TOGGLE SIDEBAR ======= */
-  .toggle-sidebar {
-    color: #ffffff !important;
-    transition: transform 0.2s ease;
-  }
-
-  .toggle-sidebar:hover {
-    transform: scale(1.1);
-    color: #C8E6C9 !important;
-  }
-
-  /* ======= USER MENU ======= */
-  .user-name {
-    color: #ffffff !important;
-  }
-
-  .user-menu .dropdown-menu {
-    border: none;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.15);
-    overflow: hidden;
-    animation: fadeInDown 0.25s ease;
-  }
-
-  .user-menu .user-header {
-    background: linear-gradient(135deg, #43A047, #2E7D32);
-    border-bottom: 1px solid rgba(255,255,255,0.15);
-  }
-
-  /* ======= BOTONES ======= */
-  .user-menu .btn {
-    border-radius: 0.6rem;
-    font-weight: 500;
-    transition: all 0.3s ease;
-  }
-
-  .user-menu .btn-outline-success {
-    border-color: #4CAF50;
-    color: #4CAF50;
-  }
-
-  .user-menu .btn-outline-success:hover {
-    background-color: #4CAF50;
-    color: #fff;
-  }
-
-  .user-menu .btn-danger:hover {
-    background-color: #C62828;
-  }
-
-  /* ======= ANIMACIONES ======= */
-  @keyframes fadeInDown {
-    from { opacity: 0; transform: translateY(-8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* ======= RESPONSIVE ======= */
-  @media (max-width: 768px) {
-    .user-name {
-      display: none !important;
-    }
-  }
-  .app-header.navbar {
-  position: relative;
-  z-index: 1030; /* Debe estar por encima del sidebar y otros elementos */
+.app-header.navbar {
+  background-color: #0F592F;
+  color: white;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1040;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
+/* 🔹 Botón hamburguesa */
+.navbar-toggler {
+  border: none;
+  background: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+.navbar-toggler:focus {
+  outline: none;
+}
+
+/* 🔹 Usuario */
+.user-menu .nav-link {
+  color: white;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  gap: 0.5rem;
+}
+
+.user-menu .dropdown-menu {
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  overflow: hidden;
+}
+
+/* 🔹 Cabecera del dropdown */
+.user-menu .dropdown-menu li.bg-success {
+  background-color: #0F592F !important;
+}
+
+/* 🔹 Botones de perfil y cerrar sesión */
+.user-menu .btn {
+  font-weight: 500;
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+}
+
+.user-menu .btn-outline-success {
+  border-color: #0F592F;
+  color: #0F592F;
+}
+.user-menu .btn-outline-success:hover {
+  background-color: #0F592F;
+  color: white;
+}
+
+.user-menu .btn-danger {
+  background-color: #BF3604;
+  border: none;
+}
+.user-menu .btn-danger:hover {
+  background-color: #A12E03;
+}
+
+/* 🔹 Ajustes responsivos */
+@media (max-width: 768px) {
+  .app-header.navbar {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .user-menu span {
+    display: none;
+  }
+}
+
+/* 🔹 Imagen de usuario */
+.user-menu img {
+  width: 35px;
+  height: 35px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.user-menu .dropdown-menu img {
+  width: 70px;
+  height: 70px;
+  object-fit: cover;
+  border-radius: 50%;
+}
 </style>
