@@ -1,26 +1,24 @@
-// ✅ DatosPersonales.js
-
 document.addEventListener('DOMContentLoaded', async () => {
   const btnEditar = document.getElementById('btnEditar');
   const btnGuardar = document.getElementById('btnGuardar');
   const btnCancelar = document.getElementById('btnCancelar');
   const inputs = document.querySelectorAll('#formDatosPersonales input, #formDatosPersonales textarea');
 
-  // Simulación de carga de datos (reemplázalo por un fetch real más adelante)
-  const usuario = {
-    nombre: 'Renzo',
-    apellido: 'Ruiz Pastor',
-    correo: 'renzo@example.com',
-    telefono: '987654321',
-    direccion: 'Av. Los Olivos 123, Lima'
-  };
+  // ✅ Cargar datos del usuario desde la API
+  try {
+    const response = await fetch(`${window.BASE_URL}api/usuario/datos`, { credentials: 'include' });
+    const usuario = await response.json();
+    console.log('Datos del usuario:', usuario);
 
-  // Mostrar los datos
-  document.getElementById('nombre').value = usuario.nombre;
-  document.getElementById('apellido').value = usuario.apellido;
-  document.getElementById('correo').value = usuario.correo;
-  document.getElementById('telefono').value = usuario.telefono;
-  document.getElementById('direccion').value = usuario.direccion;
+    // Llenar los inputs automáticamente
+    for (const key in usuario) {
+      const input = document.getElementById(key);
+      if (input) input.value = usuario[key];
+    }
+
+  } catch (error) {
+    console.error('Error al cargar los datos del usuario:', error);
+  }
 
   // Habilitar edición
   btnEditar.addEventListener('click', () => {
@@ -38,12 +36,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnCancelar.style.display = 'none';
   });
 
-  // Guardar cambios
+  // Guardar cambios (simulación, luego conectar con tu API real)
   btnGuardar.addEventListener('click', async () => {
     const datosActualizados = {};
     inputs.forEach(input => datosActualizados[input.id] = input.value);
 
-    // Mostrar spinner temporal
     Swal.fire({
       title: 'Guardando...',
       text: 'Por favor espera unos segundos.',
@@ -52,8 +49,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     try {
-      // Aquí luego conectarás con tu API REST (POST /api/usuario/actualizar)
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulación
+      // Simulación de guardado
+      await new Promise(resolve => setTimeout(resolve, 1500));
       Swal.fire({
         icon: 'success',
         title: 'Datos actualizados',

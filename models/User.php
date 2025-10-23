@@ -36,8 +36,31 @@ class User extends Conexion {
         }
     }
 
-    public function buscarPorEmail($email) {
-        $sql = "SELECT * FROM usuario WHERE email = :email LIMIT 1";
+    public function DatosUsuario($email) {
+        $sql = "
+                    SELECT 
+							u.nombre AS nombre_completo,
+							u.email,
+							u.documento,
+							u.telefono,
+							c.direccion_condominio,
+							c.nombre_condominio,
+							t.nombre_torre,
+							d.numero_departamento
+							 
+						FROM 
+							usuario u INNER JOIN usuario_departamento ud
+						on
+							u.codigo_usuario = ud.codigo_usuario INNER JOIN departamento d 
+						on
+							ud.codigo_departamento = d.codigo_departamento INNER JOIN torre t
+						on
+							d.codigo_torre = t.codigo_torre INNER JOIN condominio c
+						on
+							t.codigo_condominio = c.codigo_condominio
+						where
+							u.email = :email";
+
         $stmt = $this->dblink->prepare($sql);
         $stmt->bindParam(':email', $email);
         $stmt->execute();
