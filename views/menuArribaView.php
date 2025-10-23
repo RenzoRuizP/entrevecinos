@@ -1,10 +1,12 @@
 <?php 
-// Se asegura de tener los datos del usuario (por seguridad adicional)
+// ✅ Seguridad ante datos no definidos
 $nombreUsuario = $nombreUsuario ?? 'Vecino';
 $rolUsuario = $rolUsuario ?? 'vecino';
+$fotoUsuario = "/entrevecinos/views/fotos/00000000.png";
 ?>
+
 <!-- 🔹 Barra superior -->
-<nav class="app-header navbar navbar-expand-lg navbar-dark shadow-sm px-3" style="background-color: #0F592F;">
+<nav class="app-header navbar navbar-expand-lg navbar-dark shadow-sm px-3" style="background-color: #0F592F; position: relative; z-index: 1050; overflow: visible !important;">
   <div class="container-fluid">
 
     <!-- 🔹 Botón hamburguesa lateral -->
@@ -12,52 +14,54 @@ $rolUsuario = $rolUsuario ?? 'vecino';
       <i class="bi bi-list text-white fs-3"></i>
     </button>
 
-    <!-- 🔹 Marca o título opcional -->
+    <!-- 🔹 Marca -->
     <span class="navbar-brand mb-0 h5 text-white d-none d-md-inline">Entre Vecinos</span>
 
-    <!-- 🔹 Botón para mostrar menú de usuario en móvil -->
-    <button class="navbar-toggler border-0 text-white" type="button" data-bs-toggle="collapse" data-bs-target="#navbarTop" aria-controls="navbarTop" aria-expanded="false" aria-label="Mostrar menú superior">
-      <i class="bi bi-person-circle fs-3"></i>
-    </button>
+    <!-- 🔹 Usuario -->
+    <ul class="navbar-nav align-items-center ms-auto">
+      <li class="nav-item dropdown user-menu position-relative">
+        <a href="#" 
+           class="nav-link dropdown-toggle d-flex align-items-center text-white" 
+           id="userDropdown" 
+           data-bs-toggle="dropdown" 
+           aria-expanded="false">
 
-    <!-- 🔹 Contenedor colapsable -->
-    <div class="collapse navbar-collapse justify-content-end mt-2 mt-lg-0" id="navbarTop">
-      <ul class="navbar-nav align-items-center ms-auto">
-        <!-- 🔹 Menú usuario -->
-        <li class="nav-item dropdown user-menu">
-          <a href="#" class="nav-link dropdown-toggle d-flex align-items-center text-white" data-bs-toggle="dropdown">
+          <img
+            src="<?= $fotoUsuario ?>"
+            alt="Usuario"
+            class="rounded-circle me-2 border border-white"
+            style="width:38px; height:38px; object-fit:cover;"
+          />
+          <span class="fw-semibold d-none d-lg-inline"><?= htmlspecialchars($nombreUsuario) ?></span>
+        </a>
+
+        <!-- 🔹 Dropdown del usuario -->
+        <!-- dropdown-menu-end para alinear a la derecha en escritorio -->
+        <ul class="dropdown-menu border-0 shadow-lg mt-3 rounded-4 overflow-hidden" style="min-width: 230px;">
+
+          <li class="text-center p-3 bg-success text-white">
             <img
-              src="/entrevecinos/views/fotos/00000000.png"
+              src="<?= $fotoUsuario ?>"
+              class="rounded-circle shadow-sm mb-2 border border-white"
+              style="width:70px; height:70px; object-fit:cover;"
               alt="Usuario"
-              class="rounded-circle me-2"
-              style="width:35px; height:35px; object-fit:cover;"
             />
-            <span class="fw-semibold"><?= $nombreUsuario ?></span>
-          </a>
-
-          <!-- 🔹 Dropdown -->
-          <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-2">
-            <li class="text-center p-3 bg-success text-white rounded-top">
-              <img
-                src="/entrevecinos/views/fotos/00000000.png"
-                class="rounded-circle shadow-sm mb-2"
-                style="width:70px; height:70px; object-fit:cover;"
-                alt="Usuario"
-              />
-              <p class="mb-0 fw-semibold"><?= $nombreUsuario ?></p>
-              <small><?= $rolUsuario ?></small>
-            </li>
-            <li class="d-flex justify-content-between px-3 py-2 bg-light rounded-bottom">
+            <p class="mb-0 fw-semibold"><?= htmlspecialchars($nombreUsuario) ?></p>
+            <small><?= ucfirst(htmlspecialchars($rolUsuario)) ?></small>
+          </li>
+          <li class="bg-white">
+            <div class="d-flex justify-content-between px-3 py-3">
               <a href="#" id="btnPerfil" class="btn btn-outline-success btn-sm">
                 <i class="bi bi-person-circle me-1"></i> Perfil
               </a>
               <a href="#" id="btnCerrarSesion" class="btn btn-danger btn-sm">
                 <i class="bi bi-box-arrow-right me-1"></i> Salir
               </a>
-            </li>
-          </ul>
-        </li>
-      </ul>
-    </div>
+            </div>
+          </li>
+        </ul>
+      </li>
+    </ul>
+
   </div>
 </nav>

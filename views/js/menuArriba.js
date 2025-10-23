@@ -11,6 +11,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const backdrop = document.getElementById("sidebar-backdrop");
   const btnCerrarSesion = document.getElementById("btnCerrarSesion");
   const btnPerfil = document.getElementById("btnPerfil");
+  const userDropdown = document.getElementById("userDropdown");
+  const dropdownMenu = userDropdown?.nextElementSibling;
 
   // 🟢 Mostrar / ocultar menú lateral
   if (btnToggleSidebar && sidebar) {
@@ -67,7 +69,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 timer: 1500,
                 showConfirmButton: false
               }).then(() => {
-                // 🔹 Redirigir al login y limpiar cache
                 window.location.replace(`${window.location.origin}/entrevecinos/views/login.php`);
               });
             } else {
@@ -88,4 +89,39 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
   }
+
+  // 🔹 Cerrar automáticamente el menú del usuario al hacer clic fuera
+  document.addEventListener("click", function (event) {
+    if (!dropdownMenu) return;
+
+    const isClickInside = userDropdown.contains(event.target) || dropdownMenu.contains(event.target);
+    if (!isClickInside && dropdownMenu.classList.contains("show")) {
+      const dropdown = bootstrap.Dropdown.getInstance(userDropdown);
+      dropdown.hide();
+    }
+  });
+
+  // 🔹 Función para ajustar el dropdown según tamaño de pantalla
+  function ajustarDropdownUsuario() {
+    const menu = document.querySelector('#userDropdown + .dropdown-menu');
+    if (!menu) return;
+
+    if (window.innerWidth < 992) {
+      // Móvil: centrar y ancho mayor
+      menu.classList.remove('dropdown-menu-end');
+      menu.style.left = '50%';
+      menu.style.transform = 'translateX(-50%)';
+      menu.style.minWidth = '90%';
+    } else {
+      // Desktop: alinear a la derecha del botón
+      menu.classList.add('dropdown-menu-end');
+      menu.style.left = '';
+      menu.style.transform = '';
+      menu.style.minWidth = '230px';
+    }
+  }
+
+  // 🔹 Ajustar al cargar y al redimensionar
+  ajustarDropdownUsuario();
+  window.addEventListener('resize', ajustarDropdownUsuario);
 });
