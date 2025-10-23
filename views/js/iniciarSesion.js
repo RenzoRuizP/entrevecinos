@@ -13,9 +13,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
       fetch('/entrevecinos/login', {
         method: 'POST',
-        body: formData
+        body: formData,
+        credentials: 'include' // ✅ Permite enviar y recibir cookies (JWT)
       })
-      .then(res => res.json())
+      .then(async res => {
+        // Si la respuesta no es JSON válido, lanza error
+        const text = await res.text();
+        try {
+          return JSON.parse(text);
+        } catch {
+          throw new Error('Respuesta no válida del servidor: ' + text);
+        }
+      })
       .then(data => {
         // 🔹 Ocultamos el spinner al recibir respuesta
         if (spinnerOverlay) spinnerOverlay.style.display = 'none';
@@ -27,10 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
             text: data.message || 'Inicio de sesión exitoso.',
             icon: 'success',
             showConfirmButton: false,
-            timer: 2000,
-            didOpen: () => {
-              Swal.showLoading();
-            }
+            timer: 1800,
+            didOpen: () => Swal.showLoading()
           }).then(() => {
             // 🔹 Mostrar spinner antes de redirigir
             if (spinnerOverlay) spinnerOverlay.style.display = 'flex';
@@ -40,7 +47,6 @@ document.addEventListener('DOMContentLoaded', () => {
               window.location.href = data.redirect;
             }, 800);
           });
-
         } else {
           // ⚠️ Error con SweetAlert
           Swal.fire({
@@ -51,13 +57,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       })
       .catch(err => {
-        // 🔹 En caso de error de red, ocultamos el spinner
+        // 🔹 En caso de error de red o JSON inválido
         if (spinnerOverlay) spinnerOverlay.style.display = 'none';
 
         Swal.fire({
           icon: 'error',
           title: 'Error de red',
-          text: 'No se pudo conectar al servidor.'
+          text: 'No se pudo conectar al servidor o respuesta inválida.'
         });
         console.error('Error:', err);
       });

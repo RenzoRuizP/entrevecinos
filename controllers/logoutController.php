@@ -1,20 +1,31 @@
 <?php
-// Forzar que no se cachee
-header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
-header("Cache-Control: post-check=0, pre-check=0", false);
-header("Pragma: no-cache");
+// ============================================================
+// 🔹 logoutController.php — Cierra sesión del usuario (Entre Vecinos)
+// ============================================================
+require_once __DIR__ . '/../Config/config.php';
+require_once __DIR__ . '/../models/SesionJWT.php';
 
-// Eliminar la cookie del token JWT
-if (isset($_COOKIE['auth_token'])) {
-    setcookie("auth_token", "", [
-        'expires' => time() - 3600,
-        'path' => '/',
-        'httponly' => true,
-        'secure' => true,
-        'samesite' => 'Strict'
+header('Content-Type: application/json');
+
+try {
+    // 🔹 Eliminar cookie JWT (independientemente de su nombre)
+    if (isset($_COOKIE['jwt_token'])) {
+        setcookie('jwt_token', '', time() - 3600, '/entrevecinos', '', false, true);
+    }
+    if (isset($_COOKIE['auth_token'])) {
+        setcookie('auth_token', '', time() - 3600, '/entrevecinos', '', false, true);
+    }
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Sesión cerrada correctamente.'
     ]);
-}
+    exit;
 
-// Redirigir al login
-header("Location: ../views/login.php");
-exit;
+} catch (Exception $e) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Error al cerrar sesión: ' . $e->getMessage()
+    ]);
+    exit;
+}

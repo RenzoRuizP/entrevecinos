@@ -1,5 +1,24 @@
 <?php 
 require_once __DIR__ . '/../Config/config.php';
+require_once __DIR__ . '/../middleware/AuthMiddleware.php';
+
+// 🔹 Evitar que el navegador use versiones en caché
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+header("Expires: 0");
+
+// 🔹 Validar token (redirige si no hay sesión)
+$usuario = AuthMiddleware::validarToken();
+if (!$usuario) {
+    header("Location: " . BASE_URL . "views/login.php?error=sesion_expirada");
+    exit;
+}
+
+// 🔹 Obtener nombre o rol si deseas mostrarlo
+$nombreUsuario = htmlspecialchars($usuario['nombre'] ?? 'Usuario');
+$rolUsuario = htmlspecialchars($usuario['rol'] ?? 'vecino');
+
 $menusParaMenuIzquierda = $menus ?? [];
 ?>
 <!DOCTYPE html>
@@ -9,40 +28,22 @@ $menusParaMenuIzquierda = $menus ?? [];
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Entre Vecinos - Panel Principal</title>
 
-  <!-- 🔹 Dependencias principales -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css" rel="stylesheet">
+  <!-- 🔹 Estilos base -->
+  <?php include_once __DIR__ . '/libreria/libreria.php'; ?>
 
-  <!-- 🔹 Tipografía -->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/@fontsource/poppins@5.0.8/index.css"
-    crossorigin="anonymous"
-    media="print"
-    onload="this.media='all'"
-  />
-
-  <!-- 🔹 Estilos base y personalizados -->
-  <link rel="stylesheet" href="<?= BASE_URL ?>resources/util/lte4/dist/css/adminlte.css">
+  <!-- 🔹 Estilos personalizados -->
   <?php include_once __DIR__ . '/estilos.view.php'; ?>
   <?php include_once __DIR__ . '/estilos/menuPrincipalEstilo.php'; ?>
   <?php include_once __DIR__ . '/estilos/menuArribaEstilo.php'; ?>
-
 </head>
 
 <body class="hold-transition">
   <div class="wrapper">
 
-    <!-- ============================================================
-         🔹 MENÚ IZQUIERDO
-    ============================================================ -->
+    <!-- 🔹 MENÚ IZQUIERDO -->
     <?php include __DIR__ . '/menuIzquierdaView.php'; ?>
 
-
-    <!-- ============================================================
-         🔹 CONTENEDOR PRINCIPAL
-    ============================================================ -->
+    <!-- 🔹 CONTENEDOR PRINCIPAL -->
     <div class="main-container flex-grow-1 d-flex flex-column" style="min-height: 100vh; overflow: hidden;">
 
       <!-- 🔹 MENÚ SUPERIOR -->
@@ -52,22 +53,13 @@ $menusParaMenuIzquierda = $menus ?? [];
       <main class="content-wrapper fade-in" id="contenido-principal">
         <?php include __DIR__ . '/menuPrincipalContenido.php'; ?>
       </main>
-
     </div>
   </div>
 
   <!-- 🔹 Fondo oscuro para menú lateral móvil -->
   <div id="sidebar-backdrop"></div>
 
-  <!-- ============================================================
-       🔹 SCRIPTS
-  ============================================================ -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/browser/overlayscrollbars.browser.es6.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
+  <!-- 🔹 Scripts -->
   <?php include_once __DIR__ . '/scripts/menuPrincipalScripts.php'; ?>
-  <script src="<?= BASE_URL ?>views/scripts/menuArriba.js"></script>
-
 </body>
 </html>

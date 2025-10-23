@@ -157,6 +157,15 @@ class SesionJWT extends Conexion {
         }
     }
 
+    public function eliminarToken() {
+        if (isset($_COOKIE['token'])) {
+            setcookie('token', '', time() - 3600, '/', '', true, true);
+            return true;
+        }
+        return false;
+    }
+
+
 }
 /*
     $test = new SesionJWT();

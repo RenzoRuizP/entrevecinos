@@ -21,16 +21,15 @@ class AuthController {
             case 'SI':
                 $token = $resultado['token'];
 
-                // ✅ Guardamos el token en una cookie
+                // ✅ Guardar el token en cookie segura
                 setcookie('auth_token', $token, [
-                    'expires' => time() + 3600, // cambia 3600 por el tiempo que desees
+                    'expires' => time() + 3600, // 1 hora
                     'path' => '/',
-                    'secure' => false, // true si usas HTTPS
+                    'secure' => isset($_SERVER['HTTPS']), // ✅ true solo si HTTPS
                     'httponly' => true,
                     'samesite' => 'Lax'
                 ]);
 
-                // 🔁 Enviar respuesta JSON, no redirección directa
                 echo json_encode([
                     'status' => 'SI',
                     'message' => 'Login exitoso',
@@ -41,61 +40,55 @@ class AuthController {
             case 'NE':
             case 'CI':
             case 'IN':
-                echo json_encode(['status' => $resultado['status'], 'message' => $resultado['message']]);
+                echo json_encode([
+                    'status' => $resultado['status'],
+                    'message' => $resultado['message']
+                ]);
                 break;
 
             default:
-                echo json_encode(['status' => 'error', 'message' => 'Error interno']);
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => 'Error interno del servidor.'
+                ]);
                 break;
         }
     }
 
-
     public function logout() {
-    // ✅ Iniciar sesión si no está iniciada
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
 
-    // ✅ Eliminar cookie JWT
-    if (isset($_COOKIE['auth_token'])) {
-        setcookie('auth_token', '', [
-            'expires' => time() - 3600,
-            'path' => '/',
-            'httponly' => true,
-            'secure' => false, // ⚠️ true solo si usas HTTPS
-            'samesite' => 'Lax'
-        ]);
-        unset($_COOKIE['auth_token']);
-    }
+        // ✅ Eliminar cookie JWT
+        if (isset($_COOKIE['auth_token'])) {
+            setcookie('auth_token', '', [
+                'expires' => time() - 3600,
+                'path' => '/',
+                'secure' => isset($_SERVER['HTTPS']),
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ]);
+            unset($_COOKIE['auth_token']);
+        }
 
-    // ✅ Destruir sesión PHP (por si existiera)
-    session_destroy();
+        session_destroy();
 
-    // ✅ Si es una solicitud AJAX o fetch → responder con JSON
-    $isAjax = (
-        isset($_SERVER['HTTP_X_REQUESTED_WITH']) &&
-        strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'
-    ) || ($_SERVER['REQUEST_METHOD'] === 'POST');
+        $isAjax = (
+            isset($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+            strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'
+        ) || ($_SERVER['REQUEST_METHOD'] === 'POST');
 
-    if ($isAjax) {
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode([
-            'status' => 'success',
-            'message' => 'Has cerrado sesión correctamente.'
-        ]);
+        if ($isAjax) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'status' => 'success',
+                'message' => 'Has cerrado sesión correctamente.'
+            ]);
+            exit;
+        }
+
+        header('Location: /entrevecinos/');
         exit;
     }
-
-    // ✅ Si accede directamente desde el navegador → redirigir al login
-    header('Location: /entrevecinos/');
-    exit;
-}
-
-
-
-
-
-
-
 }

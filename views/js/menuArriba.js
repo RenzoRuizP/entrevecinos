@@ -3,6 +3,8 @@
 // ============================================================
 
 document.addEventListener("DOMContentLoaded", () => {
+  console.log("✅ menuArriba.js cargado correctamente");
+
   const btnToggleSidebar = document.getElementById("btnToggleSidebar");
   const sidebar = document.querySelector(".main-sidebar");
   const layout = document.querySelector(".main-layout") || document.body;
@@ -52,7 +54,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (result.isConfirmed) {
           try {
             const response = await fetch(
-              `${window.location.origin}/entrevecinos/controllers/logoutController.php`
+              `${window.location.origin}/entrevecinos/controllers/logoutController.php`,
+              { method: "GET", credentials: "include" }
             );
             const data = await response.json();
 
@@ -64,7 +67,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 timer: 1500,
                 showConfirmButton: false
               }).then(() => {
-                window.location.href = `${window.location.origin}/entrevecinos/views/login.php`;
+                // 🔹 Redirigir al login y limpiar cache
+                window.location.replace(`${window.location.origin}/entrevecinos/views/login.php`);
               });
             } else {
               Swal.fire({

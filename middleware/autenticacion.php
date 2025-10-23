@@ -1,37 +1,46 @@
 <?php
-/*
-    el middleware "une" diferentes partes de un sistema, asegurando que los componentes puedan interactuar de manera eficiente. 
-*/
-require_once '../models/SesionJWT.php';
-require_once '../vendor/autoload.php';
+// ============================================================
+// 🔐 autenticacion.php — Middleware de validación JWT
+// ============================================================
 
-use Firebase\JWT\ExpiredException;
+require_once __DIR__ . '/../Config/config.php';
+require_once __DIR__ . '/SesionJWT.php';
 
-// Obtener el token JWT desde la cookie
-$token = $_COOKIE['auth_token'] ?? null;
+header('Content-Type: application/json');
 
-// Redirigir si no hay token
-if (!$token) {
-    header("Location: ../views/login.php");
-    exit;
-}
+// 🔹 Nombre coherente de la cookie (mismo que en login y logout)
+$cookieName = 'auth_token';
 
 try {
-    // Validar el token
-    $usuario = SesionJWT::verificarToken($token);
-
-    if (!$usuario || !is_object($usuario)) {
-        header("Location: ../views/login.php?error=token_expirado");
+    // 1️⃣ Verificar si la cookie existe
+    if (!isset($_COOKIE[$cookieName])) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Token no encontrado']);
         exit;
     }
 
-    // Extraer datos del usuario del token (validar existencia)
-    $nombreUsuario   = $usuario->nombre ?? '';
-    $codigoUsuario   = $usuario->codigo_usuario ?? '';
-    $codigoCargo     = $usuario->codigo_cargo ?? '';
-    $email           = $usuario->email ?? '';
+    // 2️⃣ Obtener token
+    $token = $_COOKIE[$cookieName];
+
+    // 3️⃣ Verificar token JWT
+    $jwt = new SesionJWT();
+    $datosUsuario = $jwt->verificarToken($token);
+
+    if (!$datosUsuario) {
+        // ❌ Token inválido o expirado
+        // 🔹 Borrar cookie por seguridad
+        setcookie($cookieName, '', time() - 3600, '/entrevecinos', '', true, true);
+
+        http_response_code(401);
+        echo json_encode(['error' => 'Token inválido o expirado']);
+        exit;
+    }
+
+    // ✅ Token válido — opcionalmente puedes devolver los datos
+    return $datosUsuario;
 
 } catch (Exception $e) {
-    header("Location: ../views/login.php?error=token_error");
+    http_response_code(500);
+    echo json_encode(['error' => 'Error al validar token: ' . $e->getMessage()]);
     exit;
 }

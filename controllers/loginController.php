@@ -10,7 +10,7 @@ try {
     $clave = trim($_POST['clave'] ?? '');
 
     if (empty($email) || empty($clave)) {
-        http_response_code(400); // Bad request
+        http_response_code(400);
         echo json_encode(['status' => 'ERROR', 'message' => 'Campos vacíos']);
         exit;
     }
@@ -38,20 +38,19 @@ try {
             exit;
 
         case "SI":
-            // 🔹 Detectar si se está usando HTTPS
-            $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
+            // 🔹 Detectar si se usa HTTPS
+            $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
                 || $_SERVER['SERVER_PORT'] == 443;
 
-            // 🔹 Crear cookie JWT segura y válida para todo el proyecto
-            setcookie("jwt_token", $resultado['token'], [
+            // 🔹 Crear cookie JWT segura y coherente con todo el sistema
+            setcookie("auth_token", $resultado['token'], [
                 'expires' => time() + intval($_ENV['JWT_EXPIRATION_SECONDS']),
-                'path' => '/entrevecinos', // ✅ importante para que funcione en todas las rutas
+                'path' => '/entrevecinos',
                 'httponly' => true,
                 'secure' => $isHttps,
-                'samesite' => $isHttps ? 'Strict' : 'Lax'
+                'samesite' => $isHttps ? 'None' : 'Lax'
             ]);
 
-            // 🔹 Devolver respuesta JSON para el frontend
             echo json_encode([
                 'status' => 'SI',
                 'message' => 'Inicio de sesión exitoso',

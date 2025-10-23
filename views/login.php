@@ -232,5 +232,25 @@ if (isset($_GET['error'])) {
   <script src="<?= BASE_URL ?>views/js/registrarUser.js"></script>
   <script src="<?= BASE_URL ?>views/js/iniciarSesion.js"></script>
 
+  <script>
+    // ============================================================
+    // 🧩 Evitar spinner o pantalla congelada al retroceder (cache del navegador)
+    // ============================================================
+    window.addEventListener("pageshow", function (event) {
+      // Si el navegador muestra la página desde su caché
+      if (event.persisted) {
+        // 🔹 Forzar recarga limpia del login
+        window.location.reload();
+      }
+    });
+
+    // ============================================================
+    // 🧩 Ocultar spinner por seguridad al cargar el login
+    // ============================================================
+    document.addEventListener("DOMContentLoaded", () => {
+      const spinner = document.querySelector(".spinner-border") || document.getElementById("spinner");
+      if (spinner) spinner.style.display = "none";
+    });
+    </script>
 </body>
 </html>
