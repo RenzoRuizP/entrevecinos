@@ -44,8 +44,11 @@ class User extends Conexion {
 							u.documento,
 							u.telefono,
 							c.direccion_condominio,
+							c.codigo_condominio,
 							c.nombre_condominio,
+							t.codigo_torre,
 							t.nombre_torre,
+							d.codigo_departamento,
 							d.numero_departamento
 							 
 						FROM 

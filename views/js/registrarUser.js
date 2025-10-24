@@ -10,12 +10,12 @@ document.addEventListener("DOMContentLoaded", () => {
       nombre: document.getElementById("nombre").value.trim(),
       documento: document.getElementById("documento").value.trim(),
       telefono: document.getElementById("telefono").value.trim(),
-      email: document.getElementById("email").value.trim(),
+      email: document.getElementById("rEmail").value.trim(),
       codigo_condominio: document.getElementById("comboCondominio").value,
       codigo_torre: document.getElementById("comboTorre").value,
       codigo_departamento: document.getElementById("comboDepartamento").value,
       codigo_rol: 2, // vecino por defecto
-      clave: document.getElementById("clave").value,
+      clave: document.getElementById("rClave").value,
       confirmar_clave: document.getElementById("confirmar_clave").value,
       fecha_inicio: new Date().toISOString().split("T")[0]
     };

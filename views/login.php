@@ -195,11 +195,11 @@ if (isset($_GET['error'])) {
               <div class="row g-3 mb-4">
                 <div class="col-md-6">
                   <label for="email" class="form-label">Correo electrónico</label>
-                  <input type="email" class="form-control" id="email" name="email" required>
+                  <input type="email" class="form-control" id="rEmail" name="rEmail" required>
                 </div>
                 <div class="col-md-6">
                   <label for="clave" class="form-label">Contraseña</label>
-                  <input type="password" class="form-control" id="clave" name="clave" required>
+                  <input type="password" class="form-control" id="rClave" name="rClave" required>
                   <div class="form-text">Mínimo 8 caracteres, con mayúscula, número y símbolo.</div>
                 </div>
                 <div class="col-md-6">
