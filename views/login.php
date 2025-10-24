@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../config/config.php'; // cargamos BASE_URL
+require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 
 $mensaje = '';
 

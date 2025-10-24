@@ -1,5 +1,5 @@
 <?php 
-require_once __DIR__ . '/../Config/config.php';
+require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 ?>
 
 <!-- Vista: DatosPersonalesView.php -->
@@ -16,14 +16,14 @@ require_once __DIR__ . '/../Config/config.php';
         <div class="col-md-6">
           <label for="nombre_completo" class="form-label fw-semibold">NOMBRE COMPLETO</label>
           <input type="text" id="nombre_completo" class="form-control input-premium" 
-                 value="<?= htmlspecialchars($datosUsuario['nombre_completo'] ?? '') ?>" disabled>
+                 value="<?= htmlspecialchars($datosUsuario['nombre_completo'] ?? '') ?>">
         </div>
 
         <!-- Email -->
         <div class="col-md-6">
           <label for="email" class="form-label fw-semibold">CORREO ELECTRÓNICO</label>
           <input type="email" id="email" class="form-control input-premium" 
-                 value="<?= htmlspecialchars($datosUsuario['email'] ?? '') ?>" disabled>
+                 value="<?= htmlspecialchars($datosUsuario['email'] ?? '') ?>">
         </div>
 
         <!-- Documento -->
@@ -37,56 +37,40 @@ require_once __DIR__ . '/../Config/config.php';
         <div class="col-md-6">
           <label for="telefono" class="form-label fw-semibold">TELÉFONO</label>
           <input type="text" id="telefono" class="form-control input-premium" 
-                 value="<?= htmlspecialchars($datosUsuario['telefono'] ?? '') ?>" disabled>
+                 value="<?= htmlspecialchars($datosUsuario['telefono'] ?? '') ?>">
         </div>
 
         <!-- Dirección del condominio -->
         <div class="col-md-6">
           <label for="direccion_condominio" class="form-label fw-semibold">DIRECCIÓN</label>
           <input type="text" id="direccion_condominio" class="form-control input-premium" 
-                 value="<?= htmlspecialchars($datosUsuario['direccion_condominio'] ?? '') ?>" disabled>
+                 value="<?= htmlspecialchars($datosUsuario['direccion_condominio'] ?? '') ?>">
         </div>
 
-        <!-- Nombre del condominio -->
+        <!-- Condominio -->
         <div class="col-md-6">
-  <label for="nombre_condominio" class="form-label fw-semibold">CONDOMINIO</label>
-  <select id="nombre_condominio" class="form-select input-premium" disabled>
-    <option value="">Seleccione un condominio</option>
-    <?php foreach ($condominios as $condominio): ?>
-        <option value="<?= $datosUsuario['codigo_condominio'] ?>" <?= ($datosUsuario['codigo_condominio'] == $condominioActual) ? 'selected' : '' ?>>
-            <?= htmlspecialchars($datosUsuario['nombre']) ?>
-        </option>
-    <?php endforeach; ?>
-  </select>
-</div>
-
-        <!-- Nombre de la torre -->
-        <div class="col-md-6">
-          <label for="nombre_torre" class="form-label fw-semibold">TORRE</label>
-          <select id="nombre_torre" class="form-select input-premium" disabled>
-            <option value="">Seleccione una torre</option>
-            <?php foreach ($torres as $torre): ?>
-                <?php if ($datosUsuario['condominio_id'] == $condominioActual): // mostrar solo torres del condominio seleccionado ?>
-                    <option value="<?= $datosUsuario['id'] ?>" <?= ($datosUsuario['id'] == $torreActual) ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($datosUsuario['nombre']) ?>
-                    </option>
-                <?php endif; ?>
-            <?php endforeach; ?>
+          <label for="comboCondominio" class="form-label fw-semibold">CONDOMINIO</label>
+          <select id="comboCondominio" name="comboCondominio" class="form-select input-premium"
+                  data-valor-registrado="<?= htmlspecialchars($datosUsuario['codigo_condominio'] ?? '') ?>">
+            <option value="">--Seleccione Condominio--</option>
           </select>
         </div>
 
-        <!-- Número de departamento -->
+        <!-- Torre -->
         <div class="col-md-6">
-          <label for="numero_departamento" class="form-label fw-semibold">DEPARTAMENTO</label>
-          <select id="numero_departamento" class="form-select input-premium" disabled>
-            <option value="">Seleccione un departamento</option>
-            <?php foreach ($departamentos as $dept): ?>
-                <?php if ($datosUsuario['torre_id'] == $torreActual): // mostrar solo departamentos de la torre seleccionada ?>
-                    <option value="<?= $datosUsuario['id'] ?>" <?= ($datosUsuario['id'] == $departamentoActual) ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($datosUsuario['numero']) ?>
-                    </option>
-                <?php endif; ?>
-            <?php endforeach; ?>
+          <label for="comboTorre" class="form-label fw-semibold">TORRE</label>
+          <select id="comboTorre" class="form-select input-premium"
+                  data-valor-registrado="<?= htmlspecialchars($datosUsuario['codigo_torre'] ?? '') ?>">
+            <option value="">--Seleccione Torre--</option>
+          </select>
+        </div>
+
+        <!-- Departamento -->
+        <div class="col-md-6">
+          <label for="comboDepartamento" class="form-label fw-semibold">DEPARTAMENTO</label>
+          <select id="comboDepartamento" class="form-select input-premium"
+                  data-valor-registrado="<?= htmlspecialchars($datosUsuario['codigo_departamento'] ?? '') ?>">
+            <option value="">--Seleccione Departamento--</option>
           </select>
         </div>
 
@@ -110,5 +94,5 @@ require_once __DIR__ . '/../Config/config.php';
 
 <!-- JS y estilos específicos -->
 <script>window.BASE_URL = "<?= BASE_URL ?>";</script>
-<script src="<?= BASE_URL ?>views/js/DatosPersonales.js"></script>
- <?php include_once __DIR__ . '/estilos/DatosPersonalesEstilo.php'; ?>
+<script src="<?= BASE_URL ?>js/combo_condominio.js"></script>
+<?php include_once __DIR__ . '/estilos/DatosPersonalesEstilo.php'; ?>
