@@ -5,42 +5,119 @@ require_once __DIR__ . '/../../models/Usuario.php';
 
 class UsuarioDatosController
 {
+    /**
+     * 🔹 Obtener los datos personales del usuario autenticado
+     */
     public function obtenerDatos()
     {
         header('Content-Type: application/json; charset=utf-8');
 
         try {
-            // Verificar si existe cookie JWT
-            if (!isset($_COOKIE['jwt_token'])) {
+            // ✅ Verificar existencia del token
+            if (empty($_COOKIE['auth_token'])) {
                 http_response_code(401);
                 echo json_encode(['error' => 'Token no encontrado']);
                 return;
             }
 
-            $token = $_COOKIE['jwt_token'];
+            $token = $_COOKIE['auth_token'];
 
+            // ✅ Validar el token y obtener datos
             $jwt = new SesionJWT();
             $datosToken = $jwt->verificarToken($token);
 
-            if (!$datosToken) {
+            if (!$datosToken || empty($datosToken['codigo_usuario'])) {
                 http_response_code(401);
                 echo json_encode(['error' => 'Token inválido o expirado']);
                 return;
             }
 
-            $usuario = new Usuario();
-            $data = $usuario->obtenerPorId($datosToken['id_usuario']);
+            // ✅ Obtener datos desde el modelo
+            $usuarioModel = new Usuario();
+            $usuario = $usuarioModel->obtenerPorCodigo($datosToken['codigo_usuario']);
 
-            if ($data) {
-                echo json_encode(['success' => true, 'usuario' => $data]);
-            } else {
+            if (!$usuario) {
                 http_response_code(404);
                 echo json_encode(['error' => 'Usuario no encontrado']);
+                return;
             }
 
-        } catch (Exception $e) {
+            echo json_encode([
+                'success' => true,
+                'usuario' => $usuario
+            ]);
+
+        } catch (Throwable $e) { // <-- captura todo tipo de errores, no solo Exception
             http_response_code(500);
-            echo json_encode(['error' => 'Error del servidor', 'detalle' => $e->getMessage()]);
+            echo json_encode([
+                'error' => 'Error del servidor',
+                'detalle' => $e->getMessage(),
+                'linea' => $e->getLine(),
+                'archivo' => $e->getFile()
+            ]);
+        }
+    }
+
+    /**
+     * 🔹 Actualizar los datos personales del usuario autenticado
+     */
+    public function actualizarDatos()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        try {
+            // ✅ Validar token JWT
+            if (empty($_COOKIE['auth_token'])) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Token no encontrado']);
+                return;
+            }
+
+            $token = $_COOKIE['auth_token'];
+            $jwt = new SesionJWT();
+            $datosToken = $jwt->verificarToken($token);
+
+            if (!$datosToken || empty($datosToken['codigo_usuario'])) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Token inválido o expirado']);
+                return;
+            }
+
+            // ✅ Leer cuerpo JSON
+            $rawInput = file_get_contents("php://input");
+            $data = json_decode($rawInput, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Formato JSON inválido', 'detalle' => json_last_error_msg()]);
+                return;
+            }
+
+            if (empty($data['email']) || empty($data['nombre_completo'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Datos incompletos o inválidos']);
+                return;
+            }
+
+            // ✅ Actualizar en base de datos
+            $usuarioModel = new Usuario();
+            $actualizado = $usuarioModel->actualizarDatos($datosToken['codigo_usuario'], $data);
+
+            if ($actualizado) {
+                echo json_encode(['success' => true, 'message' => 'Datos actualizados correctamente']);
+            } else {
+                http_response_code(400);
+                echo json_encode(['error' => 'No se pudieron actualizar los datos']);
+            }
+
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode([
+                'error' => 'Error del servidor',
+                'detalle' => $e->getMessage(),
+                'linea' => $e->getLine(),
+                'archivo' => $e->getFile()
+            ]);
         }
     }
 }

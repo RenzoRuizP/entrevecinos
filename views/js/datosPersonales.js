@@ -1,121 +1,64 @@
-// DatosPersonales.js
-document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('formDatosPersonales');
-    if (!form) return; // evita errores si el formulario no existe en la página
-    const btnEditar = document.getElementById('btnEditar');
-    const btnGuardar = document.getElementById('btnGuardar');
-    const btnCancelar = document.getElementById('btnCancelar');
-    const inputs = form.querySelectorAll('input, textarea');
+  // 🧩 Delegación de eventos como respaldo adicional
+  document.addEventListener("click", async (e) => {
+    // Detectar clic en el botón guardar, incluso si se cargó dinámicamente
+    if (e.target && e.target.id === "btnGuardar") {
+      const form = document.getElementById("formDatosPersonales");
+      if (!form) return; // si aún no se cargó, no hace nada
 
-    // 🔹 Función para habilitar edición con animación
-    const habilitarEdicion = () => {
-        inputs.forEach(input => {
-            input.removeAttribute('disabled');
-            input.classList.add('input-editando');
-            input.style.transition = 'all 0.3s ease';
-            input.focus();
+      console.log("🟢 (Delegación) Click detectado en btnGuardar");
+
+      const nombre = document.getElementById("nombre_completo")?.value.trim() || "";
+      const email = document.getElementById("email")?.value.trim() || "";
+
+      if (!nombre || !email) {
+        Swal.fire({
+          icon: "warning",
+          title: "Campos requeridos",
+          text: "Por favor ingresa al menos tu nombre y correo electrónico.",
         });
-        btnEditar.style.display = 'none';
-        btnGuardar.style.display = 'inline-block';
-        btnCancelar.style.display = 'inline-block';
-    };
+        return;
+      }
 
-    // 🔹 Función para deshabilitar edición
-    const deshabilitarEdicion = () => {
-        inputs.forEach(input => {
-            input.setAttribute('disabled', true);
-            input.classList.remove('input-editando');
+      Swal.fire({
+        title: "Guardando cambios...",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      try {
+        const response = await fetch(`${window.BASE_URL}api/usuario/actualizar`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            nombre_completo: nombre,
+            email,
+            telefono: document.getElementById("telefono")?.value.trim() || "",
+            direccion_condominio: document.getElementById("direccion_condominio")?.value.trim() || "",
+            comboCondominio: document.getElementById("comboCondominio")?.value || "",
+            comboTorre: document.getElementById("comboTorre")?.value || "",
+            comboDepartamento: document.getElementById("comboDepartamento")?.value || "",
+          }),
         });
-        btnEditar.style.display = 'inline-block';
-        btnGuardar.style.display = 'none';
-        btnCancelar.style.display = 'none';
-    };
 
-    // 🔹 Validación básica de campos
-    const validarCampos = () => {
-        let valido = true;
-        inputs.forEach(input => {
-            input.classList.remove('is-invalid');
-            if (input.hasAttribute('required') && !input.value.trim()) {
-                input.classList.add('is-invalid');
-                valido = false;
-            }
-            if (input.type === 'email' && input.value) {
-                const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!regexEmail.test(input.value)) {
-                    input.classList.add('is-invalid');
-                    valido = false;
-                }
-            }
-        });
-        return valido;
-    };
+        const result = await response.json();
+        console.log("📬 (Delegación) Respuesta del servidor:", result);
 
-    // 🔹 Cancelar edición
-    btnCancelar.addEventListener('click', () => {
-        deshabilitarEdicion();
-        inputs.forEach(input => {
-            input.value = input.getAttribute('value') || '';
-        });
-    });
-
-    // 🔹 Habilitar edición
-    btnEditar.addEventListener('click', habilitarEdicion);
-
-    // 🔹 Guardar cambios
-    btnGuardar.addEventListener('click', async () => {
-        if (!validarCampos()) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Campos inválidos',
-                text: 'Por favor revisa los campos resaltados.'
-            });
-            return;
-        }
-
-        const datosActualizados = {};
-        inputs.forEach(input => datosActualizados[input.id] = input.value);
+        if (!response.ok || !result.success) throw new Error(result.error || "No se pudo guardar la información");
 
         Swal.fire({
-            title: 'Guardando...',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
+          icon: "success",
+          title: "Datos actualizados correctamente",
+          timer: 1500,
+          showConfirmButton: false,
         });
-
-        try {
-            const response = await fetch(`${window.BASE_URL}api/usuario/actualizar`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(datosActualizados)
-            });
-
-            if (!response.ok) throw new Error('Error al guardar datos');
-
-            Swal.fire({
-                icon: 'success',
-                title: 'Datos guardados',
-                timer: 2000,
-                showConfirmButton: false
-            });
-
-            // Actualizar los atributos value para sincronizar
-            inputs.forEach(input => input.setAttribute('value', input.value));
-
-            deshabilitarEdicion();
-
-        } catch (error) {
-            console.error(error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'No se pudieron guardar los datos. Intenta nuevamente.'
-            });
-        }
-    });
-
-    // 🔹 Inicializar combos de condominio si la función existe
-    if (typeof inicializarComboCondominio === 'function') {
-        inicializarComboCondominio();
+      } catch (err) {
+        console.error("❌ (Delegación) Error al guardar:", err);
+        Swal.fire({
+          icon: "error",
+          title: "Error al guardar",
+          text: err.message || "Ocurrió un error al guardar los datos.",
+        });
+      }
     }
-});
+  });

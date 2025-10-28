@@ -1,14 +1,13 @@
-// views/js/menu-izquierda.js
+// ✅ views/js/menuIzquierda.js — versión final segura con JWT y UX/UI Entre Vecinos
 document.addEventListener("DOMContentLoaded", () => {
-  // ================================
-  // 🔹 CONFIGURACIÓN BASE Y UTILIDAD
-  // ================================
+  console.log("✅ menuIzquierda.js cargado");
+
   const baseURL = (window.BASE_URL || "/entrevecinos").replace(/\/$/, "");
   const contenedor = document.getElementById("contenido-principal");
   const sidebar = document.getElementById("sidebar");
   const toggleButtons = document.querySelectorAll("[data-lte-toggle='sidebar'], .sidebar-toggle");
 
-  // Crear backdrop si no existe
+  // 🔹 Crear backdrop si no existe
   let backdrop = document.getElementById("sidebar-backdrop");
   if (!backdrop) {
     backdrop = document.createElement("div");
@@ -16,9 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(backdrop);
   }
 
-  // ================================
-  // 🔹 FUNCIÓN PARA CONSTRUIR URLS
-  // ================================
+  // 🔹 Función para construir URLs seguras
   const buildPathUrl = (ruta) => {
     if (!ruta) return null;
     ruta = ruta.toString().trim();
@@ -29,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ==========================================
-  // 🔹 CARGA DINÁMICA DE VISTAS (Tu versión)
+  // 🔹 CARGA DINÁMICA DE VISTAS CON TOKEN JWT
   // ==========================================
   const attachListeners = () => {
     document.querySelectorAll(".submenu-link").forEach(link => {
@@ -38,12 +35,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
       link.addEventListener("click", async (e) => {
         e.preventDefault();
+
         const href = link.getAttribute("href") || link.dataset.vista || "";
         if (!href || href === "#" || href.startsWith("#menu")) return;
 
-        const url = buildPathUrl(href);
+        let url = buildPathUrl(href);
         if (!url) return;
 
+        // 🔹 Forzar modo parcial también por querystring
+        url += (url.includes('?') ? '&' : '?') + 'partial=1';
+
+        // 🔹 Spinner UX mientras carga
         if (contenedor) {
           contenedor.innerHTML = `
             <div class="text-center p-5">
@@ -55,17 +57,58 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
           const response = await fetch(url, {
-            headers: { "X-Requested-With": "XMLHttpRequest" },
+            method: "GET",
+            headers: {
+              "X-Requested-With": "XMLHttpRequest",
+              "X-Partial": "1"
+            },
+            credentials: "include" // ✅ Envía cookie auth_token
           });
+
+          // 🔹 Detectar sesión expirada o sin token
+          if (response.status === 401) {
+            Swal.fire({
+              icon: "warning",
+              title: "Sesión expirada",
+              text: "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
+              confirmButtonText: "Ir al login",
+              confirmButtonColor: "#0F592F"
+            }).then(() => {
+              window.location.href = `${baseURL}/views/login.php?error=token_expirado`;
+            });
+            return;
+          }
+
           if (!response.ok) throw new Error(`Error HTTP ${response.status}`);
 
           const html = await response.text();
+
+          // 🔹 Evitar que el login o el panel completo se incrusten
+          if (
+            html.includes("<title>Entre vecinos |") ||
+            html.includes("formLogin") ||
+            html.includes("<html") || // por si devolviera documento completo
+            html.includes("<main class=\"content-wrapper") // por si devolviera el panel entero
+          ) {
+            Swal.fire({
+              icon: "warning",
+              title: "Sesión finalizada",
+              text: "Tu sesión ha caducado o la vista devolvió la plantilla completa.",
+              confirmButtonText: "Aceptar"
+            }).then(() => {
+              window.location.href = `${baseURL}/`;
+            });
+            return;
+          }
+
+          // 🔹 Inyectar contenido en el contenedor principal
           if (contenedor) contenedor.innerHTML = html;
 
+          // 🔹 Marcar enlace activo visualmente
           document.querySelectorAll(".submenu-link").forEach(el => el.classList.remove("active"));
           link.classList.add("active");
 
-          // Cerrar menú en móvil después de hacer clic
+          // 🔹 Cerrar menú lateral en móvil
           sidebar.classList.remove("active");
           backdrop.classList.remove("show");
           document.body.style.overflow = "";
@@ -88,7 +131,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   attachListeners();
 
-  // Observa cambios en el menú (si se genera dinámicamente)
+  // 🔹 Observar cambios en el menú (si se genera dinámicamente)
   const nav = document.getElementById("navigation");
   if (nav) {
     const observer = new MutationObserver(() => attachListeners());
@@ -113,7 +156,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.style.overflow = "";
   });
 
-  // Cerrar sidebar si se cambia a escritorio
   window.addEventListener("resize", () => {
     if (window.innerWidth > 992) {
       sidebar.classList.remove("active");
@@ -123,7 +165,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ==========================================
-  // 🔹 SUBMENÚS TIPO ACORDEÓN
+  // 🔹 SUBMENÚS ACORDEÓN
   // ==========================================
   document.querySelectorAll("#sidebar .nav-link[data-bs-toggle='collapse']").forEach(link => {
     link.addEventListener("click", function () {

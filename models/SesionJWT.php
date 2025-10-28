@@ -89,7 +89,13 @@ class SesionJWT extends Conexion {
 
         try {
             $decoded = JWT::decode($token, new Key($claveSecreta, 'HS256'));
-            return $decoded->data;
+
+            // 🔹 Convertir el objeto a array para evitar "stdClass as array"
+            $data = isset($decoded->data)
+                ? json_decode(json_encode($decoded->data), true)
+                : [];
+
+            return $data;
         } catch (ExpiredException $e) {
             // Token expirado
             return null;
@@ -98,6 +104,7 @@ class SesionJWT extends Conexion {
             return null;
         }
     }
+
 
     public function obtenerOpcionesMenu($nombre_rol) {
         try {
@@ -158,12 +165,13 @@ class SesionJWT extends Conexion {
     }
 
     public function eliminarToken() {
-        if (isset($_COOKIE['token'])) {
-            setcookie('token', '', time() - 3600, '/', '', true, true);
+        if (isset($_COOKIE['auth_token'])) {
+            setcookie('auth_token', '', time() - 3600, '/', '', true, true);
             return true;
         }
         return false;
     }
+
 
 
 }

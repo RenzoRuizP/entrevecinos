@@ -3,7 +3,6 @@
 // ============================================================
 
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("✅ menuArriba.js cargado correctamente");
 
   const btnToggleSidebar = document.getElementById("btnToggleSidebar");
   const sidebar = document.querySelector(".main-sidebar");

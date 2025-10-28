@@ -1,6 +1,7 @@
-// --- 🔹 Mensaje de bienvenida tras login exitoso ---
+// ✅ views/js/menuPrincipal.js — versión mejorada con credenciales y sesión segura
 const params = new URLSearchParams(window.location.search);
 
+// --- 🔹 Mensaje de bienvenida tras login exitoso ---
 if (params.has('success')) {
   const success = params.get('success');
   if (success === 'login_exitoso') {
@@ -11,20 +12,19 @@ if (params.has('success')) {
       timer: 2000,
       showConfirmButton: false,
     });
-    // Limpiar el query string para no repetir el mensaje
+    // Limpiar el query string
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 }
 
-// --- 🔹 Configuración del Scrollbar lateral ---
-const SELECTOR_SIDEBAR_WRAPPER = '.sidebar-wrapper';
-const Default = {
-  scrollbarTheme: 'os-theme-light',
-  scrollbarAutoHide: 'leave',
-  scrollbarClickScroll: true,
-};
-
 document.addEventListener('DOMContentLoaded', () => {
+  const SELECTOR_SIDEBAR_WRAPPER = '.sidebar-wrapper';
+  const Default = {
+    scrollbarTheme: 'os-theme-light',
+    scrollbarAutoHide: 'leave',
+    scrollbarClickScroll: true,
+  };
+
   const sidebarWrapper = document.querySelector(SELECTOR_SIDEBAR_WRAPPER);
   if (sidebarWrapper && OverlayScrollbarsGlobal?.OverlayScrollbars !== undefined) {
     OverlayScrollbarsGlobal.OverlayScrollbars(sidebarWrapper, {
@@ -36,10 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- 🔹 Base URL del proyecto ---
   const baseURL = window.BASE_URL || '/entrevecinos';
-
-  // --- 🔹 Carga dinámica de vistas ---
   const enlaces = document.querySelectorAll('.submenu-link');
   const contenedor = document.getElementById('contenido-principal');
 
@@ -50,15 +47,11 @@ document.addEventListener('DOMContentLoaded', () => {
       let vistaRuta = link.dataset.vista || link.getAttribute('href');
       if (!vistaRuta || vistaRuta === '#') return;
 
-      // 🔹 Normalizar ruta para evitar "//"
       if (!vistaRuta.startsWith(baseURL)) {
         vistaRuta = `${baseURL}/${vistaRuta.replace(/^\/+/, '')}`;
       }
       vistaRuta = vistaRuta.replace(/([^:]\/)\/+/g, '$1');
 
-      console.log('📄 Cargando vista:', vistaRuta);
-
-      // 🔹 Mostrar spinner mientras carga
       contenedor.innerHTML = `
         <div class="text-center p-5">
           <div class="spinner-border text-success" role="status"></div>
@@ -67,13 +60,41 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       try {
-        const response = await fetch(vistaRuta);
+        const response = await fetch(vistaRuta, {
+          method: 'GET',
+          credentials: 'include' // ✅ Enviar cookie auth_token
+        });
+
+        if (response.status === 401) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Sesión expirada',
+            text: 'Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.',
+            confirmButtonText: 'Aceptar'
+          }).then(() => {
+            window.location.href = `${baseURL}/views/login.php?error=token_expirado`;
+          });
+          return;
+        }
+
         if (!response.ok) throw new Error(`Error HTTP ${response.status}`);
 
         const html = await response.text();
+
+        if (html.includes("<title>Entre vecinos |") || html.includes("formLogin")) {
+          Swal.fire({
+            icon: "warning",
+            title: "Sesión finalizada",
+            text: "Tu sesión ha caducado. Por favor vuelve a iniciar sesión.",
+            confirmButtonText: "Aceptar"
+          }).then(() => {
+            window.location.href = `${baseURL}/`;
+          });
+          return;
+        }
+
         contenedor.innerHTML = html;
 
-        // ✅ Marcar enlace activo visualmente
         document.querySelectorAll('.submenu-link').forEach(el => el.classList.remove('active'));
         link.classList.add('active');
       } catch (error) {
@@ -88,9 +109,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
-});
 
-document.addEventListener("DOMContentLoaded", () => {
+  // --- 🔹 Sidebar Toggle ---
   const sidebar = document.getElementById("sidebar");
   const backdrop = document.getElementById("sidebar-backdrop");
   const toggleBtn = document.getElementById("btnToggleSidebar");

@@ -76,10 +76,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 
         <!-- Botones de acción -->
         <div class="col-12 text-end mt-3 d-flex flex-wrap gap-2 justify-content-end">
-          <button type="button" id="btnEditar" class="btn btn-editar"  style="display:none;">
-            <i class="fas fa-pen me-1"></i> Editar
-          </button>
-          <button type="button" id="btnGuardar" class="btn btn-outline-success btn-lg">
+          <button type="button" id="btnGuardar" class="btn btn-outline-success btn-guardar">
             <i class="fas fa-save me-1"></i> GUARDAR
           </button>
           <button type="button" id="btnCancelar" class="btn btn-cancelar" style="display:none;">

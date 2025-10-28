@@ -53,6 +53,7 @@ $routes = [
 
     // API de datos del usuario autenticado
     ['GET', '#^/api/usuario/datos$#', [usuarioDatosController::class, 'obtenerDatos'], 'json'],
+    ['POST', '#^/api/usuario/actualizar$#', [usuarioDatosController::class, 'actualizarDatos'], 'json'], // 👈 NUEVA RUTA
 ];
 
 // Buscar coincidencia
