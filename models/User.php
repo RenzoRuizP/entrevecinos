@@ -43,7 +43,7 @@ class User extends Conexion {
 							u.email,
 							u.documento,
 							u.telefono,
-							c.direccion_condominio,
+							-- c.direccion_condominio,
 							c.codigo_condominio,
 							c.nombre_condominio,
 							t.codigo_torre,

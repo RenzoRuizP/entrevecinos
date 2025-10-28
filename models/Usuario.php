@@ -16,16 +16,22 @@ class Usuario extends Conexion
                         u.email,
                         u.documento,
                         u.telefono,
-                        u.direccion_condominio,
-                        u.codigo_condominio,
-                        u.codigo_torre,
-                        u.codigo_departamento,
-                        r.nombre AS rol,
-                        c.nombre AS condominio
-                    FROM usuario u
-                    INNER JOIN rol r ON u.codigo_rol = r.id_rol
-                    LEFT JOIN condominio c ON u.codigo_condominio = c.id_condominio
-                    WHERE u.codigo_usuario = :codigo_usuario
+                        c.codigo_condominio,
+                        t.codigo_torre,
+                        d.codigo_departamento,
+                        c.nombre_condominio AS condominio
+                    FROM 
+                        usuario u 
+                        LEFT JOIN usuario_departamento ud 
+                            ON u.codigo_usuario = ud.codigo_usuario 
+                        LEFT JOIN departamento d
+                            ON ud.codigo_departamento = d.codigo_departamento 
+                        LEFT JOIN torre t
+                            ON d.codigo_torre = t.codigo_torre 
+                        LEFT JOIN condominio c 
+                            ON t.codigo_condominio = c.codigo_condominio
+                    WHERE 
+                        u.codigo_usuario = :codigo_usuario
                     LIMIT 1";
 
             $stmt = $this->dblink->prepare($sql);
@@ -43,55 +49,80 @@ class Usuario extends Conexion
      */
     private function emailExiste($email, $codigo_usuario_excluir)
     {
-        try {
-            $sql = "SELECT COUNT(*) FROM usuario 
-                    WHERE email = :email AND codigo_usuario != :codigo_usuario";
-            $stmt = $this->dblink->prepare($sql);
-            $stmt->bindParam(':email', $email);
-            $stmt->bindParam(':codigo_usuario', $codigo_usuario_excluir, PDO::PARAM_INT);
-            $stmt->execute();
+        $sql = "SELECT COUNT(*) FROM usuario 
+                WHERE email = :email AND codigo_usuario != :codigo_usuario";
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindParam(':email', $email);
+        $stmt->bindParam(':codigo_usuario', $codigo_usuario_excluir, PDO::PARAM_INT);
+        $stmt->execute();
 
-            return $stmt->fetchColumn() > 0;
-        } catch (Exception $e) {
-            throw $e;
-        }
+        return $stmt->fetchColumn() > 0;
     }
 
     /**
-     * 🔹 Actualizar los datos personales del usuario
+     * 🔹 Verificar que el departamento exista (para respetar la FK)
+     */
+    private function departamentoExiste($codigo_departamento)
+    {
+        if ($codigo_departamento === null || $codigo_departamento === '') return false;
+
+        $sql = "SELECT 1 FROM departamento WHERE codigo_departamento = :dep LIMIT 1";
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindParam(':dep', $codigo_departamento, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return (bool) $stmt->fetchColumn();
+    }
+
+    /**
+     * 🔹 Actualizar los datos personales del usuario usando SP
+     * Usa los nombres reales que envía el front:
+     * - nombre_completo, documento, telefono, comboDepartamento
      */
     public function actualizarDatos($codigo_usuario, $data)
     {
         try {
-            // 1️⃣ Validar si el email ya pertenece a otro usuario
+            // 1) Validar duplicado de email (email lo envía el front, aunque esté deshabilitado en la vista)
             if ($this->emailExiste($data['email'], $codigo_usuario)) {
                 throw new Exception("El correo electrónico ingresado ya está registrado por otro usuario.");
             }
 
-            // 2️⃣ Ejecutar actualización
-            $sql = "UPDATE usuario
-                    SET 
-                        nombre = :nombre,
-                        email = :email,
-                        telefono = :telefono,
-                        direccion_condominio = :direccion,
-                        codigo_condominio = :condominio,
-                        codigo_torre = :torre,
-                        codigo_departamento = :departamento,
-                        fecha_actualizacion = NOW()
-                    WHERE codigo_usuario = :codigo_usuario";
+            // 2) Mapear campos desde el payload real del front
+            $nombre   = isset($data['nombre_completo']) ? $data['nombre_completo'] : '';
+            $documento = isset($data['documento']) ? $data['documento'] : '';
+            $telefono  = isset($data['telefono']) ? $data['telefono'] : '';
+            // Departamento llega como comboDepartamento
+            $codigo_departamento = null;
+            if (isset($data['comboDepartamento']) && $data['comboDepartamento'] !== '') {
+                $codigo_departamento = (int) $data['comboDepartamento'];
+            }
 
+            if ($codigo_departamento === null) {
+                throw new Exception("Debes seleccionar un departamento.");
+            }
+
+            // 3) Validar existencia del departamento para evitar FK 1452
+            if (!$this->departamentoExiste($codigo_departamento)) {
+                throw new Exception("El departamento seleccionado no existe.");
+            }
+
+            // 4) Ejecutar procedimiento almacenado
+            $sql = "CALL sp_actualizar_usuario(
+                        :p_nombre,
+                        :p_documento,
+                        :p_telefono,
+                        :p_codigo_departamento,
+                        :p_codigo_usuario
+                    )";
             $stmt = $this->dblink->prepare($sql);
-            $stmt->bindParam(':nombre', $data['nombre_completo']);
-            $stmt->bindParam(':email', $data['email']);
-            $stmt->bindParam(':telefono', $data['telefono']);
-            $stmt->bindParam(':direccion', $data['direccion_condominio']);
-            $stmt->bindParam(':condominio', $data['comboCondominio']);
-            $stmt->bindParam(':torre', $data['comboTorre']);
-            $stmt->bindParam(':departamento', $data['comboDepartamento']);
-            $stmt->bindParam(':codigo_usuario', $codigo_usuario, PDO::PARAM_INT);
+            $stmt->bindParam(':p_nombre', $nombre, PDO::PARAM_STR);
+            $stmt->bindParam(':p_documento', $documento, PDO::PARAM_STR);
+            $stmt->bindParam(':p_telefono', $telefono, PDO::PARAM_STR);
+            $stmt->bindParam(':p_codigo_departamento', $codigo_departamento, PDO::PARAM_INT);
+            $stmt->bindParam(':p_codigo_usuario', $codigo_usuario, PDO::PARAM_INT);
 
             return $stmt->execute();
+
         } catch (Exception $e) {
             throw $e;
         }

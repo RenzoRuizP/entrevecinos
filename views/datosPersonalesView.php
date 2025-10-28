@@ -23,14 +23,14 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
         <div class="col-md-6">
           <label for="email" class="form-label fw-semibold">CORREO ELECTRÓNICO</label>
           <input type="email" id="email" class="form-control input-premium" 
-                 value="<?= htmlspecialchars($datosUsuario['email'] ?? '') ?>">
+                 value="<?= htmlspecialchars($datosUsuario['email'] ?? '') ?>" disabled>
         </div>
 
         <!-- Documento -->
         <div class="col-md-6">
           <label for="documento" class="form-label fw-semibold">DOCUMENTO DE IDENTIDAD</label>
           <input type="text" id="documento" class="form-control input-premium" 
-                 value="<?= htmlspecialchars($datosUsuario['documento'] ?? '') ?>" disabled>
+                 value="<?= htmlspecialchars($datosUsuario['documento'] ?? '') ?>">
         </div>
 
         <!-- Teléfono -->
@@ -41,11 +41,11 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
         </div>
 
         <!-- Dirección del condominio -->
-        <div class="col-md-6">
+        <!--<div class="col-md-6">
           <label for="direccion_condominio" class="form-label fw-semibold">DIRECCIÓN</label>
           <input type="text" id="direccion_condominio" class="form-control input-premium" 
-                 value="<?= htmlspecialchars($datosUsuario['direccion_condominio'] ?? '') ?>">
-        </div>
+                 value="<?//= htmlspecialchars($datosUsuario['direccion_condominio'] ?? '') ?>">
+        </div>-->
 
         <!-- Condominio -->
         <div class="col-md-6">

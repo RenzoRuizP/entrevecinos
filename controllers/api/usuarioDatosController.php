@@ -24,8 +24,7 @@ class UsuarioDatosController
 
             // ✅ Validar el token y obtener datos
             $jwt = new SesionJWT();
-            $datosToken = $jwt->verificarToken($token);
-
+            $datosToken = $jwt->verificarToken($token); // devuelve ARRAY ['codigo_usuario'...]
             if (!$datosToken || empty($datosToken['codigo_usuario'])) {
                 http_response_code(401);
                 echo json_encode(['error' => 'Token inválido o expirado']);
@@ -35,7 +34,8 @@ class UsuarioDatosController
             // ✅ Obtener datos desde el modelo
             $usuarioModel = new Usuario();
             $usuario = $usuarioModel->obtenerPorCodigo($datosToken['codigo_usuario']);
-
+            var_dump($usuario);
+            exit;
             if (!$usuario) {
                 http_response_code(404);
                 echo json_encode(['error' => 'Usuario no encontrado']);
@@ -47,7 +47,7 @@ class UsuarioDatosController
                 'usuario' => $usuario
             ]);
 
-        } catch (Throwable $e) { // <-- captura todo tipo de errores, no solo Exception
+        } catch (Throwable $e) {
             http_response_code(500);
             echo json_encode([
                 'error' => 'Error del servidor',
@@ -73,10 +73,8 @@ class UsuarioDatosController
                 return;
             }
 
-            $token = $_COOKIE['auth_token'];
             $jwt = new SesionJWT();
-            $datosToken = $jwt->verificarToken($token);
-
+            $datosToken = $jwt->verificarToken($_COOKIE['auth_token']); // ARRAY
             if (!$datosToken || empty($datosToken['codigo_usuario'])) {
                 http_response_code(401);
                 echo json_encode(['error' => 'Token inválido o expirado']);
@@ -99,10 +97,18 @@ class UsuarioDatosController
                 return;
             }
 
+            // (Opcional) Validar que comboDepartamento sea numérico si viene
+            if (isset($data['comboDepartamento']) && $data['comboDepartamento'] !== '' &&
+                !ctype_digit((string)$data['comboDepartamento'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Departamento inválido']);
+                return;
+            }
+
             // ✅ Actualizar en base de datos
             $usuarioModel = new Usuario();
             $actualizado = $usuarioModel->actualizarDatos($datosToken['codigo_usuario'], $data);
-
+            
             if ($actualizado) {
                 echo json_encode(['success' => true, 'message' => 'Datos actualizados correctamente']);
             } else {
