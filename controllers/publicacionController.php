@@ -1,10 +1,10 @@
 <?php
-// controllers/miPerfilController.php
+// controllers/publicacionController.php
 
 require_once __DIR__ . '/../models/SesionJWT.php';
 require_once __DIR__ . '/../models/User.php';
 
-class miPerfilController
+class publicacionController
 {
     public function index()
     {
@@ -33,11 +33,11 @@ class miPerfilController
             // 3) SIEMPRE devolver el parcial (evitamos redirecciones al panel)
             //    La vista usa $datosUsuario y BASE_URL para renderizar el formulario
             header('X-Partial-Ok: 1');
-            require __DIR__ . '/../views/DatosPersonalesView.php';
+            require __DIR__ . '/../views/publicacionView.php';
             return;
 
         } catch (Throwable $e) {
-            error_log("Error en MiPerfilController::index -> " . $e->getMessage());
+            error_log("Error en publicacionController::index -> " . $e->getMessage());
 
             // Si es parcial/AJAX, responde JSON de error
             if ($this->esPeticionParcial()) {
@@ -55,34 +55,33 @@ class miPerfilController
             return;
         }
     }
-
     private function esPeticionParcial(): bool
-    {
-        // fetch/ajax clásico
-        if (isset($_SERVER['HTTP_X_REQUESTED_WITH'])
-            && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
-            return true;
+        {
+            // fetch/ajax clásico
+            if (isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+                && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+                return true;
+            }
+            // header explícito
+            if (isset($_SERVER['HTTP_X_PARTIAL']) && $_SERVER['HTTP_X_PARTIAL'] === '1') {
+                return true;
+            }
+            // querystring ?partial=1
+            if (isset($_GET['partial']) && $_GET['partial'] === '1') {
+                return true;
+            }
+            return false;
         }
-        // header explícito
-        if (isset($_SERVER['HTTP_X_PARTIAL']) && $_SERVER['HTTP_X_PARTIAL'] === '1') {
-            return true;
-        }
-        // querystring ?partial=1
-        if (isset($_GET['partial']) && $_GET['partial'] === '1') {
-            return true;
-        }
-        return false;
-    }
 
     private function resolverNoAutorizado(string $motivo = 'no_autorizado')
-    {
-        if ($this->esPeticionParcial()) {
-            http_response_code(401);
-            header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(['error' => 'No autorizado', 'motivo' => $motivo]);
+        {
+            if ($this->esPeticionParcial()) {
+                http_response_code(401);
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['error' => 'No autorizado', 'motivo' => $motivo]);
+                return;
+            }
+            header("Location: /entrevecinos/?error={$motivo}");
             return;
         }
-        header("Location: /entrevecinos/?error={$motivo}");
-        return;
-    }
 }

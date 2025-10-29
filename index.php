@@ -9,6 +9,8 @@ require_once __DIR__ . '/controllers/UserController.php';
 require_once __DIR__ . '/controllers/miPerfilController.php';
 require_once __DIR__ . '/controllers/api/usuarioDatosController.php';
 require_once __DIR__ . '/models/SesionJWT.php'; // 👈 Importante para validar token en rutas protegidas
+require_once __DIR__ . '/controllers/publicacionController.php';
+
 
 // Ruta base
 $basePath = '/entrevecinos';
@@ -48,8 +50,15 @@ $routes = [
     ['GET', '#^/logout$#', [AuthController::class, 'logout'], 'html'],
     ['POST', '#^/logout$#', [AuthController::class, 'logout'], 'json'],
 
-    // Vista mi perfil
+    // ****** VISTAS ******
+
+    // ** mi perfil **
     ['GET', '#^/mi-perfil$#', [miPerfilController::class, 'index'], 'html'],
+    // ** publicación **
+    ['GET', '#^/publicacion$#', [publicacionController::class, 'index'], 'html'],
+
+
+    // ****** FIN VISTAS ******
 
     // API de datos del usuario autenticado
     ['GET', '#^/api/usuario/datos$#', [usuarioDatosController::class, 'obtenerDatos'], 'json'],
