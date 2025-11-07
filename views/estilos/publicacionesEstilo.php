@@ -262,4 +262,19 @@
 .modal .modal-title{ color:#fff; font-weight:600; }
 .modal .btn-close{ filter: invert(1) contrast(120%); opacity:.9; }
 .modal .btn-close:hover{ opacity:1; }
+
+/* ===== Uploader imágenes Entre Vecinos ===== */
+.ev-uploader .ev-thumb { position: relative; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,.08); }
+.ev-uploader .ev-thumb img { width: 100%; height: 120px; object-fit: cover; display: block; }
+.ev-uploader .ev-remove {
+  position: absolute; top: 6px; right: 6px;
+  border-radius: 999px; padding: .15rem .45rem; line-height: 1;
+}
+.ev-uploader .ev-caption {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,.55));
+  color: #fff; font-size: .75rem; padding: .25rem .5rem;
+  text-shadow: 0 1px 2px rgba(0,0,0,.5);
+}
+
 </style>

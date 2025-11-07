@@ -225,31 +225,42 @@ require_once __DIR__ . '/../Config/config.php';
         <h5 class="modal-title" id="lblAgregarPublicacion"><i class="bi bi-plus-lg me-2"></i>Nueva publicación</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
+
       <form id="formAgregarPublicacion">
         <div class="modal-body">
           <div class="row g-3">
+
             <div class="col-md-8">
               <label class="form-label">Título</label>
               <input type="text" name="titulo" class="form-control input-premium" required>
             </div>
+
+            <!-- Tipo + Categoría -->
             <div class="col-md-4">
-              <label class="form-label">Categoría</label>
-              <select name="categoria" class="form-select input-premium" required>
-                <option hidden value="">Seleccione…</option>
-                <option>Electrodomésticos</option>
-                <option>Hogar</option>
-                <option>Servicios</option>
-                <option>Otros</option>
+              <label class="form-label">Tipo</label>
+              <select id="comboTipo" name="comboTipo" class="form-select input-premium" required>
+                <option value="">--Seleccione Tipo--</option>
               </select>
             </div>
+
+            <div class="col-md-12">
+              <label class="form-label">Categoría</label>
+              <select id="comboCategoria" name="categoria" class="form-select input-premium" required>
+                <option value="" selected disabled>Selecciona una categoría…</option>
+
+              </select>
+            </div>
+
             <div class="col-md-12">
               <label class="form-label">Descripción</label>
               <textarea name="descripcion" class="form-control input-premium" rows="3" required></textarea>
             </div>
+
             <div class="col-md-4">
               <label class="form-label">Precio (S/)</label>
               <input type="number" name="precio" class="form-control input-premium" step="0.01" min="0" required>
             </div>
+
             <div class="col-md-4">
               <label class="form-label">Estado</label>
               <select name="estado" class="form-select input-premium" required>
@@ -257,16 +268,38 @@ require_once __DIR__ . '/../Config/config.php';
                 <option>Usado</option>
               </select>
             </div>
-            <div class="col-md-4">
-              <label class="form-label">Stock</label>
-              <input type="number" name="stock" class="form-control input-premium" min="1" value="1" required>
-            </div>
+
             <div class="col-md-12">
-              <label class="form-label">Imágenes (opcional)</label>
-              <input type="file" name="imagenes[]" class="form-control input-premium" accept="image/*" multiple>
+              <label class="form-label">Imágenes (máx. 3)</label>
+
+              <div id="uploaderAgregar" class="ev-uploader">
+                <input
+                  type="file"
+                  id="inputImagenes"
+                  name="imagenes[]"
+                  class="form-control input-premium"
+                  accept="image/*"
+                  multiple
+                  data-max="3"
+                />
+
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                  <small class="text-muted" id="helpImagenes">Hasta 3 imágenes (JPG, PNG o WebP). Máx 5 MB c/u.</small>
+                  <button type="button" id="btnLimpiarImagenes" class="btn btn-sm btn-outline-secondary">
+                    Limpiar
+                  </button>
+                </div>
+
+                <div id="previewImagenes" class="row g-2 mt-2"></div>
+                <div class="text-end">
+                  <small id="contadorImagenes" class="text-muted">0 de 3</small>
+                </div>
+              </div>
             </div>
+
           </div>
         </div>
+
         <div class="modal-footer">
           <button type="button" class="btn btn-cancelar" data-bs-dismiss="modal">Cancelar</button>
           <button type="submit" class="btn btn-outline-success btn-guardar">Guardar</button>

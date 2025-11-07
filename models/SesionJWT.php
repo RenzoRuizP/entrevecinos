@@ -41,7 +41,7 @@ class SesionJWT extends Conexion {
                 return ['status' => 'NE']; // No existe
             if (!password_verify($this->clave, $usuario['clave'])) 
                 return ['status' => 'CI']; // Contraseña incorrecta
-            if ($usuario['estado'] !== '1') 
+            if ($usuario['estado'] == '0') 
                 return ['status' => 'IN']; // Usuario inactivo
 
             // Obtener roles del usuario

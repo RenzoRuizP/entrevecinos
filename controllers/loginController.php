@@ -20,7 +20,7 @@ try {
     $objSesion->setClave($clave);
 
     $resultado = $objSesion->iniciarSesionJWT();
-
+   
     switch ($resultado['status']) {
         case "CI":
             http_response_code(401);

@@ -10,6 +10,7 @@ require_once __DIR__ . '/controllers/miPerfilController.php';
 require_once __DIR__ . '/controllers/api/usuarioDatosController.php';
 require_once __DIR__ . '/models/SesionJWT.php'; // 👈 Importante para validar token en rutas protegidas
 require_once __DIR__ . '/controllers/publicacionController.php';
+require_once __DIR__ . '/controllers/tipoController.php';
 
 
 // Ruta base
@@ -21,12 +22,14 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 // ✅ Rutas públicas (NO requieren token)
 $publicRoutes = [
-    '#^/$#',            // loginForm
-    '#^/login$#',       // login POST
-    '#^/usuarios/registrar$#', // registro usuario
-    '#^/condominios$#',              // ✅ Permitir sin token
+    '#^/$#',         
+    '#^/login$#',      
+    '#^/usuarios/registrar$#', 
+    '#^/condominios$#',            
     '#^/condominios/(\d+)/torres$#', 
-    '#^/torres/(\d+)/departamentos$#'
+    '#^/torres/(\d+)/departamentos$#',
+    '#^/tipos$#',
+    '#^/tipos/(\d+)/categoria_grupo$#'
 ];
 
 
@@ -42,6 +45,8 @@ $routes = [
     ['GET', '#^/condominios$#', [CondominioController::class, 'listar'], 'json'],
     ['GET', '#^/condominios/(\d+)/torres$#', [CondominioController::class, 'listarTorres'], 'json'],
     ['GET', '#^/torres/(\d+)/departamentos$#', [CondominioController::class, 'listarDepartamentos'], 'json'],
+    ['GET', '#^/tipos$#', [tipoController::class, 'listar'], 'json'],
+    ['GET', '#^/tipos/(\d+)/categoria_grupo$#', [tipoController::class, 'listarCategoria_grupo'], 'json'],
 
     // Registro de vecinos (JSON)
     ['POST', '#^/usuarios/registrar$#', [UserController::class, 'registrar'], 'json'],
@@ -63,6 +68,10 @@ $routes = [
     // API de datos del usuario autenticado
     ['GET', '#^/api/usuario/datos$#', [usuarioDatosController::class, 'obtenerDatos'], 'json'],
     ['POST', '#^/api/usuario/actualizar$#', [usuarioDatosController::class, 'actualizarDatos'], 'json'], // 👈 NUEVA RUTA
+
+    // API mis publicaciones
+    //['GET', '#^/api/usuario/datos$#', [usuarioDatosController::class, 'obtenerDatos'], 'json'],
+    ['POST', '#^/api/publicacion/registrar$#', [publicacionApiController::class, 'registrarPublicacion'], 'json'], // 👈 NUEVA RUTA
 ];
 
 // Buscar coincidencia
