@@ -1,74 +1,128 @@
 // combo_tipo.js
-function inicializarComboTipo() {
-    const combotipo = document.getElementById("comboTipo");
-   // const comboTorre = document.getElementById("comboTorre");
-   // const comboDepartamento = document.getElementById("comboDepartamento");
+(function () {
+  // 🔒 Evita doble inicialización si el script se incluye 2 veces
+  if (window.__EV_TIPO_INITED__) return;
+  window.__EV_TIPO_INITED__ = true;
 
-    if (!combotipo) {
-        console.warn("No se encontraron combo de tipo DOM.");
-        return;
+  function inicializarComboTipo() {
+    const comboTipo = document.getElementById("comboTipo");
+    const comboCategoria = document.getElementById("comboCategoria");
+
+    if (!comboTipo || !comboCategoria) {
+      console.warn("No se encontraron comboTipo y/o comboCategoria en el DOM.");
+      return;
     }
 
-    const valorRegistradoTipo = comboTipo.dataset.valorRegistrado;
-    //const valorRegistradoTorre = comboTorre.dataset.valorRegistrado;
-   // const valorRegistradoDepartamento = comboDepartamento.dataset.valorRegistrado;
+    const valorRegistradoTipo = comboTipo.dataset.valorRegistrado || "";
+    const valorRegistradoCategoria = comboCategoria.dataset.valorRegistrado || "";
 
-    // 🔹 Normaliza URL evitando doble slash
+    // Normaliza URL evitando doble slash y usando BASE_URL del servidor
     const buildURL = (path) => {
-        if (!window.BASE_URL) {
-            console.error("window.BASE_URL no está definido");
-            return path;
-        }
-        return window.BASE_URL.replace(/\/+$/, '') + '/' + path.replace(/^\/+/, '');
+      const base = (window.BASE_URL || "").replace(/\/+$/, "");
+      return base + "/" + String(path).replace(/^\/+/, "");
     };
 
-    // 🔹 Función genérica para cargar combos
-    async function cargarCombo(url, combo, placeholder, mapFn, valorSeleccionado = null) {
-        try {
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(`Error al cargar datos desde ${url}`);
-            const data = await res.json();
+    const resetSelect = (selectEl, placeholder = "Seleccione…", disabled = false) => {
+      selectEl.innerHTML = `<option value="" selected disabled>-- ${placeholder} --</option>`;
+      selectEl.disabled = disabled;
+    };
 
-            combo.innerHTML = `<option value="">${placeholder}</option>`;
-            data.forEach(item => {
-                const opt = document.createElement("option");
-                const { value, text } = mapFn(item);
-                opt.value = value;
-                opt.textContent = text;
-                if (valorSeleccionado && valorSeleccionado == value) {
-                    opt.selected = true;
-                }
-                combo.appendChild(opt);
-            });
-        } catch (error) {
-            console.error(`Error al cargar ${placeholder}:`, error);
-        }
+    const renderCategorias = (data, selectedValue = "") => {
+      resetSelect(comboCategoria, "Selecciona una categoría", false);
+
+      // Formato PLANO esperado: [{ grupo, codigo_categoria, categoria }, ...]
+      const grupos = {};
+      data.forEach(row => {
+        const g = row.grupo || "Otros";
+        if (!grupos[g]) grupos[g] = [];
+        grupos[g].push({
+          value: row.codigo_categoria,
+          text: row.categoria
+        });
+      });
+
+      Object.keys(grupos).forEach(nombreGrupo => {
+        const og = document.createElement("optgroup");
+        og.label = nombreGrupo;
+        grupos[nombreGrupo].forEach(it => {
+          const op = document.createElement("option");
+          op.value = it.value;
+          op.textContent = it.text;
+          if (selectedValue && String(selectedValue) === String(op.value)) op.selected = true;
+          og.appendChild(op);
+        });
+        comboCategoria.appendChild(og);
+      });
+    };
+
+    async function cargarJSON(url) {
+      const res = await fetch(url, { headers: { "Accept": "application/json" } });
+      if (!res.ok) throw new Error(`HTTP ${res.status} al cargar ${url}`);
+      return await res.json();
     }
 
-    // 🔹 Cargar condominios y seleccionar valor registrado
-    cargarCombo(
-        buildURL('tipos'),
-        comboTipo,
-        '--Seleccione Tipos--',
-        c => ({ value: c.codigo_tipo, text: c.nombre }),
-        valorRegistradoTipo
-    ).then(() => {
-        // Si hay condominio registrado, cargar torres automáticamente
-        if (valorRegistradoTipo) {
-            comboTipo.dispatchEvent(new Event('change'));
+    // Cargar Tipos
+    const cargarTipos = async () => {
+      resetSelect(comboTipo, "Seleccione Tipos", false);
+      try {
+        const data = await cargarJSON(buildURL("tipos")); // ← /{base}/tipos
+        data.forEach(t => {
+          const op = document.createElement("option");
+          op.value = t.codigo_tipo;
+          op.textContent = t.nombre;
+          comboTipo.appendChild(op);
+        });
+        if (valorRegistradoTipo) comboTipo.value = String(valorRegistradoTipo);
+
+        if (comboTipo.value) {
+          comboTipo.dispatchEvent(new Event("change"));
+        } else {
+          resetSelect(comboCategoria, "Selecciona un tipo primero", true);
         }
+      } catch (e) {
+        console.error("Error cargando Tipos:", e);
+        resetSelect(comboTipo, "Error al cargar Tipos", true);
+        resetSelect(comboCategoria, "Error al cargar", true);
+      }
+    };
+
+    // Cargar Categorías según tipo
+    const cargarCategoriasPorTipo = async (codigoTipo, preselect = "") => {
+      if (!codigoTipo) {
+        resetSelect(comboCategoria, "Selecciona un tipo primero", true);
+        return;
+      }
+      resetSelect(comboCategoria, "Cargando categorías...", true);
+      try {
+        // Ruta real definida en tu index.php
+        const data = await cargarJSON(buildURL(`tipos/${encodeURIComponent(codigoTipo)}/categoria_grupo`));
+        renderCategorias(data, preselect);
+        comboCategoria.disabled = false;
+      } catch (e) {
+        console.error("Error cargando Categorías:", e);
+        resetSelect(comboCategoria, "No se pudo cargar categorías", true);
+      }
+    };
+
+    // Eventos
+    comboTipo.addEventListener("change", () => {
+      const tipo = comboTipo.value;
+      const pre = valorRegistradoCategoria || "";
+      cargarCategoriasPorTipo(tipo, pre);
     });
 
-}
+    // Inicio
+    cargarTipos();
+  }
 
-// 🔹 Esperar a que exista el combo antes de inicializar
-function esperarComboYInicializar() {
+  function esperarComboYInicializar() {
     const combo = document.getElementById("comboTipo");
     if (combo) {
-        inicializarComboTipo();
+      inicializarComboTipo();
     } else {
-        setTimeout(esperarComboYInicializar, 100);
+      setTimeout(esperarComboYInicializar, 100);
     }
-}
+  }
 
-//document.addEventListener("DOMContentLoaded", esperarComboYInicializar);
+  document.addEventListener("DOMContentLoaded", esperarComboYInicializar);
+})();

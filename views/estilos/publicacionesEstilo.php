@@ -114,6 +114,75 @@
   background-size: 10px 10px;
 }
 
+/* ===== 🎯 Mejora visual para #comboTipo y #comboCategoria ===== */
+#comboTipo.form-select.input-premium,
+#comboCategoria.form-select.input-premium{
+  transition: background-color .2s ease, box-shadow .2s ease, transform .08s ease;
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,.0), rgba(255,255,255,.0)),
+    var(--bs-form-select-bg-img),
+    radial-gradient(ellipse at top left, rgba(15,89,47,.06), transparent 60%);
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-position: right .75rem center, right .75rem center, left -20% -40%;
+  background-size: 16px 12px, 16px 12px, 160% 160%;
+}
+#comboTipo.form-select.input-premium:hover,
+#comboCategoria.form-select.input-premium:hover{
+  box-shadow: 0 6px 18px rgba(0,0,0,.08);
+  transform: translateY(-1px);
+}
+#comboTipo.form-select.input-premium:focus,
+#comboCategoria.form-select.input-premium:focus{
+  border-color: #138f57;
+  box-shadow: 0 0 0 .2rem rgba(19,143,87,.18);
+  outline: none;
+  transform: translateY(0);
+}
+#comboTipo option[disabled]:first-child,
+#comboCategoria option[disabled]:first-child{
+  color: #8e9aa4;
+}
+/* Estado “cargando” (cuando están deshabilitados por fetch) */
+#comboTipo:disabled,
+#comboCategoria:disabled{
+  cursor: progress;
+  color: #94a3b8;
+  background:
+    url('data:image/svg+xml;utf8, \
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"> \
+        <circle cx="50" cy="50" r="32" stroke="%23138957" stroke-width="10" fill="none" opacity=".2"/> \
+        <path d="M82 50a32 32 0 0 1-32 32" stroke="%23138957" stroke-width="10" fill="none"> \
+          <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="0.8s" repeatCount="indefinite"/> \
+        </path> \
+      </svg>') no-repeat right 2.25rem center / 18px 18px,
+    var(--bs-form-select-bg-img) no-repeat right .75rem center/16px 12px,
+    linear-gradient(180deg, rgba(0,0,0,.02), rgba(0,0,0,.02));
+}
+/* Pulso breve al seleccionar (se activa desde JS agregando .ev-pulse) */
+@keyframes evPulse {
+  0%   { box-shadow: 0 0 0 .0rem rgba(19,143,87,.00); }
+  50%  { box-shadow: 0 0 0 .35rem rgba(19,143,87,.15); }
+  100% { box-shadow: 0 0 0 .0rem rgba(19,143,87,.00); }
+}
+#comboTipo.ev-pulse,
+#comboCategoria.ev-pulse{
+  animation: evPulse .55s ease-out;
+}
+/* Halo sutil cuando tienen valor */
+#comboTipo.is-filled,
+#comboCategoria.is-filled{
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,.0), rgba(255,255,255,.0)),
+    var(--bs-form-select-bg-img),
+    radial-gradient(ellipse at top left, rgba(15,89,47,.10), transparent 60%);
+}
+/* Estado error opcional */
+#comboTipo.is-invalid,
+#comboCategoria.is-invalid{
+  border-color: #dc3545;
+  box-shadow: 0 0 0 .2rem rgba(220,53,69,.15);
+}
+
 /* ===== Tabla ===== */
 .ev-table-wrap{ max-height: calc(70vh - 140px); overflow:auto; }
 .ev-table{ width:100%; border-collapse: separate; border-spacing:0; }

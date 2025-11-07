@@ -1,18 +1,19 @@
 <?php 
 require_once __DIR__ . '/../Config/config.php';
 ?>
+<script>
+  // Exponer BASE_URL para los fetch del front
+  window.BASE_URL = "<?= rtrim(BASE_URL, '/'); ?>";
+</script>
 
 <div class="container-publicaciones fade-in">
   <div class="card ev-card">
-    
-    <!-- 🏷️ Header con gradiente + acciones -->
     <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
       <h5 class="mb-0 d-flex align-items-center gap-2">
         <i class="bi bi-list-ul"></i> Publicaciones
       </h5>
 
       <div class="d-flex align-items-center gap-2">
-        <!-- Densidad -->
         <div class="d-none d-md-flex align-items-center gap-2 me-2">
           <span class="ev-label-small">Densidad:</span>
           <div class="btn-group btn-group-sm" role="group" aria-label="Densidad">
@@ -22,29 +23,18 @@ require_once __DIR__ . '/../Config/config.php';
           </div>
         </div>
 
-        <!-- Buscar -->
-        <button 
-          type="button" 
-          id="btnBuscar" 
-          class="btn btn-ev-outline d-flex align-items-center gap-2"
-          data-bs-toggle="modal" 
-          data-bs-target="#modalBuscarPublicacion">
+        <button type="button" id="btnBuscar" class="btn btn-ev-outline d-flex align-items-center gap-2"
+          data-bs-toggle="modal" data-bs-target="#modalBuscarPublicacion">
           <i class="bi bi-search"></i><span class="d-none d-sm-inline">Buscar</span>
         </button>
 
-        <!-- Agregar -->
-        <button 
-          type="button" 
-          id="btnAgregar" 
-          class="btn btn-ev-primary d-flex align-items-center gap-2"
-          data-bs-toggle="modal" 
-          data-bs-target="#modalAgregarPublicacion">
+        <button type="button" id="btnAgregar" class="btn btn-ev-primary d-flex align-items-center gap-2"
+          data-bs-toggle="modal" data-bs-target="#modalAgregarPublicacion">
           <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline">Agregar</span>
         </button>
       </div>
     </div>
 
-    <!-- 🔢 KPIs y filtros activos -->
     <div class="ev-subheader sticky-toolbar">
       <div class="ev-kpis">
         <div class="ev-kpi"><span class="ev-kpi-label">Total</span><span class="ev-kpi-value">128</span></div>
@@ -53,14 +43,12 @@ require_once __DIR__ . '/../Config/config.php';
       </div>
 
       <div class="ev-filters-chips">
-        <!-- Chips de filtros activos (ejemplo) -->
         <span class="ev-chip-filter">Estado: Nuevo <button class="btn-close btn-close-white ms-2" aria-label="Quitar"></button></span>
         <span class="ev-chip-filter">Precio &lt; S/ 50 <button class="btn-close btn-close-white ms-2" aria-label="Quitar"></button></span>
         <button class="btn btn-ev-soft btn-sm ms-1">Limpiar todo</button>
       </div>
     </div>
 
-    <!-- 📋 Tabla -->
     <div class="card-body p-0">
       <div class="table-responsive ev-table-wrap">
         <table class="table table-hover align-middle mb-0 ev-table" id="tablaPublicaciones">
@@ -74,7 +62,6 @@ require_once __DIR__ . '/../Config/config.php';
             </tr>
           </thead>
           <tbody>
-            <!-- Fila 1 -->
             <tr>
               <td data-label="Código"><span class="ev-code">000001</span></td>
               <td data-label="Garante">Privado</td>
@@ -89,44 +76,11 @@ require_once __DIR__ . '/../Config/config.php';
                 </div>
               </td>
             </tr>
-
-            <!-- Fila 2 -->
-            <tr>
-              <td data-label="Código"><span class="ev-code">000002</span></td>
-              <td data-label="Garante">Privado</td>
-              <td data-label="Producto" class="td-trunc" title="Producto Privado">Privado</td>
-              <td data-label="Mecanismo">Px</td>
-              <td data-label="Opciones" class="text-center">
-                <div class="ev-actions">
-                  <button class="ev-chip ev-chip-amber">Finalizar</button>
-                  <button class="ev-chip ev-chip-green">Renovar</button>
-                  <button class="ev-chip ev-chip-teal">Prestación</button>
-                  <button class="ev-chip ev-chip-red">Anular</button>
-                </div>
-              </td>
-            </tr>
-
-            <!-- Fila 3 -->
-            <tr>
-              <td data-label="Código"><span class="ev-code">000003</span></td>
-              <td data-label="Garante">Privado</td>
-              <td data-label="Producto" class="td-trunc" title="Producto Privado">Privado</td>
-              <td data-label="Mecanismo">Px</td>
-              <td data-label="Opciones" class="text-center">
-                <div class="ev-actions">
-                  <button class="ev-chip ev-chip-amber">Finalizar</button>
-                  <button class="ev-chip ev-chip-green">Renovar</button>
-                  <button class="ev-chip ev-chip-teal">Prestación</button>
-                  <button class="ev-chip ev-chip-red">Anular</button>
-                </div>
-              </td>
-            </tr>
-            <!-- Más filas dinámicas… -->
+            <!-- … filas demo … -->
           </tbody>
         </table>
       </div>
 
-      <!-- 🔻 Footer / Paginación -->
       <div class="ev-foot">
         <div class="ev-page-size">
           Registros por página:
@@ -247,7 +201,6 @@ require_once __DIR__ . '/../Config/config.php';
               <label class="form-label">Categoría</label>
               <select id="comboCategoria" name="categoria" class="form-select input-premium" required>
                 <option value="" selected disabled>Selecciona una categoría…</option>
-
               </select>
             </div>
 
@@ -271,25 +224,13 @@ require_once __DIR__ . '/../Config/config.php';
 
             <div class="col-md-12">
               <label class="form-label">Imágenes (máx. 3)</label>
-
               <div id="uploaderAgregar" class="ev-uploader">
-                <input
-                  type="file"
-                  id="inputImagenes"
-                  name="imagenes[]"
-                  class="form-control input-premium"
-                  accept="image/*"
-                  multiple
-                  data-max="3"
-                />
-
+                <input type="file" id="inputImagenes" name="imagenes[]" class="form-control input-premium"
+                       accept="image/*" multiple data-max="3" />
                 <div class="d-flex justify-content-between align-items-center mt-2">
                   <small class="text-muted" id="helpImagenes">Hasta 3 imágenes (JPG, PNG o WebP). Máx 5 MB c/u.</small>
-                  <button type="button" id="btnLimpiarImagenes" class="btn btn-sm btn-outline-secondary">
-                    Limpiar
-                  </button>
+                  <button type="button" id="btnLimpiarImagenes" class="btn btn-sm btn-outline-secondary">Limpiar</button>
                 </div>
-
                 <div id="previewImagenes" class="row g-2 mt-2"></div>
                 <div class="text-end">
                   <small id="contadorImagenes" class="text-muted">0 de 3</small>
@@ -308,3 +249,6 @@ require_once __DIR__ . '/../Config/config.php';
     </div>
   </div>
 </div>
+
+<!-- Scripts: incluye combo_tipo.js una sola vez -->
+<script src="<?= BASE_URL ?>public/js/combo_tipo.js"></script>

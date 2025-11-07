@@ -14,11 +14,11 @@ class tipoController {
         header('Content-Type: application/json');
         echo json_encode($tipo);
     }
+
     // GET /tipos/{id}/categoria_grupo
     public function listarCategoria_grupo($tipoId) {
-        $data = $this->model->listarCategoria_grupo($tipoId);
+        $data = $this->model->listarCategoria_grupo((int)$tipoId);
         header('Content-Type: application/json');
         echo json_encode($data);
     }
-  
 }
