@@ -113,7 +113,8 @@ require_once __DIR__ . '/../Config/config.php';
 
 <!-- 🔎 Modal Buscar -->
 <div class="modal fade" id="modalBuscarPublicacion" tabindex="-1" aria-labelledby="lblBuscarPublicacion" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+  <!-- 👉 ancho XL, centrado -->
+  <div class="modal-dialog modal-xl modal-dialog-centered ev-modal-wide">
     <div class="modal-content border-0 ev-card">
       <div class="modal-header">
         <h5 class="modal-title" id="lblBuscarPublicacion"><i class="bi bi-search me-2"></i>Buscar publicaciones</h5>
@@ -171,84 +172,130 @@ require_once __DIR__ . '/../Config/config.php';
   </div>
 </div>
 
-<!-- ➕ Modal Agregar -->
-<div class="modal fade" id="modalAgregarPublicacion" tabindex="-1" aria-labelledby="lblAgregarPublicacion" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
-    <div class="modal-content border-0 ev-card">
-      <div class="modal-header">
-        <h5 class="modal-title" id="lblAgregarPublicacion"><i class="bi bi-plus-lg me-2"></i>Nueva publicación</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
+  <!-- ➕ Modal Agregar (todo dentro del modal, dos columnas) -->
+  <div class="modal fade" id="modalAgregarPublicacion" tabindex="-1" aria-labelledby="lblAgregarPublicacion" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content border-0 ev-card">
+        <div class="modal-header">
+          <h5 class="modal-title" id="lblAgregarPublicacion">
+            <i class="bi bi-plus-lg me-2"></i>Nueva publicación
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
 
-      <form id="formAgregarPublicacion">
-        <div class="modal-body">
-          <div class="row g-3">
+        <form id="formAgregarPublicacion">
+          <div class="modal-body">
+            <!-- Grid interno: izquierda form, derecha preview -->
+            <div class="mpm-grid">
+              <!-- IZQUIERDA: FORM -->
+              <section class="mpm-left">
+                <div class="row g-3">
+                  <div class="col-12">
+                    <label class="form-label">Título</label>
+                    <input type="text" id="titulo" name="titulo" class="form-control input-premium" placeholder="Escribe un título claro" required>
+                  </div>
 
-            <div class="col-md-8">
-              <label class="form-label">Título</label>
-              <input type="text" name="titulo" class="form-control input-premium" required>
-            </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Precio (S/)</label>
+                    <input type="number" id="precio" name="precio" class="form-control input-premium" step="0.01" min="0" placeholder="0.00" required>
+                  </div>
 
-            <!-- Tipo + Categoría -->
-            <div class="col-md-4">
-              <label class="form-label">Tipo</label>
-              <select id="comboTipo" name="comboTipo" class="form-select input-premium" required>
-                <option value="">--Seleccione Tipo--</option>
-              </select>
-            </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Estado</label>
+                    <select id="estado" name="estado" class="form-select input-premium" required>
+                      <option>Nuevo</option>
+                      <option>Usado</option>
+                    </select>
+                  </div>
 
-            <div class="col-md-12">
-              <label class="form-label">Categoría</label>
-              <select id="comboCategoria" name="categoria" class="form-select input-premium" required>
-                <option value="" selected disabled>Selecciona una categoría…</option>
-              </select>
-            </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Tipo</label>
+                    <select id="comboTipo" name="comboTipo" class="form-select input-premium" required>
+                      <option value="">--Seleccione Tipo--</option>
+                    </select>
+                  </div>
 
-            <div class="col-md-12">
-              <label class="form-label">Descripción</label>
-              <textarea name="descripcion" class="form-control input-premium" rows="3" required></textarea>
-            </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Categoría</label>
+                    <select id="comboCategoria" name="categoria" class="form-select input-premium" required>
+                      <option value="" selected disabled>Selecciona una categoría…</option>
+                    </select>
+                  </div>
 
-            <div class="col-md-4">
-              <label class="form-label">Precio (S/)</label>
-              <input type="number" name="precio" class="form-control input-premium" step="0.01" min="0" required>
-            </div>
+                  <div class="col-12">
+                    <label class="form-label">Descripción</label>
+                    <textarea id="descripcion" name="descripcion" class="form-control input-premium" rows="4" placeholder="Describe el producto con detalle" required></textarea>
+                  </div>
 
-            <div class="col-md-4">
-              <label class="form-label">Estado</label>
-              <select name="estado" class="form-select input-premium" required>
-                <option>Nuevo</option>
-                <option>Usado</option>
-              </select>
-            </div>
+                  <div class="col-12">
+                    <label class="form-label">Imágenes (máx. 3)</label>
+                    <div id="uploaderAgregar" class="ev-uploader">
+                      <!-- input real, oculto -->
+                      <input
+                        type="file"
+                        id="inputImagenes"
+                        name="imagenes[]"
+                        accept="image/*"
+                        multiple
+                        data-max="3"
+                        class="visually-hidden" />
 
-            <div class="col-md-12">
-              <label class="form-label">Imágenes (máx. 3)</label>
-              <div id="uploaderAgregar" class="ev-uploader">
-                <input type="file" id="inputImagenes" name="imagenes[]" class="form-control input-premium"
-                       accept="image/*" multiple data-max="3" />
-                <div class="d-flex justify-content-between align-items-center mt-2">
-                  <small class="text-muted" id="helpImagenes">Hasta 3 imágenes (JPG, PNG o WebP). Máx 5 MB c/u.</small>
-                  <button type="button" id="btnLimpiarImagenes" class="btn btn-sm btn-outline-secondary">Limpiar</button>
+                      <!-- file picker moderno -->
+                      <div class="ev-filepicker" id="evFilePicker" tabindex="0">
+                        <button type="button" class="btn ev-file-btn" id="evFileFakeBtn">
+                          <i class="bi bi-cloud-arrow-up me-2"></i> Subir imágenes
+                        </button>
+                        <span class="ev-file-hint">o arrastra y suelta aquí</span>
+                        <small class="ev-file-meta" id="evFileMeta">
+                          JPG, PNG o WebP • Máx 5 MB c/u • Máx 3
+                        </small>
+                      </div>
+
+                      <!-- barra inferior: ayuda + limpiar -->
+                      <div class="d-flex justify-content-between align-items-center mt-2">
+                        <small class="text-muted">Hasta 3 imágenes (JPG, PNG o WebP). Máx 5 MB c/u.</small>
+                        <button type="button" id="btnLimpiarImagenes" class="btn btn-sm btn-outline-secondary">Limpiar</button>
+                      </div>
+
+                      <!-- chips + contador -->
+                      <div id="previewImagenes" class="row g-2 mt-2"></div>
+                      <div class="text-end">
+                        <small id="contadorImagenes" class="text-muted">0 de 3</small>
+                      </div>
+                    </div>
+
+                  </div>
                 </div>
-                <div id="previewImagenes" class="row g-2 mt-2"></div>
-                <div class="text-end">
-                  <small id="contadorImagenes" class="text-muted">0 de 3</small>
-                </div>
-              </div>
-            </div>
+              </section>
 
+              <!-- DERECHA: PREVIEW EN VIVO -->
+              <aside class="mpm-right">
+                <div class="mpm-preview-wrap">
+                  <!-- Aquí se montará la previsualización (imagen principal + thumbs) -->
+                  <div id="previewMount"></div>
+
+                  <!-- Datos en vivo -->
+                  <div class="mp-preview-details ev-card p-3 mt-3">
+                    <h5 id="prevTitulo" class="mb-1">Título</h5>
+                    <div id="prevPrecio" class="text-success fw-bold">S/ 0.00</div>
+                    <hr class="my-3">
+                    <h6 class="text-muted mb-1">Detalles</h6>
+                    <p id="prevDescripcion" class="mb-0 text-secondary">La descripción aparecerá aquí.</p>
+                  </div>
+                </div>
+              </aside>
+            </div>
           </div>
-        </div>
 
-        <div class="modal-footer">
-          <button type="button" class="btn btn-cancelar" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-outline-success btn-guardar">Guardar</button>
-        </div>
-      </form>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-cancelar" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-outline-success btn-guardar">Guardar</button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
-</div>
+
 
 <!-- Scripts: incluye combo_tipo.js una sola vez -->
 <script src="<?= BASE_URL ?>public/js/combo_tipo.js"></script>
