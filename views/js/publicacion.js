@@ -1,6 +1,21 @@
 /* publicaciones.js */
 
 /* ==============================
+   Ajuste de viewport seguro (vh)
+============================== */
+(function () {
+  function setEvVh() {
+    const vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--ev-vh', `${vh}px`);
+  }
+  setEvVh();
+  window.addEventListener('resize', setEvVh);
+  document.addEventListener('shown.bs.modal', (e) => {
+    if (e.target && e.target.id === 'modalAgregarPublicacion') setEvVh();
+  });
+})();
+
+/* ==============================
    Modales + acciones básicas
 ============================== */
 (function () {
@@ -47,7 +62,7 @@
 ============================== */
 (function () {
   const MAX_MB = 5;
-  let initialized = false; // evita listeners duplicados
+  let initialized = false;
 
   function notify(msg) {
     if (window.Swal?.fire) Swal.fire({icon:'info', title:'Aviso', text: msg});
@@ -65,23 +80,20 @@
   function initUploader(modalEl) {
     if (initialized) return;
 
-    // ---- Elementos base
     const uploader = modalEl.querySelector('#uploaderAgregar');
     const input    = modalEl.querySelector('#inputImagenes');
     const preview  = modalEl.querySelector('#previewImagenes');
     const btnClr   = modalEl.querySelector('#btnLimpiarImagenes');
     const lblCnt   = modalEl.querySelector('#contadorImagenes');
-
     if (!uploader || !input || !preview) return;
 
     const MAX_FILES = Number(input.dataset.max || 3);
     let dt = new DataTransfer();
     let selectedIndex = 0;
 
-    // ---- Picker moderno (botón/drag&drop)
-    const filePicker = modalEl.querySelector('#evFilePicker');   // caja grande dashed
-    const fakeBtn    = modalEl.querySelector('#evFileFakeBtn');  // botón "Subir imágenes"
-    const fileMeta   = modalEl.querySelector('#evFileMeta');     // línea de meta/ayuda
+    const filePicker = modalEl.querySelector('#evFilePicker');
+    const fakeBtn    = modalEl.querySelector('#evFileFakeBtn');
+    const fileMeta   = modalEl.querySelector('#evFileMeta');
 
     const refreshMetaHint = () => {
       if (!fileMeta) return;
@@ -123,7 +135,6 @@
       refreshMetaHint();
     });
 
-    // ---- Previsualización ampliada y tarjeta meta
     let previewWrapper, previewMainImg, previewThumbs, previewActions;
     let metaCard, metaTitleEl, metaPriceEl, metaDescEl;
 
@@ -138,7 +149,6 @@
     };
 
     function ensureMetaCard() {
-      // eliminar duplicados si existieran
       const metas = document.querySelectorAll('#evMetaCard');
       if (metas.length > 1) metas.forEach((n, i) => { if (i > 0) n.remove(); });
 
@@ -155,11 +165,8 @@
             <p id="evMetaDesc" class="mb-0" style="color:#475569;">La descripción aparecerá aquí.</p>
           </div>`;
         const mount = document.getElementById('previewMount') || uploader;
-        if (mount && mount !== uploader) {
-          mount.appendChild(card);
-        } else {
-          uploader.insertAdjacentElement('afterend', card);
-        }
+        if (mount && mount !== uploader) mount.appendChild(card);
+        else uploader.insertAdjacentElement('afterend', card);
       }
       metaCard   = card;
       metaTitleEl = metaCard.querySelector('#evMetaTitle');
@@ -203,7 +210,6 @@
       }
 
       const mount = document.getElementById('previewMount');
-      // no borramos todo el mount; solo insertamos si no está
       if (mount) {
         if (!mount.contains(previewWrapper)) mount.prepend(previewWrapper);
       } else if (!previewWrapper.parentElement) {
@@ -211,7 +217,7 @@
       }
 
       ensureMetaCard();
-      updateMeta(); // sincroniza con valores actuales del formulario
+      updateMeta();
     }
 
     function showPreviewArea(show){ ensurePreviewArea(); previewWrapper.style.display = show ? '' : 'none'; }
@@ -261,13 +267,12 @@
       else { showPreviewArea(false); }
     }
 
-    // ---- Actualiza tarjeta meta según inputs del formulario
+    /* ---- Actualiza tarjeta meta según inputs del formulario ---- */
     function updateMeta() {
       if (!metaTitleEl || !metaPriceEl || !metaDescEl) return;
       const title = modalEl.querySelector('input[name="titulo"]')?.value?.trim() || 'Título';
       const priceRaw = modalEl.querySelector('input[name="precio"]')?.value || '';
       const desc  = modalEl.querySelector('textarea[name="descripcion"]')?.value?.trim() || 'La descripción aparecerá aquí.';
-      // normaliza precio
       const n = Number(priceRaw || 0);
       const precio = isNaN(n) ? '0.00' : n.toFixed(2);
 
@@ -276,7 +281,7 @@
       metaDescEl.textContent  = desc;
     }
 
-    // ---- Eventos (input nativo + chips + navegación)
+    /* ---- Eventos uploader ---- */
     input.addEventListener('change', (e)=>{
       const nuevos = Array.from(e.target.files||[]);
       if (!nuevos.length) { refreshMetaHint(); return; }
@@ -317,30 +322,28 @@
       }
     });
 
-    // Inputs que alimentan la tarjeta meta
+    /* Inputs que alimentan la tarjeta meta */
     modalEl.querySelector('input[name="titulo"]')?.addEventListener('input', updateMeta);
     modalEl.querySelector('input[name="precio"]')?.addEventListener('input', updateMeta);
     modalEl.querySelector('textarea[name="descripcion"]')?.addEventListener('input', updateMeta);
 
-    // ---- Reset al cerrar (sin recrear UI, sin duplicados)
+    /* Reset al cerrar */
     modalEl.addEventListener('hidden.bs.modal', ()=>{
       dt = new DataTransfer(); input.value=''; input.files = dt.files; selectedIndex=0;
       preview.innerHTML=''; setCount(); refreshMetaHint();
       const wrap = document.getElementById('evPreviewWrapper');
       if (wrap) wrap.style.display = 'none';
-      // resetea la tarjeta existente
       if (metaTitleEl) metaTitleEl.textContent = 'Título';
       if (metaPriceEl) metaPriceEl.textContent = 'S/ 0.00';
       if (metaDescEl)  metaDescEl.textContent  = 'La descripción aparecerá aquí.';
     });
 
-    // ---- Primera pintura
     render();
     refreshMetaHint();
     initialized = true;
   }
 
-  // Inicializa al abrir el modal
+  /* Inicializa al abrir el modal */
   document.addEventListener('shown.bs.modal', (ev) => {
     const modal = ev.target;
     if (modal && modal.id === 'modalAgregarPublicacion') {
@@ -348,7 +351,7 @@
     }
   });
 
-  // Si ya estaba visible (caso raro), intenta inicializar
+  /* Si ya estaba visible (caso raro) */
   window.addEventListener('DOMContentLoaded', () => {
     const m = document.getElementById('modalAgregarPublicacion');
     if (m && m.classList.contains('show')) initUploader(m);
@@ -364,11 +367,59 @@
   const markFilled = (el) => {
     if (!el) return;
     el.classList.remove('ev-pulse');
-    void el.offsetWidth;          // reflow para reiniciar animación
+    void el.offsetWidth;
     el.classList.add('ev-pulse');
     if (el.value && el.value !== '') el.classList.add('is-filled');
     else el.classList.remove('is-filled');
   };
   tipo?.addEventListener('change', () => markFilled(tipo));
   cat?.addEventListener('change',  () => markFilled(cat));
+})();
+
+/* ===== Fallback irrompible: calcula alto del modal-body y bloquea X ===== */
+(function fixModalBodyHeight(){
+  function tuneModal(id){
+    const modal = document.getElementById(id);
+    if(!modal) return;
+    const content = modal.querySelector('.modal-content');
+    const body    = modal.querySelector('.modal-body');
+    const header  = modal.querySelector('.modal-header');
+    const footer  = modal.querySelector('.modal-footer');
+    if(!content || !body) return;
+
+    const viewport = Math.min(window.innerHeight || 0, screen.height || window.innerHeight || 0);
+    const root = getComputedStyle(modal);
+    const modalMargin = parseFloat(root.getPropertyValue('--bs-modal-margin')) || 8;
+    const available = Math.max(200, Math.floor(viewport - (modalMargin*2)));
+
+    const hH = header ? header.offsetHeight : 0;
+    const fH = footer ? footer.offsetHeight : 0;
+
+    const cs  = getComputedStyle(body);
+    const pvt = parseFloat(cs.paddingTop||'0') + parseFloat(cs.paddingBottom||'0');
+
+    content.style.maxHeight = `${available}px`;
+    const bodyH = Math.max(160, available - hH - fH - pvt);
+    body.style.height = `${bodyH}px`;
+    body.style.overflowY = 'auto';
+    body.style.overflowX = 'hidden';   // 🔒 evita barra horizontal por JS
+    body.style.minHeight = '0';
+    body.style.webkitOverflowScrolling = 'touch';
+  }
+
+  function handleShown(e){
+    const id = e.target?.id;
+    if(!id) return;
+    if(id==='modalAgregarPublicacion' || id==='modalBuscarPublicacion'){
+      setTimeout(()=>tuneModal(id), 0);
+    }
+  }
+
+  function handleResize(){
+    ['modalAgregarPublicacion','modalBuscarPublicacion'].forEach(tuneModal);
+  }
+
+  document.addEventListener('shown.bs.modal', handleShown);
+  window.addEventListener('resize', handleResize);
+  window.addEventListener('orientationchange', handleResize);
 })();

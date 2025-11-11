@@ -100,6 +100,8 @@
   background-color: #fff;
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
   font-size: 0.95rem;
+  width: 100%;
+  min-width: 0; /* evita overflow */
 }
 .input-premium:hover{ border-color: #bcd4c7; }
 .input-premium:focus{
@@ -108,69 +110,12 @@
   outline: none;
 }
 textarea.input-premium{ min-height: 120px; }
-
 .form-select.input-premium{
   appearance: none;
   background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='5'%3E%3Cpath fill='%230F592F' d='M2 0L0 2h4L2 0zM2 5L0 3h4l-2 2z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 10px 10px;
-}
-
-/* === Efectos suaves en Tipo/Categoría === */
-#comboTipo.form-select.input-premium,
-#comboCategoria.form-select.input-premium{
-  transition: background-color .2s ease, box-shadow .2s ease, transform .08s ease;
-  background-image:
-    linear-gradient(180deg, rgba(255,255,255,.0), rgba(255,255,255,.0)),
-    var(--bs-form-select-bg-img),
-    radial-gradient(ellipse at top left, rgba(15,89,47,.06), transparent 60%);
-  background-repeat: no-repeat, no-repeat, no-repeat;
-  background-position: right .75rem center, right .75rem center, left -20% -40%;
-  background-size: 16px 12px, 16px 12px, 160% 160%;
-}
-#comboTipo.form-select.input-premium:hover,
-#comboCategoria.form-select.input-premium:hover{
-  box-shadow: 0 6px 18px rgba(0,0,0,.08);
-  transform: translateY(-1px);
-}
-#comboTipo.form-select.input-premium:focus,
-#comboCategoria.form-select.input-premium:focus{
-  border-color: #138f57;
-  box-shadow: 0 0 0 .2rem rgba(19,143,87,.18);
-  transform: translateY(0);
-}
-#comboTipo option[disabled]:first-child,
-#comboCategoria option[disabled]:first-child{ color: #8e9aa4; }
-
-/* Estado “cargando” select */
-#comboTipo:disabled,
-#comboCategoria:disabled{
-  cursor: progress;
-  color: #94a3b8;
-  background:
-    url('data:image/svg+xml;utf8, \
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"> \
-        <circle cx="50" cy="50" r="32" stroke="%23138957" stroke-width="10" fill="none" opacity=".2"/> \
-        <path d="M82 50a32 32 0 0 1-32 32" stroke="%23138957" stroke-width="10" fill="none"> \
-          <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="0.8s" repeatCount="indefinite"/> \
-        </path> \
-      </svg>') no-repeat right 2.25rem center / 18px 18px,
-    var(--bs-form-select-bg-img) no-repeat right .75rem center/16px 12px,
-    linear-gradient(180deg, rgba(0,0,0,.02), rgba(0,0,0,.02));
-}
-/* Pulso breve (activar desde JS con .ev-pulse) */
-@keyframes evPulse { 0%{box-shadow:0 0 0 .0rem rgba(19,143,87,.00);} 50%{box-shadow:0 0 0 .35rem rgba(19,143,87,.15);} 100%{box-shadow:0 0 0 .0rem rgba(19,143,87,.00);} }
-#comboTipo.ev-pulse, #comboCategoria.ev-pulse{ animation: evPulse .55s ease-out; }
-#comboTipo.is-filled, #comboCategoria.is-filled{
-  background-image:
-    linear-gradient(180deg, rgba(255,255,255,.0), rgba(255,255,255,.0)),
-    var(--bs-form-select-bg-img),
-    radial-gradient(ellipse at top left, rgba(15,89,47,.10), transparent 60%);
-}
-#comboTipo.is-invalid, #comboCategoria.is-invalid{
-  border-color: #dc3545;
-  box-shadow: 0 0 0 .2rem rgba(220,53,69,.15);
 }
 
 /* ================================
@@ -245,7 +190,6 @@ textarea.input-premium{ min-height: 120px; }
   background:#d1d1d1; color:#000; transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
-/* Guardar con spinner */
 .btn-guardar{ position:relative; overflow:hidden; transition:all .3s ease; }
 .btn-guardar.saving{ pointer-events:none; color:transparent !important; }
 .btn-guardar.saving::after{
@@ -260,8 +204,7 @@ textarea.input-premium{ min-height: 120px; }
 @keyframes popIn{ from{ transform:scale(.5); opacity:0 } to{ transform:scale(1); opacity:1 } }
 
 /* ================================
-   🪟 MODALES
-   (forzamos ancho XL en desktop)
+   🪟 MODALES (base estética)
 ================================ */
 .modal .modal-content{ border-radius: 15px; overflow: hidden; }
 .modal .modal-header{
@@ -274,15 +217,8 @@ textarea.input-premium{ min-height: 120px; }
 .modal .btn-close{ filter: invert(1) contrast(120%); opacity:.9; }
 .modal .btn-close:hover{ opacity:1; }
 
-/* ➕ Ancho XL para el modal de agregar */
-@media (min-width: 1200px){
-  #modalAgregarPublicacion .modal-dialog{
-    max-width: 1140px; /* similar a .modal-xl */
-  }
-}
-
 /* ================================
-   📤 UPLOADER (chips)
+   📤 Uploader (chips)
 ================================ */
 .ev-uploader .ev-thumb{
   position: relative; border-radius: 14px; overflow: hidden;
@@ -291,7 +227,7 @@ textarea.input-premium{ min-height: 120px; }
   border: 1px solid rgba(0,0,0,.06);
 }
 .ev-uploader .ev-thumb:hover{ transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,.12); }
-.ev-uploader .ev-thumb img{ width: 100%; height: 120px; object-fit: cover; display: block; }
+.ev-uploader .ev-thumb img{ width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; display: block; }
 .ev-uploader .ev-remove{
   position: absolute; top: 8px; right: 8px;
   border: 0; background: #ef4444; color:#fff;
@@ -309,14 +245,11 @@ textarea.input-premium{ min-height: 120px; }
 }
 
 /* ================================
-   🖼️ PREVISUALIZACIÓN AMPLIADA
+   🖼️ PREVISUALIZACIÓN
 ================================ */
 .ev-preview-area{
-  margin-top:16px;
-  border:1px dashed #cbd5e1;
-  border-radius:12px;
-  background:#f8fafc;
-  padding:14px;
+  margin-top:16px; border:1px dashed #cbd5e1; border-radius:12px;
+  background:#f8fafc; padding:14px;
 }
 .ev-preview-title{
   display:flex; align-items:center; justify-content:space-between;
@@ -324,28 +257,17 @@ textarea.input-premium{ min-height: 120px; }
 }
 .ev-preview-actions{ display:flex; gap:.5rem; }
 .ev-preview-actions .btn{ padding:.2rem .55rem; line-height:1; border-radius:10px; }
-
-/* Principal: siempre 100% visible (contain) */
 .ev-preview-main{
-  width:100%;
-  min-height:260px;
-  max-height:56vh;
+  width:100%; min-height:260px; max-height:56vh;
   background:linear-gradient(#f3f4f6,#eef2f7);
-  border-radius:12px;
-  display:flex; justify-content:center; align-items:center;
+  border-radius:12px; display:flex; justify-content:center; align-items:center;
   padding:8px; overflow:hidden;
 }
 .ev-preview-main img{
-  max-width:100%;
-  max-height:56vh;
-  object-fit:contain;
-  border-radius:8px;
-  background:
-    conic-gradient(#f5f5f5 25%, transparent 0 50%, #f5f5f5 0 75%, transparent 0) 50%/20px 20px content-box;
-  border: 1px solid #EEF2F1;
+  max-width:100%; max-height:56vh; object-fit:contain;
+  border-radius:8px; border: 1px solid #EEF2F1;
+  background: conic-gradient(#f5f5f5 25%, transparent 0 50%, #f5f5f5 0 75%, transparent 0) 50%/20px 20px content-box;
 }
-
-/* Miniaturas */
 .ev-preview-thumbs{
   display:flex; gap:8px; overflow-x:auto; padding-top:10px;
   scroll-snap-type:x mandatory;
@@ -361,22 +283,17 @@ textarea.input-premium{ min-height: 120px; }
 .ev-preview-thumb img{ width:100%; height:100%; object-fit:cover; border-radius:8px; }
 .ev-preview-thumb.active{ border-color:#0F592F; box-shadow:0 0 0 .15rem rgba(15,89,47,.18); }
 
-/* Modo expandido */
+/* Expandido */
 .ev-preview-area.is-expanded .ev-preview-main{ max-height:76vh; }
 .ev-preview-area.is-expanded .ev-preview-main img{ max-height:76vh; }
-
-/* Contador */
 #contadorImagenes{ font-weight:600; color:#1b3d2f; opacity:.7; }
 
 /* ================================
-   🌀 ESTADOS / ANIMACIONES
+   🌀 ANIMACIONES / BASE RESPONSIVE
 ================================ */
 .fade-in{ animation: fadeIn 0.6s ease-in-out; }
 @keyframes fadeIn{ from{opacity:0; transform: translateY(5px);} to{opacity:1; transform:none;} }
 
-/* ================================
-   📱 RESPONSIVE
-================================ */
 @media (max-width: 768px){
   .ev-chip{ min-width:auto; padding:.4rem .6rem; font-size:.9rem; }
   .ev-table-wrap{ max-height: unset; }
@@ -401,7 +318,7 @@ textarea.input-premium{ min-height: 120px; }
   .ev-preview-main{ min-height:200px; }
 }
 
-/* ===== Modal ancho estilo “editor” ===== */
+/* ===== Modal XL en pantallas grandes ===== */
 @media (min-width: 1200px){
   .modal-dialog.modal-xl{ --bs-modal-width: 1160px; }
 }
@@ -415,57 +332,80 @@ textarea.input-premium{ min-height: 120px; }
   grid-template-columns: 520px 1fr;
   gap: 16px;
 }
-.mpm-left{ min-width: 0; }   /* evita overflow de inputs */
+.mpm-left{ min-width: 0; }
 .mpm-right{ min-width: 0; }
 .mpm-preview-wrap{ position: sticky; top: 12px; }
 
-/* Detalle de preview (tarjeta derecha) */
-.mp-preview-details{
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-}
-
-/* Responsive: una sola columna en tablet/móvil */
-@media (max-width: 991px){
-  .mpm-grid{ grid-template-columns: 1fr; }
+@media (max-width: 991.98px){
+  .mpm-grid{ grid-template-columns: 1fr; gap:14px; }
   .mpm-preview-wrap{ position: static; }
+  #modalAgregarPublicacion .ev-preview-main{ max-height: 40vh !important; }
 }
 
-/* ===== File picker moderno ===== */
-.visually-hidden{ 
-  position:absolute !important; width:1px; height:1px; padding:0; margin:-1px; 
-  overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+/* ==========================================================
+   🔧 FIX SCROLL MODAL — versión única (sin duplicados)
+   - Solo scroll vertical en el body del modal
+   - Evita desbordes horizontales
+========================================================== */
+
+/* Estructura flex y límites por viewport */
+#modalAgregarPublicacion .modal-content,
+#modalBuscarPublicacion .modal-content{
+  display:flex;
+  flex-direction:column;
+  max-height: calc(100svh - var(--bs-modal-margin, .5rem)*2) !important;
+}
+@supports not (height: 100svh){
+  #modalAgregarPublicacion .modal-content,
+  #modalBuscarPublicacion .modal-content{
+    max-height: calc(100vh - var(--bs-modal-margin, .5rem)*2) !important;
+  }
 }
 
-.ev-filepicker{
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:.35rem; padding:18px; border:2px dashed #cbd5e1; border-radius:14px;
-  background: linear-gradient(180deg,#ffffff, #fbfdfa);
-  cursor:pointer; transition: border-color .2s ease, box-shadow .2s ease, background .2s ease, transform .06s ease;
-}
-.ev-filepicker:hover{ border-color:#0F592F; box-shadow:0 6px 18px rgba(0,0,0,.06); transform: translateY(-1px); }
-.ev-filepicker:focus{ outline:none; box-shadow:0 0 0 .2rem rgba(15,89,47,.18); border-color:#138f57; }
-.ev-filepicker.is-dragover{
-  background: linear-gradient(180deg,#f2fbf6,#ffffff);
-  border-color:#138f57; box-shadow:0 0 0 .25rem rgba(19,143,87,.12), 0 8px 24px rgba(0,0,0,.08);
+/* Header/Footer tamaño natural */
+#modalAgregarPublicacion .modal-header,
+#modalAgregarPublicacion .modal-footer,
+#modalBuscarPublicacion .modal-header,
+#modalBuscarPublicacion .modal-footer{
+  flex:0 0 auto;
 }
 
-.ev-file-btn{
-  display:inline-flex; align-items:center; gap:.4rem;
-  border-radius:999px; padding:.6rem 1rem;
-  background:#0F592F; color:#fff; border:1px solid #0F592F; font-weight:700;
-  box-shadow: 0 6px 18px rgba(15,89,47,.25); transition: filter .15s ease, transform .06s ease, box-shadow .15s ease;
+/* 👇 Scroll vertical visible aquí */
+#modalAgregarPublicacion .modal-body,
+#modalBuscarPublicacion .modal-body{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;   /* 🔒 bloquea scroll horizontal */
+  -webkit-overflow-scrolling:touch;
 }
-.ev-file-btn:hover{ filter:brightness(1.05); transform: translateY(-1px); }
-.ev-file-btn:active{ transform: translateY(0); }
+#modalAgregarPublicacion .modal-body *{ max-width:100%; box-sizing:border-box; }
 
-.ev-file-hint{ color:#0b3d27; opacity:.7; font-weight:600; }
-.ev-file-meta{ color:#64748b; }
+/* Por si algún hijo fuerza ancho (filas Bootstrap, thumbs, etc.) */
+#modalAgregarPublicacion .row,
+#modalBuscarPublicacion .row{ min-width:0; }
 
-#evPreviewMeta #evMetaTitle{ font-size:1.05rem; color:#0b3d27; }
-#evPreviewMeta #evMetaPrice{ color:#198754; font-weight:700; }
-#evPreviewMeta #evMetaDesc{ color:#6b7280; }
+#modalAgregarPublicacion .modal-dialog,
+#modalBuscarPublicacion .modal-dialog{ height:auto; max-height:100svh; }
 
+/* Fullscreen-down: alto completo */
+#modalAgregarPublicacion .modal-dialog[class*="modal-fullscreen-"] .modal-content,
+#modalBuscarPublicacion .modal-dialog[class*="modal-fullscreen-"] .modal-content{ height:100svh; }
+@supports not (height: 100svh){
+  #modalAgregarPublicacion .modal-dialog[class*="modal-fullscreen-"] .modal-content,
+  #modalBuscarPublicacion .modal-dialog[class*="modal-fullscreen-"] .modal-content{
+    height: calc(var(--ev-vh, 1vh)*100);
+  }
+}
 
+/* 🍭 Micro-ajustes mobile: margen y bordes para encaje perfecto */
+@media (max-width: 576px){
+  #modalAgregarPublicacion .modal-dialog,
+  #modalBuscarPublicacion .modal-dialog{ margin:0 !important; }
+  #modalAgregarPublicacion .modal-content,
+  #modalBuscarPublicacion .modal-content{ border-radius:0; }
+}
+
+/* Evita que el <body> agregue otra barra al abrir modal */
+.modal-open body{ overflow: hidden; }
 </style>
