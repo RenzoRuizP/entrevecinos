@@ -217,32 +217,75 @@ textarea.input-premium{ min-height: 120px; }
 .modal .btn-close{ filter: invert(1) contrast(120%); opacity:.9; }
 .modal .btn-close:hover{ opacity:1; }
 
-/* ================================
-   📤 Uploader (chips)
-================================ */
-.ev-uploader .ev-thumb{
-  position: relative; border-radius: 14px; overflow: hidden;
-  box-shadow: 0 6px 18px rgba(0,0,0,.10);
-  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-  border: 1px solid rgba(0,0,0,.06);
+/* ===== Uploader tipo Marketplace ===== */
+
+/* ===== Uploader tipo Marketplace — TEMA CLARO ===== */
+.ev-tiles{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
 }
-.ev-uploader .ev-thumb:hover{ transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,.12); }
-.ev-uploader .ev-thumb img{ width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; display: block; }
-.ev-uploader .ev-remove{
-  position: absolute; top: 8px; right: 8px;
-  border: 0; background: #ef4444; color:#fff;
-  width: 28px; height: 28px; padding:0; line-height: 1;
-  border-radius: 999px; box-shadow: 0 2px 8px rgba(239,68,68,.35);
-  display: inline-flex; align-items:center; justify-content:center;
-  transition: transform .15s ease, filter .15s ease, box-shadow .15s ease;
+
+.ev-tile{
+  position:relative;
+  width:110px;
+  height:110px;
+  border-radius:12px;
+  overflow:hidden;
+  background:#ffffff;                 /* fondo claro */
+  border:1px solid #e5e7eb;           /* borde gris suave */
+  display:flex; align-items:center; justify-content:center;
+  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
-.ev-uploader .ev-remove:hover{ filter:brightness(1.08); transform: scale(1.05); }
-.ev-uploader .ev-caption{
-  position:absolute; left:0; right:0; bottom:0;
-  background: linear-gradient(transparent, rgba(0,0,0,.55));
-  color:#fff; font-size:.75rem; padding:.25rem .5rem;
-  text-shadow: 0 1px 2px rgba(0,0,0,.5);
+.ev-tile:hover{
+  transform: translateY(-2px);
+  border-color:#d1d5db;
+  box-shadow:0 6px 18px rgba(0,0,0,.06);
 }
+.ev-tile img{
+  width:100%; height:100%; object-fit:cover; display:block;
+}
+
+/* Tile "Agregar fotos" */
+.ev-tile-add{
+  cursor:pointer;
+  border:2px dashed #cfd8e3;          /* dashed claro */
+  background:#f8fafc;                 /* gris muy claro */
+  color:#334155;                       /* texto gris oscuro */
+  text-align:center;
+  display:flex; flex-direction:column; justify-content:center; align-items:center;
+  gap:6px; line-height:1.15; user-select:none;
+}
+.ev-tile-add:hover{
+  border-color:#22c55e;               /* verde EV en hover */
+  color:#0F592F;
+  background:#f3faf6;
+}
+.ev-tile-add .ico{
+  background:#e2e8f0;                 /* círculo claro */
+  border:1px solid #d8dee9;
+  border-radius:999px;
+  width:36px; height:36px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px;
+}
+
+/* Botón eliminar en miniaturas */
+.ev-tile-remove{
+  position:absolute; top:6px; right:6px;
+  background:#ef4444;
+  color:#fff; border:0; border-radius:999px;
+  width:26px; height:26px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:16px; cursor:pointer;
+  box-shadow:0 2px 6px rgba(239,68,68,.25);
+}
+.ev-tile-remove:hover{ filter:brightness(1.07); }
+
+/* Ajustes anti-desborde */
+#modalAgregarPublicacion .modal-body,
+#modalAgregarPublicacion .modal-body *{ max-width:100%; box-sizing:border-box; }
+
 
 /* ================================
    🖼️ PREVISUALIZACIÓN

@@ -57,8 +57,7 @@
 })();
 
 /* ==============================
-   Uploader + Previsualización
-   (inicializa al abrir el modal)
+   Uploader + Previsualización — versión “tiles”
 ============================== */
 (function () {
   const MAX_MB = 5;
@@ -82,45 +81,31 @@
 
     const uploader = modalEl.querySelector('#uploaderAgregar');
     const input    = modalEl.querySelector('#inputImagenes');
-    const preview  = modalEl.querySelector('#previewImagenes');
+    const tiles    = modalEl.querySelector('#evTiles');
     const btnClr   = modalEl.querySelector('#btnLimpiarImagenes');
     const lblCnt   = modalEl.querySelector('#contadorImagenes');
-    if (!uploader || !input || !preview) return;
+    if (!uploader || !input || !tiles) return;
 
     const MAX_FILES = Number(input.dataset.max || 3);
     let dt = new DataTransfer();
     let selectedIndex = 0;
 
-    const filePicker = modalEl.querySelector('#evFilePicker');
-    const fakeBtn    = modalEl.querySelector('#evFileFakeBtn');
-    const fileMeta   = modalEl.querySelector('#evFileMeta');
-
-    const refreshMetaHint = () => {
-      if (!fileMeta) return;
-      fileMeta.textContent = dt.files.length
-        ? `${dt.files.length} seleccionado(s) • Máx ${MAX_FILES}`
-        : `JPG, PNG o WebP • Máx 5 MB c/u • Máx ${MAX_FILES}`;
-    };
-
-    fakeBtn?.addEventListener('click', () => input.click());
-    filePicker?.addEventListener('click', (ev) => {
-      if (ev.target.closest('.ev-file-btn')) return;
-      input.click();
-    });
-
+    /* ---------- Drag & Drop sobre el grid ---------- */
     ['dragenter','dragover'].forEach(evt => {
-      filePicker?.addEventListener(evt, (e) => {
+      tiles.addEventListener(evt, (e) => {
         e.preventDefault(); e.stopPropagation();
-        filePicker.classList.add('is-dragover');
+        tiles.style.outline = '2px dashed #7dd3a9';
+        tiles.style.outlineOffset = '4px';
       });
     });
     ['dragleave','dragend','drop'].forEach(evt => {
-      filePicker?.addEventListener(evt, (e) => {
+      tiles.addEventListener(evt, (e) => {
         e.preventDefault(); e.stopPropagation();
-        filePicker.classList.remove('is-dragover');
+        tiles.style.outline = '';
+        tiles.style.outlineOffset = '';
       });
     });
-    filePicker?.addEventListener('drop', (e) => {
+    tiles.addEventListener('drop', (e) => {
       const dropped = Array.from(e.dataTransfer?.files || []);
       if (!dropped.length) return;
       for (const file of dropped) {
@@ -130,53 +115,58 @@
       }
       input.files = dt.files;
       if (dt.files.length) selectedIndex = 0;
-      render();
-      input.value = '';
-      refreshMetaHint();
+      render(); input.value = '';
     });
 
-    let previewWrapper, previewMainImg, previewThumbs, previewActions;
-    let metaCard, metaTitleEl, metaPriceEl, metaDescEl;
+    /* ---------- Utilidades ---------- */
+    const setCount = () => { if (lblCnt) lblCnt.textContent = `${dt.files.length} de ${MAX_FILES}`; };
 
-    const createBtn = (html, title, onClick, extraClass='btn-outline-success') => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = `btn btn-sm ${extraClass}`;
-      b.innerHTML = html;
-      b.title = title;
-      b.addEventListener('click', onClick);
-      return b;
-    };
-
-    function ensureMetaCard() {
-      const metas = document.querySelectorAll('#evMetaCard');
-      if (metas.length > 1) metas.forEach((n, i) => { if (i > 0) n.remove(); });
-
-      let card = document.getElementById('evMetaCard');
-      if (!card) {
-        card = document.createElement('div');
-        card.id = 'evMetaCard';
-        card.className = 'card ev-card mt-3';
-        card.innerHTML = `
-          <div class="card-body p-3">
-            <h6 id="evMetaTitle" class="mb-1" style="font-weight:800;color:#0b3d27;">Título</h6>
-            <div id="evMetaPrice" class="mb-2" style="color:#0F592F;font-weight:800;">S/ 0.00</div>
-            <div style="font-size:.9rem;color:#64748b">Detalles</div>
-            <p id="evMetaDesc" class="mb-0" style="color:#475569;">La descripción aparecerá aquí.</p>
-          </div>`;
-        const mount = document.getElementById('previewMount') || uploader;
-        if (mount && mount !== uploader) mount.appendChild(card);
-        else uploader.insertAdjacentElement('afterend', card);
-      }
-      metaCard   = card;
-      metaTitleEl = metaCard.querySelector('#evMetaTitle');
-      metaPriceEl = metaCard.querySelector('#evMetaPrice');
-      metaDescEl  = metaCard.querySelector('#evMetaDesc');
+    function createAddTile(){
+      const add = document.createElement('div');
+      add.className = 'ev-tile ev-tile-add';
+      add.innerHTML = `
+        <div class="ico"><i class="bi bi-plus-lg"></i></div>
+        <div class="t1">Agregar fotos</div>
+        <div class="t2">o arrastra y suelta</div>
+      `;
+      add.addEventListener('click', ()=> input.click());
+      return add;
     }
+
+
+    function createImgTile(file, idx){
+      const wrap = document.createElement('div');
+      wrap.className = 'ev-tile';
+      const img = document.createElement('img');
+      const r = new FileReader(); r.onload = e => img.src = e.target.result; r.readAsDataURL(file);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ev-tile-remove';
+      btn.title = 'Quitar';
+      btn.innerHTML = '✕';
+      btn.addEventListener('click', ()=>{
+        const ndt = new DataTransfer();
+        Array.from(dt.files).forEach((f,i)=>{ if(i!==idx) ndt.items.add(f); });
+        dt = ndt; input.files = dt.files;
+        if (selectedIndex === idx) selectedIndex = 0; else if (selectedIndex > idx) selectedIndex -= 1;
+        render();
+      });
+      wrap.append(img, btn);
+
+      // al hacer click en la imagen, la mostramos en el preview grande
+      wrap.addEventListener('click', ()=>{
+        selectedIndex = idx;
+        updateMain(); renderThumbs();
+      });
+
+      return wrap;
+    }
+
+    /* ---------- Preview derecha (se mantiene) ---------- */
+    let previewWrapper, previewMainImg, previewThumbs, previewActions, metaTitleEl, metaPriceEl, metaDescEl;
 
     function ensurePreviewArea() {
       if (!previewWrapper) previewWrapper = document.getElementById('evPreviewWrapper');
-
       if (!previewWrapper) {
         previewWrapper = document.createElement('div');
         previewWrapper.id = 'evPreviewWrapper';
@@ -187,104 +177,112 @@
         title.className = 'ev-preview-title';
         title.innerHTML = `<span><i class="bi bi-images me-1"></i>Previsualización</span>`;
 
-        previewActions = document.createElement('div');
-        previewActions.className = 'ev-preview-actions';
-        const btnExpand   = createBtn('<i class="bi bi-arrows-fullscreen"></i>', 'Expandir/Contraer', () => previewWrapper.classList.toggle('is-expanded'));
-        const btnPrev     = createBtn('<i class="bi bi-chevron-left"></i>', 'Anterior', () => { if(!dt.files.length) return; selectedIndex = (selectedIndex - 1 + dt.files.length) % dt.files.length; updateMain(); renderThumbs(); });
-        const btnNext     = createBtn('<i class="bi bi-chevron-right"></i>', 'Siguiente', () => { if(!dt.files.length) return; selectedIndex = (selectedIndex + 1) % dt.files.length; updateMain(); renderThumbs(); });
-        const btnClearAll = createBtn('<i class="bi bi-trash"></i>', 'Quitar todas', () => { dt = new DataTransfer(); input.value=''; input.files = dt.files; selectedIndex=0; render(); refreshMetaHint(); }, 'btn-cancelar');
-        previewActions.append(btnExpand, btnPrev, btnNext, btnClearAll);
-        title.appendChild(previewActions);
+        const actions = document.createElement('div');
+        actions.className = 'ev-preview-actions';
+        const mkBtn = (html, title, cb, extra='btn-outline-success')=>{
+          const b = document.createElement('button'); b.type='button'; b.className=`btn btn-sm ${extra}`;
+          b.innerHTML=html; b.title=title; b.addEventListener('click', cb); return b;
+        };
+        actions.append(
+          mkBtn('<i class="bi bi-arrows-fullscreen"></i>','Expandir/Contraer',()=>previewWrapper.classList.toggle('is-expanded')),
+          mkBtn('<i class="bi bi-chevron-left"></i>','Anterior',()=>{ if(!dt.files.length) return; selectedIndex=(selectedIndex-1+dt.files.length)%dt.files.length; updateMain(); renderThumbs(); }),
+          mkBtn('<i class="bi bi-chevron-right"></i>','Siguiente',()=>{ if(!dt.files.length) return; selectedIndex=(selectedIndex+1)%dt.files.length; updateMain(); renderThumbs(); }),
+          mkBtn('<i class="bi bi-trash"></i>','Quitar todas',()=>{ dt=new DataTransfer(); input.value=''; input.files=dt.files; selectedIndex=0; render(); }, 'btn-cancelar')
+        );
+        title.appendChild(actions);
 
         const main = document.createElement('div');
         main.className = 'ev-preview-main';
-        previewMainImg = document.createElement('img');
-        previewMainImg.alt = 'Vista previa';
+        previewMainImg = document.createElement('img'); previewMainImg.alt='Vista previa';
         main.appendChild(previewMainImg);
-        main.addEventListener('dblclick', () => previewWrapper.classList.toggle('is-expanded'));
 
-        previewThumbs = document.createElement('div');
-        previewThumbs.className = 'ev-preview-thumbs';
+        previewThumbs = document.createElement('div'); previewThumbs.className = 'ev-preview-thumbs';
 
         previewWrapper.append(title, main, previewThumbs);
       }
-
       const mount = document.getElementById('previewMount');
-      if (mount) {
-        if (!mount.contains(previewWrapper)) mount.prepend(previewWrapper);
-      } else if (!previewWrapper.parentElement) {
-        uploader.insertAdjacentElement('afterend', previewWrapper);
-      }
+      if (mount && !mount.contains(previewWrapper)) mount.prepend(previewWrapper);
 
-      ensureMetaCard();
+      // Tarjeta meta ya existe de tu versión anterior:
+      let meta = document.getElementById('evMetaCard');
+      if (!meta) {
+        meta = document.createElement('div');
+        meta.id = 'evMetaCard';
+        meta.className = 'card ev-card mt-3';
+        meta.innerHTML = `
+          <div class="card-body p-3">
+            <h6 id="evMetaTitle" class="mb-1" style="font-weight:800;color:#0b3d27;">Título</h6>
+            <div id="evMetaPrice" class="mb-2" style="color:#0F592F;font-weight:800;">S/ 0.00</div>
+            <div style="font-size:.9rem;color:#64748b">Detalles</div>
+            <p id="evMetaDesc" class="mb-0" style="color:#475569;">La descripción aparecerá aquí.</p>
+          </div>`;
+        mount.appendChild(meta);
+      }
+      metaTitleEl = document.getElementById('evMetaTitle');
+      metaPriceEl = document.getElementById('evMetaPrice');
+      metaDescEl  = document.getElementById('evMetaDesc');
       updateMeta();
     }
 
-    function showPreviewArea(show){ ensurePreviewArea(); previewWrapper.style.display = show ? '' : 'none'; }
-    function setCount(){ if (lblCnt) lblCnt.textContent = `${dt.files.length} de ${MAX_FILES}`; }
-    function limpiarChips(){ preview.innerHTML=''; }
-
-    function addChip(file, idx){
-      const col = document.createElement('div'); col.className = 'col-4';
-      col.innerHTML = `
-        <div class="ev-thumb">
-          <img alt="preview" />
-          <button type="button" class="btn btn-sm btn-danger ev-remove" data-index="${idx}" title="Quitar">&times;</button>
-          <div class="ev-caption">${(file.name||'').slice(0,22)}</div>
-        </div>`;
-      const img = col.querySelector('img'); const r = new FileReader();
-      r.onload = e => img.src = e.target.result; r.readAsDataURL(file);
-      preview.appendChild(col);
+    function updateMain(){
+      if (!dt.files.length) { if(previewMainImg) previewMainImg.src=''; return; }
+      const target = dt.files[selectedIndex] || dt.files[0];
+      const r = new FileReader(); r.onload = e => previewMainImg.src = e.target.result; r.readAsDataURL(target);
     }
-
     function renderThumbs(){
-      ensurePreviewArea(); previewThumbs.innerHTML='';
+      if (!previewThumbs) return;
+      previewThumbs.innerHTML='';
       Array.from(dt.files).forEach((file,i)=>{
         const th = document.createElement('div');
         th.className = 'ev-preview-thumb' + (i===selectedIndex ? ' active':'' );
-        th.tabIndex = 0; th.setAttribute('role','button');
         const img = document.createElement('img'); const r = new FileReader();
         r.onload = e => img.src = e.target.result; r.readAsDataURL(file);
         th.appendChild(img);
-        const activate = ()=>{ selectedIndex=i; updateMain();
-          [...previewThumbs.children].forEach(el=>el.classList.remove('active'));
-          th.classList.add('active'); th.scrollIntoView({behavior:'smooth', inline:'center'}); };
-        th.addEventListener('click', activate);
-        th.addEventListener('keydown', ev=>{ if(ev.key==='Enter'||ev.key===' '){ev.preventDefault(); activate();} });
+        th.addEventListener('click', ()=>{ selectedIndex=i; updateMain(); renderThumbs(); });
         previewThumbs.appendChild(th);
       });
     }
 
-    function updateMain(){
-      if (!dt.files.length) { previewMainImg.src=''; return; }
-      const target = dt.files[selectedIndex] || dt.files[0];
-      const r = new FileReader(); r.onload = e => previewMainImg.src = e.target.result; r.readAsDataURL(target);
+    function showPreviewArea(show){ ensurePreviewArea(); previewWrapper.style.display = show ? '' : 'none'; }
+
+    /* ---------- Render del grid de tiles ---------- */
+    function renderTiles(){
+      tiles.innerHTML = '';
+      Array.from(dt.files).forEach((file,i)=>{
+        const t = document.createElement('div');
+        t.className = 'ev-tile';
+        const img = document.createElement('img');
+        const r = new FileReader();
+        r.onload = e => img.src = e.target.result;
+        r.readAsDataURL(file);
+
+        const del = document.createElement('button');
+        del.className = 'ev-tile-remove';
+        del.innerHTML = '×';
+        del.onclick = ()=>{
+          const ndt = new DataTransfer();
+          Array.from(dt.files).forEach((f,j)=>{ if(j!==i) ndt.items.add(f); });
+          dt = ndt; input.files = dt.files; renderTiles();
+        };
+
+        t.append(img, del);
+        tiles.appendChild(t);
+      });
+      if (dt.files.length < MAX_FILES) tiles.appendChild(createAddTile());
+      setCount();
     }
 
     function render(){
-      limpiarChips(); Array.from(dt.files).forEach((f,i)=>addChip(f,i)); setCount();
+      setCount();
+      renderTiles();
       if (dt.files.length){ showPreviewArea(true); if (selectedIndex>=dt.files.length) selectedIndex=0; updateMain(); renderThumbs(); }
       else { showPreviewArea(false); }
     }
 
-    /* ---- Actualiza tarjeta meta según inputs del formulario ---- */
-    function updateMeta() {
-      if (!metaTitleEl || !metaPriceEl || !metaDescEl) return;
-      const title = modalEl.querySelector('input[name="titulo"]')?.value?.trim() || 'Título';
-      const priceRaw = modalEl.querySelector('input[name="precio"]')?.value || '';
-      const desc  = modalEl.querySelector('textarea[name="descripcion"]')?.value?.trim() || 'La descripción aparecerá aquí.';
-      const n = Number(priceRaw || 0);
-      const precio = isNaN(n) ? '0.00' : n.toFixed(2);
-
-      metaTitleEl.textContent = title;
-      metaPriceEl.textContent = `S/ ${precio}`;
-      metaDescEl.textContent  = desc;
-    }
-
-    /* ---- Eventos uploader ---- */
+    /* ---------- Eventos básicos ---------- */
     input.addEventListener('change', (e)=>{
       const nuevos = Array.from(e.target.files||[]);
-      if (!nuevos.length) { refreshMetaHint(); return; }
+      if (!nuevos.length) return;
       for (const file of nuevos){
         if (dt.files.length >= MAX_FILES){ notify(`Máximo ${MAX_FILES} imágenes.`); break; }
         if (!validarArchivo(file)) continue;
@@ -293,23 +291,10 @@
       input.files = dt.files;
       if (dt.files.length === nuevos.length) selectedIndex = 0;
       render(); input.value = '';
-      refreshMetaHint();
-    });
-
-    preview.addEventListener('click', (e)=>{
-      const btn = e.target.closest('.ev-remove'); if (!btn) return;
-      const idx = Number(btn.dataset.index);
-      const ndt = new DataTransfer();
-      Array.from(dt.files).forEach((f,i)=>{ if(i!==idx) ndt.items.add(f); });
-      dt = ndt; input.files = dt.files;
-      if (selectedIndex === idx) selectedIndex = 0; else if (selectedIndex > idx) selectedIndex -= 1;
-      render();
-      refreshMetaHint();
     });
 
     btnClr?.addEventListener('click', ()=>{
       dt = new DataTransfer(); input.value=''; input.files = dt.files; selectedIndex=0; render();
-      refreshMetaHint();
     });
 
     modalEl.addEventListener('keydown', (ev)=>{
@@ -322,28 +307,37 @@
       }
     });
 
-    /* Inputs que alimentan la tarjeta meta */
+    /* ---------- Meta (título/precio/desc) ---------- */
+    function updateMeta() {
+      if (!metaTitleEl || !metaPriceEl || !metaDescEl) return;
+      const title = modalEl.querySelector('input[name="titulo"]')?.value?.trim() || 'Título';
+      const priceRaw = modalEl.querySelector('input[name="precio"]')?.value || '';
+      const desc  = modalEl.querySelector('textarea[name="descripcion"]')?.value?.trim() || 'La descripción aparecerá aquí.';
+      const n = Number(priceRaw || 0);
+      const precio = isNaN(n) ? '0.00' : n.toFixed(2);
+      metaTitleEl.textContent = title;
+      metaPriceEl.textContent = `S/ ${precio}`;
+      metaDescEl.textContent  = desc;
+    }
     modalEl.querySelector('input[name="titulo"]')?.addEventListener('input', updateMeta);
     modalEl.querySelector('input[name="precio"]')?.addEventListener('input', updateMeta);
     modalEl.querySelector('textarea[name="descripcion"]')?.addEventListener('input', updateMeta);
 
-    /* Reset al cerrar */
+    /* ---------- Reset al cerrar ---------- */
     modalEl.addEventListener('hidden.bs.modal', ()=>{
       dt = new DataTransfer(); input.value=''; input.files = dt.files; selectedIndex=0;
-      preview.innerHTML=''; setCount(); refreshMetaHint();
+      tiles.innerHTML = ''; setCount();
       const wrap = document.getElementById('evPreviewWrapper');
       if (wrap) wrap.style.display = 'none';
-      if (metaTitleEl) metaTitleEl.textContent = 'Título';
-      if (metaPriceEl) metaPriceEl.textContent = 'S/ 0.00';
-      if (metaDescEl)  metaDescEl.textContent  = 'La descripción aparecerá aquí.';
+      const t = document.getElementById('evMetaTitle'); if (t) t.textContent='Título';
+      const p = document.getElementById('evMetaPrice'); if (p) p.textContent='S/ 0.00';
+      const d = document.getElementById('evMetaDesc');  if (d) d.textContent='La descripción aparecerá aquí.';
     });
 
     render();
-    refreshMetaHint();
     initialized = true;
   }
 
-  /* Inicializa al abrir el modal */
   document.addEventListener('shown.bs.modal', (ev) => {
     const modal = ev.target;
     if (modal && modal.id === 'modalAgregarPublicacion') {
@@ -351,7 +345,6 @@
     }
   });
 
-  /* Si ya estaba visible (caso raro) */
   window.addEventListener('DOMContentLoaded', () => {
     const m = document.getElementById('modalAgregarPublicacion');
     if (m && m.classList.contains('show')) initUploader(m);

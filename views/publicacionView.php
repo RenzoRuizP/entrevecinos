@@ -181,6 +181,29 @@ require_once __DIR__ . '/../Config/config.php';
             <!-- IZQUIERDA: FORM -->
             <section class="mpm-left">
               <div class="row g-3">
+
+                <!-- 🖼️ Uploader primero -->
+                <div class="col-12">
+                  <label class="form-label fw-semibold" style="color:#0F592F;">Fotos • <span class="text-muted">0/10 - Puedes agregar un máximo de 10 fotos.</span></label>
+                  <div id="uploaderAgregar" class="ev-uploader">
+                    
+                    <!-- input real -->
+                    <input type="file" id="inputImagenes" name="imagenes[]" accept="image/*" multiple data-max="10" class="visually-hidden" />
+
+                    <!-- área visual -->
+                    <div id="evTiles" class="ev-tiles">
+                      <div class="ev-tile ev-tile-add" id="tileAgregar">
+                        <div class="ico"><i class="bi bi-plus-lg"></i></div>
+                        <div class="t1">Agregar fotos</div>
+                        <div class="t2">o arrastra y suelta</div>
+                      </div>
+                    </div>
+
+                    <small class="text-muted d-block mt-1">Hasta 10 imágenes (JPG, PNG o WebP) de máximo 5 MB cada una.</small>
+                  </div>
+                </div>
+
+                <!-- Campos del producto -->
                 <div class="col-12">
                   <label class="form-label">Título</label>
                   <input type="text" id="titulo" name="titulo" class="form-control input-premium" placeholder="Escribe un título claro" required>
@@ -217,32 +240,10 @@ require_once __DIR__ . '/../Config/config.php';
                   <label class="form-label">Descripción</label>
                   <textarea id="descripcion" name="descripcion" class="form-control input-premium" rows="4" placeholder="Describe el producto con detalle" required></textarea>
                 </div>
-
-                <div class="col-12">
-                  <label class="form-label">Imágenes (máx. 3)</label>
-                  <div id="uploaderAgregar" class="ev-uploader">
-                    <input type="file" id="inputImagenes" name="imagenes[]" accept="image/*" multiple data-max="3" class="visually-hidden" />
-                    <div class="ev-filepicker" id="evFilePicker" tabindex="0">
-                      <button type="button" class="btn ev-file-btn" id="evFileFakeBtn">
-                        <i class="bi bi-cloud-arrow-up me-2"></i> Subir imágenes
-                      </button>
-                      <span class="ev-file-hint">o arrastra y suelta aquí</span>
-                      <small class="ev-file-meta" id="evFileMeta">JPG, PNG o WebP • Máx 5 MB c/u • Máx 3</small>
-                    </div>
-
-                    <div class="d-flex justify-content-between align-items-center mt-2">
-                      <small class="text-muted">Hasta 3 imágenes (JPG, PNG o WebP). Máx 5 MB c/u.</small>
-                      <button type="button" id="btnLimpiarImagenes" class="btn btn-sm btn-outline-secondary">Limpiar</button>
-                    </div>
-
-                    <div id="previewImagenes" class="row g-2 mt-2"></div>
-                    <div class="text-end"><small id="contadorImagenes" class="text-muted">0 de 3</small></div>
-                  </div>
-                </div>
               </div>
             </section>
 
-            <!-- DERECHA: PREVIEW EN VIVO -->
+            <!-- DERECHA: PREVIEW -->
             <aside class="mpm-right">
               <div class="mpm-preview-wrap">
                 <div class="col-lg-12" id="previewMount"></div>
@@ -256,6 +257,7 @@ require_once __DIR__ . '/../Config/config.php';
           <button type="submit" class="btn btn-outline-success btn-guardar">Guardar</button>
         </div>
       </form>
+
     </div>
   </div>
 </div>
