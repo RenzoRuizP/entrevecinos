@@ -184,22 +184,29 @@ require_once __DIR__ . '/../Config/config.php';
 
                 <!-- 🖼️ Uploader primero -->
                 <div class="col-12">
-                  <label class="form-label fw-semibold" style="color:#0F592F;">Fotos • <span class="text-muted">0/10 - Puedes agregar un máximo de 10 fotos.</span></label>
+                  <label class="form-label fw-semibold" style="color:#0F592F;">
+                    Fotos • <span id="contadorImagenes">0</span>/<span>10</span>
+                    <span class="text-muted"> - Puedes agregar un máximo de 10 fotos.</span>
+                  </label>
+
                   <div id="uploaderAgregar" class="ev-uploader">
-                    
                     <!-- input real -->
                     <input type="file" id="inputImagenes" name="imagenes[]" accept="image/*" multiple data-max="10" class="visually-hidden" />
 
                     <!-- área visual -->
                     <div id="evTiles" class="ev-tiles">
-                      <div class="ev-tile ev-tile-add" id="tileAgregar">
+                      <div class="ev-tile ev-tile-add" id="tileAgregar" title="Agregar fotos">
                         <div class="ico"><i class="bi bi-plus-lg"></i></div>
                         <div class="t1">Agregar fotos</div>
                         <div class="t2">o arrastra y suelta</div>
                       </div>
                     </div>
 
-                    <small class="text-muted d-block mt-1">Hasta 10 imágenes (JPG, PNG o WebP) de máximo 5 MB cada una.</small>
+                    <div class="mt-2">
+                      <button type="button" id="btnLimpiarImagenes" class="btn btn-sm btn-cancelar">Limpiar imágenes</button>
+                    </div>
+
+                    <small class="text-muted d-block mt-2">Hasta 10 imágenes (JPG, PNG o WebP) de máximo 5 MB cada una.</small>
                   </div>
                 </div>
 
@@ -264,3 +271,4 @@ require_once __DIR__ . '/../Config/config.php';
 
 <!-- Scripts únicos de esta vista -->
 <script src="<?= BASE_URL ?>public/js/combo_tipo.js"></script>
+<script src="<?= BASE_URL ?>public/js/publicacion.js"></script>

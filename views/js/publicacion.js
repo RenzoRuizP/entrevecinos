@@ -57,11 +57,14 @@
 })();
 
 /* ==============================
-   Uploader + Previsualización — versión “tiles”
+   Uploader + Previsualización — robusto por-item
+   (usa arreglo de estado + DataTransfer)
 ============================== */
 (function () {
   const MAX_MB = 5;
   let initialized = false;
+
+  const $ = (s, root=document) => root.querySelector(s);
 
   function notify(msg) {
     if (window.Swal?.fire) Swal.fire({icon:'info', title:'Aviso', text: msg});
@@ -72,98 +75,80 @@
     const okTipo = /^image\/(jpeg|png|webp|gif|bmp|svg\+xml)$/i.test(file.type) || file.type.startsWith('image/');
     const okPeso = file.size <= MAX_MB * 1024 * 1024;
     if (!okTipo) { notify('Solo se permiten archivos de imagen.'); return false; }
-    if (!okPeso) { notify(`El archivo "${file.name}" supera ${MAX_MB} MB.`); return false; }
+    if (!okPeso) { notify(`"${file.name}" supera ${MAX_MB} MB.`); return false; }
     return true;
   }
 
   function initUploader(modalEl) {
     if (initialized) return;
 
-    const uploader = modalEl.querySelector('#uploaderAgregar');
-    const input    = modalEl.querySelector('#inputImagenes');
-    const tiles    = modalEl.querySelector('#evTiles');
-    const btnClr   = modalEl.querySelector('#btnLimpiarImagenes');
-    const lblCnt   = modalEl.querySelector('#contadorImagenes');
-    if (!uploader || !input || !tiles) return;
+    const input    = $('#inputImagenes', modalEl);
+    const tiles    = $('#evTiles', modalEl);
+    const tileAdd  = $('#tileAgregar', modalEl);
+    const btnClr   = $('#btnLimpiarImagenes', modalEl);
+    const lblCnt   = $('#contadorImagenes', modalEl);
+    if (!input || !tiles) return;
 
-    const MAX_FILES = Number(input.dataset.max || 3);
-    let dt = new DataTransfer();
+    const MAX_FILES = Number(input.dataset.max || 10);
+
+    // --------- Estado interno ----------
+    /** @type {{id:string,file:File,url:string}[]} */
+    let fotos = [];
     let selectedIndex = 0;
 
-    /* ---------- Drag & Drop sobre el grid ---------- */
-    ['dragenter','dragover'].forEach(evt => {
-      tiles.addEventListener(evt, (e) => {
-        e.preventDefault(); e.stopPropagation();
-        tiles.style.outline = '2px dashed #7dd3a9';
-        tiles.style.outlineOffset = '4px';
-      });
-    });
-    ['dragleave','dragend','drop'].forEach(evt => {
-      tiles.addEventListener(evt, (e) => {
-        e.preventDefault(); e.stopPropagation();
-        tiles.style.outline = '';
-        tiles.style.outlineOffset = '';
-      });
-    });
-    tiles.addEventListener('drop', (e) => {
-      const dropped = Array.from(e.dataTransfer?.files || []);
-      if (!dropped.length) return;
-      for (const file of dropped) {
-        if (dt.files.length >= MAX_FILES) { notify(`Máximo ${MAX_FILES} imágenes.`); break; }
-        if (!validarArchivo(file)) continue;
-        dt.items.add(file);
-      }
+    // --------- Utilidades ----------
+    const rebuildFileList = () => {
+      const dt = new DataTransfer();
+      fotos.forEach(f => dt.items.add(f.file));
       input.files = dt.files;
-      if (dt.files.length) selectedIndex = 0;
-      render(); input.value = '';
-    });
+    };
 
-    /* ---------- Utilidades ---------- */
-    const setCount = () => { if (lblCnt) lblCnt.textContent = `${dt.files.length} de ${MAX_FILES}`; };
+    const revokeAll = () => fotos.forEach(f => f.url && URL.revokeObjectURL(f.url));
 
-    function createAddTile(){
-      const add = document.createElement('div');
-      add.className = 'ev-tile ev-tile-add';
-      add.innerHTML = `
-        <div class="ico"><i class="bi bi-plus-lg"></i></div>
-        <div class="t1">Agregar fotos</div>
-        <div class="t2">o arrastra y suelta</div>
-      `;
-      add.addEventListener('click', ()=> input.click());
-      return add;
-    }
+    const setCount = () => { if (lblCnt) lblCnt.textContent = String(fotos.length); };
 
-
-    function createImgTile(file, idx){
-      const wrap = document.createElement('div');
-      wrap.className = 'ev-tile';
-      const img = document.createElement('img');
-      const r = new FileReader(); r.onload = e => img.src = e.target.result; r.readAsDataURL(file);
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'ev-tile-remove';
-      btn.title = 'Quitar';
-      btn.innerHTML = '✕';
-      btn.addEventListener('click', ()=>{
-        const ndt = new DataTransfer();
-        Array.from(dt.files).forEach((f,i)=>{ if(i!==idx) ndt.items.add(f); });
-        dt = ndt; input.files = dt.files;
-        if (selectedIndex === idx) selectedIndex = 0; else if (selectedIndex > idx) selectedIndex -= 1;
-        render();
-      });
-      wrap.append(img, btn);
-
-      // al hacer click en la imagen, la mostramos en el preview grande
-      wrap.addEventListener('click', ()=>{
-        selectedIndex = idx;
-        updateMain(); renderThumbs();
+    const renderTiles = () => {
+      tiles.innerHTML = '';
+      fotos.forEach((f, i) => {
+        const t = document.createElement('div');
+        t.className = 'ev-tile';
+        const img = document.createElement('img'); img.src = f.url; img.alt = f.file.name;
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'ev-tile-remove';
+        del.title = 'Quitar';
+        del.textContent = '×';
+        del.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          // elimina solo ese índice
+          const removed = fotos.splice(i, 1)[0];
+          if (removed?.url) URL.revokeObjectURL(removed.url);
+          if (selectedIndex >= fotos.length) selectedIndex = Math.max(0, fotos.length - 1);
+          rebuildFileList();
+          paint();
+        });
+        t.append(img, del);
+        t.addEventListener('click', () => { selectedIndex = i; updateMain(); renderThumbs(); });
+        tiles.appendChild(t);
       });
 
-      return wrap;
-    }
+      // tile para agregar
+      if (fotos.length < MAX_FILES) {
+        const add = document.createElement('div');
+        add.className = 'ev-tile ev-tile-add';
+        add.innerHTML = `
+          <div class="ico"><i class="bi bi-plus-lg"></i></div>
+          <div class="t1">Agregar fotos</div>
+          <div class="t2">o arrastra y suelta</div>
+        `;
+        add.addEventListener('click', () => input.click());
+        tiles.appendChild(add);
+      }
+      setCount();
+    };
 
-    /* ---------- Preview derecha (se mantiene) ---------- */
-    let previewWrapper, previewMainImg, previewThumbs, previewActions, metaTitleEl, metaPriceEl, metaDescEl;
+    // --------- Preview derecha ----------
+    let previewWrapper, previewMainImg, previewThumbs, metaTitleEl, metaPriceEl, metaDescEl;
 
     function ensurePreviewArea() {
       if (!previewWrapper) previewWrapper = document.getElementById('evPreviewWrapper');
@@ -185,9 +170,9 @@
         };
         actions.append(
           mkBtn('<i class="bi bi-arrows-fullscreen"></i>','Expandir/Contraer',()=>previewWrapper.classList.toggle('is-expanded')),
-          mkBtn('<i class="bi bi-chevron-left"></i>','Anterior',()=>{ if(!dt.files.length) return; selectedIndex=(selectedIndex-1+dt.files.length)%dt.files.length; updateMain(); renderThumbs(); }),
-          mkBtn('<i class="bi bi-chevron-right"></i>','Siguiente',()=>{ if(!dt.files.length) return; selectedIndex=(selectedIndex+1)%dt.files.length; updateMain(); renderThumbs(); }),
-          mkBtn('<i class="bi bi-trash"></i>','Quitar todas',()=>{ dt=new DataTransfer(); input.value=''; input.files=dt.files; selectedIndex=0; render(); }, 'btn-cancelar')
+          mkBtn('<i class="bi bi-chevron-left"></i>','Anterior',()=>{ if(!fotos.length) return; selectedIndex=(selectedIndex-1+fotos.length)%fotos.length; updateMain(); renderThumbs(); }),
+          mkBtn('<i class="bi bi-chevron-right"></i>','Siguiente',()=>{ if(!fotos.length) return; selectedIndex=(selectedIndex+1)%fotos.length; updateMain(); renderThumbs(); }),
+          mkBtn('<i class="bi bi-trash"></i>','Quitar todas',()=>{ revokeAll(); fotos = []; rebuildFileList(); selectedIndex=0; paint(); }, 'btn-cancelar')
         );
         title.appendChild(actions);
 
@@ -203,7 +188,7 @@
       const mount = document.getElementById('previewMount');
       if (mount && !mount.contains(previewWrapper)) mount.prepend(previewWrapper);
 
-      // Tarjeta meta ya existe de tu versión anterior:
+      // Tarjeta meta
       let meta = document.getElementById('evMetaCard');
       if (!meta) {
         meta = document.createElement('div');
@@ -225,18 +210,18 @@
     }
 
     function updateMain(){
-      if (!dt.files.length) { if(previewMainImg) previewMainImg.src=''; return; }
-      const target = dt.files[selectedIndex] || dt.files[0];
-      const r = new FileReader(); r.onload = e => previewMainImg.src = e.target.result; r.readAsDataURL(target);
+      if (!fotos.length) { if(previewMainImg) previewMainImg.src=''; return; }
+      const target = fotos[selectedIndex] || fotos[0];
+      previewMainImg.src = target.url;
     }
+
     function renderThumbs(){
       if (!previewThumbs) return;
       previewThumbs.innerHTML='';
-      Array.from(dt.files).forEach((file,i)=>{
+      fotos.forEach((f,i)=>{
         const th = document.createElement('div');
         th.className = 'ev-preview-thumb' + (i===selectedIndex ? ' active':'' );
-        const img = document.createElement('img'); const r = new FileReader();
-        r.onload = e => img.src = e.target.result; r.readAsDataURL(file);
+        const img = document.createElement('img'); img.src = f.url;
         th.appendChild(img);
         th.addEventListener('click', ()=>{ selectedIndex=i; updateMain(); renderThumbs(); });
         previewThumbs.appendChild(th);
@@ -245,69 +230,84 @@
 
     function showPreviewArea(show){ ensurePreviewArea(); previewWrapper.style.display = show ? '' : 'none'; }
 
-    /* ---------- Render del grid de tiles ---------- */
-    function renderTiles(){
-      tiles.innerHTML = '';
-      Array.from(dt.files).forEach((file,i)=>{
-        const t = document.createElement('div');
-        t.className = 'ev-tile';
-        const img = document.createElement('img');
-        const r = new FileReader();
-        r.onload = e => img.src = e.target.result;
-        r.readAsDataURL(file);
-
-        const del = document.createElement('button');
-        del.className = 'ev-tile-remove';
-        del.innerHTML = '×';
-        del.onclick = ()=>{
-          const ndt = new DataTransfer();
-          Array.from(dt.files).forEach((f,j)=>{ if(j!==i) ndt.items.add(f); });
-          dt = ndt; input.files = dt.files; renderTiles();
-        };
-
-        t.append(img, del);
-        tiles.appendChild(t);
-      });
-      if (dt.files.length < MAX_FILES) tiles.appendChild(createAddTile());
-      setCount();
-    }
-
-    function render(){
-      setCount();
+    function paint(){
       renderTiles();
-      if (dt.files.length){ showPreviewArea(true); if (selectedIndex>=dt.files.length) selectedIndex=0; updateMain(); renderThumbs(); }
+      if (fotos.length){ showPreviewArea(true); if (selectedIndex>=fotos.length) selectedIndex=0; updateMain(); renderThumbs(); }
       else { showPreviewArea(false); }
     }
 
-    /* ---------- Eventos básicos ---------- */
+    // --------- Entrada archivos ----------
     input.addEventListener('change', (e)=>{
       const nuevos = Array.from(e.target.files||[]);
       if (!nuevos.length) return;
+
       for (const file of nuevos){
-        if (dt.files.length >= MAX_FILES){ notify(`Máximo ${MAX_FILES} imágenes.`); break; }
+        if (fotos.length >= MAX_FILES){ notify(`Máximo ${MAX_FILES} imágenes.`); break; }
         if (!validarArchivo(file)) continue;
-        dt.items.add(file);
+
+        // evitar duplicados por nombre + tamaño + lastModified
+        const dup = fotos.some(f => f.file.name===file.name && f.file.size===file.size && f.file.lastModified===file.lastModified);
+        if (dup) continue;
+
+        fotos.push({ id: crypto.randomUUID(), file, url: URL.createObjectURL(file) });
       }
-      input.files = dt.files;
-      if (dt.files.length === nuevos.length) selectedIndex = 0;
-      render(); input.value = '';
+      rebuildFileList();
+      if (fotos.length) selectedIndex = 0;
+      paint();
+      // permitir seleccionar el mismo archivo otra vez si lo quitó
+      input.value = '';
     });
 
+    // Tile estático inicial
+    tileAdd?.addEventListener('click', () => input.click());
+
+    // Drag & Drop
+    ['dragenter','dragover'].forEach(evt => {
+      tiles.addEventListener(evt, (e) => {
+        e.preventDefault(); e.stopPropagation();
+        tiles.style.outline = '2px dashed #7dd3a9';
+        tiles.style.outlineOffset = '4px';
+      });
+    });
+    ['dragleave','dragend','drop'].forEach(evt => {
+      tiles.addEventListener(evt, (e) => {
+        e.preventDefault(); e.stopPropagation();
+        tiles.style.outline = '';
+        tiles.style.outlineOffset = '';
+      });
+    });
+    tiles.addEventListener('drop', (e) => {
+      const dropped = Array.from(e.dataTransfer?.files || []);
+      if (!dropped.length) return;
+      dropped.forEach(file => {
+        if (fotos.length >= MAX_FILES) return;
+        if (!validarArchivo(file)) return;
+        const dup = fotos.some(f => f.file.name===file.name && f.file.size===file.size && f.file.lastModified===file.lastModified);
+        if (dup) return;
+        fotos.push({ id: crypto.randomUUID(), file, url: URL.createObjectURL(file) });
+      });
+      rebuildFileList();
+      if (fotos.length) selectedIndex = 0;
+      paint();
+    });
+
+    // Limpiar todo
     btnClr?.addEventListener('click', ()=>{
-      dt = new DataTransfer(); input.value=''; input.files = dt.files; selectedIndex=0; render();
+      revokeAll(); fotos = []; rebuildFileList(); selectedIndex=0; paint();
     });
 
+    // Navegación con flechas
     modalEl.addEventListener('keydown', (ev)=>{
-      if (!dt.files.length) return;
+      if (!fotos.length) return;
       if (ev.key==='ArrowRight' || ev.key==='ArrowLeft'){
         ev.preventDefault();
         const dir = ev.key==='ArrowRight' ? 1 : -1;
-        selectedIndex = (selectedIndex + dir + dt.files.length) % dt.files.length;
+        selectedIndex = (selectedIndex + dir + fotos.length) % fotos.length;
         updateMain(); renderThumbs();
       }
     });
 
-    /* ---------- Meta (título/precio/desc) ---------- */
+    // --------- Meta (título/precio/desc) ----------
     function updateMeta() {
       if (!metaTitleEl || !metaPriceEl || !metaDescEl) return;
       const title = modalEl.querySelector('input[name="titulo"]')?.value?.trim() || 'Título';
@@ -323,10 +323,21 @@
     modalEl.querySelector('input[name="precio"]')?.addEventListener('input', updateMeta);
     modalEl.querySelector('textarea[name="descripcion"]')?.addEventListener('input', updateMeta);
 
-    /* ---------- Reset al cerrar ---------- */
+    // --------- Reset al cerrar ----------
     modalEl.addEventListener('hidden.bs.modal', ()=>{
-      dt = new DataTransfer(); input.value=''; input.files = dt.files; selectedIndex=0;
-      tiles.innerHTML = ''; setCount();
+      revokeAll(); fotos = []; rebuildFileList(); selectedIndex=0;
+      tiles.innerHTML = '';
+      const add = document.createElement('div');
+      add.className = 'ev-tile ev-tile-add';
+      add.innerHTML = `
+        <div class="ico"><i class="bi bi-plus-lg"></i></div>
+        <div class="t1">Agregar fotos</div>
+        <div class="t2">o arrastra y suelta</div>
+      `;
+      add.addEventListener('click', () => input.click());
+      tiles.appendChild(add);
+      setCount();
+
       const wrap = document.getElementById('evPreviewWrapper');
       if (wrap) wrap.style.display = 'none';
       const t = document.getElementById('evMetaTitle'); if (t) t.textContent='Título';
@@ -334,7 +345,8 @@
       const d = document.getElementById('evMetaDesc');  if (d) d.textContent='La descripción aparecerá aquí.';
     });
 
-    render();
+    // Primera pintura
+    paint();
     initialized = true;
   }
 
@@ -369,7 +381,7 @@
   cat?.addEventListener('change',  () => markFilled(cat));
 })();
 
-/* ===== Fallback irrompible: calcula alto del modal-body y bloquea X ===== */
+/* ===== Fallback irrompible: altura del modal ===== */
 (function fixModalBodyHeight(){
   function tuneModal(id){
     const modal = document.getElementById(id);
@@ -395,7 +407,7 @@
     const bodyH = Math.max(160, available - hH - fH - pvt);
     body.style.height = `${bodyH}px`;
     body.style.overflowY = 'auto';
-    body.style.overflowX = 'hidden';   // 🔒 evita barra horizontal por JS
+    body.style.overflowX = 'hidden';
     body.style.minHeight = '0';
     body.style.webkitOverflowScrolling = 'touch';
   }
