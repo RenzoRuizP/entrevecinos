@@ -219,14 +219,15 @@ require_once __DIR__ . '/../Config/config.php';
                     </div>
 
                     <!-- Acciones y contador -->
-                    <div class="d-flex align-items-center gap-2 mt-2">
-                      <button type="button" id="btnLimpiarImagenes" class="btn btn-sm btn-cancelar">
+                    <div class="ev-toolbar-uploads">
+                      <button id="btnLimpiarImagenes" type="button" class="btn-clear-images">
+                        <i class="bi bi-trash3"></i>
                         Limpiar imágenes
                       </button>
 
-                      <span class="ms-auto text-muted">
+                      <div class="ev-toolbar-uploads-count">
                         <span id="contadorImagenes">0</span>/10 fotos cargadas
-                      </span>
+                      </div>
                     </div>
 
                     <small class="text-muted mt-2 d-block">

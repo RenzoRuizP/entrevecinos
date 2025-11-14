@@ -497,4 +497,46 @@ textarea.input-premium{ min-height: 120px; }
     border-radius: 0;
   }
 }
+
+/* Barra inferior del uploader */
+.ev-toolbar-uploads{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:.75rem;
+  margin-top:10px;
+}
+
+.ev-toolbar-uploads-count{
+  font-size:.85rem;
+  color:#6b7280;
+}
+
+/* Botón “Limpiar imágenes” como acción secundaria elegante */
+.btn-clear-images{
+  border-radius:999px;
+  background:#f3f4f6;
+  border:1px solid #e5e7eb;
+  color:#374151;
+  font-size:.85rem;
+  padding:6px 14px;
+  display:inline-flex;
+  align-items:center;
+  gap:.4rem;
+  font-weight:500;
+  transition:all .18s ease;
+}
+
+.btn-clear-images i{
+  font-size:.9rem;
+}
+
+.btn-clear-images:hover{
+  background:#e5e7eb;
+  border-color:#d1d5db;
+  color:#111827;
+  transform:translateY(-1px);
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
+}
+
 </style>
