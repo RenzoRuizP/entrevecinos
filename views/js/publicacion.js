@@ -400,6 +400,9 @@
     const hH = header ? header.offsetHeight : 0;
     const fH = footer ? footer.offsetHeight : 0;
 
+    // Exponemos la altura real del footer para que el CSS agregue padding-bottom al body
+    content.style.setProperty('--ev-footer-h', `${fH}px`);
+
     const cs  = getComputedStyle(body);
     const pvt = parseFloat(cs.paddingTop||'0') + parseFloat(cs.paddingBottom||'0');
 
@@ -411,6 +414,7 @@
     body.style.minHeight = '0';
     body.style.webkitOverflowScrolling = 'touch';
   }
+
 
   function handleShown(e){
     const id = e.target?.id;

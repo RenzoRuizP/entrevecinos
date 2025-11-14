@@ -13,16 +13,6 @@ require_once __DIR__ . '/../Config/config.php';
         <i class="bi bi-list-ul"></i> Publicaciones
       </h5>
 
-      <div class="d-flex align-items-center gap-2">
-        <div class="d-none d-md-flex align-items-center gap-2 me-2">
-          <span class="ev-label-small">Densidad:</span>
-          <div class="btn-group btn-group-sm" role="group" aria-label="Densidad">
-            <button class="btn btn-ev-soft" data-density="comfortable">Cómoda</button>
-            <button class="btn btn-ev-soft active" data-density="default">Media</button>
-            <button class="btn btn-ev-soft" data-density="compact">Compacta</button>
-          </div>
-        </div>
-
         <button type="button" id="btnBuscar" class="btn btn-ev-outline d-flex align-items-center gap-2"
           data-bs-toggle="modal" data-bs-target="#modalBuscarPublicacion">
           <i class="bi bi-search"></i><span class="d-none d-sm-inline">Buscar</span>

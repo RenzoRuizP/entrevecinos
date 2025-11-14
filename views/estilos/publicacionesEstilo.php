@@ -217,23 +217,20 @@ textarea.input-premium{ min-height: 120px; }
 .modal .btn-close{ filter: invert(1) contrast(120%); opacity:.9; }
 .modal .btn-close:hover{ opacity:1; }
 
-/* ===== Uploader tipo Marketplace ===== */
-
 /* ===== Uploader tipo Marketplace — TEMA CLARO ===== */
 .ev-tiles{
   display:flex;
   flex-wrap:wrap;
   gap:12px;
 }
-
 .ev-tile{
   position:relative;
   width:110px;
   height:110px;
   border-radius:12px;
   overflow:hidden;
-  background:#ffffff;                 /* fondo claro */
-  border:1px solid #e5e7eb;           /* borde gris suave */
+  background:#ffffff;
+  border:1px solid #e5e7eb;
   display:flex; align-items:center; justify-content:center;
   transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
@@ -245,32 +242,28 @@ textarea.input-premium{ min-height: 120px; }
 .ev-tile img{
   width:100%; height:100%; object-fit:cover; display:block;
 }
-
-/* Tile "Agregar fotos" */
 .ev-tile-add{
   cursor:pointer;
-  border:2px dashed #cfd8e3;          /* dashed claro */
-  background:#f8fafc;                 /* gris muy claro */
-  color:#334155;                       /* texto gris oscuro */
+  border:2px dashed #cfd8e3;
+  background:#f8fafc;
+  color:#334155;
   text-align:center;
   display:flex; flex-direction:column; justify-content:center; align-items:center;
   gap:6px; line-height:1.15; user-select:none;
 }
 .ev-tile-add:hover{
-  border-color:#22c55e;               /* verde EV en hover */
+  border-color:#22c55e;
   color:#0F592F;
   background:#f3faf6;
 }
 .ev-tile-add .ico{
-  background:#e2e8f0;                 /* círculo claro */
+  background:#e2e8f0;
   border:1px solid #d8dee9;
   border-radius:999px;
   width:36px; height:36px;
   display:flex; align-items:center; justify-content:center;
   font-size:18px;
 }
-
-/* Botón eliminar en miniaturas */
 .ev-tile-remove{
   position:absolute; top:6px; right:6px;
   background:#ef4444;
@@ -285,7 +278,6 @@ textarea.input-premium{ min-height: 120px; }
 /* Ajustes anti-desborde */
 #modalAgregarPublicacion .modal-body,
 #modalAgregarPublicacion .modal-body *{ max-width:100%; box-sizing:border-box; }
-
 
 /* ================================
    🖼️ PREVISUALIZACIÓN
@@ -390,8 +382,6 @@ textarea.input-premium{ min-height: 120px; }
    - Solo scroll vertical en el body del modal
    - Evita desbordes horizontales
 ========================================================== */
-
-/* Estructura flex y límites por viewport */
 #modalAgregarPublicacion .modal-content,
 #modalBuscarPublicacion .modal-content{
   display:flex;
@@ -404,34 +394,25 @@ textarea.input-premium{ min-height: 120px; }
     max-height: calc(100vh - var(--bs-modal-margin, .5rem)*2) !important;
   }
 }
-
-/* Header/Footer tamaño natural */
 #modalAgregarPublicacion .modal-header,
 #modalAgregarPublicacion .modal-footer,
 #modalBuscarPublicacion .modal-header,
 #modalBuscarPublicacion .modal-footer{
   flex:0 0 auto;
 }
-
-/* 👇 Scroll vertical visible aquí */
 #modalAgregarPublicacion .modal-body,
 #modalBuscarPublicacion .modal-body{
   flex:1 1 auto;
   min-height:0;
   overflow-y:auto !important;
-  overflow-x:hidden !important;   /* 🔒 bloquea scroll horizontal */
+  overflow-x:hidden !important;
   -webkit-overflow-scrolling:touch;
 }
 #modalAgregarPublicacion .modal-body *{ max-width:100%; box-sizing:border-box; }
-
-/* Por si algún hijo fuerza ancho (filas Bootstrap, thumbs, etc.) */
 #modalAgregarPublicacion .row,
 #modalBuscarPublicacion .row{ min-width:0; }
-
 #modalAgregarPublicacion .modal-dialog,
 #modalBuscarPublicacion .modal-dialog{ height:auto; max-height:100svh; }
-
-/* Fullscreen-down: alto completo */
 #modalAgregarPublicacion .modal-dialog[class*="modal-fullscreen-"] .modal-content,
 #modalBuscarPublicacion .modal-dialog[class*="modal-fullscreen-"] .modal-content{ height:100svh; }
 @supports not (height: 100svh){
@@ -440,15 +421,103 @@ textarea.input-premium{ min-height: 120px; }
     height: calc(var(--ev-vh, 1vh)*100);
   }
 }
-
-/* 🍭 Micro-ajustes mobile: margen y bordes para encaje perfecto */
 @media (max-width: 576px){
   #modalAgregarPublicacion .modal-dialog,
   #modalBuscarPublicacion .modal-dialog{ margin:0 !important; }
   #modalAgregarPublicacion .modal-content,
   #modalBuscarPublicacion .modal-content{ border-radius:0; }
 }
-
-/* Evita que el <body> agregue otra barra al abrir modal */
 .modal-open body{ overflow: hidden; }
+
+/* === FIX: Footer siempre despejado en modales === */
+#modalAgregarPublicacion .modal-footer,
+#modalBuscarPublicacion .modal-footer{
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  background: #fff;
+  box-shadow: 0 -6px 16px rgba(0,0,0,.06);
+}
+/* Aire dinámico en general (se sobreescribe por media queries abajo) */
+#modalAgregarPublicacion .modal-body,
+#modalBuscarPublicacion .modal-body{
+  padding-bottom: calc(var(--ev-footer-h, 72px) + 12px) !important;
+}
+
+/* ==========================================================
+   🛠️ AJUSTES NUEVOS
+   - Desktop: sin scroll en modal-body + todo encaja
+   - Mobile: elimina hueco extra bajo botones
+========================================================== */
+
+/* 📌 Desktop (>=992px): sin scroll y encaje total */
+@media (min-width: 992px){
+  #modalAgregarPublicacion .modal-body{
+    overflow-y: hidden !important;
+    padding-bottom: 0 !important;
+  }
+  /* compactar ligeramente para que quepa todo */
+  #modalAgregarPublicacion .mpm-left .row.g-3{ --bs-gutter-y: .5rem; --bs-gutter-x: .5rem; }
+  #modalAgregarPublicacion .ev-tiles{ gap:10px; }
+  #modalAgregarPublicacion .ev-tile{ width:100px; height:100px; }
+
+  /* limitar visual de la preview para no empujar el footer */
+  #modalAgregarPublicacion .ev-preview-area{ margin-top:12px; }
+  #modalAgregarPublicacion .ev-preview-main{ max-height:48vh !important; }
+  #modalAgregarPublicacion .ev-preview-main img{ max-height:48vh !important; }
+  #modalAgregarPublicacion .ev-preview-thumbs{ max-height:14vh; overflow:hidden; }
+}
+
+/* 📱 SOLO MÓVIL (<=576px): sin hueco extra bajo el footer */
+@media (max-width: 576px){
+  /* Modal a pantalla completa real y sin bordes redondeados */
+  #modalAgregarPublicacion .modal-dialog,
+  #modalBuscarPublicacion .modal-dialog{
+    margin:0 !important;
+    height:auto;                /* deja que el content controle el alto */
+  }
+  #modalAgregarPublicacion .modal-content,
+  #modalBuscarPublicacion .modal-content{
+    border-radius:0;
+    min-height: 100svh;         /* ocupa todo el alto del viewport móvil */
+  }
+
+  /* Footer pegado abajo con soporte para safe-area (iPhone) */
+  #modalAgregarPublicacion .modal-footer,
+  #modalBuscarPublicacion .modal-footer{
+    position: sticky;
+    bottom: 0;                  /* o env(safe-area-inset-bottom) si prefieres */
+    z-index: 3;
+    background:#fff;
+    box-shadow: 0 -3px 12px rgba(0,0,0,.05);
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+  }
+
+  /* El body deja EXACTAMENTE el espacio del footer (sin exceso) */
+  #modalAgregarPublicacion .modal-body,
+  #modalBuscarPublicacion .modal-body{
+    /* --ev-footer-h la setea el JS con la altura real del footer */
+    padding-bottom: calc(var(--ev-footer-h, 56px) + env(safe-area-inset-bottom, 0px) + 8px) !important;
+  }
+}
+
+/* 🔻 NUEVO: Ocultar previsualización solo en móvil (<=576px) */
+@media (max-width: 576px){
+  /* Oculta el contenedor donde se monta la preview y la tarjeta meta */
+  #previewMount,
+  #evPreviewWrapper,
+  #evMetaCard{
+    display:none !important;
+  }
+
+  /* Oculta la columna derecha del grid en móvil */
+  .mpm-right{
+    display:none !important;
+  }
+
+  /* Asegura que la izquierda use todo el ancho */
+  .mpm-grid{
+    grid-template-columns: 1fr !important;
+  }
+}
 </style>
