@@ -251,7 +251,7 @@ require_once __DIR__ . '/../Config/config.php';
 
         <div class="modal-footer">
           <button type="button" class="btn btn-cancelar" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-outline-success btn-guardar">Guardar</button>
+          <button type="button" id="btnGuardarPublicacion" class="btn btn-outline-success btn-guardar">Guardar</button>
         </div>
       </form>
 

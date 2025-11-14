@@ -377,130 +377,6 @@ textarea.input-premium{ min-height: 120px; }
   #modalAgregarPublicacion .ev-preview-main{ max-height: 40vh !important; }
 }
 
-/* ==========================================================
-   🔧 FIX SCROLL MODAL — versión única (sin duplicados)
-   - Solo scroll vertical en el body del modal
-   - Evita desbordes horizontales
-========================================================== */
-#modalAgregarPublicacion .modal-content,
-#modalBuscarPublicacion .modal-content{
-  display:flex;
-  flex-direction:column;
-  max-height: calc(100svh - var(--bs-modal-margin, .5rem)*2) !important;
-}
-@supports not (height: 100svh){
-  #modalAgregarPublicacion .modal-content,
-  #modalBuscarPublicacion .modal-content{
-    max-height: calc(100vh - var(--bs-modal-margin, .5rem)*2) !important;
-  }
-}
-#modalAgregarPublicacion .modal-header,
-#modalAgregarPublicacion .modal-footer,
-#modalBuscarPublicacion .modal-header,
-#modalBuscarPublicacion .modal-footer{
-  flex:0 0 auto;
-}
-#modalAgregarPublicacion .modal-body,
-#modalBuscarPublicacion .modal-body{
-  flex:1 1 auto;
-  min-height:0;
-  overflow-y:auto !important;
-  overflow-x:hidden !important;
-  -webkit-overflow-scrolling:touch;
-}
-#modalAgregarPublicacion .modal-body *{ max-width:100%; box-sizing:border-box; }
-#modalAgregarPublicacion .row,
-#modalBuscarPublicacion .row{ min-width:0; }
-#modalAgregarPublicacion .modal-dialog,
-#modalBuscarPublicacion .modal-dialog{ height:auto; max-height:100svh; }
-#modalAgregarPublicacion .modal-dialog[class*="modal-fullscreen-"] .modal-content,
-#modalBuscarPublicacion .modal-dialog[class*="modal-fullscreen-"] .modal-content{ height:100svh; }
-@supports not (height: 100svh){
-  #modalAgregarPublicacion .modal-dialog[class*="modal-fullscreen-"] .modal-content,
-  #modalBuscarPublicacion .modal-dialog[class*="modal-fullscreen-"] .modal-content{
-    height: calc(var(--ev-vh, 1vh)*100);
-  }
-}
-@media (max-width: 576px){
-  #modalAgregarPublicacion .modal-dialog,
-  #modalBuscarPublicacion .modal-dialog{ margin:0 !important; }
-  #modalAgregarPublicacion .modal-content,
-  #modalBuscarPublicacion .modal-content{ border-radius:0; }
-}
-.modal-open body{ overflow: hidden; }
-
-/* === FIX: Footer siempre despejado en modales === */
-#modalAgregarPublicacion .modal-footer,
-#modalBuscarPublicacion .modal-footer{
-  position: sticky;
-  bottom: 0;
-  z-index: 3;
-  background: #fff;
-  box-shadow: 0 -6px 16px rgba(0,0,0,.06);
-}
-/* Aire dinámico en general (se sobreescribe por media queries abajo) */
-#modalAgregarPublicacion .modal-body,
-#modalBuscarPublicacion .modal-body{
-  padding-bottom: calc(var(--ev-footer-h, 72px) + 12px) !important;
-}
-
-/* ==========================================================
-   🛠️ AJUSTES NUEVOS
-   - Desktop: sin scroll en modal-body + todo encaja
-   - Mobile: elimina hueco extra bajo botones
-========================================================== */
-
-/* 📌 Desktop (>=992px): sin scroll y encaje total */
-@media (min-width: 992px){
-  #modalAgregarPublicacion .modal-body{
-    overflow-y: hidden !important;
-    padding-bottom: 0 !important;
-  }
-  /* compactar ligeramente para que quepa todo */
-  #modalAgregarPublicacion .mpm-left .row.g-3{ --bs-gutter-y: .5rem; --bs-gutter-x: .5rem; }
-  #modalAgregarPublicacion .ev-tiles{ gap:10px; }
-  #modalAgregarPublicacion .ev-tile{ width:100px; height:100px; }
-
-  /* limitar visual de la preview para no empujar el footer */
-  #modalAgregarPublicacion .ev-preview-area{ margin-top:12px; }
-  #modalAgregarPublicacion .ev-preview-main{ max-height:48vh !important; }
-  #modalAgregarPublicacion .ev-preview-main img{ max-height:48vh !important; }
-  #modalAgregarPublicacion .ev-preview-thumbs{ max-height:14vh; overflow:hidden; }
-}
-
-/* 📱 SOLO MÓVIL (<=576px): sin hueco extra bajo el footer */
-@media (max-width: 576px){
-  /* Modal a pantalla completa real y sin bordes redondeados */
-  #modalAgregarPublicacion .modal-dialog,
-  #modalBuscarPublicacion .modal-dialog{
-    margin:0 !important;
-    height:auto;                /* deja que el content controle el alto */
-  }
-  #modalAgregarPublicacion .modal-content,
-  #modalBuscarPublicacion .modal-content{
-    border-radius:0;
-    min-height: 100svh;         /* ocupa todo el alto del viewport móvil */
-  }
-
-  /* Footer pegado abajo con soporte para safe-area (iPhone) */
-  #modalAgregarPublicacion .modal-footer,
-  #modalBuscarPublicacion .modal-footer{
-    position: sticky;
-    bottom: 0;                  /* o env(safe-area-inset-bottom) si prefieres */
-    z-index: 3;
-    background:#fff;
-    box-shadow: 0 -3px 12px rgba(0,0,0,.05);
-    padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
-  }
-
-  /* El body deja EXACTAMENTE el espacio del footer (sin exceso) */
-  #modalAgregarPublicacion .modal-body,
-  #modalBuscarPublicacion .modal-body{
-    /* --ev-footer-h la setea el JS con la altura real del footer */
-    padding-bottom: calc(var(--ev-footer-h, 56px) + env(safe-area-inset-bottom, 0px) + 8px) !important;
-  }
-}
-
 /* 🔻 NUEVO: Ocultar previsualización solo en móvil (<=576px) */
 @media (max-width: 576px){
   /* Oculta el contenedor donde se monta la preview y la tarjeta meta */
@@ -520,4 +396,56 @@ textarea.input-premium{ min-height: 120px; }
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ==========================================================
+   ✅ Scroll interno del modal (escritorio + móvil)
+   - Sin footer sticky
+   - Sin cálculos JS
+   - Sin saltos visuales
+========================================================== */
+
+#modalAgregarPublicacion .modal-dialog,
+#modalBuscarPublicacion .modal-dialog{
+  height: auto;
+  max-height: calc(100vh - var(--bs-modal-margin, .5rem)*2);
+}
+
+#modalAgregarPublicacion .modal-content,
+#modalBuscarPublicacion .modal-content{
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+}
+
+#modalAgregarPublicacion .modal-header,
+#modalBuscarPublicacion .modal-header,
+#modalAgregarPublicacion .modal-footer,
+#modalBuscarPublicacion .modal-footer{
+  flex: 0 0 auto;          /* altura según su contenido */
+  position: static;        /* nada de sticky */
+  box-shadow: none;
+}
+
+#modalAgregarPublicacion .modal-body,
+#modalBuscarPublicacion .modal-body{
+  flex: 1 1 auto;          /* ocupa el espacio entre header y footer */
+  min-height: 0;
+  overflow-y: auto;        /* 👉 aquí vive el scroll interno */
+  overflow-x: hidden;
+}
+
+/* En móvil, el modal ocupa toda la pantalla (full-screen feeling) */
+@media (max-width: 576px){
+  #modalAgregarPublicacion .modal-dialog,
+  #modalBuscarPublicacion .modal-dialog{
+    margin: 0 !important;
+    max-height: 100vh;
+  }
+
+  #modalAgregarPublicacion .modal-content,
+  #modalBuscarPublicacion .modal-content{
+    border-radius: 0;
+  }
+}
+
 </style>
