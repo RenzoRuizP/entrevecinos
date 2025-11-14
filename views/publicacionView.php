@@ -181,9 +181,12 @@ require_once __DIR__ . '/../Config/config.php';
                     Fotos • <span id="contadorImagenes">0</span>/<span>10</span>
                     <span class="text-muted"> - Puedes agregar un máximo de 10 fotos.</span>
                   </label>
+                  <!-- ---------------------------- -->
+                  <!-- 📸 Uploader mejorado (UX/UI) -->
+                  <!-- ---------------------------- -->
+                  <div id="uploaderAgregar" class="ev-uploader mt-1">
 
-                  <div id="uploaderAgregar" class="ev-uploader">
-                    <!-- input real -->
+                    <!-- input real oculto -->
                     <input
                       type="file"
                       id="inputImagenes"
@@ -194,25 +197,45 @@ require_once __DIR__ . '/../Config/config.php';
                       class="visually-hidden"
                     />
 
-                    <!-- área visual -->
-                    <div id="evTiles" class="ev-tiles">
-                      <div class="ev-tile ev-tile-add" id="tileAgregar" title="Agregar fotos">
-                        <div class="ico"><i class="bi bi-plus-lg"></i></div>
-                        <div class="t1">Agregar fotos</div>
-                        <div class="t2">o arrastra y suelta</div>
+                    <!-- Zona Drag & Drop -->
+                    <div id="dropZone" class="ev-dropzone mb-3">
+                      <div class="dz-icon">
+                        <i class="bi bi-cloud-arrow-up"></i>
+                      </div>
+                      <div class="dz-text">
+                        <strong>Arrastra tus fotos aquí</strong> o haz clic para seleccionarlas
+                      </div>
+                      <div class="dz-subtext">
+                        JPG • PNG • WEBP • Máximo 10 imágenes
                       </div>
                     </div>
 
-                    <div class="mt-2 d-flex flex-wrap align-items-center gap-2">
+                    <!-- Grid de miniaturas -->
+                    <div id="evTiles" class="ev-tiles ev-tiles-grid mb-2">
+                      <div class="ev-tile ev-tile-add" id="tileAgregar">
+                        <div class="ico"><i class="bi bi-plus-lg"></i></div>
+                        <div class="t1">Agregar fotos</div>
+                      </div>
+                    </div>
+
+                    <!-- Acciones y contador -->
+                    <div class="d-flex align-items-center gap-2 mt-2">
                       <button type="button" id="btnLimpiarImagenes" class="btn btn-sm btn-cancelar">
                         Limpiar imágenes
                       </button>
+
+                      <span class="ms-auto text-muted">
+                        <span id="contadorImagenes">0</span>/10 fotos cargadas
+                      </span>
                     </div>
 
-                    <small class="text-muted d-block mt-2">
-                      Hasta 10 imágenes (JPG, PNG o WebP) de máximo 5 MB cada una.
+                    <small class="text-muted mt-2 d-block">
+                      La primera foto será la imagen principal de tu publicación.
                     </small>
+
                   </div>
+
+                  
                 </div>
 
                 <!-- =========================
