@@ -172,16 +172,27 @@ require_once __DIR__ . '/../Config/config.php';
             <section class="mpm-left">
               <div class="row g-3">
 
-                <!-- 🖼️ Uploader primero -->
+                <!-- =========================
+                     📸 Sección: Fotos
+                ========================== -->
                 <div class="col-12">
-                  <label class="form-label fw-semibold" style="color:#0F592F;">
+                  <h6 class="ev-section-title mb-1">1. Fotos del producto</h6>
+                  <label class="form-label fw-semibold ev-required" style="color:#0F592F;">
                     Fotos • <span id="contadorImagenes">0</span>/<span>10</span>
                     <span class="text-muted"> - Puedes agregar un máximo de 10 fotos.</span>
                   </label>
 
                   <div id="uploaderAgregar" class="ev-uploader">
                     <!-- input real -->
-                    <input type="file" id="inputImagenes" name="imagenes[]" accept="image/*" multiple data-max="10" class="visually-hidden" />
+                    <input
+                      type="file"
+                      id="inputImagenes"
+                      name="imagenes[]"
+                      accept="image/*"
+                      multiple
+                      data-max="10"
+                      class="visually-hidden"
+                    />
 
                     <!-- área visual -->
                     <div id="evTiles" class="ev-tiles">
@@ -192,55 +203,110 @@ require_once __DIR__ . '/../Config/config.php';
                       </div>
                     </div>
 
-                    <div class="mt-2">
-                      <button type="button" id="btnLimpiarImagenes" class="btn btn-sm btn-cancelar">Limpiar imágenes</button>
+                    <div class="mt-2 d-flex flex-wrap align-items-center gap-2">
+                      <button type="button" id="btnLimpiarImagenes" class="btn btn-sm btn-cancelar">
+                        Limpiar imágenes
+                      </button>
                     </div>
 
-                    <small class="text-muted d-block mt-2">Hasta 10 imágenes (JPG, PNG o WebP) de máximo 5 MB cada una.</small>
+                    <small class="text-muted d-block mt-2">
+                      Hasta 10 imágenes (JPG, PNG o WebP) de máximo 5 MB cada una.
+                    </small>
                   </div>
                 </div>
 
-                <!-- Campos del producto -->
+                <!-- =========================
+                     🛒 Sección: Información principal
+                ========================== -->
+                <div class="col-12 mt-2">
+                  <h6 class="ev-section-title mb-1">2. Información principal</h6>
+                </div>
+
                 <div class="col-12">
-                  <label class="form-label">Título</label>
-                  <input type="text" id="titulo" name="titulo" class="form-control input-premium" placeholder="Escribe un título claro" required>
+                  <label class="form-label ev-required" for="titulo">Título</label>
+                  <input
+                    type="text"
+                    id="titulo"
+                    name="titulo"
+                    class="form-control input-premium"
+                    placeholder="Escribe un título claro y atractivo"
+                    required
+                  >
                 </div>
 
                 <div class="col-md-6">
-                  <label class="form-label">Precio (S/)</label>
-                  <input type="number" id="precio" name="precio" class="form-control input-premium" step="0.01" min="0" placeholder="0.00" required>
+                  <label class="form-label ev-required" for="precio">Precio (S/)</label>
+                  <input
+                    type="number"
+                    id="precio"
+                    name="precio"
+                    class="form-control input-premium"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    required
+                  >
                 </div>
 
                 <div class="col-md-6">
-                  <label class="form-label">Estado</label>
-                  <select id="estado" name="estado" class="form-select input-premium" required>
+                  <label class="form-label ev-required" for="estado">Estado</label>
+                  <select
+                    id="estado"
+                    name="estado"
+                    class="form-select input-premium"
+                    required
+                  >
                     <option>Nuevo</option>
                     <option>Usado</option>
                   </select>
                 </div>
 
                 <div class="col-md-6">
-                  <label class="form-label">Tipo</label>
-                  <select id="comboTipo" name="comboTipo" class="form-select input-premium" required>
+                  <label class="form-label ev-required" for="comboTipo">Tipo</label>
+                  <select
+                    id="comboTipo"
+                    name="comboTipo"
+                    class="form-select input-premium"
+                    required
+                  >
                     <option value="">-- Seleccione Tipos --</option>
                   </select>
                 </div>
 
                 <div class="col-md-6">
-                  <label class="form-label">Categoría</label>
-                  <select id="comboCategoria" name="categoria" class="form-select input-premium" required>
+                  <label class="form-label ev-required" for="comboCategoria">Categoría</label>
+                  <select
+                    id="comboCategoria"
+                    name="categoria"
+                    class="form-select input-premium"
+                    required
+                  >
                     <option value="" selected disabled>-- Selecciona un tipo primero --</option>
                   </select>
                 </div>
 
+                <!-- =========================
+                     📄 Sección: Detalles
+                ========================== -->
+                <div class="col-12 mt-2">
+                  <h6 class="ev-section-title mb-1">3. Detalles del producto o servicio</h6>
+                </div>
+
                 <div class="col-12">
-                  <label class="form-label">Descripción</label>
-                  <textarea id="descripcion" name="descripcion" class="form-control input-premium" rows="4" placeholder="Describe el producto con detalle" required></textarea>
+                  <label class="form-label ev-required" for="descripcion">Descripción</label>
+                  <textarea
+                    id="descripcion"
+                    name="descripcion"
+                    class="form-control input-premium"
+                    rows="4"
+                    placeholder="Cuenta los detalles más importantes para que tus vecinos se animen a comprar."
+                    required
+                  ></textarea>
                 </div>
               </div>
             </section>
 
-            <!-- DERECHA: PREVIEW -->
+            <!-- DERECHA: PREVIEW (solo se oculta en móvil por CSS) -->
             <aside class="mpm-right">
               <div class="mpm-preview-wrap">
                 <div class="col-lg-12" id="previewMount"></div>
@@ -251,13 +317,14 @@ require_once __DIR__ . '/../Config/config.php';
 
         <div class="modal-footer">
           <button type="button" class="btn btn-cancelar" data-bs-dismiss="modal">Cancelar</button>
-          <button type="button" id="btnGuardarPublicacion" class="btn btn-outline-success btn-guardar">Guardar</button>
+          <button type="submit" class="btn btn-outline-success btn-guardar">Guardar</button>
         </div>
       </form>
 
     </div>
   </div>
 </div>
+
 
 <!-- Scripts únicos de esta vista -->
 <script src="<?= BASE_URL ?>public/js/combo_tipo.js"></script>

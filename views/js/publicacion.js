@@ -169,7 +169,7 @@
           b.innerHTML=html; b.title=title; b.addEventListener('click', cb); return b;
         };
         actions.append(
-          mkBtn('<i class="bi bi-arrows-fullscreen"></i>','Expandir/Contraer',()=>previewWrapper.classList.toggle('is-expanded')),
+          
           mkBtn('<i class="bi bi-chevron-left"></i>','Anterior',()=>{ if(!fotos.length) return; selectedIndex=(selectedIndex-1+fotos.length)%fotos.length; updateMain(); renderThumbs(); }),
           mkBtn('<i class="bi bi-chevron-right"></i>','Siguiente',()=>{ if(!fotos.length) return; selectedIndex=(selectedIndex+1)%fotos.length; updateMain(); renderThumbs(); }),
           mkBtn('<i class="bi bi-trash"></i>','Quitar todas',()=>{ revokeAll(); fotos = []; rebuildFileList(); selectedIndex=0; paint(); }, 'btn-cancelar')
@@ -380,3 +380,71 @@
   tipo?.addEventListener('change', () => markFilled(tipo));
   cat?.addEventListener('change',  () => markFilled(cat));
 })();
+
+/* Registrar publicación */
+
+  // 🧩 Delegación de eventos como respaldo adicional
+  document.addEventListener("click", async (e) => {
+    // Detectar clic en el botón guardar, incluso si se cargó dinámicamente
+    if (e.target && e.target.id === "btnGuardarPublicacion") {
+      const form = document.getElementById("formDatosPersonales");
+      if (!form) return; // si aún no se cargó, no hace nada
+
+      console.log("🟢 (Delegación) Click detectado en btnGuardarPublicacion");
+
+      const nombre = document.getElementById("nombre_completo")?.value.trim() || "";
+      const email = document.getElementById("email")?.value.trim() || "";
+
+      if (!nombre || !email) {
+        Swal.fire({
+          icon: "warning",
+          title: "Campos requeridos",
+          text: "Por favor ingresa al menos tu nombre y correo electrónico.",
+        });
+        return;
+      }
+
+      Swal.fire({
+        title: "Guardando cambios...",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      try {
+        const response = await fetch(`${window.BASE_URL}api/publicacion/registrar`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            
+            inputImagenes: document.getElementById("inputImagenes")?.value.trim() || "",
+            titulo: document.getElementById("titulo")?.value.trim() || "",
+            precio: document.getElementById("precio")?.value.trim() || "",
+            comboEstado: document.getElementById("comboEstado")?.value || "",
+            comboTipo: document.getElementById("comboTipo")?.value || "",
+            comboCategoria: document.getElementById("comboCategoria")?.value || "",
+            descripcion: document.getElementById("descripcion")?.value.trim() || "",
+          }),
+        });
+
+        const result = await response.json();
+        console.log("📬 (Delegación) Respuesta del servidor:", result);
+
+        if (!response.ok || !result.success) throw new Error(result.error || "No se pudo guardar la información");
+
+        Swal.fire({
+          icon: "success",
+          title: "Datos actualizados correctamente",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+      } catch (err) {
+        console.error("❌ (Delegación) Error al guardar:", err);
+        Swal.fire({
+          icon: "error",
+          title: "Error al guardar",
+          text: err.message || "Ocurrió un error al guardar los datos.",
+        });
+      }
+    }
+  });

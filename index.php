@@ -15,6 +15,7 @@ require_once __DIR__ . '/controllers/UserController.php';
 require_once __DIR__ . '/controllers/miPerfilController.php';
 require_once __DIR__ . '/controllers/api/usuarioDatosController.php';
 require_once __DIR__ . '/controllers/publicacionController.php';
+require_once __DIR__ . '/controllers/api/apiPublicacionController.php';
 require_once __DIR__ . '/controllers/tipoController.php';
 
 require_once __DIR__ . '/models/SesionJWT.php';
@@ -92,7 +93,7 @@ $routes = [
     ['POST', '#^/api/usuario/actualizar$#',[usuarioDatosController::class, 'actualizarDatos'],'json'],
 
     // --- API mis publicaciones (si la usas) ---
-    // ['POST', '#^/api/publicacion/registrar$#', [publicacionApiController::class, 'registrarPublicacion'], 'json'],
+    ['POST', '#^/api/publicacion/registrar$#', [apiPublicacionController::class, 'registrarPublicacion'], 'json'],
 ];
 
 // ============================================================

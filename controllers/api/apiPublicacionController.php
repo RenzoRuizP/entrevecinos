@@ -1,9 +1,9 @@
 <?php
-// controllers/api/publicacionApiController.php
+// controllers/api/apiPublicacionController.php
 require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/Publicacion.php';
 
-class publicacionApiController
+class apiPublicacionController
 {
     public function registrarPublicacion()
     {
