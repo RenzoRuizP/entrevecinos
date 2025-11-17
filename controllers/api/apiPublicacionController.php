@@ -7,67 +7,227 @@ class apiPublicacionController
 {
     public function registrarPublicacion()
     {
-        header('Content-Type: application/json; charset=utf-8');
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode([
+                'ok'      => false,
+                'mensaje' => 'Método no permitido'
+            ]);
+            return;
+        }
 
         try {
-            // ✅ Validar token JWT
-            if (empty($_COOKIE['auth_token'])) {
+            // ==========================
+            // 1) Usuario autenticado
+            // ==========================
+            $token = $_COOKIE['auth_token'] ?? null;
+            if (!$token) {
                 http_response_code(401);
-                echo json_encode(['error' => 'Token no encontrado']);
+                echo json_encode([
+                    'ok'      => false,
+                    'mensaje' => 'Token no encontrado'
+                ]);
                 return;
             }
 
-            $jwt = new SesionJWT();
-            $datosToken = $jwt->verificarToken($_COOKIE['auth_token']); // ARRAY
-            if (!$datosToken || empty($datosToken['codigo_usuario'])) {
+            $datosToken = SesionJWT::verificarToken($token);
+            $codigoUsuario = $datosToken['codigo_usuario'] ?? $datosToken['id_usuario'] ?? null;
+
+            if (!$codigoUsuario) {
                 http_response_code(401);
-                echo json_encode(['error' => 'Token inválido o expirado']);
+                echo json_encode([
+                    'ok'      => false,
+                    'mensaje' => 'No se pudo identificar al usuario del token'
+                ]);
                 return;
             }
 
-            // ✅ Leer cuerpo JSON
-            $rawInput = file_get_contents("php://input");
-            $data = json_decode($rawInput, true);
+            // ==========================
+            // 2) Validación de entrada
+            // ==========================
+            $titulo      = trim($_POST['titulo'] ?? '');
+            $descripcion = trim($_POST['descripcion'] ?? '');
+            $precioRaw   = $_POST['precio'] ?? null;
+            $estado      = $_POST['estado'] ?? 'NoAplica';
 
-            if (json_last_error() !== JSON_ERROR_NONE) {
+            // Campos adicionales (aún no se persisten en BD pero se leen)
+            $tipo        = $_POST['comboTipo'] ?? null;
+            $categoria   = $_POST['categoria'] ?? null;
+
+            if ($titulo === '' || $descripcion === '') {
                 http_response_code(400);
-                echo json_encode(['error' => 'Formato JSON inválido', 'detalle' => json_last_error_msg()]);
+                echo json_encode([
+                    'ok'      => false,
+                    'mensaje' => 'Título y descripción son obligatorios.'
+                ]);
                 return;
             }
 
-            if (empty($data['email']) || empty($data['nombre_completo'])) {
+            $precio = is_numeric($precioRaw) ? (float) $precioRaw : 0;
+            if ($precio <= 0) {
                 http_response_code(400);
-                echo json_encode(['error' => 'Datos incompletos o inválidos']);
+                echo json_encode([
+                    'ok'      => false,
+                    'mensaje' => 'El precio debe ser mayor a 0.'
+                ]);
                 return;
             }
 
-            // (Opcional) Validar que comboDepartamento sea numérico si viene
-            if (isset($data['comboDepartamento']) && $data['comboDepartamento'] !== '' &&
-                !ctype_digit((string)$data['comboDepartamento'])) {
-                http_response_code(400);
-                echo json_encode(['error' => 'Departamento inválido']);
-                return;
+            $estadoValido = ['Nuevo','Usado','NoAplica'];
+            if (!in_array($estado, $estadoValido, true)) {
+                $estado = 'NoAplica';
             }
 
-            // ✅ Actualizar en base de datos
-            $publicacionModel = new Publicacion();
-            $registrado = $publicacionModel->registrarPublicacion($data);
-            
-            if ($registrado) {
-                echo json_encode(['success' => true, 'message' => 'Registro exitoso']);
-            } else {
-                http_response_code(400);
-                echo json_encode(['error' => 'No se pudo registrar la publicación']);
+            // ==========================
+            // 3) Crear publicación base
+            // ==========================
+            $pub = new Publicacion();
+            $pub->setTitulo($titulo);
+            $pub->setDescripcion($descripcion);
+            $pub->setPrecio($precio);
+            $pub->setEstado($estado);
+            $pub->setCodigoUsuario($codigoUsuario);
+
+            $codigoPublicacion = $pub->crearPublicacion();
+
+            // ==========================
+            // 4) Manejo de imágenes
+            // ==========================
+            $imagenesSubidas = 0;
+            $primeraRuta = null;
+
+            if (!empty($_FILES['imagenes']) && is_array($_FILES['imagenes']['name'])) {
+                $names  = $_FILES['imagenes']['name'];
+                $tmp    = $_FILES['imagenes']['tmp_name'];
+                $errors = $_FILES['imagenes']['error'];
+                $sizes  = $_FILES['imagenes']['size'];
+                $types  = $_FILES['imagenes']['type'];
+
+                // Carpeta base: /uploads/publicaciones/{usuario}/{publicacion}
+                $rootPath   = realpath(__DIR__ . '/../../'); // raíz del proyecto (donde está index.php)
+                $baseDirRel = 'uploads/publicaciones/' . $codigoUsuario . '/' . $codigoPublicacion;
+                $baseDirAbs = $rootPath . '/' . $baseDirRel;
+
+                if (!is_dir($baseDirAbs)) {
+                    if (!mkdir($baseDirAbs, 0775, true) && !is_dir($baseDirAbs)) {
+                        throw new Exception('No se pudo crear el directorio de imágenes.');
+                    }
+                }
+
+                $orden = 1;
+
+                foreach ($names as $i => $nombreOriginal) {
+                    if ($errors[$i] !== UPLOAD_ERR_OK) {
+                        continue;
+                    }
+
+                    $tmpName = $tmp[$i];
+                    $size    = (int) $sizes[$i];
+                    $mime    = $types[$i] ?? null;
+
+                    // Validación básica de imagen
+                    $infoImg = @getimagesize($tmpName);
+                    if ($infoImg === false) {
+                        continue; // no es imagen válida
+                    }
+
+                    $ancho = $infoImg[0] ?? null;
+                    $alto  = $infoImg[1] ?? null;
+                    $mimeReal = $infoImg['mime'] ?? $mime;
+
+                    $ext = pathinfo($nombreOriginal, PATHINFO_EXTENSION);
+                    $ext = $ext ? strtolower($ext) : 'jpg';
+
+                    $nombreLimpio = 'img_' . $orden . '_' . time() . '_' . mt_rand(1000,9999) . '.' . $ext;
+                    $destinoAbs   = $baseDirAbs . '/' . $nombreLimpio;
+                    $destinoRel   = $baseDirRel . '/' . $nombreLimpio; // esto es lo que guardamos en BD
+
+                    if (!move_uploaded_file($tmpName, $destinoAbs)) {
+                        continue;
+                    }
+
+                    $esPortada = ($orden === 1) ? 1 : 0;
+
+                    $pub->registrarImagen(
+                        $codigoPublicacion,
+                        $destinoRel,
+                        $esPortada,
+                        $orden,
+                        $ancho,
+                        $alto,
+                        $size,
+                        $mimeReal
+                    );
+
+                    if ($esPortada && !$primeraRuta) {
+                        $primeraRuta = $destinoRel;
+                    }
+
+                    $imagenesSubidas++;
+                    $orden++;
+                }
             }
 
-        } catch (Throwable $e) {
+            // ==========================
+            // 5) Actualizar portada
+            // ==========================
+            if ($primeraRuta) {
+                $pub->actualizarImagenPortada($codigoPublicacion, $primeraRuta);
+            }
+
+            http_response_code(201);
+            echo json_encode([
+                'ok'                => true,
+                'mensaje'           => 'Publicación registrada correctamente.',
+                'codigo_publicacion'=> $codigoPublicacion,
+                'imagenes_subidas'  => $imagenesSubidas
+            ]);
+
+        } catch (Exception $e) {
             http_response_code(500);
             echo json_encode([
-                'error' => 'Error del servidor',
-                'detalle' => $e->getMessage(),
-                'linea' => $e->getLine(),
-                'archivo' => $e->getFile()
+                'ok'      => false,
+                'mensaje' => 'Error al registrar la publicación.',
+                'error'   => $e->getMessage()
             ]);
         }
     }
+
+    public function listarPublicaciones()
+    {
+        try {
+            // Validar token y obtener usuario
+            $token = $_COOKIE['auth_token'] ?? null;
+            if (!$token) {
+                http_response_code(401);
+                echo json_encode(['ok' => false, 'error' => 'No se encontró el token de sesión.']);
+                return;
+            }
+
+            $usuario = SesionJWT::verificarToken($token);
+            if (!$usuario || empty($usuario['codigo_usuario'])) {
+                http_response_code(401);
+                echo json_encode(['ok' => false, 'error' => 'Token inválido o usuario no encontrado.']);
+                return;
+            }
+
+            $codigoUsuario = (int)$usuario['codigo_usuario'];
+
+            $pubModel = new Publicacion();
+            $lista    = $pubModel->listarPorUsuario($codigoUsuario);
+
+            echo json_encode([
+                'ok'   => true,
+                'data' => $lista
+            ]);
+
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'ok'    => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
 }

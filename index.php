@@ -92,8 +92,9 @@ $routes = [
     ['GET',  '#^/api/usuario/datos$#',     [usuarioDatosController::class, 'obtenerDatos'],   'json'],
     ['POST', '#^/api/usuario/actualizar$#',[usuarioDatosController::class, 'actualizarDatos'],'json'],
 
-    // --- API mis publicaciones (si la usas) ---
+    // --- API mis publicaciones ---
     ['POST', '#^/api/publicacion/registrar$#', [apiPublicacionController::class, 'registrarPublicacion'], 'json'],
+    ['GET',  '#^/api/publicacion/listar$#',    [apiPublicacionController::class, 'listarPublicaciones'],  'json'],
 ];
 
 // ============================================================

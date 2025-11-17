@@ -40,55 +40,48 @@ require_once __DIR__ . '/../Config/config.php';
     </div>
 
     <div class="card-body p-0">
-      <div class="table-responsive ev-table-wrap">
-        <table class="table table-hover align-middle mb-0 ev-table" id="tablaPublicaciones">
-          <thead>
-            <tr>
-              <th data-sort="codigo">Código</th>
-              <th data-sort="garante">Garante</th>
-              <th data-sort="producto">Producto</th>
-              <th data-sort="mecanismo">Mecanismo de pago</th>
-              <th class="text-center">Opciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td data-label="Código"><span class="ev-code">000001</span></td>
-              <td data-label="Garante">Privado</td>
-              <td data-label="Producto" class="td-trunc" title="Producto Privado">Privado</td>
-              <td data-label="Mecanismo">Px</td>
-              <td data-label="Opciones" class="text-center">
-                <div class="ev-actions">
-                  <button class="ev-chip ev-chip-amber">Finalizar</button>
-                  <button class="ev-chip ev-chip-green">Renovar</button>
-                  <button class="ev-chip ev-chip-teal">Prestación</button>
-                  <button class="ev-chip ev-chip-red">Anular</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="ev-foot">
-        <div class="ev-page-size">
-          Registros por página:
-          <select class="form-select form-select-sm input-premium ev-select">
-            <option selected>10</option><option>20</option><option>50</option>
-          </select>
-        </div>
-        <div class="ev-range small text-muted">1–3 de 3</div>
-        <ul class="ev-pagination">
-          <li><button class="ev-page-btn" title="Primero" disabled><i class="bi bi-chevron-bar-left"></i></button></li>
-          <li><button class="ev-page-btn" title="Anterior" disabled><i class="bi bi-chevron-left"></i></button></li>
-          <li><button class="ev-page-btn active">1</button></li>
-          <li><button class="ev-page-btn">2</button></li>
-          <li><button class="ev-page-btn">3</button></li>
-          <li><button class="ev-page-btn" title="Siguiente"><i class="bi bi-chevron-right"></i></button></li>
-          <li><button class="ev-page-btn" title="Último"><i class="bi bi-chevron-bar-right"></i></button></li>
-        </ul>
-      </div>
+    <div class="table-responsive ev-table-wrap">
+      <table class="table table-hover align-middle mb-0 ev-table" id="tablaPublicaciones">
+        <thead>
+          <tr>
+            <th data-sort="codigo">Código</th>
+            <th data-sort="titulo">Título</th>
+            <th data-sort="precio">Precio (S/)</th>
+            <th data-sort="estado">Estado</th>
+            <th data-sort="fecha">Fecha</th>
+            <th class="text-center">Opciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td colspan="6" class="text-center py-4 text-muted">
+              Cargando publicaciones…
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
+
+    <div class="ev-foot">
+      <div class="ev-page-size">
+        Registros por página:
+        <select class="form-select form-select-sm input-premium ev-select">
+          <option selected>10</option><option>20</option><option>50</option>
+        </select>
+      </div>
+      <div class="ev-range small text-muted">–</div>
+      <ul class="ev-pagination">
+        <li><button class="ev-page-btn" title="Primero" disabled><i class="bi bi-chevron-bar-left"></i></button></li>
+        <li><button class="ev-page-btn" title="Anterior" disabled><i class="bi bi-chevron-left"></i></button></li>
+        <li><button class="ev-page-btn active">1</button></li>
+        <li><button class="ev-page-btn">2</button></li>
+        <li><button class="ev-page-btn">3</button></li>
+        <li><button class="ev-page-btn" title="Siguiente"><i class="bi bi-chevron-right"></i></button></li>
+        <li><button class="ev-page-btn" title="Último"><i class="bi bi-chevron-bar-right"></i></button></li>
+      </ul>
+    </div>
+  </div>
+
   </div>
 </div>
 
@@ -155,7 +148,7 @@ require_once __DIR__ . '/../Config/config.php';
 </div>
 
 <!-- ➕ Modal Agregar -->
-<div class="modal fade" id="modalAgregarPublicacion" tabindex="-1" aria-labelledby="lblAgregarPublicacion" aria-hidden="true">
+<div class="modal fade" id="modalAgregarPublicacion" tabindex="-1" aria-labelledby="lblAgregarPublicacion" aria-hidden="true" >
   <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-md-down">
     <div class="modal-content border-0 ev-card">
       <div class="modal-header">
@@ -226,9 +219,10 @@ require_once __DIR__ . '/../Config/config.php';
                       </button>
 
                       <div class="ev-toolbar-uploads-count">
-                        <span id="contadorImagenes">0</span>/10 fotos cargadas
+                        <span id="contadorImagenesToolbar">0</span>/10 fotos cargadas
                       </div>
                     </div>
+
 
                     <small class="text-muted mt-2 d-block">
                       La primera foto será la imagen principal de tu publicación.

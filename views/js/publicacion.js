@@ -16,8 +16,34 @@
 })();
 
 /* ==============================
+   Utilidad general: BASE_URL + SweetAlert helper
+============================== */
+const EV_API_BASE = (function () {
+  try {
+    if (window.BASE_URL) {
+      return String(window.BASE_URL).replace(/\/+$/, '');
+    }
+  } catch (_) {}
+  return '';
+})();
+
+function evNotify(tipo, titulo, texto) {
+  if (window.Swal?.fire) {
+    Swal.fire({
+      icon: tipo,
+      title: titulo,
+      text: texto,
+      confirmButtonText: 'Aceptar'
+    });
+  } else {
+    alert(`${titulo} - ${texto}`);
+  }
+}
+
+/* ==============================
    Modales + acciones básicas
 ============================== */
+//$('#modalAgregarPublicacion').modal({backdrop: 'static', keyboard: false})
 (function () {
   function abrirModal(id) {
     const el = document.getElementById(id);
@@ -39,22 +65,38 @@
   }
 
   document.addEventListener("click", (e) => {
-    if (e.target.closest("#btnBuscarPublicacion")) { abrirModal('modalBuscarPublicacion'); return; }
-    if (e.target.closest("#btnAgregarPublicacion")) { abrirModal('modalAgregarPublicacion'); return; }
+    // Ajustado a tus IDs reales
+    if (e.target.closest("#btnBuscar")) {
+      abrirModal('modalBuscarPublicacion');
+      return;
+    }
+    if (e.target.closest("#btnAgregar")) {
+      abrirModal('modalAgregarPublicacion');
+      return;
+    }
+
     const btnEditar = e.target.closest('[data-action="editar"], .btn-editar');
-    if (btnEditar) { precargarEditar(btnEditar); abrirModal('modalEditarPublicacion'); }
+    if (btnEditar) {
+      precargarEditar(btnEditar);
+      abrirModal('modalEditarPublicacion');
+    }
   });
 
+  // Buscar (se queda en consola por ahora)
   document.getElementById('formBuscarPublicacion')?.addEventListener('submit', (e) => {
-    e.preventDefault(); console.log('[BUSCAR]', Object.fromEntries(new FormData(e.target)));
+    e.preventDefault();
+    console.log('[BUSCAR]', Object.fromEntries(new FormData(e.target)));
   });
-  document.getElementById('formAgregarPublicacion')?.addEventListener('submit', (e) => {
-    e.preventDefault(); console.log('[AGREGAR]', Object.fromEntries(new FormData(e.target)));
-  });
+
+  // Editar (placeholder)
   document.getElementById('formEditarPublicacion')?.addEventListener('submit', (e) => {
-    e.preventDefault(); console.log('[EDITAR]', Object.fromEntries(new FormData(e.target)));
+    e.preventDefault();
+    console.log('[EDITAR]', Object.fromEntries(new FormData(e.target)));
   });
+
+  // NO manejamos aquí el submit de AGREGAR: se gestiona en el módulo de API
 })();
+
 
 /* ==============================
    Uploader + Previsualización — dropZone central
@@ -66,8 +108,7 @@
   const $ = (s, root = document) => root.querySelector(s);
 
   function notify(msg) {
-    if (window.Swal?.fire) Swal.fire({ icon: 'info', title: 'Aviso', text: msg });
-    else alert(msg);
+    evNotify('info', 'Aviso', msg);
   }
 
   function validarArchivo(file) {
@@ -81,11 +122,15 @@
   function initUploader(modalEl) {
     if (initialized) return;
 
-    const input    = $('#inputImagenes', modalEl);
-    const tiles    = $('#evTiles', modalEl);
-    const tileAdd  = $('#tileAgregar', modalEl); // se mantiene por compatibilidad, pero va oculto por CSS
-    const btnClr   = $('#btnLimpiarImagenes', modalEl);
-    const lblCnt   = $('#contadorImagenes', modalEl);
+    const form    = modalEl.querySelector('#formAgregarPublicacion');
+    const input   = $('#inputImagenes', modalEl);
+    const tiles   = $('#evTiles', modalEl);
+    const tileAdd = $('#tileAgregar', modalEl); // se mantiene por compatibilidad, pero va oculto por CSS
+    const btnClr  = $('#btnLimpiarImagenes', modalEl);
+
+    const lblCntHeader  = $('#contadorImagenes', modalEl);          // arriba, al lado de "Fotos •"
+    const lblCntToolbar = $('#contadorImagenesToolbar', modalEl);   // abajo, en "0/10 fotos cargadas"
+
     const dropZone = document.getElementById('dropZone');
 
     if (!input || !tiles) return;
@@ -104,7 +149,13 @@
 
     const revokeAll = () => fotos.forEach(f => f.url && URL.revokeObjectURL(f.url));
 
-    const setCount = () => { if (lblCnt) lblCnt.textContent = String(fotos.length); };
+    const setCount = () => {
+      const count = fotos.length;
+      if (lblCntHeader)  lblCntHeader.textContent  = String(count);
+      if (lblCntToolbar) lblCntToolbar.textContent = String(count);
+      if (form)          form.dataset.evFotosCount = String(count); // ← clave para la validación
+    };
+
 
     // --------- Preview derecha ----------
     let previewWrapper, previewMainImg, previewThumbs, metaTitleEl, metaPriceEl, metaDescEl;
@@ -123,12 +174,12 @@
 
         const actions = document.createElement('div');
         actions.className = 'ev-preview-actions';
-        const mkBtn = (html, title, cb, extra = 'btn-outline-success') => {
+        const mkBtn = (html, titleText, cb, extra = 'btn-outline-success') => {
           const b = document.createElement('button');
           b.type = 'button';
           b.className = `btn btn-sm ${extra}`;
           b.innerHTML = html;
-          b.title = title;
+          b.title = titleText;
           b.addEventListener('click', cb);
           return b;
         };
@@ -234,7 +285,7 @@
         tiles.appendChild(t);
       });
 
-      // Tile "Agregar" se sigue creando para compatibilidad, pero queda oculto por CSS
+      // Tile "Agregar" (se mantiene aunque esté oculto por CSS)
       if (fotos.length < MAX_FILES) {
         const add = document.createElement('div');
         add.className = 'ev-tile ev-tile-add';
@@ -382,6 +433,122 @@
 })();
 
 /* ==============================
+   Form: Registrar publicación (API)
+   (delegado para vistas cargadas dinámicamente)
+============================== */
+(function () {
+
+  async function registrarPublicacion(e) {
+    e.preventDefault();
+
+    const form = e.target;
+    if (!form || form.id !== 'formAgregarPublicacion') return;
+
+    const btnGuardar     = form.querySelector('.btn-guardar');
+    const inputImagenes  = form.querySelector('#inputImagenes');
+
+    // Validación básica en front
+    const titulo      = form.titulo?.value?.trim();
+    const precio      = form.precio?.value;
+    const descripcion = form.descripcion?.value?.trim();
+
+    if (!titulo) {
+      evNotify('warning', 'Validación', 'Debes ingresar un título para la publicación.');
+      return;
+    }
+    if (!precio || Number(precio) <= 0) {
+      evNotify('warning', 'Validación', 'El precio debe ser mayor a 0.');
+      return;
+    }
+    if (!descripcion) {
+      evNotify('warning', 'Validación', 'Debes ingresar una descripción.');
+      return;
+    }
+
+    const fotosCount = Number(form.dataset.evFotosCount || '0');
+    const hasFiles   = inputImagenes && inputImagenes.files && inputImagenes.files.length > 0;
+
+    if (!hasFiles && !fotosCount) {
+      evNotify('warning', 'Validación', 'Debes agregar al menos una imagen.');
+      return;
+    }
+
+
+    const fd = new FormData(form);
+
+    const setSaving = (saving) => {
+      if (!btnGuardar) return;
+      if (saving) {
+        btnGuardar.classList.add('saving');
+        btnGuardar.disabled = true;
+      } else {
+        btnGuardar.classList.remove('saving');
+        btnGuardar.disabled = false;
+      }
+    };
+
+    try {
+      setSaving(true);
+
+      const resp = await fetch(`${EV_API_BASE}/api/publicacion/registrar`, {
+        method: 'POST',
+        body: fd
+      });
+
+      const data = await resp.json().catch(() => ({}));
+
+      if (resp.status === 401) {
+        evNotify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
+        setTimeout(() => {
+          window.location.href = `${EV_API_BASE}/`;
+        }, 1500);
+        return;
+      }
+
+      if (!resp.ok || !data.ok) {
+        const msg = data.mensaje || data.error || 'No se pudo registrar la publicación.';
+        evNotify('error', 'Error', msg);
+        return;
+      }
+
+      // Éxito
+      evNotify('success', 'Publicación registrada', 'Tu publicación se ha registrado correctamente.');
+
+      // Reset del formulario
+      form.reset();
+
+      // Limpiar visualmente el uploader
+      const btnLimpiar = document.getElementById('btnLimpiarImagenes');
+      btnLimpiar?.click();
+
+      // Cerrar modal
+      const modalEl = document.getElementById('modalAgregarPublicacion');
+      if (modalEl) {
+        const modalInstance = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+        modalInstance.hide();
+      }
+
+      console.log('[AGREGAR][OK]', data);
+
+    } catch (err) {
+      console.error(err);
+      evNotify('error', 'Error inesperado', 'Ocurrió un problema al registrar la publicación.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Delegado: sirve aunque el formulario se inyecte dinámicamente
+  document.addEventListener('submit', (e) => {
+    const form = e.target;
+    if (form && form.id === 'formAgregarPublicacion') {
+      registrarPublicacion(e);
+    }
+  });
+})();
+
+
+/* ==============================
    UX extra: selects Tipo/Categoría
 ============================== */
 (function () {
@@ -418,7 +585,6 @@
     const hH = header ? header.offsetHeight : 0;
     const fH = footer ? footer.offsetHeight : 0;
 
-    // Exponemos la altura real del footer para que el CSS agregue padding-bottom al body
     content.style.setProperty('--ev-footer-h', `${fH}px`);
 
     const cs  = getComputedStyle(body);
