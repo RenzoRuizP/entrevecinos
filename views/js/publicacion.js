@@ -1,6 +1,28 @@
 /* publicaciones.js */
 
 /* ==============================
+   Config base + helper de alertas
+============================== */
+const EV_API_BASE = (window.BASE_URL || '').replace(/\/$/, '');
+
+function evNotify(icon, title, text) {
+  if (window.Swal?.fire) {
+    Swal.fire({
+      icon,
+      title,
+      text,
+      confirmButtonText: 'Aceptar',
+      customClass: {
+        confirmButton: 'btn btn-outline-success'
+      },
+      buttonsStyling: false
+    });
+  } else {
+    alert(title ? `${title}\n\n${text}` : text);
+  }
+}
+
+/* ==============================
    Ajuste de viewport seguro (vh)
 ============================== */
 (function () {
@@ -16,34 +38,8 @@
 })();
 
 /* ==============================
-   Utilidad general: BASE_URL + SweetAlert helper
-============================== */
-const EV_API_BASE = (function () {
-  try {
-    if (window.BASE_URL) {
-      return String(window.BASE_URL).replace(/\/+$/, '');
-    }
-  } catch (_) {}
-  return '';
-})();
-
-function evNotify(tipo, titulo, texto) {
-  if (window.Swal?.fire) {
-    Swal.fire({
-      icon: tipo,
-      title: titulo,
-      text: texto,
-      confirmButtonText: 'Aceptar'
-    });
-  } else {
-    alert(`${titulo} - ${texto}`);
-  }
-}
-
-/* ==============================
    Modales + acciones básicas
 ============================== */
-//$('#modalAgregarPublicacion').modal({backdrop: 'static', keyboard: false})
 (function () {
   function abrirModal(id) {
     const el = document.getElementById(id);
@@ -64,13 +60,13 @@ function evNotify(tipo, titulo, texto) {
     setVal('#edit_stock',       btn.dataset.stock || 1);
   }
 
-  document.addEventListener("click", (e) => {
-    // Ajustado a tus IDs reales
-    if (e.target.closest("#btnBuscar")) {
+  document.addEventListener('click', (e) => {
+    // Botones de cabecera (ids en la vista actual)
+    if (e.target.closest('#btnBuscar, #btnBuscarPublicacion')) {
       abrirModal('modalBuscarPublicacion');
       return;
     }
-    if (e.target.closest("#btnAgregar")) {
+    if (e.target.closest('#btnAgregar, #btnAgregarPublicacion')) {
       abrirModal('modalAgregarPublicacion');
       return;
     }
@@ -82,21 +78,20 @@ function evNotify(tipo, titulo, texto) {
     }
   });
 
-  // Buscar (se queda en consola por ahora)
+  // Submit de buscar (aún solo log, luego se conectará al API de filtros)
   document.getElementById('formBuscarPublicacion')?.addEventListener('submit', (e) => {
     e.preventDefault();
     console.log('[BUSCAR]', Object.fromEntries(new FormData(e.target)));
   });
 
-  // Editar (placeholder)
+  // Ojo: el submit de formAgregarPublicacion se maneja en un bloque específico
+  // con delegación para ser compatible con la carga dinámica de vistas.
+
   document.getElementById('formEditarPublicacion')?.addEventListener('submit', (e) => {
     e.preventDefault();
     console.log('[EDITAR]', Object.fromEntries(new FormData(e.target)));
   });
-
-  // NO manejamos aquí el submit de AGREGAR: se gestiona en el módulo de API
 })();
-
 
 /* ==============================
    Uploader + Previsualización — dropZone central
@@ -153,9 +148,8 @@ function evNotify(tipo, titulo, texto) {
       const count = fotos.length;
       if (lblCntHeader)  lblCntHeader.textContent  = String(count);
       if (lblCntToolbar) lblCntToolbar.textContent = String(count);
-      if (form)          form.dataset.evFotosCount = String(count); // ← clave para la validación
+      if (form)          form.dataset.evFotosCount = String(count); // ← usado en la validación
     };
-
 
     // --------- Preview derecha ----------
     let previewWrapper, previewMainImg, previewThumbs, metaTitleEl, metaPriceEl, metaDescEl;
@@ -174,12 +168,12 @@ function evNotify(tipo, titulo, texto) {
 
         const actions = document.createElement('div');
         actions.className = 'ev-preview-actions';
-        const mkBtn = (html, titleText, cb, extra = 'btn-outline-success') => {
+        const mkBtn = (html, title, cb, extra = 'btn-outline-success') => {
           const b = document.createElement('button');
           b.type = 'button';
           b.className = `btn btn-sm ${extra}`;
           b.innerHTML = html;
-          b.title = titleText;
+          b.title = title;
           b.addEventListener('click', cb);
           return b;
         };
@@ -285,7 +279,7 @@ function evNotify(tipo, titulo, texto) {
         tiles.appendChild(t);
       });
 
-      // Tile "Agregar" (se mantiene aunque esté oculto por CSS)
+      // Tile "Agregar" se sigue creando para compatibilidad, aunque esté oculto por CSS
       if (fotos.length < MAX_FILES) {
         const add = document.createElement('div');
         add.className = 'ev-tile ev-tile-add';
@@ -433,6 +427,75 @@ function evNotify(tipo, titulo, texto) {
 })();
 
 /* ==============================
+   UX extra: selects Tipo/Categoría
+============================== */
+(function () {
+  const tipo = document.getElementById('comboTipo');
+  const cat  = document.getElementById('comboCategoria');
+  const markFilled = (el) => {
+    if (!el) return;
+    el.classList.remove('ev-pulse');
+    void el.offsetWidth;
+    el.classList.add('ev-pulse');
+    if (el.value && el.value !== '') el.classList.add('is-filled');
+    else el.classList.remove('is-filled');
+  };
+  tipo?.addEventListener('change', () => markFilled(tipo));
+  cat?.addEventListener('change',  () => markFilled(cat));
+})();
+
+/* ===== Fallback irrompible: altura del modal ===== */
+(function fixModalBodyHeight(){
+  function tuneModal(id){
+    const modal = document.getElementById(id);
+    if(!modal) return;
+    const content = modal.querySelector('.modal-content');
+    const body    = modal.querySelector('.modal-body');
+    const header  = modal.querySelector('.modal-header');
+    const footer  = modal.querySelector('.modal-footer');
+    if(!content || !body) return;
+
+    const viewport = Math.min(window.innerHeight || 0, screen.height || window.innerHeight || 0);
+    const root = getComputedStyle(modal);
+    const modalMargin = parseFloat(root.getPropertyValue('--bs-modal-margin')) || 8;
+    const available = Math.max(200, Math.floor(viewport - (modalMargin*2)));
+
+    const hH = header ? header.offsetHeight : 0;
+    const fH = footer ? footer.offsetHeight : 0;
+
+    // Exponemos la altura real del footer para que el CSS agregue padding-bottom al body
+    content.style.setProperty('--ev-footer-h', `${fH}px`);
+
+    const cs  = getComputedStyle(body);
+    const pvt = parseFloat(cs.paddingTop||'0') + parseFloat(cs.paddingBottom||'0');
+
+    content.style.maxHeight = `${available}px`;
+    const bodyH = Math.max(160, available - hH - fH - pvt);
+    body.style.height = `${bodyH}px`;
+    body.style.overflowY = 'auto';
+    body.style.overflowX = 'hidden';
+    body.style.minHeight = '0';
+    body.style.webkitOverflowScrolling = 'touch';
+  }
+
+  function handleShown(e){
+    const id = e.target?.id;
+    if(!id) return;
+    if(id==='modalAgregarPublicacion' || id==='modalBuscarPublicacion'){
+      setTimeout(()=>tuneModal(id), 0);
+    }
+  }
+
+  function handleResize(){
+    ['modalAgregarPublicacion','modalBuscarPublicacion'].forEach(tuneModal);
+  }
+
+  document.addEventListener('shown.bs.modal', handleShown);
+  window.addEventListener('resize', handleResize);
+  window.addEventListener('orientationchange', handleResize);
+})();
+
+/* ==============================
    Form: Registrar publicación (API)
    (delegado para vistas cargadas dinámicamente)
 ============================== */
@@ -472,7 +535,6 @@ function evNotify(tipo, titulo, texto) {
       evNotify('warning', 'Validación', 'Debes agregar al menos una imagen.');
       return;
     }
-
 
     const fd = new FormData(form);
 
@@ -516,6 +578,7 @@ function evNotify(tipo, titulo, texto) {
 
       // Reset del formulario
       form.reset();
+      form.dataset.evFotosCount = '0';
 
       // Limpiar visualmente el uploader
       const btnLimpiar = document.getElementById('btnLimpiarImagenes');
@@ -526,6 +589,11 @@ function evNotify(tipo, titulo, texto) {
       if (modalEl) {
         const modalInstance = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
         modalInstance.hide();
+      }
+
+      // Recargar tabla de publicaciones si la función está disponible
+      if (window.evCargarPublicaciones) {
+        window.evCargarPublicaciones();
       }
 
       console.log('[AGREGAR][OK]', data);
@@ -547,71 +615,138 @@ function evNotify(tipo, titulo, texto) {
   });
 })();
 
-
 /* ==============================
-   UX extra: selects Tipo/Categoría
+   Listar publicaciones en tabla
+   (compatible con vistas cargadas dinámicamente)
 ============================== */
 (function () {
-  const tipo = document.getElementById('comboTipo');
-  const cat  = document.getElementById('comboCategoria');
-  const markFilled = (el) => {
-    if (!el) return;
-    el.classList.remove('ev-pulse');
-    void el.offsetWidth;
-    el.classList.add('ev-pulse');
-    if (el.value && el.value !== '') el.classList.add('is-filled');
-    else el.classList.remove('is-filled');
-  };
-  tipo?.addEventListener('change', () => markFilled(tipo));
-  cat?.addEventListener('change',  () => markFilled(cat));
-})();
 
-/* ===== Fallback irrompible: altura del modal ===== */
-(function fixModalBodyHeight(){
-  function tuneModal(id){
-    const modal = document.getElementById(id);
-    if(!modal) return;
-    const content = modal.querySelector('.modal-content');
-    const body    = modal.querySelector('.modal-body');
-    const header  = modal.querySelector('.modal-header');
-    const footer  = modal.querySelector('.modal-footer');
-    if(!content || !body) return;
+  async function cargarPublicaciones() {
+    const table = document.getElementById('tablaPublicaciones');
+    const tbody = table?.querySelector('tbody');
+    if (!table || !tbody) return;
 
-    const viewport = Math.min(window.innerHeight || 0, screen.height || window.innerHeight || 0);
-    const root = getComputedStyle(modal);
-    const modalMargin = parseFloat(root.getPropertyValue('--bs-modal-margin')) || 8;
-    const available = Math.max(200, Math.floor(viewport - (modalMargin*2)));
+    // Estado inicial: cargando
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="text-center py-4 text-muted">
+          Cargando publicaciones…
+        </td>
+      </tr>`;
 
-    const hH = header ? header.offsetHeight : 0;
-    const fH = footer ? footer.offsetHeight : 0;
+    try {
+      const resp = await fetch(`${EV_API_BASE}/api/publicacion/listar`, { method: 'GET' });
+      const data = await resp.json().catch(() => ({}));
 
-    content.style.setProperty('--ev-footer-h', `${fH}px`);
+      if (resp.status === 401) {
+        evNotify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
+        setTimeout(() => { window.location.href = `${EV_API_BASE}/`; }, 1500);
+        return;
+      }
 
-    const cs  = getComputedStyle(body);
-    const pvt = parseFloat(cs.paddingTop||'0') + parseFloat(cs.paddingBottom||'0');
+      if (!resp.ok || !data.ok) {
+        const msg = data.mensaje || data.error || 'No se pudo obtener el listado de publicaciones.';
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="text-center py-4 text-danger">
+              ${msg}
+            </td>
+          </tr>`;
+        return;
+      }
 
-    content.style.maxHeight = `${available}px`;
-    const bodyH = Math.max(160, available - hH - fH - pvt);
-    body.style.height = `${bodyH}px`;
-    body.style.overflowY = 'auto';
-    body.style.overflowX = 'hidden';
-    body.style.minHeight = '0';
-    body.style.webkitOverflowScrolling = 'touch';
-  }
+      const items = Array.isArray(data.data) ? data.data : [];
 
-  function handleShown(e){
-    const id = e.target?.id;
-    if(!id) return;
-    if(id==='modalAgregarPublicacion' || id==='modalBuscarPublicacion'){
-      setTimeout(()=>tuneModal(id), 0);
+      if (!items.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="text-center py-4 text-muted">
+              Aún no tienes publicaciones registradas.
+            </td>
+          </tr>`;
+        return;
+      }
+
+      const rowsHtml = items.map((pub) => {
+        const cod     = String(pub.codigo_publicacion ?? '').padStart(6, '0');
+        const titulo  = (pub.titulo || '').substring(0, 80);
+        const precio  = Number(pub.precio || 0).toFixed(2);
+        const estado  = (pub.estado || '').toUpperCase();
+        const fecha   = pub.fecha_creacion || '';
+
+        let estadoClass = 'badge bg-secondary';
+        if (estado === 'NUEVO')         estadoClass = 'badge bg-success';
+        else if (estado === 'USADO')    estadoClass = 'badge bg-warning text-dark';
+        else if (estado === 'NOAPLICA') estadoClass = 'badge bg-light text-muted';
+
+        return `
+          <tr>
+            <td data-label="Código">
+              <span class="ev-code">${cod}</span>
+            </td>
+            <td data-label="Título" class="td-trunc" title="${titulo}">
+              ${titulo || '-'}
+            </td>
+            <td data-label="Precio">
+              S/ ${precio}
+            </td>
+            <td data-label="Estado">
+              <span class="${estadoClass}">${estado || '-'}</span>
+            </td>
+            <td data-label="Fecha">
+              ${fecha}
+            </td>
+            <td data-label="Opciones" class="text-center">
+              <div class="ev-actions">
+                <button class="ev-chip ev-chip-green" data-action="editar" data-id="${pub.codigo_publicacion}">
+                  Editar
+                </button>
+                <button class="ev-chip ev-chip-amber" data-action="ver" data-id="${pub.codigo_publicacion}">
+                  Ver
+                </button>
+                <button class="ev-chip ev-chip-red" data-action="anular" data-id="${pub.codigo_publicacion}">
+                  Anular
+                </button>
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+
+      tbody.innerHTML = rowsHtml;
+
+    } catch (err) {
+      console.error(err);
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" class="text-center py-4 text-danger">
+            Ocurrió un error al cargar las publicaciones.
+          </td>
+        </tr>`;
     }
   }
 
-  function handleResize(){
-    ['modalAgregarPublicacion','modalBuscarPublicacion'].forEach(tuneModal);
+  // Exponer función para reutilizar después de registrar
+  window.evCargarPublicaciones = cargarPublicaciones;
+
+  // Detectar cuándo la vista de publicaciones aparece en #contenido-principal
+  let lastTable = null;
+
+  function tryInitListado() {
+    const table = document.getElementById('tablaPublicaciones');
+    if (table && table !== lastTable) {
+      lastTable = table;
+      cargarPublicaciones();
+    }
   }
 
-  document.addEventListener('shown.bs.modal', handleShown);
-  window.addEventListener('resize', handleResize);
-  window.addEventListener('orientationchange', handleResize);
+  // 1) Por si la tabla ya está al cargar la página (caso raro)
+  document.addEventListener('DOMContentLoaded', tryInitListado);
+
+  // 2) Observamos cambios en el contenedor principal (SPA)
+  const target = document.getElementById('contenido-principal') || document.body;
+  const observer = new MutationObserver(() => {
+    tryInitListado();
+  });
+  observer.observe(target, { childList: true, subtree: true });
+
 })();
