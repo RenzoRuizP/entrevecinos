@@ -13,33 +13,19 @@ require_once __DIR__ . '/../Config/config.php';
         <i class="bi bi-list-ul"></i> Publicaciones
       </h5>
 
-        <button type="button" id="btnBuscar" class="btn btn-ev-outline d-flex align-items-center gap-2"
-          data-bs-toggle="modal" data-bs-target="#modalBuscarPublicacion">
-          <i class="bi bi-search"></i><span class="d-none d-sm-inline">Buscar</span>
-        </button>
+      <button type="button" id="btnBuscar" class="btn btn-ev-outline d-flex align-items-center gap-2"
+        data-bs-toggle="modal" data-bs-target="#modalBuscarPublicacion">
+        <i class="bi bi-search"></i><span class="d-none d-sm-inline">Buscar</span>
+      </button>
 
-        <button type="button" id="btnAgregar" class="btn btn-ev-primary d-flex align-items-center gap-2"
-          data-bs-toggle="modal" data-bs-target="#modalAgregarPublicacion">
-          <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline">Agregar</span>
-        </button>
-      </div>
+      <button type="button" id="btnAgregar" class="btn btn-ev-primary d-flex align-items-center gap-2"
+        data-bs-toggle="modal" data-bs-target="#modalAgregarPublicacion">
+        <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline">Agregar</span>
+      </button>
     </div>
+  </div>
 
-    <div class="ev-subheader sticky-toolbar">
-      <div class="ev-kpis">
-        <div class="ev-kpi"><span class="ev-kpi-label">Total</span><span class="ev-kpi-value">128</span></div>
-        <div class="ev-kpi"><span class="ev-kpi-label">Activas</span><span class="ev-kpi-value text-success">93</span></div>
-        <div class="ev-kpi"><span class="ev-kpi-label">Anuladas</span><span class="ev-kpi-value text-danger">35</span></div>
-      </div>
-
-      <div class="ev-filters-chips">
-        <span class="ev-chip-filter">Estado: Nuevo <button class="btn-close btn-close-white ms-2" aria-label="Quitar"></button></span>
-        <span class="ev-chip-filter">Precio &lt; S/ 50 <button class="btn-close btn-close-white ms-2" aria-label="Quitar"></button></span>
-        <button class="btn btn-ev-soft btn-sm ms-1">Limpiar todo</button>
-      </div>
-    </div>
-
-    <div class="card-body p-0">
+  <div class="card-body p-0">
     <div class="table-responsive ev-table-wrap">
       <table class="table table-hover align-middle mb-0 ev-table" id="tablaPublicaciones">
         <thead>
@@ -80,8 +66,6 @@ require_once __DIR__ . '/../Config/config.php';
         <li><button class="ev-page-btn" title="Último"><i class="bi bi-chevron-bar-right"></i></button></li>
       </ul>
     </div>
-  </div>
-
   </div>
 </div>
 
@@ -223,14 +207,11 @@ require_once __DIR__ . '/../Config/config.php';
                       </div>
                     </div>
 
-
                     <small class="text-muted mt-2 d-block">
                       La primera foto será la imagen principal de tu publicación.
                     </small>
 
                   </div>
-
-                  
                 </div>
 
                 <!-- =========================
@@ -343,6 +324,121 @@ require_once __DIR__ . '/../Config/config.php';
   </div>
 </div>
 
+<!-- ✏️ Modal Editar -->
+<div class="modal fade" id="modalEditarPublicacion" tabindex="-1" aria-labelledby="lblEditarPublicacion" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
+    <div class="modal-content border-0 ev-card">
+      <div class="modal-header">
+        <h5 class="modal-title" id="lblEditarPublicacion">
+          <i class="bi bi-pencil-square me-2"></i>Editar publicación
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <form id="formEditarPublicacion">
+        <div class="modal-body">
+          <input type="hidden" id="edit_id" name="codigo_publicacion">
+
+          <div class="row g-3">
+            <div class="col-12">
+              <h6 class="ev-section-title mb-1">1. Fotos actuales</h6>
+              <div id="editImagenesContainer" class="ev-edit-images-grid text-muted">
+                <small>No hay imágenes registradas para esta publicación.</small>
+              </div>
+              <small class="text-muted d-block mt-1">
+                Las imágenes existentes se muestran solo como referencia en esta versión.
+              </small>
+            </div>
+
+            <div class="col-12 mt-2">
+              <h6 class="ev-section-title mb-1">2. Información principal</h6>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label ev-required" for="edit_titulo">Título</label>
+              <input
+                type="text"
+                id="edit_titulo"
+                name="titulo"
+                class="form-control input-premium"
+                required
+              >
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label ev-required" for="edit_precio">Precio (S/)</label>
+              <input
+                type="number"
+                id="edit_precio"
+                name="precio"
+                class="form-control input-premium"
+                step="0.01"
+                min="0"
+                required
+              >
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label ev-required" for="edit_estado">Estado</label>
+              <select
+                id="edit_estado"
+                name="estado"
+                class="form-select input-premium"
+                required
+              >
+                <option value="Nuevo">Nuevo</option>
+                <option value="Usado">Usado</option>
+                <option value="NoAplica">No aplica</option>
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label" for="edit_comboTipo">Tipo</label>
+              <select
+                id="edit_comboTipo"
+                name="comboTipo"
+                class="form-select input-premium"
+              >
+                <option value="">-- Seleccione Tipos --</option>
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label" for="edit_comboCategoria">Categoría</label>
+              <select
+                id="edit_comboCategoria"
+                name="categoria"
+                class="form-select input-premium"
+              >
+                <option value="">-- Seleccione una categoría --</option>
+              </select>
+            </div>
+
+            <div class="col-12 mt-2">
+              <h6 class="ev-section-title mb-1">3. Detalles del producto o servicio</h6>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label ev-required" for="edit_descripcion">Descripción</label>
+              <textarea
+                id="edit_descripcion"
+                name="descripcion"
+                class="form-control input-premium"
+                rows="4"
+                required
+              ></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-cancelar" data-bs-dismiss="modal">Cerrar</button>
+          <button type="submit" class="btn btn-outline-success">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
 <!-- Scripts únicos de esta vista -->
 <script src="<?= BASE_URL ?>public/js/combo_tipo.js"></script>

@@ -165,4 +165,66 @@ class Publicacion extends Conexion
         }
     }
 
+    /**
+     * Retorna el detalle de una publicación (incluye imágenes) para un usuario.
+     */
+    public function obtenerDetalle(int $codigoPublicacion, int $codigoUsuario): ?array
+    {
+        try {
+            // Publicación principal (validando pertenencia al usuario)
+            $sqlPub = "
+                SELECT
+                    p.codigo_publicacion,
+                    p.titulo,
+                    p.descripcion,
+                    p.estado,
+                    p.precio,
+                    p.visible,
+                    p.imagen_portada,
+                    DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS fecha_creacion
+                FROM publicacion p
+                WHERE p.codigo_publicacion = :codigo_publicacion
+                  AND p.codigo_usuario     = :codigo_usuario
+                LIMIT 1
+            ";
+
+            $stmtPub = $this->dblink->prepare($sqlPub);
+            $stmtPub->bindParam(':codigo_publicacion', $codigoPublicacion, PDO::PARAM_INT);
+            $stmtPub->bindParam(':codigo_usuario',     $codigoUsuario,     PDO::PARAM_INT);
+            $stmtPub->execute();
+
+            $pub = $stmtPub->fetch(PDO::FETCH_ASSOC);
+            if (!$pub) {
+                return null;
+            }
+
+            // Imágenes asociadas
+            $sqlImg = "
+                SELECT
+                    ruta,
+                    es_portada,
+                    orden,
+                    ancho,
+                    alto,
+                    peso_bytes,
+                    mime
+                FROM publicacion_imagen
+                WHERE codigo_publicacion = :codigo_publicacion
+                ORDER BY orden ASC, ruta ASC
+            ";
+
+            $stmtImg = $this->dblink->prepare($sqlImg);
+            $stmtImg->bindParam(':codigo_publicacion', $codigoPublicacion, PDO::PARAM_INT);
+            $stmtImg->execute();
+
+            $imagenes = $stmtImg->fetchAll(PDO::FETCH_ASSOC);
+
+            $pub['imagenes'] = $imagenes;
+
+            return $pub;
+
+        } catch (Exception $exc) {
+            throw $exc;
+        }
+    }
 }

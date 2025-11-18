@@ -230,4 +230,77 @@ class apiPublicacionController
         }
     }
 
+    /**
+     * Lee el detalle de una publicación (incluye imágenes) para el usuario autenticado.
+     * GET /api/publicacion/{id}
+     */
+    public function obtenerPublicacion($id)
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            http_response_code(405);
+            echo json_encode([
+                'ok'      => false,
+                'mensaje' => 'Método no permitido'
+            ]);
+            return;
+        }
+
+        try {
+            $token = $_COOKIE['auth_token'] ?? null;
+            if (!$token) {
+                http_response_code(401);
+                echo json_encode(['ok' => false, 'mensaje' => 'No se encontró el token de sesión.']);
+                return;
+            }
+
+            $usuario = SesionJWT::verificarToken($token);
+            if (!$usuario || empty($usuario['codigo_usuario'])) {
+                http_response_code(401);
+                echo json_encode(['ok' => false, 'mensaje' => 'Token inválido o usuario no encontrado.']);
+                return;
+            }
+
+            $codigoUsuario     = (int)$usuario['codigo_usuario'];
+            $codigoPublicacion = (int)$id;
+
+            if ($codigoPublicacion <= 0) {
+                http_response_code(400);
+                echo json_encode(['ok' => false, 'mensaje' => 'Código de publicación inválido.']);
+                return;
+            }
+
+            $pubModel = new Publicacion();
+            $detalle  = $pubModel->obtenerDetalle($codigoPublicacion, $codigoUsuario);
+
+            if (!$detalle) {
+                http_response_code(404);
+                echo json_encode(['ok' => false, 'mensaje' => 'Publicación no encontrada.']);
+                return;
+            }
+
+            // Armar URLs completas de imágenes
+            $baseUrl  = rtrim(BASE_URL, '/');
+            $imagenes = isset($detalle['imagenes']) && is_array($detalle['imagenes']) ? $detalle['imagenes'] : [];
+
+            foreach ($imagenes as &$img) {
+                $ruta = $img['ruta'] ?? '';
+                $img['url'] = $ruta ? $baseUrl . '/' . ltrim($ruta, '/') : null;
+            }
+            unset($img);
+
+            $detalle['imagenes'] = $imagenes;
+
+            echo json_encode([
+                'ok'   => true,
+                'data' => $detalle
+            ]);
+
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'ok'    => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
 }

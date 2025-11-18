@@ -48,16 +48,104 @@ function evNotify(icon, title, text) {
     modal.show();
   }
 
-  function precargarEditar(btn) {
-    const $ = (sel) => document.querySelector(sel);
-    const setVal = (sel, val) => { const el = $(sel); if (el) el.value = val; };
-    setVal('#edit_id',          btn.dataset.id || '');
-    setVal('#edit_titulo',      btn.dataset.titulo || '');
-    setVal('#edit_categoria',   btn.dataset.categoria || 'Otros');
-    setVal('#edit_descripcion', btn.dataset.descripcion || '');
-    setVal('#edit_precio',      btn.dataset.precio || '');
-    setVal('#edit_estado',      btn.dataset.estado || 'Usado');
-    setVal('#edit_stock',       btn.dataset.stock || 1);
+  // Lee datos de la publicación vía API y precarga el formulario de edición
+  async function precargarEditar(btn) {
+    const id = btn.dataset.id;
+    if (!id) return;
+
+    const modalId = 'modalEditarPublicacion';
+    const modalEl = document.getElementById(modalId);
+    const form = document.getElementById('formEditarPublicacion');
+
+    if (!modalEl || !form) {
+      console.warn('[EDITAR] Modal o formulario de edición no encontrado.');
+      return;
+    }
+
+    // Reset de formulario y contenedor de imágenes
+    form.reset();
+    const imgContainer = document.getElementById('editImagenesContainer');
+    if (imgContainer) {
+      imgContainer.innerHTML = '<small class="text-muted">Cargando imágenes…</small>';
+    }
+
+    try {
+      const resp = await fetch(`${EV_API_BASE}/api/publicacion/${encodeURIComponent(id)}`, {
+        method: 'GET'
+      });
+
+      const data = await resp.json().catch(() => ({}));
+
+      if (resp.status === 401) {
+        evNotify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
+        setTimeout(() => {
+          window.location.href = `${EV_API_BASE}/`;
+        }, 1500);
+        return;
+      }
+
+      if (!resp.ok || !data.ok || !data.data) {
+        const msg = data.mensaje || data.error || 'No se pudo obtener los datos de la publicación.';
+        evNotify('error', 'Error', msg);
+        return;
+      }
+
+      const pub = data.data;
+
+      // ===== Campos principales =====
+      const inputId          = form.querySelector('#edit_id');
+      const inputTitulo      = form.querySelector('#edit_titulo');
+      const inputPrecio      = form.querySelector('#edit_precio');
+      const inputDescripcion = form.querySelector('#edit_descripcion');
+      const selEstado        = form.querySelector('#edit_estado');
+      const selTipo          = form.querySelector('#edit_comboTipo');
+      const selCategoria     = form.querySelector('#edit_comboCategoria');
+
+      if (inputId)          inputId.value          = pub.codigo_publicacion || id;
+      if (inputTitulo)      inputTitulo.value      = pub.titulo || '';
+      if (inputPrecio)      inputPrecio.value      = pub.precio ?? '';
+      if (inputDescripcion) inputDescripcion.value = pub.descripcion || '';
+
+      if (selEstado && pub.estado) {
+        selEstado.value = pub.estado; // Valores esperados: Nuevo | Usado | NoAplica
+      }
+
+      // En esta versión, tipo/categoría solo se rellenan si el API devuelve los códigos
+      if (selTipo && pub.codigo_tipo) {
+        selTipo.value = pub.codigo_tipo;
+      }
+      if (selCategoria && pub.codigo_categoria) {
+        selCategoria.value = pub.codigo_categoria;
+      }
+
+      // ===== Imágenes =====
+      if (imgContainer) {
+        const imagenes = Array.isArray(pub.imagenes) ? pub.imagenes : [];
+        if (!imagenes.length) {
+          imgContainer.innerHTML = '<small class="text-muted">No hay imágenes registradas para esta publicación.</small>';
+        } else {
+          imgContainer.innerHTML = '';
+          imagenes.forEach((img) => {
+            const url = img.url || '';
+            if (!url) return;
+            const item = document.createElement('div');
+            item.className = 'ev-edit-img-item';
+            const image = document.createElement('img');
+            image.src = url;
+            image.alt = 'Imagen de publicación';
+            item.appendChild(image);
+            imgContainer.appendChild(item);
+          });
+        }
+      }
+
+      // Mostrar modal de edición ya precargado
+      abrirModal(modalId);
+
+    } catch (err) {
+      console.error(err);
+      evNotify('error', 'Error inesperado', 'No se pudo obtener los datos de la publicación.');
+    }
   }
 
   document.addEventListener('click', (e) => {
@@ -73,8 +161,9 @@ function evNotify(icon, title, text) {
 
     const btnEditar = e.target.closest('[data-action="editar"], .btn-editar');
     if (btnEditar) {
+      // Ahora usa la API para leer y precargar datos
       precargarEditar(btnEditar);
-      abrirModal('modalEditarPublicacion');
+      return;
     }
   });
 
@@ -84,12 +173,13 @@ function evNotify(icon, title, text) {
     console.log('[BUSCAR]', Object.fromEntries(new FormData(e.target)));
   });
 
-  // Ojo: el submit de formAgregarPublicacion se maneja en un bloque específico
-  // con delegación para ser compatible con la carga dinámica de vistas.
+  // El submit de formAgregarPublicacion se maneja en un bloque específico (más abajo)
 
+  // Por ahora, el submit de edición solo hace log (no se ha implementado actualizar aún)
   document.getElementById('formEditarPublicacion')?.addEventListener('submit', (e) => {
     e.preventDefault();
-    console.log('[EDITAR]', Object.fromEntries(new FormData(e.target)));
+    console.log('[EDITAR][PENDIENTE API]', Object.fromEntries(new FormData(e.target)));
+    evNotify('info', 'Edición pendiente', 'La lógica para guardar la edición se implementará en el siguiente paso.');
   });
 })();
 

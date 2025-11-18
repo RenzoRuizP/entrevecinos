@@ -64,13 +64,13 @@ $routes = [
     ['GET',  '#^/MenuPrincipal$#',         [MenuPrincipalController::class, 'index'], 'html'],
 
     // --- API REST (Condominios/Torres/Departamentos) ---
-    ['GET',  '#^/condominios$#',                 [CondominioController::class, 'listar'],            'json'],
-    ['GET',  '#^/condominios/(\d+)/torres$#',    [CondominioController::class, 'listarTorres'],      'json'],
-    ['GET',  '#^/torres/(\d+)/departamentos$#',  [CondominioController::class, 'listarDepartamentos'],'json'],
+    ['GET',  '#^/condominios$#',                 [CondominioController::class, 'listar'],             'json'],
+    ['GET',  '#^/condominios/(\d+)/torres$#',    [CondominioController::class, 'listarTorres'],       'json'],
+    ['GET',  '#^/torres/(\d+)/departamentos$#',  [CondominioController::class, 'listarDepartamentos'], 'json'],
 
     // --- API REST (Tipos / Categorías por Grupo) ---
-    ['GET',  '#^/tipos$#',                        [tipoController::class, 'listar'],               'json'],
-    ['GET',  '#^/tipos/(\d+)/categoria_grupo$#',  [tipoController::class, 'listarCategoria_grupo'],'json'],
+    ['GET',  '#^/tipos$#',                        [tipoController::class, 'listar'],                'json'],
+    ['GET',  '#^/tipos/(\d+)/categoria_grupo$#',  [tipoController::class, 'listarCategoria_grupo'], 'json'],
 
     // --- Registro de vecinos ---
     ['POST', '#^/usuarios/registrar$#', [UserController::class, 'registrar'], 'json'],
@@ -89,12 +89,14 @@ $routes = [
     // ------------------------------
 
     // --- API de datos del usuario autenticado ---
-    ['GET',  '#^/api/usuario/datos$#',     [usuarioDatosController::class, 'obtenerDatos'],   'json'],
-    ['POST', '#^/api/usuario/actualizar$#',[usuarioDatosController::class, 'actualizarDatos'],'json'],
+    ['GET',  '#^/api/usuario/datos$#',      [usuarioDatosController::class, 'obtenerDatos'],    'json'],
+    ['POST', '#^/api/usuario/actualizar$#', [usuarioDatosController::class, 'actualizarDatos'], 'json'],
 
     // --- API mis publicaciones ---
     ['POST', '#^/api/publicacion/registrar$#', [apiPublicacionController::class, 'registrarPublicacion'], 'json'],
     ['GET',  '#^/api/publicacion/listar$#',    [apiPublicacionController::class, 'listarPublicaciones'],  'json'],
+    // *** RUTA NUEVA: DETALLE DE PUBLICACIÓN ***
+    ['GET',  '#^/api/publicacion/(\d+)$#',     [apiPublicacionController::class, 'obtenerPublicacion'],   'json'],
 ];
 
 // ============================================================
@@ -154,5 +156,9 @@ foreach ($routes as [$httpMethod, $pattern, $handler, $type]) {
 if (!$matched) {
     http_response_code(404);
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(['error' => 'Ruta no encontrada', 'uri' => $uri, 'basePath' => $basePath]);
+    echo json_encode([
+        'error'    => 'Ruta no encontrada',
+        'uri'      => $uri,
+        'basePath' => $basePath
+    ]);
 }
