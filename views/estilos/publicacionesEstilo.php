@@ -137,60 +137,218 @@ textarea.input-premium{ min-height: 120px; }
 }
 
 /* ================================
-   📊 TABLA
+   📊 TABLA (dentro de card)
 ================================ */
-.ev-table-wrap{ max-height: calc(70vh - 140px); overflow:auto; }
-.ev-table{ width:100%; border-collapse: separate; border-spacing:0; }
+.ev-table-wrap{
+  max-height: calc(70vh - 140px);
+  overflow:auto;
+  margin-top:.5rem;
+
+  /* aspecto de “card” interno */
+  border-radius:14px 14px 0 0;
+  border:1px solid #e5e7eb;
+  background:#fbfdfc;
+  box-shadow:0 6px 18px rgba(15,89,47,.04);
+}
+
+.ev-table{
+  width:100%;
+  border-collapse: separate;
+  border-spacing:0;
+}
+
+/* Cabecera sticky con look más sólido */
 .ev-table thead th{
-  position: sticky; top: 0; z-index: 1;
-  background: #F1F3F5; color: #374151; font-weight: 600;
-  border-top: 0; border-bottom: 1px solid #e5e7eb;
-  padding: .9rem .9rem; white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: linear-gradient(135deg,#f4faf7,#edf5ff);
+  color: #111827;
+  font-weight: 600;
+  font-size: .9rem;
+  border-top: 0;
+  border-bottom: 1px solid #e5e7eb;
+  padding: .9rem .9rem;
+  white-space: nowrap;
+  letter-spacing:.02em;
 }
-.ev-table thead th[data-sort]{ cursor: pointer; }
+
+/* redondeo en las esquinas superiores */
+.ev-table thead th:first-child{
+  border-top-left-radius:14px;
+}
+.ev-table thead th:last-child{
+  border-top-right-radius:14px;
+}
+
+/* Hover de cabecera cuando es ordenable */
+.ev-table thead th[data-sort]{
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.ev-table thead th[data-sort]:hover{
+  background: linear-gradient(135deg,#e7f4ec,#e1ecff);
+  color:#0F592F;
+}
+
+/* Cuerpo de la tabla */
 .ev-table tbody td{
-  color: #1F2937; vertical-align: middle;
-  border-bottom: 1px solid #e5e7eb; padding: .85rem .9rem;
+  color: #1F2937;
+  vertical-align: middle;
+  border-bottom: 1px solid #e5e7eb;
+  padding: .8rem .9rem;
+  font-size:.9rem;
 }
-.ev-table tbody tr:hover{ background: #FAFFFB; }
-.ev-code{ font-variant-numeric: tabular-nums; letter-spacing: .3px; color:#111827; }
-.td-trunc{ max-width: 360px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Fila zebra + hover suave tipo dashboard */
+.ev-table tbody tr:nth-child(odd){
+  background:#ffffff;
+}
+.ev-table tbody tr:nth-child(even){
+  background:#f9fafb;
+}
+.ev-table tbody tr:hover{
+  background:#f1fbf6;
+}
+
+/* Código monoespaciado sutil */
+.ev-code{
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .3px;
+  color:#111827;
+  font-weight:600;
+}
+
+/* truncado de título */
+.td-trunc{
+  max-width: 360px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* densidades opcionales */
 .ev-table[data-density="comfortable"] thead th,
-.ev-table[data-density="comfortable"] tbody td{ padding: 1.05rem 1rem; }
+.ev-table[data-density="comfortable"] tbody td{
+  padding: 1.05rem 1rem;
+}
 .ev-table[data-density="compact"] thead th,
-.ev-table[data-density="compact"] tbody td{ padding: .55rem .6rem; }
+.ev-table[data-density="compact"] tbody td{
+  padding: .55rem .6rem;
+}
 
 /* ================================
    🧰 ACCIONES TABLA & FOOTER
 ================================ */
-.ev-actions{ display:flex; gap:.6rem; justify-content:center; }
-.ev-chip{
-  display:inline-flex; align-items:center; justify-content:center;
-  border:0; color:#fff; font-weight:700; letter-spacing:.2px;
-  padding:.45rem .85rem; border-radius:.6rem; cursor:pointer;
-  transition: filter .2s ease, transform .06s ease;
-  min-width: 96px;
+.ev-actions{
+  display:flex;
+  gap:.45rem;
+  justify-content:center;
+  flex-wrap:wrap;
 }
-.ev-chip:active{ transform: translateY(1px); }
-.ev-chip-amber{ background:#FDB515; } .ev-chip-green{ background:#198754; }
-.ev-chip-teal{ background:#0F592F; } .ev-chip-red{ background:#DE3B3B; }
-.ev-chip-amber:hover, .ev-chip-green:hover, .ev-chip-teal:hover, .ev-chip-red:hover{ filter:brightness(1.06); }
 
+/* chips de acción */
+.ev-chip{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:0;
+  color:#fff;
+  font-weight:700;
+  letter-spacing:.2px;
+  padding:.38rem .8rem;
+  border-radius:.7rem;
+  cursor:pointer;
+  transition: filter .2s ease, transform .06s ease, box-shadow .12s ease;
+  min-width: 90px;
+  font-size:.8rem;
+}
+.ev-chip:active{
+  transform: translateY(1px);
+}
+.ev-chip-amber{ background:#FDB515; }
+.ev-chip-green{ background:#198754; }
+.ev-chip-teal{  background:#0F592F; }
+.ev-chip-red{   background:#DE3B3B; }
+
+.ev-chip-amber:hover,
+.ev-chip-green:hover,
+.ev-chip-teal:hover,
+.ev-chip-red:hover{
+  filter:brightness(1.06);
+  box-shadow:0 4px 10px rgba(0,0,0,.12);
+}
+
+/* Footer como extensión del card de la tabla */
 .ev-foot{
-  display:flex; align-items:center; justify-content:space-between;
-  gap:1rem; padding:.75rem .95rem; color:#6B7280; border-top:1px solid #e5e7eb;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:1rem;
+  padding:.75rem .95rem;
+  color:#6B7280;
+
+  border-left:1px solid #e5e7eb;
+  border-right:1px solid #e5e7eb;
+  border-bottom:1px solid #e5e7eb;
+  border-top:none;
+
+  border-radius:0 0 14px 14px;
+  background:#ffffff;
+  box-shadow:0 6px 18px rgba(15,89,47,.04);
+  margin-top:0; /* pegado a la tabla */
 }
-.ev-select{ max-width: 100px; }
-.ev-pagination{ display:flex; list-style:none; gap:.35rem; margin:0; padding:0; }
+
+.ev-select{
+  max-width: 110px;
+}
+
+/* paginador */
+.ev-pagination{
+  display:flex;
+  list-style:none;
+  gap:.35rem;
+  margin:0;
+  padding:0;
+}
 .ev-page-btn{
-  display:inline-flex; align-items:center; justify-content:center;
-  min-width:32px; height:28px; border:1px solid #E6E8EB;
-  background:#fff; color:#4B5563; border-radius:.35rem; cursor:pointer;
-  transition: background .15s ease, color .15s ease; padding:0 .5rem;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:32px;
+  height:28px;
+  border:1px solid #E6E8EB;
+  background:#fff;
+  color:#4B5563;
+  border-radius:.5rem;
+  cursor:pointer;
+  transition: background .15s ease, color .15s ease, box-shadow .15s ease, transform .06s ease;
+  padding:0 .5rem;
+  font-size:.82rem;
 }
-.ev-page-btn:hover{ background:#F8FAFC; }
-.ev-page-btn.active{ background:#0F592F; color:#fff; border-color:#0F592F; }
-.ev-page-btn:disabled{ opacity:.5; cursor:not-allowed; }
+.ev-page-btn:hover{
+  background:#0F592F10;
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
+}
+.ev-page-btn.active{
+  background:#0F592F;
+  color:#fff;
+  border-color:#0F592F;
+}
+.ev-page-btn:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+  box-shadow:none;
+}
+
+/* Ajustes responsive del footer/paginador */
+@media (max-width: 768px){
+  .ev-foot{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+}
+
 
 /* ================================
    ✨ BOTONES REUTILIZABLES
