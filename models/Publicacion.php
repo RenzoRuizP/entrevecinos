@@ -21,11 +21,11 @@ class Publicacion extends Conexion
     private $visible = 1;
     private $codigo_usuario;
 
-    // Nuevos campos para Tipo / Categoría (FKs)
+    // FKs a tipo / categoría
     private $codigo_tipo;
     private $codigo_categoria;
 
-    // ====== SETTERS BÁSICOS ======
+    // ====== SETTERS ======
     public function setTitulo($titulo) {
         $this->titulo = $titulo;
     }
@@ -55,16 +55,18 @@ class Publicacion extends Conexion
     }
 
     public function setCodigoTipo($codigo_tipo) {
-        $this->codigo_tipo = $codigo_tipo !== null ? (int)$codigo_tipo : null;
+        $this->codigo_tipo = $codigo_tipo !== null && $codigo_tipo !== '' ? (int)$codigo_tipo : null;
     }
 
     public function setCodigoCategoria($codigo_categoria) {
-        $this->codigo_categoria = $codigo_categoria !== null ? (int)$codigo_categoria : null;
+        $this->codigo_categoria = $codigo_categoria !== null && $codigo_categoria !== '' ? (int)$codigo_categoria : null;
     }
 
     /**
      * Crea la publicación en la tabla `publicacion` y devuelve el ID generado.
-     * Requiere que la tabla tenga columnas: codigo_tipo, codigo_categoria (INT NULL).
+     * Requiere columnas:
+     *   codigo_tipo INT NULL
+     *   codigo_categoria INT NULL
      */
     public function crearPublicacion() {
         try {
@@ -93,13 +95,18 @@ class Publicacion extends Conexion
 
             $stmt = $this->dblink->prepare($sql);
 
-            $stmt->bindParam(':titulo',         $this->titulo,        PDO::PARAM_STR);
-            // Puede ir null al inicio; luego se actualiza con actualizarImagenPortada()
-            $stmt->bindValue(':imagen_portada', $this->imagen_portada, $this->imagen_portada !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
-            $stmt->bindParam(':descripcion',    $this->descripcion,   PDO::PARAM_STR);
-            $stmt->bindParam(':estado',         $this->estado,        PDO::PARAM_STR);
-            $stmt->bindParam(':precio',         $this->precio);
-            $stmt->bindParam(':visible',        $this->visible,       PDO::PARAM_INT);
+            $stmt->bindParam(':titulo', $this->titulo, PDO::PARAM_STR);
+
+            if ($this->imagen_portada !== null) {
+                $stmt->bindValue(':imagen_portada', $this->imagen_portada, PDO::PARAM_STR);
+            } else {
+                $stmt->bindValue(':imagen_portada', null, PDO::PARAM_NULL);
+            }
+
+            $stmt->bindParam(':descripcion', $this->descripcion, PDO::PARAM_STR);
+            $stmt->bindParam(':estado',      $this->estado,      PDO::PARAM_STR);
+            $stmt->bindParam(':precio',      $this->precio);
+            $stmt->bindParam(':visible',     $this->visible,     PDO::PARAM_INT);
             $stmt->bindParam(':codigo_usuario', $this->codigo_usuario, PDO::PARAM_INT);
 
             if ($this->codigo_tipo !== null) {
@@ -117,6 +124,7 @@ class Publicacion extends Conexion
             $stmt->execute();
 
             return (int) $this->dblink->lastInsertId();
+
         } catch (Exception $e) {
             throw $e;
         }
@@ -138,11 +146,23 @@ class Publicacion extends Conexion
         try {
             $sql = "
                 INSERT INTO publicacion_imagen
-                    (codigo_publicacion, ruta, es_portada, orden,
-                     ancho, alto, peso_bytes, mime)
+                    (codigo_publicacion,
+                     ruta,
+                     es_portada,
+                     orden,
+                     ancho,
+                     alto,
+                     peso_bytes,
+                     mime)
                 VALUES
-                    (:codigo_publicacion, :ruta, :es_portada, :orden,
-                     :ancho, :alto, :peso_bytes, :mime)
+                    (:codigo_publicacion,
+                     :ruta,
+                     :es_portada,
+                     :orden,
+                     :ancho,
+                     :alto,
+                     :peso_bytes,
+                     :mime)
             ";
 
             $stmt = $this->dblink->prepare($sql);
@@ -157,6 +177,7 @@ class Publicacion extends Conexion
             if ($mime !== null)       $stmt->bindParam(':mime',       $mime,       PDO::PARAM_STR); else $stmt->bindValue(':mime',       null, PDO::PARAM_NULL);
 
             $stmt->execute();
+
         } catch (Exception $e) {
             throw $e;
         }
@@ -177,6 +198,7 @@ class Publicacion extends Conexion
             $stmt->bindParam(':ruta',               $rutaPortada,      PDO::PARAM_STR);
             $stmt->bindParam(':codigo_publicacion', $codigoPublicacion, PDO::PARAM_INT);
             $stmt->execute();
+
         } catch (Exception $e) {
             throw $e;
         }
@@ -209,13 +231,14 @@ class Publicacion extends Conexion
             $sentencia->execute();
 
             return $sentencia->fetchAll(PDO::FETCH_ASSOC);
+
         } catch (Exception $exc) {
             throw $exc;
         }
     }
 
     /**
-     * Obtiene una publicación específica de un usuario.
+     * Detalle de una publicación de un usuario.
      */
     public function obtenerPorId(int $codigoPublicacion, int $codigoUsuario): ?array
     {
@@ -245,6 +268,7 @@ class Publicacion extends Conexion
 
             $fila = $stmt->fetch(PDO::FETCH_ASSOC);
             return $fila ?: null;
+
         } catch (Exception $e) {
             throw $e;
         }
@@ -277,6 +301,7 @@ class Publicacion extends Conexion
             $stmt->execute();
 
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
         } catch (Exception $e) {
             throw $e;
         }

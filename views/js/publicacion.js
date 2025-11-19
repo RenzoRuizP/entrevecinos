@@ -215,7 +215,8 @@ function evNotify(icon, title, text) {
 })();
 
 /* ==============================
-   Uploader + Previsualización — SOLO para Agregar
+   Uploader + Previsualización — dropZone central
+   (exponemos evGetFotosAgregar() para el submit)
 ============================== */
 (function () {
   const MAX_MB = 5;
@@ -241,12 +242,13 @@ function evNotify(icon, title, text) {
     const form    = modalEl.querySelector('#formAgregarPublicacion');
     const input   = $('#inputImagenes', modalEl);
     const tiles   = $('#evTiles', modalEl);
-    const tileAdd = $('#tileAgregar', modalEl);
+    const tileAdd = $('#tileAgregar', modalEl); // se mantiene por compatibilidad, pero va oculto por CSS
     const btnClr  = $('#btnLimpiarImagenes', modalEl);
 
-    const lblCntHeader  = $('#contadorImagenes', modalEl);
-    const lblCntToolbar = $('#contadorImagenesToolbar', modalEl);
-    const dropZone      = document.getElementById('dropZone');
+    const lblCntHeader  = $('#contadorImagenes', modalEl);          // arriba, al lado de "Fotos •"
+    const lblCntToolbar = $('#contadorImagenesToolbar', modalEl);   // abajo, en "0/10 fotos cargadas"
+
+    const dropZone = document.getElementById('dropZone');
 
     if (!input || !tiles) return;
 
@@ -255,6 +257,11 @@ function evNotify(icon, title, text) {
     /** @type {{id:string,file:File,url:string}[]} */
     let fotos = [];
     let selectedIndex = 0;
+
+    // Exponer las fotos al resto del JS (para el submit)
+    window.evGetFotosAgregar = function () {
+      return fotos.map(f => f.file);
+    };
 
     const rebuildFileList = () => {
       const dt = new DataTransfer();
@@ -268,10 +275,10 @@ function evNotify(icon, title, text) {
       const count = fotos.length;
       if (lblCntHeader)  lblCntHeader.textContent  = String(count);
       if (lblCntToolbar) lblCntToolbar.textContent = String(count);
-      if (form)          form.dataset.evFotosCount = String(count);
+      if (form)          form.dataset.evFotosCount = String(count); // ← usado en la validación
     };
 
-    // Preview derecha
+    // --------- Preview derecha ----------
     let previewWrapper, previewMainImg, previewThumbs, metaTitleEl, metaPriceEl, metaDescEl;
 
     function ensurePreviewArea() {
@@ -288,12 +295,12 @@ function evNotify(icon, title, text) {
 
         const actions = document.createElement('div');
         actions.className = 'ev-preview-actions';
-        const mkBtn = (html, title, cb, extra = 'btn-outline-success') => {
+        const mkBtn = (html, titleTxt, cb, extra = 'btn-outline-success') => {
           const b = document.createElement('button');
           b.type = 'button';
           b.className = `btn btn-sm ${extra}`;
           b.innerHTML = html;
-          b.title = title;
+          b.title = titleTxt;
           b.addEventListener('click', cb);
           return b;
         };
@@ -372,7 +379,7 @@ function evNotify(icon, title, text) {
 
     function showPreviewArea(show) { ensurePreviewArea(); previewWrapper.style.display = show ? '' : 'none'; }
 
-    // Miniaturas
+    // --------- Render miniaturas ----------
     const renderTiles = () => {
       tiles.innerHTML = '';
       fotos.forEach((f, i) => {
@@ -399,6 +406,7 @@ function evNotify(icon, title, text) {
         tiles.appendChild(t);
       });
 
+      // Tile "Agregar" se sigue creando para compatibilidad, aunque esté oculto por CSS
       if (fotos.length < MAX_FILES) {
         const add = document.createElement('div');
         add.className = 'ev-tile ev-tile-add';
@@ -424,7 +432,7 @@ function evNotify(icon, title, text) {
       }
     }
 
-    // Agregar archivos
+    // --------- Gestión común de archivos ----------
     function agregarArchivos(fileList) {
       const nuevos = Array.from(fileList || []);
       if (!nuevos.length) return;
@@ -449,9 +457,10 @@ function evNotify(icon, title, text) {
       input.value = '';
     });
 
+    // TileAdd (aunque esté oculto)
     tileAdd?.addEventListener('click', () => input.click());
 
-    // DropZone
+    // DropZone: click + drag&drop
     dropZone?.addEventListener('click', () => input.click());
 
     if (dropZone) {
@@ -472,7 +481,7 @@ function evNotify(icon, title, text) {
       });
     }
 
-    // También soportamos soltar sobre tiles
+    // También soportamos soltar sobre el área de miniaturas
     ['dragenter','dragover'].forEach(evt => {
       tiles.addEventListener(evt, (e) => {
         e.preventDefault(); e.stopPropagation();
@@ -487,7 +496,7 @@ function evNotify(icon, title, text) {
       agregarArchivos(e.dataTransfer?.files || []);
     });
 
-    // Limpiar
+    // Limpiar todo
     btnClr?.addEventListener('click', () => {
       revokeAll(); fotos = []; rebuildFileList(); selectedIndex = 0;
       tiles.innerHTML = '';
@@ -499,6 +508,7 @@ function evNotify(icon, title, text) {
       const d = document.getElementById('evMetaDesc');  if (d) d.textContent = 'La descripción aparecerá aquí.';
     });
 
+    // Navegación con flechas
     modalEl.addEventListener('keydown', (ev) => {
       if (!fotos.length) return;
       if (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') {
@@ -509,11 +519,12 @@ function evNotify(icon, title, text) {
       }
     });
 
+    // Meta (título/precio/desc)
     function updateMeta() {
       if (!metaTitleEl || !metaPriceEl || !metaDescEl) return;
-      const title = modalEl.querySelector('input[name="titulo"]')?.value?.trim() || 'Título';
-      const priceRaw = modalEl.querySelector('input[name="precio"]')?.value || '';
-      const desc = modalEl.querySelector('textarea[name="descripcion"]')?.value?.trim() || 'La descripción aparecerá aquí.';
+      const title   = modalEl.querySelector('input[name="titulo"]')?.value?.trim() || 'Título';
+      const priceRaw= modalEl.querySelector('input[name="precio"]')?.value || '';
+      const desc    = modalEl.querySelector('textarea[name="descripcion"]')?.value?.trim() || 'La descripción aparecerá aquí.';
       const n = Number(priceRaw || 0);
       const precio = isNaN(n) ? '0.00' : n.toFixed(2);
       metaTitleEl.textContent = title;
@@ -524,6 +535,7 @@ function evNotify(icon, title, text) {
     modalEl.querySelector('input[name="precio"]')?.addEventListener('input', updateMeta);
     modalEl.querySelector('textarea[name="descripcion"]')?.addEventListener('input', updateMeta);
 
+    // Primera pintura
     paint();
     initialized = true;
   }
@@ -540,6 +552,7 @@ function evNotify(icon, title, text) {
     if (m && m.classList.contains('show')) initUploader(m);
   });
 })();
+
 
 /* ==============================
    UX extra: selects Tipo/Categoría (alta)
@@ -611,6 +624,7 @@ function evNotify(icon, title, text) {
 
 /* ==============================
    Form: Registrar publicación (API)
+   (delegado para vistas cargadas dinámicamente)
 ============================== */
 (function () {
 
@@ -623,6 +637,7 @@ function evNotify(icon, title, text) {
     const btnGuardar     = form.querySelector('.btn-guardar');
     const inputImagenes  = form.querySelector('#inputImagenes');
 
+    // ===== 1) Validación básica en front =====
     const titulo      = form.titulo?.value?.trim();
     const precio      = form.precio?.value;
     const descripcion = form.descripcion?.value?.trim();
@@ -640,15 +655,34 @@ function evNotify(icon, title, text) {
       return;
     }
 
-    const fotosCount = Number(form.dataset.evFotosCount || '0');
-    const hasFiles   = inputImagenes && inputImagenes.files && inputImagenes.files.length > 0;
+    const fotosCountAttr = Number(form.dataset.evFotosCount || '0');
 
-    if (!hasFiles && !fotosCount) {
+    let filesSeleccionados = [];
+    if (typeof window.evGetFotosAgregar === 'function') {
+      filesSeleccionados = window.evGetFotosAgregar() || [];
+    } else if (inputImagenes && inputImagenes.files && inputImagenes.files.length) {
+      filesSeleccionados = Array.from(inputImagenes.files);
+    }
+
+    const tieneFotos = filesSeleccionados.length > 0;
+
+    if (!tieneFotos && !fotosCountAttr) {
       evNotify('warning', 'Validación', 'Debes agregar al menos una imagen.');
       return;
     }
 
-    const fd = new FormData(form);
+    // ===== 2) Construir FormData a mano (texto + archivos) =====
+    const fd = new FormData();
+    fd.append('titulo', titulo);
+    fd.append('precio', precio);
+    fd.append('estado', form.estado?.value || 'NoAplica');
+    fd.append('comboTipo', form.comboTipo?.value || '');
+    fd.append('categoria', form.categoria?.value || '');
+    fd.append('descripcion', descripcion);
+
+    filesSeleccionados.forEach((file) => {
+      fd.append('imagenes[]', file);
+    });
 
     const setSaving = (saving) => {
       if (!btnGuardar) return;
@@ -682,24 +716,29 @@ function evNotify(icon, title, text) {
       if (!resp.ok || !data.ok) {
         const msg = data.mensaje || data.error || 'No se pudo registrar la publicación.';
         evNotify('error', 'Error', msg);
+        console.error('[AGREGAR][ERROR]', data);
         return;
       }
 
+      // Éxito
       evNotify('success', 'Publicación registrada', 'Tu publicación se ha registrado correctamente.');
 
-      // Reset
+      // Reset del formulario
       form.reset();
       form.dataset.evFotosCount = '0';
 
+      // Limpiar visualmente el uploader
       const btnLimpiar = document.getElementById('btnLimpiarImagenes');
       btnLimpiar?.click();
 
+      // Cerrar modal
       const modalEl = document.getElementById('modalAgregarPublicacion');
       if (modalEl) {
         const modalInstance = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
         modalInstance.hide();
       }
 
+      // Recargar tabla de publicaciones si la función está disponible
       if (window.evCargarPublicaciones) {
         window.evCargarPublicaciones();
       }
@@ -714,6 +753,7 @@ function evNotify(icon, title, text) {
     }
   }
 
+  // Delegado: sirve aunque el formulario se inyecte dinámicamente
   document.addEventListener('submit', (e) => {
     const form = e.target;
     if (form && form.id === 'formAgregarPublicacion') {
@@ -721,6 +761,7 @@ function evNotify(icon, title, text) {
     }
   });
 })();
+
 
 /* ==============================
    Listar publicaciones en tabla
