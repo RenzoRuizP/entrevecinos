@@ -944,4 +944,25 @@ textarea.input-premium{ min-height: 120px; }
   transform:translateY(-1px);
   box-shadow:0 2px 6px rgba(15,23,42,.16);
 }
+
+  .ev-imagenes-actuales{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    padding: 10px 0;
+  }
+
+  .ev-edit-img{
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(0,0,0,.15);
+  }
+
+  .ev-img-wrapper{
+    position: relative;
+  }
+
+
 </style>

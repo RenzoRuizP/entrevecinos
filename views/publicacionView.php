@@ -324,10 +324,11 @@ require_once __DIR__ . '/../Config/config.php';
   </div>
 </div>
 
-<!-- ✏ Modal Editar (mismo diseño visual que Agregar) -->
+<!-- ✏️ Modal Editar -->
 <div class="modal fade" id="modalEditarPublicacion" tabindex="-1" aria-labelledby="lblEditarPublicacion" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-md-down">
     <div class="modal-content border-0 ev-card">
+      
       <div class="modal-header">
         <h5 class="modal-title" id="lblEditarPublicacion">
           <i class="bi bi-pencil-square me-2"></i>Editar publicación
@@ -336,40 +337,45 @@ require_once __DIR__ . '/../Config/config.php';
       </div>
 
       <form id="formEditarPublicacion">
+        <!-- ID oculto de la publicación -->
         <input type="hidden" id="edit_id" name="codigo_publicacion">
+
         <div class="modal-body">
           <div class="mpm-grid">
-            <!-- IZQUIERDA: FORM -->
+            
+            <!-- IZQUIERDA: FORM + info -->
             <section class="mpm-left">
-              <div class="row g-3">
+              
+              <!-- =========================
+                   1. FOTOS DEL PRODUCTO
+              ========================== -->
+              <div class="mb-3">
+                <h6 class="ev-section-title mb-1">1. Fotos del producto</h6>
+                <p class="small text-muted mb-2">
+                  <strong>Fotos actuales</strong> – Imágenes registradas para esta publicación.
+                </p>
 
-                <!-- =========================
-                     📸 Sección: Fotos (solo lectura por ahora)
-                ========================== -->
-                <div class="col-12">
-                  <h6 class="ev-section-title mb-1">1. Fotos del producto</h6>
-                  <label class="form-label fw-semibold" style="color:#0F592F;">
-                    Fotos actuales
-                    <span class="text-muted"> - Imágenes registradas para esta publicación.</span>
-                  </label>
-
-                  <div class="ev-uploader mt-1">
-                    <div id="editImagenesContainer" class="ev-tiles ev-tiles-grid mb-2">
-                      <small class="text-muted">Cargando imágenes…</small>
-                    </div>
-                    <small class="text-muted mt-2 d-block">
-                      (En esta versión solo se muestran las imágenes existentes. La edición de imágenes se implementará más adelante.)
-                    </small>
+                <!-- Grid de imágenes actuales (se llena desde JS) -->
+                <div id="evImagenesActuales" class="ev-imagenes-actuales">
+                  <!-- JS insertará aquí las <img> o el mensaje “No hay imágenes” -->
+                  <div class="text-muted small">
+                    No hay imágenes registradas para esta publicación.
                   </div>
                 </div>
 
-                <!-- =========================
-                     🛒 Sección: Información principal
-                ========================== -->
-                <div class="col-12 mt-2">
-                  <h6 class="ev-section-title mb-1">2. Información principal</h6>
-                </div>
+                <p class="mt-1 mb-0 text-muted" style="font-size: .8rem;">
+                  (En esta versión se muestran las imágenes existentes. La edición de imágenes se implementará más adelante.)
+                </p>
+              </div>
 
+              <!-- =========================
+                   2. INFORMACIÓN PRINCIPAL
+              ========================== -->
+              <div class="mt-3">
+                <h6 class="ev-section-title mb-1">2. Información principal</h6>
+              </div>
+
+              <div class="row g-3">
                 <div class="col-12">
                   <label class="form-label ev-required" for="edit_titulo">Título</label>
                   <input
@@ -377,6 +383,7 @@ require_once __DIR__ . '/../Config/config.php';
                     id="edit_titulo"
                     name="titulo"
                     class="form-control input-premium"
+                    placeholder="Escribe un título claro y atractivo"
                     required
                   >
                 </div>
@@ -390,6 +397,7 @@ require_once __DIR__ . '/../Config/config.php';
                     class="form-control input-premium"
                     step="0.01"
                     min="0"
+                    placeholder="0.00"
                     required
                   >
                 </div>
@@ -404,7 +412,6 @@ require_once __DIR__ . '/../Config/config.php';
                   >
                     <option>Nuevo</option>
                     <option>Usado</option>
-                    <option>NoAplica</option>
                   </select>
                 </div>
 
@@ -415,9 +422,8 @@ require_once __DIR__ . '/../Config/config.php';
                     name="comboTipo"
                     class="form-select input-premium"
                     required
-                    data-valor-registrado=""
                   >
-                    <option value="">-- Seleccione Tipos --</option>
+                    <!-- Se llena desde combo_tipo.js (modo edición) -->
                   </select>
                 </div>
 
@@ -428,52 +434,64 @@ require_once __DIR__ . '/../Config/config.php';
                     name="categoria"
                     class="form-select input-premium"
                     required
-                    data-valor-registrado=""
                   >
-                    <option value="" selected disabled>-- Selecciona un tipo primero --</option>
+                    <!-- Se llena desde combo_tipo.js (modo edición) -->
                   </select>
                 </div>
-
-                <!-- =========================
-                     📄 Sección: Detalles
-                ========================== -->
-                <div class="col-12 mt-2">
-                  <h6 class="ev-section-title mb-1">3. Detalles del producto o servicio</h6>
-                </div>
-
-                <div class="col-12">
-                  <label class="form-label ev-required" for="edit_descripcion">Descripción</label>
-                  <textarea
-                    id="edit_descripcion"
-                    name="descripcion"
-                    class="form-control input-premium"
-                    rows="4"
-                    required
-                  ></textarea>
-                </div>
               </div>
+
+              <!-- =========================
+                   3. DETALLES
+              ========================== -->
+              <div class="mt-3">
+                <h6 class="ev-section-title mb-1">3. Detalles del producto o servicio</h6>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label ev-required" for="edit_descripcion">Descripción</label>
+                <textarea
+                  id="edit_descripcion"
+                  name="descripcion"
+                  class="form-control input-premium"
+                  rows="4"
+                  placeholder="Cuenta los detalles más importantes para que tus vecinos se animen a comprar."
+                  required
+                ></textarea>
+              </div>
+
             </section>
 
-            <!-- DERECHA: PREVIEW (si más adelante quieres, puedes reutilizar la zona) -->
+            <!-- DERECHA: ESPACIO RESERVADO PARA PREVIEW FUTURA -->
             <aside class="mpm-right">
-              <div class="mpm-preview-wrap">
-                <div class="col-lg-12" id="editPreviewMount">
-                  <!-- Espacio reservado por si luego quieres una previsualización similar -->
-                  <small class="text-muted">Aquí podrías mostrar una previsualización en una siguiente iteración.</small>
+              <div class="mpm-preview-wrap d-none d-lg-block">
+                <div class="card ev-card">
+                  <div class="card-body p-3">
+                    <h6 class="mb-2" style="font-weight:600;color:#0b3d27;">
+                      Previsualización (próxima iteración)
+                    </h6>
+                    <p class="text-muted mb-0" style="font-size:.9rem;">
+                      En una siguiente versión aquí podrás ver una previsualización en vivo similar a la de “Nueva publicación”.
+                    </p>
+                  </div>
                 </div>
               </div>
             </aside>
-          </div>
-        </div>
+
+          </div> <!-- mpm-grid -->
+        </div> <!-- modal-body -->
 
         <div class="modal-footer">
           <button type="button" class="btn btn-cancelar" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-outline-success btn-guardar-editar">Actualizar</button>
+          <button type="submit" class="btn btn-outline-success btn-guardar">
+            Actualizar
+          </button>
         </div>
       </form>
+
     </div>
   </div>
 </div>
+
 
 <!-- Scripts únicos de esta vista -->
 <script src="<?= BASE_URL ?>public/js/combo_tipo.js"></script>

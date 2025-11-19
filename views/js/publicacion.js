@@ -48,139 +48,78 @@ function evNotify(icon, title, text) {
     modal.show();
   }
 
-  // ==========================
-  // EDITAR: leer datos desde API y precargar formulario
-  // ==========================
-  async function precargarEditar(btn) {
-    const id = btn.dataset.id;
-    if (!id) return;
-
-    const modalId = 'modalEditarPublicacion';
-    const modalEl = document.getElementById(modalId);
-    const form = document.getElementById('formEditarPublicacion');
-
-    if (!modalEl || !form) {
-      console.warn('[EDITAR] Modal o formulario de edición no encontrado.');
-      return;
-    }
-
-    // Reset de formulario
-    form.reset();
-    const hiddenId = form.querySelector('#edit_id');
-    if (hiddenId) hiddenId.value = id;
-
-    // Contenedor de imágenes
-    const imgContainer = document.getElementById('editImagenesContainer');
-    if (imgContainer) {
-      imgContainer.innerHTML = '<small class="text-muted">Cargando imágenes…</small>';
-    }
-
+  // ========================
+  // Cargar datos al modal Editar
+  // ========================
+  async function cargarPublicacionEditar(codPublicacion) {
     try {
-      const resp = await fetch(`${EV_API_BASE}/api/publicacion/${encodeURIComponent(id)}`, {
-        method: 'GET'
-      });
+      const resp = await fetch(`${EV_API_BASE}/api/publicacion/${codPublicacion}`);
+      const data = await resp.json();
 
-      const data = await resp.json().catch(() => ({}));
+      console.log("[EDITAR][PUB] ", data);
 
-      if (resp.status === 401) {
-        evNotify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
-        setTimeout(() => {
-          window.location.href = `${EV_API_BASE}/`;
-        }, 1500);
+      if (!data.ok) {
+        evNotify("error", "Error", data.mensaje || "Error al cargar la publicación.");
         return;
       }
 
-      if (!resp.ok || !data.ok || !data.data) {
-        const msg = data.mensaje || data.error || 'No se pudo obtener los datos de la publicación.';
-        evNotify('error', 'Error', msg);
-        if (imgContainer) imgContainer.innerHTML = '<small class="text-danger">Error al cargar imágenes.</small>';
-        return;
-      }
+      const pub   = data.data.publicacion;
+      const fotos = data.data.imagenes || [];
 
-      // Normalizar estructura:
-      //  A) data.data = { codigo_tipo, codigo_categoria, ... }
-      //  B) data.data = { publicacion: {...}, imagenes: [...] }
-      let pub = data.data;
-      let imagenes = [];
+      // ====== Completar campos ======
+      document.querySelector("#edit_id").value          = pub.codigo_publicacion;
+      document.querySelector("#edit_titulo").value      = pub.titulo || "";
+      document.querySelector("#edit_precio").value      = pub.precio || "";
+      document.querySelector("#edit_estado").value      = pub.estado || "Nuevo";
+      document.querySelector("#edit_descripcion").value = pub.descripcion || "";
 
-      if (pub.publicacion || pub.imagenes) {
-        imagenes = Array.isArray(pub.imagenes) ? pub.imagenes : [];
-        pub = pub.publicacion || {};
-      } else {
-        imagenes = Array.isArray(pub.imagenes) ? pub.imagenes : (Array.isArray(data.imagenes) ? data.imagenes : []);
-      }
+      // Guardar los valores que luego combo_tipo.js usará
+      const comboTipo = document.getElementById("edit_comboTipo");
+      const comboCat  = document.getElementById("edit_comboCategoria");
 
-      console.log('[EDITAR][PUB]', pub);
-      console.log('[EDITAR][IMAGENES]', imagenes);
+      if (comboTipo) comboTipo.dataset.valorRegistrado = pub.codigo_tipo || "";
+      if (comboCat)  comboCat.dataset.valorRegistrado  = pub.codigo_categoria || "";
 
-      // ===== Campos principales =====
-      const inputId          = form.querySelector('#edit_id');
-      const inputTitulo      = form.querySelector('#edit_titulo');
-      const inputPrecio      = form.querySelector('#edit_precio');
-      const inputDescripcion = form.querySelector('#edit_descripcion');
-      const selEstado        = form.querySelector('#edit_estado');
+      // ====== Cargar imágenes en el nuevo diseño ======
+      const cont = document.getElementById("evImagenesActuales");
+      if (cont) {
+        cont.innerHTML = ""; // limpiar
 
-      if (inputId)          inputId.value          = pub.codigo_publicacion || id;
-      if (inputTitulo)      inputTitulo.value      = pub.titulo || '';
-      if (inputPrecio)      inputPrecio.value      = pub.precio ?? '';
-      if (inputDescripcion) inputDescripcion.value = pub.descripcion || '';
-
-      if (selEstado && pub.estado) {
-        const norm = String(pub.estado).toLowerCase();
-        if (norm === 'nuevo')      selEstado.value = 'Nuevo';
-        else if (norm === 'usado') selEstado.value = 'Usado';
-        else                       selEstado.value = 'NoAplica';
-      }
-
-      // ===== Tipo / Categoría =====
-      const codTipo      = pub.codigo_tipo ?? '';
-      const codCategoria = pub.codigo_categoria ?? '';
-
-      console.log('[EDITAR][TIPO/CAT]', codTipo, codCategoria);
-
-      if (window.evInitComboTipoCategoriaEdit) {
-        window.evInitComboTipoCategoriaEdit(codTipo, codCategoria);
-      } else {
-        // Fallback: al menos fijar data-valor-registrado si el combo se inicializa después
-        const comboTipo = document.getElementById('edit_comboTipo');
-        const comboCat  = document.getElementById('edit_comboCategoria');
-        if (comboTipo) comboTipo.dataset.valorRegistrado = codTipo ? String(codTipo) : '';
-        if (comboCat)  comboCat.dataset.valorRegistrado  = codCategoria ? String(codCategoria) : '';
-      }
-
-      // ===== Imágenes =====
-      if (imgContainer) {
-        if (!imagenes.length) {
-          imgContainer.innerHTML = '<small class="text-muted">No hay imágenes registradas para esta publicación.</small>';
+        if (fotos.length === 0) {
+          cont.innerHTML = `
+            <div class="text-muted small">No hay imágenes registradas para esta publicación.</div>
+          `;
         } else {
-          imgContainer.innerHTML = '';
-          imagenes.forEach((img) => {
-            const url = img.url || img.ruta || '';
-            if (!url) return;
-            const item  = document.createElement('div');
-            item.className = 'ev-edit-img-item';
-            const image = document.createElement('img');
-            image.src = url;
-            image.alt = 'Imagen de publicación';
-            item.appendChild(image);
-            imgContainer.appendChild(item);
+          fotos.forEach(f => {
+            const div = document.createElement("div");
+            div.className = "ev-img-wrapper";
+            div.innerHTML = `
+              <img src="${f.url}" alt="Imagen" class="ev-edit-img">
+            `;
+            cont.appendChild(div);
           });
         }
       }
 
-      // Mostrar modal edit
-      const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-      modal.show();
-
-    } catch (err) {
-      console.error(err);
-      evNotify('error', 'Error inesperado', 'No se pudo obtener los datos de la publicación.');
-      if (imgContainer) {
-        imgContainer.innerHTML = '<small class="text-danger">Error inesperado al cargar imágenes.</small>';
+      // ====== Mostrar modal ======
+      const modalEl = document.getElementById("modalEditarPublicacion");
+      if (modalEl) {
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
       }
+
+      // Disparar carga de combos (Tipo → Categoría) si está disponible
+      if (window.evInitComboTipoCategoriaEdit) {
+        window.evInitComboTipoCategoriaEdit(pub.codigo_tipo, pub.codigo_categoria);
+      }
+
+    } catch (e) {
+      console.error("Error cargando publicación:", e);
+      evNotify("error", "Error", "No se pudo cargar los datos.");
     }
   }
 
+  // Listener ÚNICO de clicks (no anidado)
   document.addEventListener('click', (e) => {
     // Botones de cabecera
     if (e.target.closest('#btnBuscar, #btnBuscarPublicacion')) {
@@ -192,12 +131,17 @@ function evNotify(icon, title, text) {
       return;
     }
 
-    // Botón Editar en la tabla
-    const btnEditar = e.target.closest('[data-action="editar"], .btn-editar');
+    // Botón Editar dentro de la tabla (usa data-action="editar")
+    const btnEditar = e.target.closest('[data-action="editar"][data-id]');
     if (btnEditar) {
-      precargarEditar(btnEditar);
+      const id = btnEditar.getAttribute('data-id');
+      if (id) {
+        cargarPublicacionEditar(id);
+      }
       return;
     }
+
+    // (si luego quieres manejar anular / ver, puedes hacerlo aquí con data-action="anular"/"ver")
   });
 
   // Buscar (por ahora solo log)
@@ -847,11 +791,11 @@ function evNotify(icon, title, text) {
                 <button class="ev-chip ev-chip-green" data-action="editar" data-id="${pub.codigo_publicacion}">
                   Editar
                 </button>
-                <button class="ev-chip ev-chip-amber" data-action="ver" data-id="${pub.codigo_publicacion}">
-                  Ver
-                </button>
                 <button class="ev-chip ev-chip-red" data-action="anular" data-id="${pub.codigo_publicacion}">
                   Anular
+                </button>
+                <button class="ev-chip ev-chip-amber" data-action="ver" data-id="${pub.codigo_publicacion}">
+                  Publicar
                 </button>
               </div>
             </td>
