@@ -1,5 +1,6 @@
 <?php
 // controllers/api/apiPublicacionController.php
+require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/Publicacion.php';
 
@@ -50,9 +51,9 @@ class apiPublicacionController
             $precioRaw   = $_POST['precio'] ?? null;
             $estado      = $_POST['estado'] ?? 'NoAplica';
 
-            // Campos adicionales (aún no se persisten en BD pero se leen)
-            $tipo        = $_POST['comboTipo'] ?? null;
-            $categoria   = $_POST['categoria'] ?? null;
+            // Campos adicionales
+            $tipo      = $_POST['comboTipo'] ?? null;
+            $categoria = $_POST['categoria'] ?? null;
 
             if ($titulo === '' || $descripcion === '') {
                 http_response_code(400);
@@ -88,6 +89,10 @@ class apiPublicacionController
             $pub->setEstado($estado);
             $pub->setCodigoUsuario($codigoUsuario);
 
+            // Guardar tipo / categoría
+            $pub->setCodigoTipo($tipo);
+            $pub->setCodigoCategoria($categoria);
+
             $codigoPublicacion = $pub->crearPublicacion();
 
             // ==========================
@@ -104,7 +109,7 @@ class apiPublicacionController
                 $types  = $_FILES['imagenes']['type'];
 
                 // Carpeta base: /uploads/publicaciones/{usuario}/{publicacion}
-                $rootPath   = realpath(__DIR__ . '/../../'); // raíz del proyecto (donde está index.php)
+                $rootPath   = realpath(__DIR__ . '/../../'); // raíz del proyecto
                 $baseDirRel = 'uploads/publicaciones/' . $codigoUsuario . '/' . $codigoPublicacion;
                 $baseDirAbs = $rootPath . '/' . $baseDirRel;
 
@@ -172,7 +177,7 @@ class apiPublicacionController
             // 5) Actualizar portada
             // ==========================
             if ($primeraRuta) {
-                $pub->actualizarImagenPortada($codigoPublicacion, $primeraRuta);
+              //  $pub->actualizarImagenPortada($codigoPublicacion, $primeraRuta);
             }
 
             http_response_code(201);
@@ -230,77 +235,42 @@ class apiPublicacionController
         }
     }
 
-    /**
-     * Lee el detalle de una publicación (incluye imágenes) para el usuario autenticado.
-     * GET /api/publicacion/{id}
-     */
     public function obtenerPublicacion($id)
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-            http_response_code(405);
-            echo json_encode([
-                'ok'      => false,
-                'mensaje' => 'Método no permitido'
-            ]);
-            return;
-        }
-
         try {
             $token = $_COOKIE['auth_token'] ?? null;
             if (!$token) {
                 http_response_code(401);
-                echo json_encode(['ok' => false, 'mensaje' => 'No se encontró el token de sesión.']);
-                return;
+                echo json_encode(['ok'=>false,'error'=>'Token no encontrado']); return;
             }
 
             $usuario = SesionJWT::verificarToken($token);
-            if (!$usuario || empty($usuario['codigo_usuario'])) {
-                http_response_code(401);
-                echo json_encode(['ok' => false, 'mensaje' => 'Token inválido o usuario no encontrado.']);
-                return;
-            }
+            $codigoUsuario = $usuario['codigo_usuario'];
 
-            $codigoUsuario     = (int)$usuario['codigo_usuario'];
-            $codigoPublicacion = (int)$id;
+            $pub = new Publicacion();
 
-            if ($codigoPublicacion <= 0) {
-                http_response_code(400);
-                echo json_encode(['ok' => false, 'mensaje' => 'Código de publicación inválido.']);
-                return;
-            }
-
-            $pubModel = new Publicacion();
-            $detalle  = $pubModel->obtenerDetalle($codigoPublicacion, $codigoUsuario);
-
-            if (!$detalle) {
+            $info = $pub->obtenerPorId($id,$codigoUsuario);
+         
+            if (!$info) {
                 http_response_code(404);
-                echo json_encode(['ok' => false, 'mensaje' => 'Publicación no encontrada.']);
-                return;
+                echo json_encode(['ok'=>false,'error'=>'No existe la publicación']); return;
             }
 
-            // Armar URLs completas de imágenes
-            $baseUrl  = rtrim(BASE_URL, '/');
-            $imagenes = isset($detalle['imagenes']) && is_array($detalle['imagenes']) ? $detalle['imagenes'] : [];
-
-            foreach ($imagenes as &$img) {
-                $ruta = $img['ruta'] ?? '';
-                $img['url'] = $ruta ? $baseUrl . '/' . ltrim($ruta, '/') : null;
-            }
-            unset($img);
-
-            $detalle['imagenes'] = $imagenes;
+            $imagenes = $pub->obtenerImagenes($id);
 
             echo json_encode([
-                'ok'   => true,
-                'data' => $detalle
+                'ok'=>true,
+                'data'=>[
+                    'publicacion'=>$info,
+                    'imagenes'=>$imagenes
+                ]
             ]);
 
         } catch (Exception $e) {
             http_response_code(500);
-            echo json_encode([
-                'ok'    => false,
-                'error' => $e->getMessage()
-            ]);
+            echo json_encode(['ok'=>false,'error'=>$e->getMessage()]);
         }
     }
+
+
 }

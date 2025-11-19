@@ -13,58 +13,60 @@ require_once __DIR__ . '/../Config/config.php';
         <i class="bi bi-list-ul"></i> Publicaciones
       </h5>
 
-      <button type="button" id="btnBuscar" class="btn btn-ev-outline d-flex align-items-center gap-2"
-        data-bs-toggle="modal" data-bs-target="#modalBuscarPublicacion">
-        <i class="bi bi-search"></i><span class="d-none d-sm-inline">Buscar</span>
-      </button>
+      <div class="d-flex gap-2">
+        <button type="button" id="btnBuscar" class="btn btn-ev-outline d-flex align-items-center gap-2"
+          data-bs-toggle="modal" data-bs-target="#modalBuscarPublicacion">
+          <i class="bi bi-search"></i><span class="d-none d-sm-inline">Buscar</span>
+        </button>
 
-      <button type="button" id="btnAgregar" class="btn btn-ev-primary d-flex align-items-center gap-2"
-        data-bs-toggle="modal" data-bs-target="#modalAgregarPublicacion">
-        <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline">Agregar</span>
-      </button>
-    </div>
-  </div>
-
-  <div class="card-body p-0">
-    <div class="table-responsive ev-table-wrap">
-      <table class="table table-hover align-middle mb-0 ev-table" id="tablaPublicaciones">
-        <thead>
-          <tr>
-            <th data-sort="codigo">Código</th>
-            <th data-sort="titulo">Título</th>
-            <th data-sort="precio">Precio (S/)</th>
-            <th data-sort="estado">Estado</th>
-            <th data-sort="fecha">Fecha</th>
-            <th class="text-center">Opciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td colspan="6" class="text-center py-4 text-muted">
-              Cargando publicaciones…
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="ev-foot">
-      <div class="ev-page-size">
-        Registros por página:
-        <select class="form-select form-select-sm input-premium ev-select">
-          <option selected>10</option><option>20</option><option>50</option>
-        </select>
+        <button type="button" id="btnAgregar" class="btn btn-ev-primary d-flex align-items-center gap-2"
+          data-bs-toggle="modal" data-bs-target="#modalAgregarPublicacion">
+          <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline">Agregar</span>
+        </button>
       </div>
-      <div class="ev-range small text-muted">–</div>
-      <ul class="ev-pagination">
-        <li><button class="ev-page-btn" title="Primero" disabled><i class="bi bi-chevron-bar-left"></i></button></li>
-        <li><button class="ev-page-btn" title="Anterior" disabled><i class="bi bi-chevron-left"></i></button></li>
-        <li><button class="ev-page-btn active">1</button></li>
-        <li><button class="ev-page-btn">2</button></li>
-        <li><button class="ev-page-btn">3</button></li>
-        <li><button class="ev-page-btn" title="Siguiente"><i class="bi bi-chevron-right"></i></button></li>
-        <li><button class="ev-page-btn" title="Último"><i class="bi bi-chevron-bar-right"></i></button></li>
-      </ul>
+    </div>
+
+    <div class="card-body p-0">
+      <div class="table-responsive ev-table-wrap">
+        <table class="table table-hover align-middle mb-0 ev-table" id="tablaPublicaciones">
+          <thead>
+            <tr>
+              <th data-sort="codigo">Código</th>
+              <th data-sort="titulo">Título</th>
+              <th data-sort="precio">Precio (S/)</th>
+              <th data-sort="estado">Estado</th>
+              <th data-sort="fecha">Fecha</th>
+              <th class="text-center">Opciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colspan="6" class="text-center py-4 text-muted">
+                Cargando publicaciones…
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="ev-foot">
+        <div class="ev-page-size">
+          Registros por página:
+          <select class="form-select form-select-sm input-premium ev-select">
+            <option selected>10</option><option>20</option><option>50</option>
+          </select>
+        </div>
+        <div class="ev-range small text-muted">–</div>
+        <ul class="ev-pagination">
+          <li><button class="ev-page-btn" title="Primero" disabled><i class="bi bi-chevron-bar-left"></i></button></li>
+          <li><button class="ev-page-btn" title="Anterior" disabled><i class="bi bi-chevron-left"></i></button></li>
+          <li><button class="ev-page-btn active">1</button></li>
+          <li><button class="ev-page-btn">2</button></li>
+          <li><button class="ev-page-btn">3</button></li>
+          <li><button class="ev-page-btn" title="Siguiente"><i class="bi bi-chevron-right"></i></button></li>
+          <li><button class="ev-page-btn" title="Último"><i class="bi bi-chevron-bar-right"></i></button></li>
+        </ul>
+      </div>
     </div>
   </div>
 </div>
@@ -132,7 +134,7 @@ require_once __DIR__ . '/../Config/config.php';
 </div>
 
 <!-- ➕ Modal Agregar -->
-<div class="modal fade" id="modalAgregarPublicacion" tabindex="-1" aria-labelledby="lblAgregarPublicacion" aria-hidden="true" >
+<div class="modal fade" id="modalAgregarPublicacion" tabindex="-1" aria-labelledby="lblAgregarPublicacion" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-md-down">
     <div class="modal-content border-0 ev-card">
       <div class="modal-header">
@@ -158,9 +160,7 @@ require_once __DIR__ . '/../Config/config.php';
                     Fotos • <span id="contadorImagenes">0</span>/<span>10</span>
                     <span class="text-muted"> - Puedes agregar un máximo de 10 fotos.</span>
                   </label>
-                  <!-- ---------------------------- -->
-                  <!-- 📸 Uploader mejorado (UX/UI) -->
-                  <!-- ---------------------------- -->
+
                   <div id="uploaderAgregar" class="ev-uploader mt-1">
 
                     <!-- input real oculto -->
@@ -192,6 +192,7 @@ require_once __DIR__ . '/../Config/config.php';
                       <div class="ev-tile ev-tile-add" id="tileAgregar">
                         <div class="ico"><i class="bi bi-plus-lg"></i></div>
                         <div class="t1">Agregar fotos</div>
+                        <div class="t2">o arrastra y suelta</div>
                       </div>
                     </div>
 
@@ -305,7 +306,7 @@ require_once __DIR__ . '/../Config/config.php';
               </div>
             </section>
 
-            <!-- DERECHA: PREVIEW (solo se oculta en móvil por CSS) -->
+            <!-- DERECHA: PREVIEW -->
             <aside class="mpm-right">
               <div class="mpm-preview-wrap">
                 <div class="col-lg-12" id="previewMount"></div>
@@ -319,14 +320,13 @@ require_once __DIR__ . '/../Config/config.php';
           <button type="submit" class="btn btn-outline-success btn-guardar">Guardar</button>
         </div>
       </form>
-
     </div>
   </div>
 </div>
 
-<!-- ✏️ Modal Editar -->
+<!-- ✏ Modal Editar (mismo diseño visual que Agregar) -->
 <div class="modal fade" id="modalEditarPublicacion" tabindex="-1" aria-labelledby="lblEditarPublicacion" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-md-down">
     <div class="modal-content border-0 ev-card">
       <div class="modal-header">
         <h5 class="modal-title" id="lblEditarPublicacion">
@@ -336,104 +336,139 @@ require_once __DIR__ . '/../Config/config.php';
       </div>
 
       <form id="formEditarPublicacion">
+        <input type="hidden" id="edit_id" name="codigo_publicacion">
         <div class="modal-body">
-          <input type="hidden" id="edit_id" name="codigo_publicacion">
+          <div class="mpm-grid">
+            <!-- IZQUIERDA: FORM -->
+            <section class="mpm-left">
+              <div class="row g-3">
 
-          <div class="row g-3">
-            <div class="col-12">
-              <h6 class="ev-section-title mb-1">1. Fotos actuales</h6>
-              <div id="editImagenesContainer" class="ev-edit-images-grid text-muted">
-                <small>No hay imágenes registradas para esta publicación.</small>
+                <!-- =========================
+                     📸 Sección: Fotos (solo lectura por ahora)
+                ========================== -->
+                <div class="col-12">
+                  <h6 class="ev-section-title mb-1">1. Fotos del producto</h6>
+                  <label class="form-label fw-semibold" style="color:#0F592F;">
+                    Fotos actuales
+                    <span class="text-muted"> - Imágenes registradas para esta publicación.</span>
+                  </label>
+
+                  <div class="ev-uploader mt-1">
+                    <div id="editImagenesContainer" class="ev-tiles ev-tiles-grid mb-2">
+                      <small class="text-muted">Cargando imágenes…</small>
+                    </div>
+                    <small class="text-muted mt-2 d-block">
+                      (En esta versión solo se muestran las imágenes existentes. La edición de imágenes se implementará más adelante.)
+                    </small>
+                  </div>
+                </div>
+
+                <!-- =========================
+                     🛒 Sección: Información principal
+                ========================== -->
+                <div class="col-12 mt-2">
+                  <h6 class="ev-section-title mb-1">2. Información principal</h6>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label ev-required" for="edit_titulo">Título</label>
+                  <input
+                    type="text"
+                    id="edit_titulo"
+                    name="titulo"
+                    class="form-control input-premium"
+                    required
+                  >
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label ev-required" for="edit_precio">Precio (S/)</label>
+                  <input
+                    type="number"
+                    id="edit_precio"
+                    name="precio"
+                    class="form-control input-premium"
+                    step="0.01"
+                    min="0"
+                    required
+                  >
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label ev-required" for="edit_estado">Estado</label>
+                  <select
+                    id="edit_estado"
+                    name="estado"
+                    class="form-select input-premium"
+                    required
+                  >
+                    <option>Nuevo</option>
+                    <option>Usado</option>
+                    <option>NoAplica</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label ev-required" for="edit_comboTipo">Tipo</label>
+                  <select
+                    id="edit_comboTipo"
+                    name="comboTipo"
+                    class="form-select input-premium"
+                    required
+                    data-valor-registrado=""
+                  >
+                    <option value="">-- Seleccione Tipos --</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label ev-required" for="edit_comboCategoria">Categoría</label>
+                  <select
+                    id="edit_comboCategoria"
+                    name="categoria"
+                    class="form-select input-premium"
+                    required
+                    data-valor-registrado=""
+                  >
+                    <option value="" selected disabled>-- Selecciona un tipo primero --</option>
+                  </select>
+                </div>
+
+                <!-- =========================
+                     📄 Sección: Detalles
+                ========================== -->
+                <div class="col-12 mt-2">
+                  <h6 class="ev-section-title mb-1">3. Detalles del producto o servicio</h6>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label ev-required" for="edit_descripcion">Descripción</label>
+                  <textarea
+                    id="edit_descripcion"
+                    name="descripcion"
+                    class="form-control input-premium"
+                    rows="4"
+                    required
+                  ></textarea>
+                </div>
               </div>
-              <small class="text-muted d-block mt-1">
-                Las imágenes existentes se muestran solo como referencia en esta versión.
-              </small>
-            </div>
+            </section>
 
-            <div class="col-12 mt-2">
-              <h6 class="ev-section-title mb-1">2. Información principal</h6>
-            </div>
-
-            <div class="col-12">
-              <label class="form-label ev-required" for="edit_titulo">Título</label>
-              <input
-                type="text"
-                id="edit_titulo"
-                name="titulo"
-                class="form-control input-premium"
-                required
-              >
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label ev-required" for="edit_precio">Precio (S/)</label>
-              <input
-                type="number"
-                id="edit_precio"
-                name="precio"
-                class="form-control input-premium"
-                step="0.01"
-                min="0"
-                required
-              >
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label ev-required" for="edit_estado">Estado</label>
-              <select
-                id="edit_estado"
-                name="estado"
-                class="form-select input-premium"
-                required
-              >
-                <option value="Nuevo">Nuevo</option>
-                <option value="Usado">Usado</option>
-                <option value="NoAplica">No aplica</option>
-              </select>
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label" for="edit_comboTipo">Tipo</label>
-              <select
-                id="edit_comboTipo"
-                name="comboTipo"
-                class="form-select input-premium"
-              >
-                <option value="">-- Seleccione Tipos --</option>
-              </select>
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label" for="edit_comboCategoria">Categoría</label>
-              <select
-                id="edit_comboCategoria"
-                name="categoria"
-                class="form-select input-premium"
-              >
-                <option value="">-- Seleccione una categoría --</option>
-              </select>
-            </div>
-
-            <div class="col-12 mt-2">
-              <h6 class="ev-section-title mb-1">3. Detalles del producto o servicio</h6>
-            </div>
-
-            <div class="col-12">
-              <label class="form-label ev-required" for="edit_descripcion">Descripción</label>
-              <textarea
-                id="edit_descripcion"
-                name="descripcion"
-                class="form-control input-premium"
-                rows="4"
-                required
-              ></textarea>
-            </div>
+            <!-- DERECHA: PREVIEW (si más adelante quieres, puedes reutilizar la zona) -->
+            <aside class="mpm-right">
+              <div class="mpm-preview-wrap">
+                <div class="col-lg-12" id="editPreviewMount">
+                  <!-- Espacio reservado por si luego quieres una previsualización similar -->
+                  <small class="text-muted">Aquí podrías mostrar una previsualización en una siguiente iteración.</small>
+                </div>
+              </div>
+            </aside>
           </div>
         </div>
 
         <div class="modal-footer">
-          <button type="button" class="btn btn-cancelar" data-bs-dismiss="modal">Cerrar</button>
-          <button type="submit" class="btn btn-outline-success">Guardar cambios</button>
+          <button type="button" class="btn btn-cancelar" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-outline-success btn-guardar-editar">Actualizar</button>
         </div>
       </form>
     </div>
