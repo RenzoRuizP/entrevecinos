@@ -1,11 +1,13 @@
 <?php
 // controllers/api/apiPublicacionController.php
-require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/Publicacion.php';
 
 class apiPublicacionController
 {
+    /**
+     * POST /api/publicacion/registrar
+     */
     public function registrarPublicacion()
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -31,7 +33,7 @@ class apiPublicacionController
                 return;
             }
 
-            $datosToken = SesionJWT::verificarToken($token);
+            $datosToken    = SesionJWT::verificarToken($token);
             $codigoUsuario = $datosToken['codigo_usuario'] ?? $datosToken['id_usuario'] ?? null;
 
             if (!$codigoUsuario) {
@@ -51,9 +53,9 @@ class apiPublicacionController
             $precioRaw   = $_POST['precio'] ?? null;
             $estado      = $_POST['estado'] ?? 'NoAplica';
 
-            // Campos adicionales
-            $tipo      = $_POST['comboTipo'] ?? null;
-            $categoria = $_POST['categoria'] ?? null;
+            // Campos adicionales (Tipo / Categoría)
+            $tipo      = $_POST['comboTipo'] ?? null;   // codigo_tipo (puede venir null)
+            $categoria = $_POST['categoria'] ?? null;   // codigo_categoria (puede venir null)
 
             if ($titulo === '' || $descripcion === '') {
                 http_response_code(400);
@@ -74,7 +76,7 @@ class apiPublicacionController
                 return;
             }
 
-            $estadoValido = ['Nuevo','Usado','NoAplica'];
+            $estadoValido = ['Nuevo', 'Usado', 'NoAplica'];
             if (!in_array($estado, $estadoValido, true)) {
                 $estado = 'NoAplica';
             }
@@ -88,18 +90,28 @@ class apiPublicacionController
             $pub->setPrecio($precio);
             $pub->setEstado($estado);
             $pub->setCodigoUsuario($codigoUsuario);
-
-            // Guardar tipo / categoría
-            $pub->setCodigoTipo($tipo);
-            $pub->setCodigoCategoria($categoria);
+            // estos setters existen en el modelo que te pasé
+            if (method_exists($pub, 'setCodigoTipo')) {
+                $pub->setCodigoTipo($tipo);
+            }
+            if (method_exists($pub, 'setCodigoCategoria')) {
+                $pub->setCodigoCategoria($categoria);
+            }
+            // portada se actualizará luego
+            $pub->setImagen_portada(null);
 
             $codigoPublicacion = $pub->crearPublicacion();
 
             // ==========================
-            // 4) Manejo de imágenes
+            // 4) Manejo de imágenes (robusto)
             // ==========================
             $imagenesSubidas = 0;
-            $primeraRuta = null;
+            $primeraRuta     = null;
+
+            // Log simple para verificar qué llega en _FILES
+            if (!empty($_FILES)) {
+                error_log("EV DEBUG _FILES registrarPublicacion: " . print_r($_FILES, true));
+            }
 
             if (!empty($_FILES['imagenes']) && is_array($_FILES['imagenes']['name'])) {
                 $names  = $_FILES['imagenes']['name'];
@@ -119,44 +131,49 @@ class apiPublicacionController
                     }
                 }
 
-                $orden = 1;
+                $orden         = 1;
+                $erroresUpload = [];
 
                 foreach ($names as $i => $nombreOriginal) {
+                    // 4.1 validar estado de subida
                     if ($errors[$i] !== UPLOAD_ERR_OK) {
+                        $erroresUpload[] = "Error código {$errors[$i]} en archivo {$nombreOriginal}";
                         continue;
                     }
 
                     $tmpName = $tmp[$i];
-                    $size    = (int) $sizes[$i];
+                    $size    = (int)$sizes[$i];
                     $mime    = $types[$i] ?? null;
 
-                    // Validación básica de imagen
+                    // 4.2 validar que realmente sea imagen
                     $infoImg = @getimagesize($tmpName);
                     if ($infoImg === false) {
-                        continue; // no es imagen válida
+                        $erroresUpload[] = "El archivo {$nombreOriginal} no es una imagen válida.";
+                        continue;
                     }
 
-                    $ancho = $infoImg[0] ?? null;
-                    $alto  = $infoImg[1] ?? null;
+                    $ancho    = $infoImg[0] ?? null;
+                    $alto     = $infoImg[1] ?? null;
                     $mimeReal = $infoImg['mime'] ?? $mime;
 
                     $ext = pathinfo($nombreOriginal, PATHINFO_EXTENSION);
                     $ext = $ext ? strtolower($ext) : 'jpg';
 
-                    $nombreLimpio = 'img_' . $orden . '_' . time() . '_' . mt_rand(1000,9999) . '.' . $ext;
+                    $nombreLimpio = 'img_' . $orden . '_' . time() . '_' . mt_rand(1000, 9999) . '.' . $ext;
                     $destinoAbs   = $baseDirAbs . '/' . $nombreLimpio;
-                    $destinoRel   = $baseDirRel . '/' . $nombreLimpio; // esto es lo que guardamos en BD
+                    $destinoRel   = $baseDirRel . '/' . $nombreLimpio; // esto va a BD
 
+                    // 4.3 mover al destino final
                     if (!move_uploaded_file($tmpName, $destinoAbs)) {
+                        $erroresUpload[] = "No se pudo mover el archivo {$nombreOriginal} al destino final.";
                         continue;
                     }
 
-                    $esPortada = ($orden === 1) ? 1 : 0;
-
+                    // 4.4 registrar en BD
                     $pub->registrarImagen(
                         $codigoPublicacion,
                         $destinoRel,
-                        $esPortada,
+                        ($orden === 1) ? 1 : 0,
                         $orden,
                         $ancho,
                         $alto,
@@ -164,12 +181,17 @@ class apiPublicacionController
                         $mimeReal
                     );
 
-                    if ($esPortada && !$primeraRuta) {
+                    if ($orden === 1 && !$primeraRuta) {
                         $primeraRuta = $destinoRel;
                     }
 
                     $imagenesSubidas++;
                     $orden++;
+                }
+
+                // Si llegaron archivos pero ninguna se pudo registrar, deja trazas
+                if (!$imagenesSubidas && $erroresUpload) {
+                    error_log('EV DEBUG SUBIDA_IMAGENES registrarPublicacion: ' . implode(' | ', $erroresUpload));
                 }
             }
 
@@ -177,15 +199,15 @@ class apiPublicacionController
             // 5) Actualizar portada
             // ==========================
             if ($primeraRuta) {
-              //  $pub->actualizarImagenPortada($codigoPublicacion, $primeraRuta);
+                $pub->actualizarImagenPortada($codigoPublicacion, $primeraRuta);
             }
 
             http_response_code(201);
             echo json_encode([
-                'ok'                => true,
-                'mensaje'           => 'Publicación registrada correctamente.',
-                'codigo_publicacion'=> $codigoPublicacion,
-                'imagenes_subidas'  => $imagenesSubidas
+                'ok'                 => true,
+                'mensaje'            => 'Publicación registrada correctamente.',
+                'codigo_publicacion' => $codigoPublicacion,
+                'imagenes_subidas'   => $imagenesSubidas
             ]);
 
         } catch (Exception $e) {
@@ -198,6 +220,9 @@ class apiPublicacionController
         }
     }
 
+    /**
+     * GET /api/publicacion/listar
+     */
     public function listarPublicaciones()
     {
         try {
@@ -235,42 +260,91 @@ class apiPublicacionController
         }
     }
 
+    /**
+     * GET /api/publicacion/{id}
+     * Devuelve:
+     * {
+     *   ok: true,
+     *   data: {
+     *     publicacion: { ... },
+     *     imagenes: [ { ruta, es_portada, orden, url, ... }, ... ]
+     *   }
+     * }
+     */
     public function obtenerPublicacion($id)
     {
         try {
+            if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+                http_response_code(405);
+                echo json_encode([
+                    'ok'      => false,
+                    'mensaje' => 'Método no permitido'
+                ]);
+                return;
+            }
+
+            // Validar token
             $token = $_COOKIE['auth_token'] ?? null;
             if (!$token) {
                 http_response_code(401);
-                echo json_encode(['ok'=>false,'error'=>'Token no encontrado']); return;
+                echo json_encode(['ok' => false, 'error' => 'No se encontró el token de sesión.']);
+                return;
             }
 
             $usuario = SesionJWT::verificarToken($token);
-            $codigoUsuario = $usuario['codigo_usuario'];
-
-            $pub = new Publicacion();
-
-            $info = $pub->obtenerPorId($id,$codigoUsuario);
-         
-            if (!$info) {
-                http_response_code(404);
-                echo json_encode(['ok'=>false,'error'=>'No existe la publicación']); return;
+            if (!$usuario || empty($usuario['codigo_usuario'])) {
+                http_response_code(401);
+                echo json_encode(['ok' => false, 'error' => 'Token inválido o usuario no encontrado.']);
+                return;
             }
 
-            $imagenes = $pub->obtenerImagenes($id);
+            $codigoUsuario     = (int)$usuario['codigo_usuario'];
+            $codigoPublicacion = (int)$id;
+
+            $pubModel   = new Publicacion();
+            $detallePub = $pubModel->obtenerPorId($codigoPublicacion, $codigoUsuario);
+
+            if (!$detallePub) {
+                http_response_code(404);
+                echo json_encode([
+                    'ok'      => false,
+                    'mensaje' => 'Publicación no encontrada para este usuario.'
+                ]);
+                return;
+            }
+
+            $imagenes = $pubModel->obtenerImagenes($codigoPublicacion);
+
+            // Armar URL absoluta de cada imagen
+            $baseUrl = rtrim(BASE_URL, '/');
+            foreach ($imagenes as &$img) {
+                $ruta = $img['ruta'] ?? '';
+                if ($ruta !== '') {
+                    if (preg_match('#^https?://#i', $ruta)) {
+                        $img['url'] = $ruta;
+                    } else {
+                        $img['url'] = $baseUrl . '/' . ltrim($ruta, '/');
+                    }
+                } else {
+                    $img['url'] = '';
+                }
+            }
+            unset($img);
 
             echo json_encode([
-                'ok'=>true,
-                'data'=>[
-                    'publicacion'=>$info,
-                    'imagenes'=>$imagenes
+                'ok'   => true,
+                'data' => [
+                    'publicacion' => $detallePub,
+                    'imagenes'    => $imagenes
                 ]
             ]);
 
         } catch (Exception $e) {
             http_response_code(500);
-            echo json_encode(['ok'=>false,'error'=>$e->getMessage()]);
+            echo json_encode([
+                'ok'    => false,
+                'error' => $e->getMessage()
+            ]);
         }
     }
-
-
 }
