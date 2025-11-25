@@ -17,6 +17,7 @@ require_once __DIR__ . '/controllers/api/usuarioDatosController.php';
 require_once __DIR__ . '/controllers/publicacionController.php';
 require_once __DIR__ . '/controllers/api/apiPublicacionController.php';
 require_once __DIR__ . '/controllers/tipoController.php';
+require_once __DIR__ . '/controllers/marketplaceController.php';
 
 require_once __DIR__ . '/models/SesionJWT.php';
 
@@ -84,6 +85,7 @@ $routes = [
     // ------------------------------
     ['GET', '#^/mi-perfil$#',   [miPerfilController::class, 'index'], 'html'],
     ['GET', '#^/publicacion$#', [publicacionController::class, 'index'], 'html'],
+    ['GET', '#^/marketplace$#', [marketplaceController::class, 'index'], 'html'],
     // ------------------------------
     //  FIN VISTAS
     // ------------------------------
