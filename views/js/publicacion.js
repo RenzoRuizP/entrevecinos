@@ -248,7 +248,7 @@ function evNotify(icon, title, text) {
       // Existentes
       existentesActivos.forEach((f) => {
         const tile = document.createElement('div');
-        tile.className = 'ev-tile'; // misma clase que las nuevas
+        tile.className = 'ev-tile';
 
         const img = document.createElement('img');
         img.src = f.src;
@@ -462,9 +462,9 @@ function evNotify(icon, title, text) {
       // Exponer estado para futura API de actualización
       window.evGetEstadoImagenesEditar = function () {
         return {
-          existentes: state.fotosExistentes,   // todas las que vinieron originalmente
-          eliminadas: state.eliminadas.slice(),// ids a eliminar
-          nuevas: state.fotosNuevas            // {id,file,url}
+          existentes: state.fotosExistentes,
+          eliminadas: state.eliminadas.slice(),
+          nuevas: state.fotosNuevas
         };
       };
     };
@@ -931,7 +931,8 @@ function evNotify(icon, title, text) {
   cat?.addEventListener('change',  () => markFilled(cat));
 })();
 
-/* ===== Fallback irrompible: altura del modal ===== */
+/* ===== Fallback irrompible: altura del modal =====
+   → ahora solo aplica a Agregar y Buscar, no a Editar */
 (function fixModalBodyHeight(){
   function tuneModal(id){
     const modal = document.getElementById(id);
@@ -967,13 +968,13 @@ function evNotify(icon, title, text) {
   function handleShown(e){
     const id = e.target?.id;
     if(!id) return;
-    if(id==='modalAgregarPublicacion' || id==='modalBuscarPublicacion' || id==='modalEditarPublicacion'){
+    if(id==='modalAgregarPublicacion' || id==='modalBuscarPublicacion'){
       setTimeout(()=>tuneModal(id), 0);
     }
   }
 
   function handleResize(){
-    ['modalAgregarPublicacion','modalBuscarPublicacion','modalEditarPublicacion'].forEach(tuneModal);
+    ['modalAgregarPublicacion','modalBuscarPublicacion'].forEach(tuneModal);
   }
 
   document.addEventListener('shown.bs.modal', handleShown);

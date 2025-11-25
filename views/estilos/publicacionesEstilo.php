@@ -869,28 +869,34 @@ textarea.input-premium{ min-height: 120px; }
   }
 }
 
-/* Footer fijo dentro de modal (scroll solo body) */
+/* Footer fijo dentro de modal (scroll solo body)
+   → ahora también incluye modalEditarPublicacion */
 #modalAgregarPublicacion .modal-dialog,
-#modalBuscarPublicacion .modal-dialog{
+#modalBuscarPublicacion .modal-dialog,
+#modalEditarPublicacion .modal-dialog{
   max-height: calc(100vh - var(--bs-modal-margin, .5rem)*2);
   height: auto;
 }
 #modalAgregarPublicacion .modal-content,
-#modalBuscarPublicacion .modal-content{
+#modalBuscarPublicacion .modal-content,
+#modalEditarPublicacion .modal-content{
   display: flex;
   flex-direction: column;
   max-height: 100%;
 }
 #modalAgregarPublicacion .modal-header,
 #modalBuscarPublicacion .modal-header,
+#modalEditarPublicacion .modal-header,
 #modalAgregarPublicacion .modal-footer,
-#modalBuscarPublicacion .modal-footer{
+#modalBuscarPublicacion .modal-footer,
+#modalEditarPublicacion .modal-footer{
   flex: 0 0 auto;
   position: static;
   box-shadow: none;
 }
 #modalAgregarPublicacion .modal-body,
-#modalBuscarPublicacion .modal-body{
+#modalBuscarPublicacion .modal-body,
+#modalEditarPublicacion .modal-body{
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -899,12 +905,14 @@ textarea.input-premium{ min-height: 120px; }
 }
 @media (max-width: 576px){
   #modalAgregarPublicacion .modal-dialog,
-  #modalBuscarPublicacion .modal-dialog{
+  #modalBuscarPublicacion .modal-dialog,
+  #modalEditarPublicacion .modal-dialog{
     margin: 0 !important;
     max-height: 100vh;
   }
   #modalAgregarPublicacion .modal-content,
-  #modalBuscarPublicacion .modal-content{
+  #modalBuscarPublicacion .modal-content,
+  #modalEditarPublicacion .modal-content{
     border-radius: 0;
   }
 }
@@ -945,24 +953,22 @@ textarea.input-premium{ min-height: 120px; }
   box-shadow:0 2px 6px rgba(15,23,42,.16);
 }
 
-  .ev-imagenes-actuales{
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 12px;
-    padding: 10px 0;
-  }
+.ev-imagenes-actuales{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  padding: 10px 0;
+}
 
-  .ev-edit-img{
-    width: 100%;
-    height: 140px;
-    object-fit: cover;
-    border-radius: 12px;
-    box-shadow: 0 3px 12px rgba(0,0,0,.15);
-  }
+.ev-edit-img{
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 12px;
+  box-shadow: 0 3px 12px rgba(0,0,0,.15);
+}
 
-  .ev-img-wrapper{
-    position: relative;
-  }
-
-
+.ev-img-wrapper{
+  position: relative;
+}
 </style>
