@@ -95,15 +95,11 @@ $routes = [
     ['POST', '#^/api/usuario/actualizar$#', [usuarioDatosController::class, 'actualizarDatos'], 'json'],
 
     // --- API mis publicaciones ---
-    ['POST', '#^/api/publicacion/registrar$#',       [apiPublicacionController::class, 'registrarPublicacion'], 'json'],
-    ['GET',  '#^/api/publicacion/listar$#',          [apiPublicacionController::class, 'listarPublicaciones'],  'json'],
-    ['GET',  '#^/api/publicacion/(\d+)$#',           [apiPublicacionController::class, 'obtenerPublicacion'],   'json'],
-    // *** RUTA NUEVA: ACTUALIZAR PUBLICACIÓN ***
-    ['POST', '#^/api/publicacion/(\d+)/actualizar$#',[apiPublicacionController::class, 'actualizarPublicacion'],'json'],
-
-
-    // *** RUTA NUEVA: DETALLE DE PUBLICACIÓN ***
-    ['GET',  '#^/api/publicacion/(\d+)$#',     [apiPublicacionController::class, 'obtenerPublicacion'],   'json'],
+    ['POST', '#^/api/publicacion/registrar$#',           [apiPublicacionController::class, 'registrarPublicacion'],  'json'],
+    ['GET',  '#^/api/publicacion/listar$#',              [apiPublicacionController::class, 'listarPublicaciones'],   'json'],
+    ['GET',  '#^/api/publicacion/(\d+)$#',               [apiPublicacionController::class, 'obtenerPublicacion'],    'json'],
+    ['POST', '#^/api/publicacion/(\d+)/actualizar$#',    [apiPublicacionController::class, 'actualizarPublicacion'], 'json'],
+    ['POST', '#^/api/publicacion/(\d+)/anular$#',        [apiPublicacionController::class, 'anularPublicacion'],     'json'],
 ];
 
 // ============================================================

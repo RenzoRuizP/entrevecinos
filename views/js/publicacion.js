@@ -528,6 +528,79 @@ function evNotify(icon, title, text) {
     }
   }
 
+  // ========================
+  // Anular publicación (visible = 0)
+  // ========================
+  async function anularPublicacion(idPublicacion, btnReferencia) {
+    const fila = btnReferencia?.closest('tr') || null;
+
+    // Confirmación
+    let confirmado = true;
+    if (window.Swal?.fire) {
+      const res = await Swal.fire({
+        title: '¿Anular publicación?',
+        text: 'Esta publicación dejará de ser visible en tu listado.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, anular',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: 'btn btn-danger me-2',
+          cancelButton: 'btn btn-outline-secondary'
+        }
+      });
+      confirmado = res.isConfirmed;
+    } else {
+      confirmado = window.confirm(
+        '¿Estás seguro de que deseas anular esta publicación? Dejará de ser visible en tu listado.'
+      );
+    }
+
+    if (!confirmado) return;
+
+    try {
+      const resp = await fetch(`${EV_API_BASE}/api/publicacion/${idPublicacion}/anular`, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+
+      const data = await resp.json().catch(() => ({}));
+
+      if (resp.status === 401) {
+        evNotify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
+        setTimeout(() => {
+          window.location.href = `${EV_API_BASE}/`;
+        }, 1500);
+        return;
+      }
+
+      if (!resp.ok || !data.ok) {
+        const msg = data.mensaje || data.error || 'No se pudo anular la publicación.';
+        evNotify('error', 'Error', msg);
+        console.error('[ANULAR][ERROR]', data);
+        return;
+      }
+
+      evNotify('success', 'Publicación anulada', data.mensaje || 'La publicación fue anulada correctamente.');
+
+      // Si tenemos la fila, la removemos; si no, recargamos la tabla
+      if (fila && fila.parentElement) {
+        fila.parentElement.removeChild(fila);
+      } else if (typeof window.evCargarPublicaciones === 'function') {
+        window.evCargarPublicaciones();
+      }
+
+    } catch (err) {
+      console.error('[ANULAR][EXCEPTION]', err);
+      evNotify('error', 'Error inesperado', 'Ocurrió un problema al anular la publicación.');
+    }
+  }
+
   // Listener ÚNICO de clicks (no anidado)
   document.addEventListener('click', (e) => {
     // Botones de cabecera
@@ -549,6 +622,20 @@ function evNotify(icon, title, text) {
       }
       return;
     }
+
+    // Botón Anular dentro de la tabla (usa data-action="anular")
+    const btnAnular = e.target.closest('[data-action="anular"][data-id]');
+    if (btnAnular) {
+      const id = btnAnular.getAttribute('data-id');
+      if (id) {
+        anularPublicacion(id, btnAnular);
+      }
+      return;
+    }
+
+    // Si en el futuro implementas "ver"/"publicar":
+    // const btnVer = e.target.closest('[data-action="ver"][data-id]');
+    // if (btnVer) { ... }
   });
 
   // Buscar (por ahora solo log)
