@@ -245,20 +245,14 @@ function evNotify(icon, title, text) {
       const todas = buildTodas();
       const existentesActivos = buildActivasExistentes();
 
-      let indexGlobal = 0;
-
       // Existentes
       existentesActivos.forEach((f) => {
         const tile = document.createElement('div');
-        tile.className = 'ev-tile ev-tile-existing';
+        tile.className = 'ev-tile'; // misma clase que las nuevas
 
         const img = document.createElement('img');
         img.src = f.src;
         img.alt = 'Imagen actual';
-
-        const badge = document.createElement('span');
-        badge.className = 'ev-tile-badge';
-        badge.textContent = 'Actual';
 
         const del = document.createElement('button');
         del.type = 'button';
@@ -273,10 +267,8 @@ function evNotify(icon, title, text) {
           paint(pub);
         });
 
-        tile.append(img, badge, del);
+        tile.append(img, del);
         els.tiles.appendChild(tile);
-
-        indexGlobal++;
       });
 
       // Nuevas
@@ -305,8 +297,6 @@ function evNotify(icon, title, text) {
 
         tile.append(img, del);
         els.tiles.appendChild(tile);
-
-        indexGlobal++;
       });
 
       // Tile "Agregar" si aún hay espacio
@@ -776,7 +766,7 @@ function evNotify(icon, title, text) {
         tiles.appendChild(t);
       });
 
-      // Tile "Agregar" se sigue creando para compatibilidad, aunque esté oculto por CSS
+      // Tile "Agregar"
       if (fotos.length < MAX_FILES) {
         const add = document.createElement('div');
         add.className = 'ev-tile ev-tile-add';
