@@ -152,7 +152,7 @@ require_once __DIR__ . '/../Config/config.php';
               <div class="row g-3">
 
                 <!-- =========================
-                     📸 Sección: Fotos
+                     📸 Sección: Fotos (AGREGAR)
                 ========================== -->
                 <div class="col-12">
                   <h6 class="ev-section-title mb-1">1. Fotos del producto</h6>
@@ -216,7 +216,7 @@ require_once __DIR__ . '/../Config/config.php';
                 </div>
 
                 <!-- =========================
-                     🛒 Sección: Información principal
+                     🛒 Información principal
                 ========================== -->
                 <div class="col-12 mt-2">
                   <h6 class="ev-section-title mb-1">2. Información principal</h6>
@@ -286,7 +286,7 @@ require_once __DIR__ . '/../Config/config.php';
                 </div>
 
                 <!-- =========================
-                     📄 Sección: Detalles
+                     📄 Detalles
                 ========================== -->
                 <div class="col-12 mt-2">
                   <h6 class="ev-section-title mb-1">3. Detalles del producto o servicio</h6>
@@ -325,6 +325,211 @@ require_once __DIR__ . '/../Config/config.php';
 </div>
 
 <!-- ✏️ Modal Editar -->
+<div class="modal fade" id="modalEditarPublicacion" tabindex="-1" aria-labelledby="lblEditarPublicacion" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-md-down">
+    <div class="modal-content border-0 ev-card">
+      
+      <div class="modal-header">
+        <h5 class="modal-title" id="lblEditarPublicacion">
+          <i class="bi bi-pencil-square me-2"></i>Editar publicación
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <form id="formEditarPublicacion">
+        <!-- ID oculto de la publicación -->
+        <input type="hidden" id="edit_id" name="codigo_publicacion">
+
+        <div class="modal-body">
+          <div class="mpm-grid">
+            
+            <!-- IZQUIERDA: FORM + uploader edición -->
+            <section class="mpm-left">
+              
+              <!-- =========================
+                   1. FOTOS DEL PRODUCTO (EDITAR)
+              ========================== -->
+              <div class="mb-3">
+                <h6 class="ev-section-title mb-1">1. Fotos del producto</h6>
+                <label class="form-label fw-semibold ev-required" style="color:#0F592F;">
+                  Fotos • <span id="contadorImagenesEdit">0</span>/<span>10</span>
+                  <span class="text-muted"> - Puedes agregar un máximo de 10 fotos.</span>
+                </label>
+
+                <div id="uploaderEditar" class="ev-uploader mt-1">
+
+                  <!-- input real oculto (solo nuevas imágenes) -->
+                  <input
+                    type="file"
+                    id="inputImagenesEdit"
+                    name="imagenes_nuevas[]"
+                    accept="image/*"
+                    multiple
+                    data-max="10"
+                    class="visually-hidden"
+                  />
+
+                  <!-- Zona Drag & Drop -->
+                  <div id="dropZoneEdit" class="ev-dropzone mb-3">
+                    <div class="dz-icon">
+                      <i class="bi bi-cloud-arrow-up"></i>
+                    </div>
+                    <div class="dz-text">
+                      <strong>Arrastra tus fotos aquí</strong> o haz clic para seleccionarlas
+                    </div>
+                    <div class="dz-subtext">
+                      JPG • PNG • WEBP • Máximo 10 imágenes
+                    </div>
+                  </div>
+
+                  <!-- Grid de miniaturas (existentes + nuevas) -->
+                  <div id="evTilesEdit" class="ev-tiles ev-tiles-grid mb-2">
+                    <!-- JS insertará aquí las miniaturas -->
+                  </div>
+
+                  <!-- Acciones y contador -->
+                  <div class="ev-toolbar-uploads">
+                    <button id="btnLimpiarImagenesEdit" type="button" class="btn-clear-images">
+                      <i class="bi bi-trash3"></i>
+                      Limpiar imágenes
+                    </button>
+
+                    <div class="ev-toolbar-uploads-count">
+                      <span id="contadorImagenesToolbarEdit">0</span>/10 fotos cargadas
+                    </div>
+                  </div>
+
+                  <small class="text-muted mt-2 d-block">
+                    La primera foto será la imagen principal de tu publicación.
+                  </small>
+
+                </div>
+              </div>
+
+              <!-- =========================
+                   2. INFORMACIÓN PRINCIPAL
+              ========================== -->
+              <div class="mt-3">
+                <h6 class="ev-section-title mb-1">2. Información principal</h6>
+              </div>
+
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label ev-required" for="edit_titulo">Título</label>
+                  <input
+                    type="text"
+                    id="edit_titulo"
+                    name="titulo"
+                    class="form-control input-premium"
+                    placeholder="Escribe un título claro y atractivo"
+                    required
+                  >
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label ev-required" for="edit_precio">Precio (S/)</label>
+                  <input
+                    type="number"
+                    id="edit_precio"
+                    name="precio"
+                    class="form-control input-premium"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    required
+                  >
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label ev-required" for="edit_estado">Estado</label>
+                  <select
+                    id="edit_estado"
+                    name="estado"
+                    class="form-select input-premium"
+                    required
+                  >
+                    <option>Nuevo</option>
+                    <option>Usado</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label ev-required" for="edit_comboTipo">Tipo</label>
+                  <select
+                    id="edit_comboTipo"
+                    name="comboTipo"
+                    class="form-select input-premium"
+                    required
+                  >
+                    <!-- Se llena desde combo_tipo.js (modo edición) -->
+                  </select>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label ev-required" for="edit_comboCategoria">Categoría</label>
+                  <select
+                    id="edit_comboCategoria"
+                    name="categoria"
+                    class="form-select input-premium"
+                    required
+                  >
+                    <!-- Se llena desde combo_tipo.js (modo edición) -->
+                  </select>
+                </div>
+              </div>
+
+              <!-- =========================
+                   3. DETALLES
+              ========================== -->
+              <div class="mt-3">
+                <h6 class="ev-section-title mb-1">3. Detalles del producto o servicio</h6>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label ev-required" for="edit_descripcion">Descripción</label>
+                <textarea
+                  id="edit_descripcion"
+                  name="descripcion"
+                  class="form-control input-premium"
+                  rows="4"
+                  placeholder="Cuenta los detalles más importantes para que tus vecinos se animen a comprar."
+                  required
+                ></textarea>
+              </div>
+
+            </section>
+
+            <!-- DERECHA: PREVIEW EDICIÓN -->
+            <aside class="mpm-right">
+              <div class="mpm-preview-wrap d-none d-lg-block">
+                <div class="card ev-card">
+                  <div class="card-body p-3">
+                    <div id="evPreviewWrapperEditContainer">
+                      <!-- Aquí se montará la previsualización desde JS -->
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </aside>
+
+          </div> <!-- mpm-grid -->
+        </div> <!-- modal-body -->
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-cancelar" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-outline-success btn-guardar">
+            Actualizar
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ✏️ Modal Editar -->
+ 
 <div class="modal fade" id="modalEditarPublicacion" tabindex="-1" aria-labelledby="lblEditarPublicacion" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-md-down">
     <div class="modal-content border-0 ev-card">

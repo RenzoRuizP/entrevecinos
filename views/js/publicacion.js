@@ -48,6 +48,438 @@ function evNotify(icon, title, text) {
     modal.show();
   }
 
+  /* ---------------------------------------
+     Helpers para imágenes (EDITAR)
+  ----------------------------------------*/
+  function evGetFotoSrc(f) {
+    if (!f) return '';
+    if (typeof f === 'string') return f;
+    return f.url || f.ruta || f.ruta_imagen || f.imagen || f.path || f.path_imagen || '';
+  }
+
+  function evGetFotoId(f, idx) {
+    if (!f || typeof f !== 'object') return 'old_' + idx;
+    return f.id_imagen || f.codigo_imagen || f.id || f.codigo || ('old_' + idx);
+  }
+
+  /* ---------------------------------------
+     Previsualización en EDITAR
+  ----------------------------------------*/
+  const evEditPreview = {
+    inited: false,
+    wrapper: null,
+    mainImg: null,
+    thumbs: null,
+    metaTitle: null,
+    metaPrice: null,
+    metaDesc: null
+  };
+
+  function evEnsurePreviewEditar() {
+    if (evEditPreview.inited && evEditPreview.wrapper) return evEditPreview;
+
+    const container = document.getElementById('evPreviewWrapperEditContainer');
+    if (!container) return null;
+
+    container.innerHTML = `
+      <div id="evPreviewWrapperEdit" class="ev-preview-area">
+        <div class="ev-preview-title">
+          <span><i class="bi bi-images me-1"></i>Previsualización</span>
+        </div>
+        <div class="ev-preview-main">
+          <img id="evPreviewMainImgEdit" alt="Vista previa">
+        </div>
+        <div id="evPreviewThumbsEdit" class="ev-preview-thumbs"></div>
+      </div>
+      <div class="card ev-card mt-3">
+        <div class="card-body p-3">
+          <h6 id="evMetaTitleEdit" class="mb-1" style="font-weight:800;color:#0b3d27;">Título</h6>
+          <div id="evMetaPriceEdit" class="mb-2" style="color:#0F592F;font-weight:800;">S/ 0.00</div>
+          <div style="font-size:.9rem;color:#64748b">Detalles</div>
+          <p id="evMetaDescEdit" class="mb-0" style="color:#475569;">La descripción aparecerá aquí.</p>
+        </div>
+      </div>
+    `;
+
+    evEditPreview.wrapper   = document.getElementById('evPreviewWrapperEdit');
+    evEditPreview.mainImg   = document.getElementById('evPreviewMainImgEdit');
+    evEditPreview.thumbs    = document.getElementById('evPreviewThumbsEdit');
+    evEditPreview.metaTitle = document.getElementById('evMetaTitleEdit');
+    evEditPreview.metaPrice = document.getElementById('evMetaPriceEdit');
+    evEditPreview.metaDesc  = document.getElementById('evMetaDescEdit');
+    evEditPreview.inited    = true;
+
+    // Enlazar actualización en vivo de título, precio y descripción
+    const modal = document.getElementById('modalEditarPublicacion');
+    if (modal && !modal.dataset.evMetaBound) {
+      modal.dataset.evMetaBound = '1';
+
+      const updateMetaLive = () => {
+        const title   = modal.querySelector('#edit_titulo')?.value?.trim() || 'Título';
+        const priceRaw= modal.querySelector('#edit_precio')?.value || '';
+        const desc    = modal.querySelector('#edit_descripcion')?.value?.trim() || 'La descripción aparecerá aquí.';
+        const n       = Number(priceRaw || 0);
+        const precio  = isNaN(n) ? '0.00' : n.toFixed(2);
+
+        if (evEditPreview.metaTitle) evEditPreview.metaTitle.textContent = title;
+        if (evEditPreview.metaPrice) evEditPreview.metaPrice.textContent = `S/ ${precio}`;
+        if (evEditPreview.metaDesc)  evEditPreview.metaDesc.textContent  = desc;
+      };
+
+      modal.querySelector('#edit_titulo')?.addEventListener('input', updateMetaLive);
+      modal.querySelector('#edit_precio')?.addEventListener('input', updateMetaLive);
+      modal.querySelector('#edit_descripcion')?.addEventListener('input', updateMetaLive);
+    }
+
+    return evEditPreview;
+  }
+
+  function evPintarPreviewEditar(pub, fotos) {
+    const st = evEnsurePreviewEditar();
+    if (!st) return;
+
+    const { wrapper, mainImg, thumbs, metaTitle, metaPrice, metaDesc } = st;
+
+    const titulo = (pub?.titulo || '').trim() || 'Título';
+    const n      = Number(pub?.precio || 0);
+    const precio = isNaN(n) ? '0.00' : n.toFixed(2);
+    const desc   = (pub?.descripcion || '').trim() || 'La descripción aparecerá aquí.';
+
+    if (metaTitle) metaTitle.textContent = titulo;
+    if (metaPrice) metaPrice.textContent = `S/ ${precio}`;
+    if (metaDesc)  metaDesc.textContent  = desc;
+
+    if (!Array.isArray(fotos) || !fotos.length) {
+      if (wrapper) wrapper.style.display = 'none';
+      if (thumbs) thumbs.innerHTML = '';
+      if (mainImg) mainImg.src = '';
+      return;
+    }
+
+    wrapper.style.display = '';
+
+    const firstSrc = evGetFotoSrc(fotos[0]);
+    if (mainImg && firstSrc) mainImg.src = firstSrc;
+
+    if (thumbs) {
+      thumbs.innerHTML = '';
+      fotos.forEach((f, idx) => {
+        const src = evGetFotoSrc(f);
+        if (!src) return;
+        const d = document.createElement('div');
+        d.className = 'ev-preview-thumb' + (idx === 0 ? ' active' : '');
+        const im = document.createElement('img');
+        im.src = src;
+        d.appendChild(im);
+        d.addEventListener('click', () => {
+          if (mainImg) mainImg.src = src;
+          const all = thumbs.querySelectorAll('.ev-preview-thumb');
+          all.forEach((node, i) => {
+            if (i === idx) node.classList.add('active');
+            else node.classList.remove('active');
+          });
+        });
+        thumbs.appendChild(d);
+      });
+    }
+  }
+
+  /* ---------------------------------------
+     Uploader EDITAR (opción A)
+  ----------------------------------------*/
+  (function initUploaderEditarModule(){
+    const MAX_MB = 5;
+    const MAX_FILES = 10;
+
+    const state = {
+      inited: false,
+      fotosExistentes: [],  // {id, src}
+      fotosNuevas: [],      // {id, file, url}
+      eliminadas: []        // ids de existentes
+    };
+
+    const els = {
+      modal: null,
+      form: null,
+      input: null,
+      tiles: null,
+      dropZone: null,
+      btnClear: null,
+      cntHeader: null,
+      cntToolbar: null
+    };
+
+    const $ = (s, root=document) => root.querySelector(s);
+
+    function notify(msg){ evNotify('info','Aviso',msg); }
+
+    function validarArchivo(file) {
+      const okTipo = /^image\/(jpeg|png|webp|gif|bmp|svg\+xml)$/i.test(file.type) || file.type.startsWith('image/');
+      const okPeso = file.size <= MAX_MB * 1024 * 1024;
+      if (!okTipo) { notify('Solo se permiten archivos de imagen.'); return false; }
+      if (!okPeso) { notify(`"${file.name}" supera ${MAX_MB} MB.`); return false; }
+      return true;
+    }
+
+    function buildActivasExistentes(){
+      return state.fotosExistentes.filter(f => !state.eliminadas.includes(f.id));
+    }
+
+    function buildTodas() {
+      const existentes = buildActivasExistentes().map(f => ({ url: f.src }));
+      const nuevas     = state.fotosNuevas.map(f => ({ url: f.url }));
+      return existentes.concat(nuevas);
+    }
+
+    function setCount() {
+      const count = buildTodas().length;
+      if (els.cntHeader)  els.cntHeader.textContent  = String(count);
+      if (els.cntToolbar) els.cntToolbar.textContent = String(count);
+      if (els.form)       els.form.dataset.evFotosEditCount = String(count);
+    }
+
+    function renderTiles(pub) {
+      if (!els.tiles) return;
+      els.tiles.innerHTML = '';
+
+      const todas = buildTodas();
+      const existentesActivos = buildActivasExistentes();
+
+      let indexGlobal = 0;
+
+      // Existentes
+      existentesActivos.forEach((f) => {
+        const tile = document.createElement('div');
+        tile.className = 'ev-tile ev-tile-existing';
+
+        const img = document.createElement('img');
+        img.src = f.src;
+        img.alt = 'Imagen actual';
+
+        const badge = document.createElement('span');
+        badge.className = 'ev-tile-badge';
+        badge.textContent = 'Actual';
+
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'ev-tile-remove';
+        del.title = 'Quitar imagen';
+        del.textContent = '×';
+        del.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          if (!state.eliminadas.includes(f.id)) {
+            state.eliminadas.push(f.id);
+          }
+          paint(pub);
+        });
+
+        tile.append(img, badge, del);
+        els.tiles.appendChild(tile);
+
+        indexGlobal++;
+      });
+
+      // Nuevas
+      state.fotosNuevas.forEach((f) => {
+        const tile = document.createElement('div');
+        tile.className = 'ev-tile';
+
+        const img = document.createElement('img');
+        img.src = f.url;
+        img.alt = f.file?.name || 'Imagen nueva';
+
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'ev-tile-remove';
+        del.title = 'Quitar imagen';
+        del.textContent = '×';
+        del.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const idx = state.fotosNuevas.findIndex(x => x.id === f.id);
+          if (idx !== -1) {
+            const removed = state.fotosNuevas.splice(idx,1)[0];
+            if (removed?.url) URL.revokeObjectURL(removed.url);
+          }
+          paint(pub);
+        });
+
+        tile.append(img, del);
+        els.tiles.appendChild(tile);
+
+        indexGlobal++;
+      });
+
+      // Tile "Agregar" si aún hay espacio
+      if (todas.length < MAX_FILES) {
+        const add = document.createElement('div');
+        add.className = 'ev-tile ev-tile-add';
+        add.innerHTML = `
+          <div class="ico"><i class="bi bi-plus-lg"></i></div>
+          <div class="t1">Agregar fotos</div>
+          <div class="t2">o arrastra y suelta</div>
+        `;
+        add.addEventListener('click', () => {
+          if (els.input) els.input.click();
+        });
+        els.tiles.appendChild(add);
+      }
+
+      setCount();
+    }
+
+    function paint(pub) {
+      const todas = buildTodas();
+      renderTiles(pub);
+      evPintarPreviewEditar(pub, todas);
+    }
+
+    function agregarArchivos(fileList, pub) {
+      const nuevos = Array.from(fileList || []);
+      if (!nuevos.length) return;
+
+      const actuales = buildTodas().length;
+
+      for (const file of nuevos) {
+        if (actuales + state.fotosNuevas.length >= MAX_FILES) {
+          notify(`Máximo ${MAX_FILES} imágenes.`);
+          break;
+        }
+        if (!validarArchivo(file)) continue;
+
+        const dup = state.fotosNuevas.some(f =>
+          f.file.name === file.name &&
+          f.file.size === file.size &&
+          f.file.lastModified === file.lastModified
+        );
+        if (dup) continue;
+
+        state.fotosNuevas.push({
+          id: 'new_' + crypto.randomUUID(),
+          file,
+          url: URL.createObjectURL(file)
+        });
+      }
+
+      paint(pub);
+    }
+
+    function bindEvents() {
+      if (state.inited || !els.modal) return;
+
+      // input
+      els.input?.addEventListener('change', (e) => {
+        const modal = els.modal;
+        if (!modal) return;
+        const pub = modal._evPubActual || {};
+        agregarArchivos(e.target.files || [], pub);
+        e.target.value = '';
+      });
+
+      // dropzone
+      if (els.dropZone) {
+        ['dragenter','dragover'].forEach(evt => {
+          els.dropZone.addEventListener(evt, (e) => {
+            e.preventDefault(); e.stopPropagation();
+            els.dropZone.classList.add('drag-over');
+          });
+        });
+        ['dragleave','dragend','drop'].forEach(evt => {
+          els.dropZone.addEventListener(evt, (e) => {
+            e.preventDefault(); e.stopPropagation();
+            els.dropZone.classList.remove('drag-over');
+          });
+        });
+        els.dropZone.addEventListener('drop', (e) => {
+          const modal = els.modal;
+          if (!modal) return;
+          const pub = modal._evPubActual || {};
+          agregarArchivos(e.dataTransfer?.files || [], pub);
+        });
+
+        els.dropZone.addEventListener('click', () => {
+          if (els.input) els.input.click();
+        });
+      }
+
+      // tiles también aceptan drop
+      if (els.tiles) {
+        ['dragenter','dragover'].forEach(evt => {
+          els.tiles.addEventListener(evt, (e) => {
+            e.preventDefault(); e.stopPropagation();
+          });
+        });
+        ['dragleave','dragend','drop'].forEach(evt => {
+          els.tiles.addEventListener(evt, (e) => {
+            e.preventDefault(); e.stopPropagation();
+          });
+        });
+        els.tiles.addEventListener('drop', (e) => {
+          const modal = els.modal;
+          if (!modal) return;
+          const pub = modal._evPubActual || {};
+          agregarArchivos(e.dataTransfer?.files || [], pub);
+        });
+      }
+
+      // Limpiar todo
+      els.btnClear?.addEventListener('click', () => {
+        state.fotosExistentes = [];
+        state.fotosNuevas.forEach(f => f.url && URL.revokeObjectURL(f.url));
+        state.fotosNuevas = [];
+        state.eliminadas = [];
+        paint(els.modal?._evPubActual || {});
+      });
+
+      state.inited = true;
+    }
+
+    function resetStateFromBackend(pub, fotosBackend) {
+      state.fotosExistentes = [];
+      state.fotosNuevas.forEach(f => f.url && URL.revokeObjectURL(f.url));
+      state.fotosNuevas = [];
+      state.eliminadas = [];
+
+      if (Array.isArray(fotosBackend)) {
+        fotosBackend.forEach((f, idx) => {
+          const src = evGetFotoSrc(f);
+          if (!src) return;
+          const id  = evGetFotoId(f, idx);
+          state.fotosExistentes.push({ id, src });
+        });
+      }
+
+      if (els.modal) els.modal._evPubActual = pub || {};
+      paint(pub || {});
+    }
+
+    // función pública para usar desde cargarPublicacionEditar
+    window.evInitUploaderEditar = function(pub, fotosBackend) {
+      const modal = document.getElementById('modalEditarPublicacion');
+      if (!modal) return;
+
+      els.modal    = modal;
+      els.form     = modal.querySelector('#formEditarPublicacion');
+      els.input    = modal.querySelector('#inputImagenesEdit');
+      els.tiles    = modal.querySelector('#evTilesEdit');
+      els.dropZone = modal.querySelector('#dropZoneEdit');
+      els.btnClear = modal.querySelector('#btnLimpiarImagenesEdit');
+      els.cntHeader  = modal.querySelector('#contadorImagenesEdit');
+      els.cntToolbar = modal.querySelector('#contadorImagenesToolbarEdit');
+
+      bindEvents();
+      resetStateFromBackend(pub, fotosBackend);
+
+      // Exponer estado para futura API de actualización
+      window.evGetEstadoImagenesEditar = function () {
+        return {
+          existentes: state.fotosExistentes,   // todas las que vinieron originalmente
+          eliminadas: state.eliminadas.slice(),// ids a eliminar
+          nuevas: state.fotosNuevas            // {id,file,url}
+        };
+      };
+    };
+  })();
+
   // ========================
   // Cargar datos al modal Editar
   // ========================
@@ -80,25 +512,12 @@ function evNotify(icon, title, text) {
       if (comboTipo) comboTipo.dataset.valorRegistrado = pub.codigo_tipo || "";
       if (comboCat)  comboCat.dataset.valorRegistrado  = pub.codigo_categoria || "";
 
-      // ====== Cargar imágenes en el nuevo diseño ======
-      const cont = document.getElementById("evImagenesActuales");
-      if (cont) {
-        cont.innerHTML = ""; // limpiar
-
-        if (fotos.length === 0) {
-          cont.innerHTML = `
-            <div class="text-muted small">No hay imágenes registradas para esta publicación.</div>
-          `;
-        } else {
-          fotos.forEach(f => {
-            const div = document.createElement("div");
-            div.className = "ev-img-wrapper";
-            div.innerHTML = `
-              <img src="${f.url}" alt="Imagen" class="ev-edit-img">
-            `;
-            cont.appendChild(div);
-          });
-        }
+      // ====== Inicializar uploader de edición (imágenes existentes + nuevas) ======
+      if (window.evInitUploaderEditar) {
+        window.evInitUploaderEditar(pub, fotos);
+      } else {
+        // fallback mínimo: al menos mostrar en preview
+        evPintarPreviewEditar(pub, fotos);
       }
 
       // ====== Mostrar modal ======
@@ -140,8 +559,6 @@ function evNotify(icon, title, text) {
       }
       return;
     }
-
-    // (si luego quieres manejar anular / ver, puedes hacerlo aquí con data-action="anular"/"ver")
   });
 
   // Buscar (por ahora solo log)
@@ -150,16 +567,25 @@ function evNotify(icon, title, text) {
     console.log('[BUSCAR]', Object.fromEntries(new FormData(e.target)));
   });
 
-  // Submit de edición (por ahora no guarda en backend, solo log para no romper nada)
+  // Submit de edición (por ahora no guarda en backend, solo log)
   document.getElementById('formEditarPublicacion')?.addEventListener('submit', (e) => {
     e.preventDefault();
-    console.log('[EDITAR][PENDIENTE_API]', Object.fromEntries(new FormData(e.target)));
-    evNotify('info', 'Editar publicación', 'La lógica para guardar cambios se implementará en una siguiente iteración. Los datos ya se cargan correctamente.');
+    const datos = Object.fromEntries(new FormData(e.target));
+    const estadoImgs = typeof window.evGetEstadoImagenesEditar === 'function'
+      ? window.evGetEstadoImagenesEditar()
+      : null;
+
+    console.log('[EDITAR][PENDIENTE_API]', {
+      formulario: datos,
+      imagenes: estadoImgs
+    });
+
+    evNotify('info', 'Editar publicación', 'La lógica para guardar cambios se implementará en una siguiente iteración. Las imágenes ya se pueden agregar/quitar visualmente.');
   });
 })();
 
 /* ==============================
-   Uploader + Previsualización — dropZone central
+   Uploader + Previsualización — AGREGAR
    (exponemos evGetFotosAgregar() para el submit)
 ============================== */
 (function () {
@@ -186,11 +612,11 @@ function evNotify(icon, title, text) {
     const form    = modalEl.querySelector('#formAgregarPublicacion');
     const input   = $('#inputImagenes', modalEl);
     const tiles   = $('#evTiles', modalEl);
-    const tileAdd = $('#tileAgregar', modalEl); // se mantiene por compatibilidad, pero va oculto por CSS
+    const tileAdd = $('#tileAgregar', modalEl);
     const btnClr  = $('#btnLimpiarImagenes', modalEl);
 
-    const lblCntHeader  = $('#contadorImagenes', modalEl);          // arriba, al lado de "Fotos •"
-    const lblCntToolbar = $('#contadorImagenesToolbar', modalEl);   // abajo, en "0/10 fotos cargadas"
+    const lblCntHeader  = $('#contadorImagenes', modalEl);
+    const lblCntToolbar = $('#contadorImagenesToolbar', modalEl);
 
     const dropZone = document.getElementById('dropZone');
 
@@ -219,7 +645,7 @@ function evNotify(icon, title, text) {
       const count = fotos.length;
       if (lblCntHeader)  lblCntHeader.textContent  = String(count);
       if (lblCntToolbar) lblCntToolbar.textContent = String(count);
-      if (form)          form.dataset.evFotosCount = String(count); // ← usado en la validación
+      if (form)          form.dataset.evFotosCount = String(count);
     };
 
     // --------- Preview derecha ----------
@@ -401,7 +827,7 @@ function evNotify(icon, title, text) {
       input.value = '';
     });
 
-    // TileAdd (aunque esté oculto)
+    // TileAdd
     tileAdd?.addEventListener('click', () => input.click());
 
     // DropZone: click + drag&drop
@@ -496,7 +922,6 @@ function evNotify(icon, title, text) {
     if (m && m.classList.contains('show')) initUploader(m);
   });
 })();
-
 
 /* ==============================
    UX extra: selects Tipo/Categoría (alta)
@@ -706,7 +1131,6 @@ function evNotify(icon, title, text) {
   });
 })();
 
-
 /* ==============================
    Listar publicaciones en tabla
 ============================== */
@@ -788,15 +1212,9 @@ function evNotify(icon, title, text) {
             </td>
             <td data-label="Opciones" class="text-center">
               <div class="ev-actions">
-                <button class="ev-chip ev-chip-green" data-action="editar" data-id="${pub.codigo_publicacion}">
-                  Editar
-                </button>
-                <button class="ev-chip ev-chip-red" data-action="anular" data-id="${pub.codigo_publicacion}">
-                  Anular
-                </button>
-                <button class="ev-chip ev-chip-amber" data-action="ver" data-id="${pub.codigo_publicacion}">
-                  Publicar
-                </button>
+                <button class="ev-chip ev-chip-green" data-action="editar" data-id="${pub.codigo_publicacion}">Editar</button>
+                <button class="ev-chip ev-chip-red" data-action="anular" data-id="${pub.codigo_publicacion}">Anular</button>
+                <button class="ev-chip ev-chip-amber" data-action="ver" data-id="${pub.codigo_publicacion}">Publicar</button>
               </div>
             </td>
           </tr>`;
