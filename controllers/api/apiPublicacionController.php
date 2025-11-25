@@ -126,7 +126,7 @@ class apiPublicacionController
                 $types  = $_FILES['imagenes']['type'];
 
                 // Carpeta base: /uploads/publicaciones/{usuario}/{publicacion}
-                $rootPath   = realpath(__DIR__ . '/../../'); // raíz del proyecto (donde está index.php)
+                $rootPath   = realpath(__DIR__ . '/../../'); // raíz del proyecto
                 $baseDirRel = 'uploads/publicaciones/' . $codigoUsuario . '/' . $codigoPublicacion;
                 $baseDirAbs = $rootPath . '/' . $baseDirRel;
 
@@ -524,11 +524,10 @@ class apiPublicacionController
                     }
                 }
 
-                // 🔹 Obtener el siguiente orden desde BD (MAX(orden)+1)
+                // Obtener siguiente orden desde BD
                 if (method_exists($pubModel, 'obtenerSiguienteOrdenImagen')) {
                     $orden = $pubModel->obtenerSiguienteOrdenImagen($codigoPublicacion);
                 } else {
-                    // Fallback
                     $imagenesActuales = $pubModel->obtenerImagenes($codigoPublicacion);
                     $orden = count($imagenesActuales) + 1;
                 }
@@ -623,6 +622,78 @@ class apiPublicacionController
             echo json_encode([
                 'ok'      => false,
                 'mensaje' => 'Error al actualizar la publicación.',
+                'error'   => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * POST /api/publicacion/{id}/anular
+     * Marca la publicación como no visible (visible = 0).
+     */
+    public function anularPublicacion($id)
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode([
+                'ok'      => false,
+                'mensaje' => 'Método no permitido'
+            ]);
+            return;
+        }
+
+        try {
+            $token = $_COOKIE['auth_token'] ?? null;
+            if (!$token) {
+                http_response_code(401);
+                echo json_encode(['ok' => false, 'error' => 'No se encontró el token de sesión.']);
+                return;
+            }
+
+            $usuario = SesionJWT::verificarToken($token);
+            if (!$usuario || empty($usuario['codigo_usuario'])) {
+                http_response_code(401);
+                echo json_encode(['ok' => false, 'error' => 'Token inválido o usuario no encontrado.']);
+                return;
+            }
+
+            $codigoUsuario     = (int)$usuario['codigo_usuario'];
+            $codigoPublicacion = (int)$id;
+
+            $pubModel = new Publicacion();
+
+            // Verificar que exista y sea del usuario
+            $detallePub = $pubModel->obtenerPorId($codigoPublicacion, $codigoUsuario);
+            if (!$detallePub) {
+                http_response_code(404);
+                echo json_encode([
+                    'ok'      => false,
+                    'mensaje' => 'Publicación no encontrada para este usuario.'
+                ]);
+                return;
+            }
+
+            $ok = $pubModel->anularPublicacion($codigoPublicacion, $codigoUsuario);
+
+            if (!$ok) {
+                http_response_code(400);
+                echo json_encode([
+                    'ok'      => false,
+                    'mensaje' => 'No se pudo anular la publicación (ya podría estar anulada).'
+                ]);
+                return;
+            }
+
+            echo json_encode([
+                'ok'      => true,
+                'mensaje' => 'Publicación anulada correctamente.'
+            ]);
+
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'ok'      => false,
+                'mensaje' => 'Error al anular la publicación.',
                 'error'   => $e->getMessage()
             ]);
         }

@@ -1,4 +1,4 @@
-<?php /* marketplaceEstilo.php – ULTRA PREMIUM v5 (come el canal blanco izquierdo) */ ?>
+<?php /* marketplaceEstilo.php – UX/UI Marketplace Entre Vecinos */ ?>
 
 <style>
 :root{
@@ -12,58 +12,28 @@
   --ev-texto-suave:#6B7280;
 }
 
-/* Fondo global del área central */
+/* Fondo suave solo para el área donde se monta el marketplace */
 .ev-mp-wrapper{
   background-color:var(--ev-gris-fondo);
-  padding-left:0 !important;
-  padding-right:0 !important;
-}
-
-/* IMPORTANTE:
-   Quitamos el padding interno que mete AdminLTE/Bootstrap
-   en la sección content SOLO cuando estamos en Marketplace */
-.ev-mp-wrapper > .content{
-  padding-left:0 !important;
-  padding-right:0 !important;
-}
-
-/* Sin padding extra de container-fluid */
-.ev-mp-wrapper .container-fluid{
-  padding-left:0;
-  padding-right:0;
 }
 
 /* =======================================
-   CONTENEDOR CENTRAL – FULL WIDTH
-======================================= */
-.ev-mp-container{
-  width:100%;
-  max-width:100%;
-  margin:0 auto 24px auto;
-  /* pegamos el contenido al borde del área, pero dejamos un respiro mínimo */
-  padding:16px 24px 16px 4px;   /* top right bottom left */
-  box-sizing:border-box;
-}
-
-/* =======================================
-   HEADER – PREMIUM
+   HEADER – CARD PRINCIPAL
 ======================================= */
 .ev-mp-header{
   border-radius:20px;
   border:1px solid var(--ev-gris-borde);
-  background:rgba(255,255,255,0.9);
-  backdrop-filter:blur(6px);
+  background:#ffffff;
   box-shadow:0 6px 18px rgba(0,0,0,0.05);
 }
 
 .ev-mp-header .card-body{
-  padding:28px 34px 26px 34px;
+  padding:24px 32px 22px 32px;
 }
 
 .ev-mp-title{
   font-size:32px;
   font-weight:700;
-  line-height:1.2;
   color:var(--ev-verde-oscuro);
 }
 
@@ -73,7 +43,7 @@
 }
 
 /* =======================================
-   CONDOMINIO CHIP
+   CONDOMINIO ACTUAL – CHIP
 ======================================= */
 .ev-mp-condominio{
   display:flex;
@@ -81,15 +51,18 @@
   gap:12px;
   padding:9px 16px;
   background:var(--ev-verde-suave);
-  border-radius:60px;
+  border-radius:999px;
   width:fit-content;
 }
 
 .ev-mp-condominio-icon{
-  width:36px;height:36px;
+  width:36px;
+  height:36px;
   border-radius:50%;
   background:#fff;
-  display:flex;align-items:center;justify-content:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   color:var(--ev-verde-oscuro);
   font-size:18px;
 }
@@ -113,23 +86,23 @@
 }
 
 /* =======================================
-   BUSCADOR – ULTRA PREMIUM
+   BUSCADOR + FILTROS
 ======================================= */
 .ev-mp-search-row{
   display:flex;
   flex-wrap:wrap;
   gap:16px;
-  margin-top:15px;
+  margin-top:18px;
 }
 
 .ev-mp-search-input-wrapper{
   flex:1;
-  min-width:320px;
+  min-width:280px;
   display:flex;
   align-items:center;
   gap:10px;
   padding:10px 16px;
-  border-radius:50px;
+  border-radius:999px;
   border:1px solid var(--ev-gris-borde);
   background:#fff;
   height:50px;
@@ -151,7 +124,6 @@
   outline:none;
 }
 
-/* Filtros / Ordenar */
 .ev-mp-search-actions{
   display:flex;
   flex-wrap:wrap;
@@ -187,9 +159,10 @@
 }
 
 /* =======================================
-   CHIPS – PREMIUM
+   CHIPS DE CATEGORÍAS
 ======================================= */
 .ev-mp-chips{
+  margin-top:16px;
   display:flex;
   flex-wrap:wrap;
   gap:10px;
@@ -217,14 +190,15 @@
   border-color:var(--ev-verde-oscuro);
 }
 
-/* Resumen */
+/* Resumen resultados */
 .ev-mp-resumen{
   font-size:13px;
   color:var(--ev-texto-suave);
+  margin-top:8px;
 }
 
 /* =======================================
-   GRID – 4 COLUMNAS EN ESCRITORIO GRANDE
+   GRID – 4 / 3 / 2 / 1 COLUMNAS
 ======================================= */
 .ev-mp-grid{
   margin-top:20px;
@@ -234,7 +208,7 @@
 }
 
 /* =======================================
-   CARD – ULTRA PREMIUM
+   CARD – PUBLICACIÓN
 ======================================= */
 .ev-mp-card{
   border-radius:20px;
@@ -261,13 +235,16 @@
 }
 
 .ev-mp-card-media img{
-  width:100%;height:100%;object-fit:cover;
+  width:100%;
+  height:100%;
+  object-fit:cover;
 }
 
-/* Badges */
+/* Badges sobre la imagen */
 .ev-mp-card-badges{
   position:absolute;
-  top:10px;left:10px;
+  top:10px;
+  left:10px;
   display:flex;
   gap:6px;
 }
@@ -314,7 +291,7 @@
   margin:0;
 }
 
-/* Meta */
+/* Meta (vecino + rating) */
 .ev-mp-card-meta{
   display:flex;
   justify-content:space-between;
@@ -329,13 +306,16 @@
 }
 
 .ev-mp-avatar{
-  width:32px;height:32px;
+  width:32px;
+  height:32px;
   border-radius:50%;
   background:var(--ev-verde-suave);
   color:var(--ev-verde-oscuro);
   font-size:14px;
   font-weight:700;
-  display:flex;align-items:center;justify-content:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 
 .ev-mp-vecino-nombre{
@@ -381,23 +361,6 @@
 }
 
 /* =======================================
-   ESTADO VACÍO
-======================================= */
-.ev-mp-empty{
-  padding:32px 16px 40px 16px;
-}
-
-.ev-mp-empty-icon{
-  width:56px;height:56px;
-  border-radius:50%;
-  border:1px solid var(--ev-gris-borde);
-  display:flex;align-items:center;justify-content:center;
-  color:var(--ev-texto-suave);
-  font-size:26px;
-  margin:0 auto;
-}
-
-/* =======================================
    RESPONSIVE
 ======================================= */
 
@@ -410,10 +373,6 @@
 
 /* Tablets horizontales: 2 columnas */
 @media (max-width:991.98px){
-  .ev-mp-container{
-    padding:12px 12px;
-  }
-
   .ev-mp-header .card-body{
     padding:20px 18px;
   }
@@ -438,10 +397,6 @@
 
 /* Móvil: 1 columna */
 @media (max-width:575.98px){
-  .ev-mp-container{
-    padding:8px 10px;
-  }
-
   .ev-mp-title{
     font-size:24px;
   }
@@ -463,14 +418,4 @@
     width:100%;
   }
 }
-
-/* SOLUCIÓN REAL:
-   ELIMINA EL PADDING DEL LAYOUT GENERAL SOLO EN MARKETPLACE */
-.content-wrapper,
-.content-wrapper .content,
-.content-wrapper .container-fluid {
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-
 </style>

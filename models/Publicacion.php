@@ -6,11 +6,10 @@
     - Actualiza imagen_portada
     - Lista publicaciones por usuario
     - Obtiene detalle + imágenes
-    - SOPORTE COMPLETO PARA EDICIÓN:
-        actualizarPublicacionBase
-        eliminarImagenes
-        recalcularPortada
-        obtenerSiguienteOrdenImagen
+    - Actualiza datos base
+    - Elimina imágenes
+    - Recalcula portada
+    - Anula (visible = 0)
 */
 
 require_once __DIR__ . '/../Config/EnvConfig.php';
@@ -26,78 +25,118 @@ class Publicacion extends Conexion
     private $visible = 1;
     private $codigo_usuario;
 
-    // FKs
+    // FKs a tipo / categoría
     private $codigo_tipo;
     private $codigo_categoria;
 
     // ====== SETTERS ======
-    public function setTitulo($titulo) { $this->titulo = $titulo; }
-    public function setImagen_portada($imagen_portada) { $this->imagen_portada = $imagen_portada; }
-    public function setDescripcion($descripcion) { $this->descripcion = $descripcion; }
-    public function setPrecio($precio) { $this->precio = $precio; }
-    public function setEstado($estado) { $this->estado = $estado; }
-    public function setVisible($visible) { $this->visible = (int)$visible; }
-    public function setCodigoUsuario($codigo_usuario) { $this->codigo_usuario = (int)$codigo_usuario; }
+    public function setTitulo($titulo) {
+        $this->titulo = $titulo;
+    }
+
+    public function setImagen_portada($imagen_portada) {
+        $this->imagen_portada = $imagen_portada;
+    }
+
+    public function setDescripcion($descripcion) {
+        $this->descripcion = $descripcion;
+    }
+
+    public function setPrecio($precio) {
+        $this->precio = $precio;
+    }
+
+    public function setEstado($estado) {
+        $this->estado = $estado;
+    }
+
+    public function setVisible($visible) {
+        $this->visible = (int) $visible;
+    }
+
+    public function setCodigoUsuario($codigo_usuario) {
+        $this->codigo_usuario = (int) $codigo_usuario;
+    }
 
     public function setCodigoTipo($codigo_tipo) {
-        $this->codigo_tipo = ($codigo_tipo !== '' && $codigo_tipo !== null) ? (int)$codigo_tipo : null;
+        $this->codigo_tipo = $codigo_tipo !== null && $codigo_tipo !== '' ? (int)$codigo_tipo : null;
     }
 
     public function setCodigoCategoria($codigo_categoria) {
-        $this->codigo_categoria = ($codigo_categoria !== '' && $codigo_categoria !== null) ? (int)$codigo_categoria : null;
+        $this->codigo_categoria = $codigo_categoria !== null && $codigo_categoria !== '' ? (int)$codigo_categoria : null;
     }
 
-    /* ============================================================
-       CREAR PUBLICACIÓN
-    ============================================================ */
+    /**
+     * Crea la publicación en la tabla `publicacion` y devuelve el ID generado.
+     * Requiere columnas:
+     *   codigo_tipo INT NULL
+     *   codigo_categoria INT NULL
+     */
     public function crearPublicacion() {
         try {
             $sql = "
                 INSERT INTO publicacion
-                    (titulo, imagen_portada, descripcion, estado, precio,
-                     visible, codigo_usuario, codigo_tipo, codigo_categoria)
+                    (titulo,
+                     imagen_portada,
+                     descripcion,
+                     estado,
+                     precio,
+                     visible,
+                     codigo_usuario,
+                     codigo_tipo,
+                     codigo_categoria)
                 VALUES
-                    (:titulo, :imagen_portada, :descripcion, :estado, :precio,
-                     :visible, :codigo_usuario, :codigo_tipo, :codigo_categoria)
+                    (:titulo,
+                     :imagen_portada,
+                     :descripcion,
+                     :estado,
+                     :precio,
+                     :visible,
+                     :codigo_usuario,
+                     :codigo_tipo,
+                     :codigo_categoria)
             ";
 
             $stmt = $this->dblink->prepare($sql);
 
             $stmt->bindParam(':titulo', $this->titulo, PDO::PARAM_STR);
 
-            if ($this->imagen_portada !== null)
+            if ($this->imagen_portada !== null) {
                 $stmt->bindValue(':imagen_portada', $this->imagen_portada, PDO::PARAM_STR);
-            else
+            } else {
                 $stmt->bindValue(':imagen_portada', null, PDO::PARAM_NULL);
+            }
 
             $stmt->bindParam(':descripcion', $this->descripcion, PDO::PARAM_STR);
             $stmt->bindParam(':estado',      $this->estado,      PDO::PARAM_STR);
             $stmt->bindParam(':precio',      $this->precio);
-            $stmt->bindParam(':visible',     $this->visible, PDO::PARAM_INT);
+            $stmt->bindParam(':visible',     $this->visible,     PDO::PARAM_INT);
             $stmt->bindParam(':codigo_usuario', $this->codigo_usuario, PDO::PARAM_INT);
 
-            if ($this->codigo_tipo !== null)
-                $stmt->bindValue(':codigo_tipo', $this->codigo_tipo, PDO::PARAM_INT);
-            else
+            if ($this->codigo_tipo !== null) {
+                $stmt->bindParam(':codigo_tipo', $this->codigo_tipo, PDO::PARAM_INT);
+            } else {
                 $stmt->bindValue(':codigo_tipo', null, PDO::PARAM_NULL);
+            }
 
-            if ($this->codigo_categoria !== null)
-                $stmt->bindValue(':codigo_categoria', $this->codigo_categoria, PDO::PARAM_INT);
-            else
+            if ($this->codigo_categoria !== null) {
+                $stmt->bindParam(':codigo_categoria', $this->codigo_categoria, PDO::PARAM_INT);
+            } else {
                 $stmt->bindValue(':codigo_categoria', null, PDO::PARAM_NULL);
+            }
 
             $stmt->execute();
 
-            return (int)$this->dblink->lastInsertId();
+            return (int) $this->dblink->lastInsertId();
 
         } catch (Exception $e) {
             throw $e;
         }
     }
 
-    /* ============================================================
-       REGISTRAR IMAGEN
-    ============================================================ */
+    /**
+     * Registra una imagen asociada a una publicación en `publicacion_imagen`.
+     */
     public function registrarImagen(
         int $codigoPublicacion,
         string $ruta,
@@ -111,23 +150,35 @@ class Publicacion extends Conexion
         try {
             $sql = "
                 INSERT INTO publicacion_imagen
-                    (codigo_publicacion, ruta, es_portada, orden, ancho, alto, peso_bytes, mime)
+                    (codigo_publicacion,
+                     ruta,
+                     es_portada,
+                     orden,
+                     ancho,
+                     alto,
+                     peso_bytes,
+                     mime)
                 VALUES
-                    (:codigo_publicacion, :ruta, :es_portada, :orden,
-                     :ancho, :alto, :peso_bytes, :mime)
+                    (:codigo_publicacion,
+                     :ruta,
+                     :es_portada,
+                     :orden,
+                     :ancho,
+                     :alto,
+                     :peso_bytes,
+                     :mime)
             ";
 
             $stmt = $this->dblink->prepare($sql);
-
             $stmt->bindParam(':codigo_publicacion', $codigoPublicacion, PDO::PARAM_INT);
-            $stmt->bindParam(':ruta',               $ruta, PDO::PARAM_STR);
-            $stmt->bindParam(':es_portada',         $esPortada, PDO::PARAM_INT);
-            $stmt->bindParam(':orden',              $orden, PDO::PARAM_INT);
+            $stmt->bindParam(':ruta',               $ruta,              PDO::PARAM_STR);
+            $stmt->bindParam(':es_portada',         $esPortada,         PDO::PARAM_INT);
+            $stmt->bindParam(':orden',              $orden,             PDO::PARAM_INT);
 
-            ($ancho !== null)     ? $stmt->bindValue(':ancho', $ancho)          : $stmt->bindValue(':ancho', null, PDO::PARAM_NULL);
-            ($alto !== null)      ? $stmt->bindValue(':alto', $alto)            : $stmt->bindValue(':alto', null, PDO::PARAM_NULL);
-            ($pesoBytes !== null) ? $stmt->bindValue(':peso_bytes', $pesoBytes) : $stmt->bindValue(':peso_bytes', null, PDO::PARAM_NULL);
-            ($mime !== null)      ? $stmt->bindValue(':mime', $mime)            : $stmt->bindValue(':mime', null, PDO::PARAM_NULL);
+            if ($ancho !== null)      $stmt->bindParam(':ancho',      $ancho,      PDO::PARAM_INT); else $stmt->bindValue(':ancho',      null, PDO::PARAM_NULL);
+            if ($alto !== null)       $stmt->bindParam(':alto',       $alto,       PDO::PARAM_INT); else $stmt->bindValue(':alto',       null, PDO::PARAM_NULL);
+            if ($pesoBytes !== null)  $stmt->bindParam(':peso_bytes', $pesoBytes,  PDO::PARAM_INT); else $stmt->bindValue(':peso_bytes', null, PDO::PARAM_NULL);
+            if ($mime !== null)       $stmt->bindParam(':mime',       $mime,       PDO::PARAM_STR); else $stmt->bindValue(':mime',       null, PDO::PARAM_NULL);
 
             $stmt->execute();
 
@@ -136,10 +187,10 @@ class Publicacion extends Conexion
         }
     }
 
-    /* ============================================================
-       ACTUALIZAR IMAGEN DE PORTADA
-    ============================================================ */
-    public function actualizarImagenPortada(int $codigoPublicacion, ?string $rutaPortada) {
+    /**
+     * Actualiza la ruta de la imagen de portada en `publicacion`.
+     */
+    public function actualizarImagenPortada(int $codigoPublicacion, string $rutaPortada) {
         try {
             $sql = "
                 UPDATE publicacion
@@ -148,14 +199,8 @@ class Publicacion extends Conexion
             ";
 
             $stmt = $this->dblink->prepare($sql);
-
-            if ($rutaPortada !== null)
-                $stmt->bindValue(':ruta', $rutaPortada, PDO::PARAM_STR);
-            else
-                $stmt->bindValue(':ruta', null, PDO::PARAM_NULL);
-
+            $stmt->bindParam(':ruta',               $rutaPortada,      PDO::PARAM_STR);
             $stmt->bindParam(':codigo_publicacion', $codigoPublicacion, PDO::PARAM_INT);
-
             $stmt->execute();
 
         } catch (Exception $e) {
@@ -163,26 +208,28 @@ class Publicacion extends Conexion
         }
     }
 
-    /* ============================================================
-       LISTAR POR USUARIO
-    ============================================================ */
+    /**
+     * Lista publicaciones de un usuario (para la tabla).
+     * Solo visibles (visible = 1).
+     */
     public function listarPorUsuario(int $codigoUsuario): array
     {
         try {
             $sql = "
                 SELECT
-                    codigo_publicacion,
-                    titulo,
-                    descripcion,
-                    estado,
-                    precio,
-                    visible,
-                    codigo_tipo,
-                    codigo_categoria,
-                    DATE_FORMAT(created_at, '%d/%m/%Y %H:%i') AS fecha_creacion
-                FROM publicacion
-                WHERE codigo_usuario = :p_codigo_usuario
-                ORDER BY created_at DESC
+                    p.codigo_publicacion,
+                    p.titulo,
+                    p.descripcion,
+                    p.estado,
+                    p.precio,
+                    p.visible,
+                    p.codigo_tipo,
+                    p.codigo_categoria,
+                    DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS fecha_creacion
+                FROM publicacion p
+                WHERE p.codigo_usuario = :p_codigo_usuario
+                  AND p.visible = 1
+                ORDER BY p.created_at DESC
             ";
 
             $sentencia = $this->dblink->prepare($sql);
@@ -196,37 +243,36 @@ class Publicacion extends Conexion
         }
     }
 
-    /* ============================================================
-       OBTENER POR ID
-    ============================================================ */
+    /**
+     * Detalle de una publicación de un usuario.
+     */
     public function obtenerPorId(int $codigoPublicacion, int $codigoUsuario): ?array
     {
         try {
             $sql = "
                 SELECT
-                    codigo_publicacion,
-                    titulo,
-                    descripcion,
-                    estado,
-                    precio,
-                    visible,
-                    codigo_usuario,
-                    codigo_tipo,
-                    codigo_categoria,
-                    DATE_FORMAT(created_at, '%d/%m/%Y %H:%i') AS fecha_creacion
-                FROM publicacion
-                WHERE codigo_publicacion = :p_codigo_publicacion
-                  AND codigo_usuario     = :p_codigo_usuario
+                    p.codigo_publicacion,
+                    p.titulo,
+                    p.descripcion,
+                    p.estado,
+                    p.precio,
+                    p.visible,
+                    p.codigo_usuario,
+                    p.codigo_tipo,
+                    p.codigo_categoria,
+                    DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS fecha_creacion
+                FROM publicacion p
+                WHERE p.codigo_publicacion = :p_codigo_publicacion
+                  AND p.codigo_usuario     = :p_codigo_usuario
                 LIMIT 1
             ";
 
             $stmt = $this->dblink->prepare($sql);
             $stmt->bindParam(':p_codigo_publicacion', $codigoPublicacion, PDO::PARAM_INT);
             $stmt->bindParam(':p_codigo_usuario',     $codigoUsuario,    PDO::PARAM_INT);
-
             $stmt->execute();
-            $fila = $stmt->fetch(PDO::FETCH_ASSOC);
 
+            $fila = $stmt->fetch(PDO::FETCH_ASSOC);
             return $fila ?: null;
 
         } catch (Exception $e) {
@@ -234,9 +280,9 @@ class Publicacion extends Conexion
         }
     }
 
-    /* ============================================================
-       OBTENER IMÁGENES
-    ============================================================ */
+    /**
+     * Obtiene TODAS las imágenes de una publicación.
+     */
     public function obtenerImagenes(int $codigoPublicacion): array
     {
         try {
@@ -253,7 +299,7 @@ class Publicacion extends Conexion
                     mime
                 FROM publicacion_imagen
                 WHERE codigo_publicacion = :p_codigo_publicacion
-                ORDER BY orden ASC, codigo_publicacion_imagen ASC
+                ORDER BY es_portada DESC, orden ASC, codigo_publicacion_imagen ASC
             ";
 
             $stmt = $this->dblink->prepare($sql);
@@ -267,21 +313,26 @@ class Publicacion extends Conexion
         }
     }
 
-    /* ============================================================
-       1. ACTUALIZAR DATOS BASE (EDITAR)
-    ============================================================ */
-    public function actualizarPublicacionBase(int $codigoPublicacion, int $codigoUsuario)
+    /* ==========================================================
+       NUEVOS MÉTODOS PARA ACTUALIZAR + IMÁGENES + ANULAR
+       ========================================================== */
+
+    /**
+     * Actualiza los datos base de la publicación (sin tocar imágenes).
+     */
+    public function actualizarPublicacionBase(int $codigoPublicacion, int $codigoUsuario): void
     {
         try {
             $sql = "
                 UPDATE publicacion
-                SET titulo           = :titulo,
-                    descripcion      = :descripcion,
-                    estado           = :estado,
-                    precio           = :precio,
-                    visible          = :visible,
-                    codigo_tipo      = :codigo_tipo,
-                    codigo_categoria = :codigo_categoria
+                SET
+                    titulo          = :titulo,
+                    descripcion     = :descripcion,
+                    estado          = :estado,
+                    precio          = :precio,
+                    visible         = :visible,
+                    codigo_tipo     = :codigo_tipo,
+                    codigo_categoria= :codigo_categoria
                 WHERE codigo_publicacion = :codigo_publicacion
                   AND codigo_usuario     = :codigo_usuario
             ";
@@ -293,49 +344,19 @@ class Publicacion extends Conexion
             $stmt->bindParam(':estado',      $this->estado,      PDO::PARAM_STR);
             $stmt->bindParam(':precio',      $this->precio);
             $stmt->bindParam(':visible',     $this->visible,     PDO::PARAM_INT);
-
-            if ($this->codigo_tipo !== null)
-                $stmt->bindValue(':codigo_tipo', $this->codigo_tipo, PDO::PARAM_INT);
-            else
-                $stmt->bindValue(':codigo_tipo', null, PDO::PARAM_NULL);
-
-            if ($this->codigo_categoria !== null)
-                $stmt->bindValue(':codigo_categoria', $this->codigo_categoria, PDO::PARAM_INT);
-            else
-                $stmt->bindValue(':codigo_categoria', null, PDO::PARAM_NULL);
-
             $stmt->bindParam(':codigo_publicacion', $codigoPublicacion, PDO::PARAM_INT);
-            $stmt->bindParam(':codigo_usuario',     $codigoUsuario,     PDO::PARAM_INT);
+            $stmt->bindParam(':codigo_usuario',     $codigoUsuario,    PDO::PARAM_INT);
 
-            $stmt->execute();
+            if ($this->codigo_tipo !== null) {
+                $stmt->bindParam(':codigo_tipo', $this->codigo_tipo, PDO::PARAM_INT);
+            } else {
+                $stmt->bindValue(':codigo_tipo', null, PDO::PARAM_NULL);
+            }
 
-        } catch (Exception $e) {
-            throw $e;
-        }
-    }
-
-    /* ============================================================
-       2. ELIMINAR IMÁGENES (EDITAR)
-    ============================================================ */
-    public function eliminarImagenes(int $codigoPublicacion, array $ids)
-    {
-        if (empty($ids)) return;
-
-        try {
-            $in = implode(',', array_fill(0, count($ids), '?'));
-
-            $sql = "
-                DELETE FROM publicacion_imagen
-                WHERE codigo_publicacion = ?
-                  AND codigo_publicacion_imagen IN ($in)
-            ";
-
-            $stmt = $this->dblink->prepare($sql);
-
-            $params = array_merge([$codigoPublicacion], $ids);
-
-            foreach ($params as $i => $val) {
-                $stmt->bindValue($i + 1, $val, PDO::PARAM_INT);
+            if ($this->codigo_categoria !== null) {
+                $stmt->bindParam(':codigo_categoria', $this->codigo_categoria, PDO::PARAM_INT);
+            } else {
+                $stmt->bindValue(':codigo_categoria', null, PDO::PARAM_NULL);
             }
 
             $stmt->execute();
@@ -345,82 +366,149 @@ class Publicacion extends Conexion
         }
     }
 
-    /* ============================================================
-       3. OBTENER SIGUIENTE ORDEN
-    ============================================================ */
+    /**
+     * Elimina físicamente registros de imágenes (solo BD).
+     */
+    public function eliminarImagenes(int $codigoPublicacion, array $idsEliminar): void
+    {
+        if (empty($idsEliminar)) {
+            return;
+        }
+
+        try {
+            $placeholders = [];
+            $params = [
+                ':p_codigo_publicacion' => $codigoPublicacion
+            ];
+
+            foreach ($idsEliminar as $idx => $id) {
+                $ph = ':id' . $idx;
+                $placeholders[] = $ph;
+                $params[$ph] = (int)$id;
+            }
+
+            $sql = "
+                DELETE FROM publicacion_imagen
+                WHERE codigo_publicacion = :p_codigo_publicacion
+                  AND codigo_publicacion_imagen IN (" . implode(',', $placeholders) . ")
+            ";
+
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->execute($params);
+
+        } catch (Exception $e) {
+            throw $e;
+        }
+    }
+
+    /**
+     * Devuelve MAX(orden) + 1 para una publicación.
+     */
     public function obtenerSiguienteOrdenImagen(int $codigoPublicacion): int
     {
         try {
             $sql = "
                 SELECT COALESCE(MAX(orden), 0) + 1 AS siguiente
                 FROM publicacion_imagen
-                WHERE codigo_publicacion = :codigo_publicacion
+                WHERE codigo_publicacion = :p_codigo_publicacion
             ";
 
             $stmt = $this->dblink->prepare($sql);
-            $stmt->bindParam(':codigo_publicacion', $codigoPublicacion, PDO::PARAM_INT);
-
+            $stmt->bindParam(':p_codigo_publicacion', $codigoPublicacion, PDO::PARAM_INT);
             $stmt->execute();
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $fila = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            return (int)($row['siguiente'] ?? 1);
+            return (int)($fila['siguiente'] ?? 1);
 
         } catch (Exception $e) {
             throw $e;
         }
     }
 
-    /* ============================================================
-       4. RE-CALCULAR PORTADA (EDITAR)
-    ============================================================ */
-    public function recalcularPortada(int $codigoPublicacion)
+    /**
+     * Recalcula la portada:
+     *  - Marca una sola imagen como es_portada = 1
+     *  - Actualiza columna imagen_portada en `publicacion`
+     */
+    public function recalcularPortada(int $codigoPublicacion): void
     {
         try {
-            // 1. Poner todas en es_portada = 0
-            $sqlClear = "
-                UPDATE publicacion_imagen
-                SET es_portada = 0
-                WHERE codigo_publicacion = :codigo_publicacion
-            ";
-
-            $stmt = $this->dblink->prepare($sqlClear);
-            $stmt->bindParam(':codigo_publicacion', $codigoPublicacion, PDO::PARAM_INT);
-            $stmt->execute();
-
-            // 2. Tomar primera imagen por orden
-            $sqlFirst = "
-                SELECT codigo_publicacion_imagen, ruta
+            // Obtener la imagen prioritaria
+            $sql = "
+                SELECT
+                    codigo_publicacion_imagen,
+                    ruta
                 FROM publicacion_imagen
-                WHERE codigo_publicacion = :codigo_publicacion
-                ORDER BY orden ASC, codigo_publicacion_imagen ASC
+                WHERE codigo_publicacion = :p_codigo_publicacion
+                ORDER BY es_portada DESC, orden ASC, codigo_publicacion_imagen ASC
                 LIMIT 1
             ";
 
-            $stmtF = $this->dblink->prepare($sqlFirst);
-            $stmtF->bindParam(':codigo_publicacion', $codigoPublicacion, PDO::PARAM_INT);
-            $stmtF->execute();
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->bindParam(':p_codigo_publicacion', $codigoPublicacion, PDO::PARAM_INT);
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            $fila = $stmtF->fetch(PDO::FETCH_ASSOC);
-            $rutaPortada = null;
+            // Poner todas en 0
+            $sqlClear = "
+                UPDATE publicacion_imagen
+                SET es_portada = 0
+                WHERE codigo_publicacion = :p_codigo_publicacion
+            ";
+            $stmtClear = $this->dblink->prepare($sqlClear);
+            $stmtClear->bindParam(':p_codigo_publicacion', $codigoPublicacion, PDO::PARAM_INT);
+            $stmtClear->execute();
 
-            if ($fila) {
-                $imgId = (int)$fila['codigo_publicacion_imagen'];
-                $rutaPortada = $fila['ruta'];
-
-                // marcar portada
+            if ($row) {
+                // Marcar esta como portada
                 $sqlSet = "
                     UPDATE publicacion_imagen
                     SET es_portada = 1
-                    WHERE codigo_publicacion_imagen = :id
+                    WHERE codigo_publicacion_imagen = :p_id
                 ";
+                $stmtSet = $this->dblink->prepare($sqlSet);
+                $stmtSet->bindParam(':p_id', $row['codigo_publicacion_imagen'], PDO::PARAM_INT);
+                $stmtSet->execute();
 
-                $stmt2 = $this->dblink->prepare($sqlSet);
-                $stmt2->bindParam(':id', $imgId, PDO::PARAM_INT);
-                $stmt2->execute();
+                // Actualizar en tabla publicacion
+                $this->actualizarImagenPortada($codigoPublicacion, $row['ruta']);
+            } else {
+                // No hay imágenes: limpiar portada
+                $sqlNull = "
+                    UPDATE publicacion
+                    SET imagen_portada = NULL
+                    WHERE codigo_publicacion = :p_codigo_publicacion
+                ";
+                $stmtNull = $this->dblink->prepare($sqlNull);
+                $stmtNull->bindParam(':p_codigo_publicacion', $codigoPublicacion, PDO::PARAM_INT);
+                $stmtNull->execute();
             }
 
-            // 3. Actualiza campo en publicacion
-            $this->actualizarImagenPortada($codigoPublicacion, $rutaPortada);
+        } catch (Exception $e) {
+            throw $e;
+        }
+    }
+
+    /**
+     * Anula una publicación (visible = 0) del usuario.
+     */
+    public function anularPublicacion(int $codigoPublicacion, int $codigoUsuario): bool
+    {
+        try {
+            $sql = "
+                UPDATE publicacion
+                SET visible = 0
+                WHERE codigo_publicacion = :p_codigo_publicacion
+                  AND codigo_usuario     = :p_codigo_usuario
+                  AND visible = 1
+            ";
+
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->bindParam(':p_codigo_publicacion', $codigoPublicacion, PDO::PARAM_INT);
+            $stmt->bindParam(':p_codigo_usuario',     $codigoUsuario,    PDO::PARAM_INT);
+            $stmt->execute();
+
+            return $stmt->rowCount() > 0;
 
         } catch (Exception $e) {
             throw $e;

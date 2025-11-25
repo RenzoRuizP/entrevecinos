@@ -440,6 +440,15 @@ function evNotify(icon, title, text) {
 
       if (els.modal) els.modal._evPubActual = pub || {};
       paint(pub || {});
+
+      // Exponer estado para la API de actualización
+      window.evGetEstadoImagenesEditar = function () {
+        return {
+          existentes: state.fotosExistentes,
+          eliminadas: state.eliminadas.slice(),
+          nuevas: state.fotosNuevas
+        };
+      };
     }
 
     // función pública para usar desde cargarPublicacionEditar
@@ -458,15 +467,6 @@ function evNotify(icon, title, text) {
 
       bindEvents();
       resetStateFromBackend(pub, fotosBackend);
-
-      // Exponer estado para futura API de actualización
-      window.evGetEstadoImagenesEditar = function () {
-        return {
-          existentes: state.fotosExistentes,
-          eliminadas: state.eliminadas.slice(),
-          nuevas: state.fotosNuevas
-        };
-      };
     };
   })();
 
@@ -558,157 +558,130 @@ function evNotify(icon, title, text) {
   });
 
   // ================================
-  // Submit de edición (delegado)
+  // Submit de edición (delegado + API real)
   // ================================
+  async function actualizarPublicacion(form) {
+    const btnGuardar = form.querySelector('.btn-guardar') || form.querySelector('button[type="submit"]');
+
+    const setSaving = (saving) => {
+      if (!btnGuardar) return;
+      btnGuardar.disabled = saving;
+      if (saving) {
+        btnGuardar.classList.add('saving');
+      } else {
+        btnGuardar.classList.remove('saving');
+      }
+    };
+
+    const id          = form.querySelector('#edit_id')?.value || '';
+    const titulo      = form.querySelector('#edit_titulo')?.value?.trim() || '';
+    const precioRaw   = form.querySelector('#edit_precio')?.value || '';
+    const estado      = form.querySelector('#edit_estado')?.value || 'NoAplica';
+    const descripcion = form.querySelector('#edit_descripcion')?.value?.trim() || '';
+
+    const comboTipo   = form.querySelector('#edit_comboTipo')?.value || '';
+    const categoria   = form.querySelector('#edit_comboCategoria')?.value || '';
+
+    if (!id) {
+      evNotify('error', 'Error', 'No se encontró el código de la publicación.');
+      return;
+    }
+    if (!titulo) {
+      evNotify('warning', 'Validación', 'Debes ingresar un título para la publicación.');
+      return;
+    }
+    const precio = Number(precioRaw || 0);
+    if (!precio || precio <= 0) {
+      evNotify('warning', 'Validación', 'El precio debe ser mayor a 0.');
+      return;
+    }
+    if (!descripcion) {
+      evNotify('warning', 'Validación', 'Debes ingresar una descripción.');
+      return;
+    }
+
+    // Estado de imágenes (existentes / eliminadas / nuevas) desde el uploader
+    const estadoImgs = typeof window.evGetEstadoImagenesEditar === 'function'
+      ? window.evGetEstadoImagenesEditar()
+      : { existentes: [], eliminadas: [], nuevas: [] };
+
+    const fd = new FormData();
+    // Estos nombres coinciden con lo que espera tu controlador
+    fd.append('titulo', titulo);
+    fd.append('precio', precio.toString());
+    fd.append('estado', estado);
+    fd.append('comboTipo', comboTipo);
+    fd.append('categoria', categoria);
+    fd.append('descripcion', descripcion);
+
+    // IDs de imágenes eliminadas
+    const arrEliminadas = Array.isArray(estadoImgs.eliminadas) ? estadoImgs.eliminadas : [];
+    fd.append('imagenes_eliminadas', JSON.stringify(arrEliminadas));
+
+    // Imágenes nuevas (files) -> tu PHP espera "imagenes_nuevas"
+    const nuevas = Array.isArray(estadoImgs.nuevas) ? estadoImgs.nuevas : [];
+    nuevas.forEach((item) => {
+      if (item && item.file instanceof File) {
+        fd.append('imagenes_nuevas[]', item.file);
+      }
+    });
+
+    try {
+      setSaving(true);
+
+      // Aquí va el ID en la URL, como lo define tu controlador
+      const resp = await fetch(`${EV_API_BASE}/api/publicacion/${id}/actualizar`, {
+        method: 'POST',
+        body: fd
+      });
+
+      const data = await resp.json().catch(() => ({}));
+
+      if (resp.status === 401) {
+        evNotify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
+        setTimeout(() => {
+          window.location.href = `${EV_API_BASE}/`;
+        }, 1500);
+        return;
+      }
+
+      if (!resp.ok || !data.ok) {
+        const msg = data.mensaje || data.error || 'No se pudo actualizar la publicación.';
+        evNotify('error', 'Error', msg);
+        console.error('[EDITAR][ERROR]', data);
+        return;
+      }
+
+      evNotify('success', 'Publicación actualizada', 'Los cambios se guardaron correctamente.');
+
+      // Cerrar modal
+      const modalEl = document.getElementById('modalEditarPublicacion');
+      if (modalEl) {
+        const modal = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.hide();
+      }
+
+      // Recargar tabla si existe función global
+      if (window.evCargarPublicaciones) {
+        window.evCargarPublicaciones();
+      }
+
+      console.log('[EDITAR][OK]', data);
+
+    } catch (err) {
+      console.error('[EDITAR][EXCEPTION]', err);
+      evNotify('error', 'Error inesperado', 'Ocurrió un problema al actualizar la publicación.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   document.addEventListener('submit', (e) => {
     const form = e.target;
     if (!form || form.id !== 'formEditarPublicacion') return;
-
     e.preventDefault();
-
-    const datos = Object.fromEntries(new FormData(form));
-    const estadoImgs = typeof window.evGetEstadoImagenesEditar === 'function'
-      ? window.evGetEstadoImagenesEditar()
-      : null;
-
-    console.log('[EDITAR][PENDIENTE_API]', {
-      formulario: datos,
-      imagenes: estadoImgs
-    });
-    
-    evNotify(
-      'info',
-      'Editar publicación',
-      'La lógica para guardar cambios en el backend se implementará en una siguiente iteración. ' +
-      'Por ahora, el formulario ya no redirige y las imágenes se gestionan correctamente en memoria.'
-    );
+    actualizarPublicacion(form);
   });
-
-    // ================================
-    // Submit de edición (delegado + API real)
-    // ================================
-    async function actualizarPublicacion(form) {
-      const btnGuardar = form.querySelector('.btn-guardar') || form.querySelector('button[type="submit"]');
-
-      const setSaving = (saving) => {
-        if (!btnGuardar) return;
-        btnGuardar.disabled = saving;
-        if (saving) {
-          btnGuardar.classList.add('saving');
-        } else {
-          btnGuardar.classList.remove('saving');
-        }
-      };
-
-      const id          = form.querySelector('#edit_id')?.value || '';
-      const titulo      = form.querySelector('#edit_titulo')?.value?.trim() || '';
-      const precioRaw   = form.querySelector('#edit_precio')?.value || '';
-      const estado      = form.querySelector('#edit_estado')?.value || 'NoAplica';
-      const descripcion = form.querySelector('#edit_descripcion')?.value?.trim() || '';
-
-      const comboTipo   = form.querySelector('#edit_comboTipo')?.value || '';
-      const categoria   = form.querySelector('#edit_comboCategoria')?.value || '';
-
-      if (!id) {
-        evNotify('error', 'Error', 'No se encontró el código de la publicación.');
-        return;
-      }
-      if (!titulo) {
-        evNotify('warning', 'Validación', 'Debes ingresar un título para la publicación.');
-        return;
-      }
-      const precio = Number(precioRaw || 0);
-      if (!precio || precio <= 0) {
-        evNotify('warning', 'Validación', 'El precio debe ser mayor a 0.');
-        return;
-      }
-      if (!descripcion) {
-        evNotify('warning', 'Validación', 'Debes ingresar una descripción.');
-        return;
-      }
-
-      // Estado de imágenes (existentes / eliminadas / nuevas) desde el uploader
-      const estadoImgs = typeof window.evGetEstadoImagenesEditar === 'function'
-        ? window.evGetEstadoImagenesEditar()
-        : { existentes: [], eliminadas: [], nuevas: [] };
-
-      const fd = new FormData();
-      // Estos nombres coinciden con lo que espera tu controlador
-      fd.append('titulo', titulo);
-      fd.append('precio', precio.toString());
-      fd.append('estado', estado);
-      fd.append('comboTipo', comboTipo);
-      fd.append('categoria', categoria);
-      fd.append('descripcion', descripcion);
-
-      // IDs de imágenes eliminadas
-      const arrEliminadas = Array.isArray(estadoImgs.eliminadas) ? estadoImgs.eliminadas : [];
-      fd.append('imagenes_eliminadas', JSON.stringify(arrEliminadas));
-
-      // Imágenes nuevas (files) -> tu PHP espera "imagenes_nuevas"
-      const nuevas = Array.isArray(estadoImgs.nuevas) ? estadoImgs.nuevas : [];
-      nuevas.forEach((item) => {
-        if (item && item.file instanceof File) {
-          fd.append('imagenes_nuevas[]', item.file);
-        }
-      });
-
-      try {
-        setSaving(true);
-
-        // OJO: aquí va el ID en la URL, como lo define tu controlador
-        const resp = await fetch(`${EV_API_BASE}/api/publicacion/${id}/actualizar`, {
-          method: 'POST',
-          body: fd
-        });
-
-        const data = await resp.json().catch(() => ({}));
-
-        if (resp.status === 401) {
-          evNotify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
-          setTimeout(() => {
-            window.location.href = `${EV_API_BASE}/`;
-          }, 1500);
-          return;
-        }
-
-        if (!resp.ok || !data.ok) {
-          const msg = data.mensaje || data.error || 'No se pudo actualizar la publicación.';
-          evNotify('error', 'Error', msg);
-          console.error('[EDITAR][ERROR]', data);
-          return;
-        }
-
-        evNotify('success', 'Publicación actualizada', 'Los cambios se guardaron correctamente.');
-
-        // Cerrar modal
-        const modalEl = document.getElementById('modalEditarPublicacion');
-        if (modalEl) {
-          const modal = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
-          modal.hide();
-        }
-
-        // Recargar tabla si existe función global
-        if (window.evCargarPublicaciones) {
-          window.evCargarPublicaciones();
-        }
-
-        console.log('[EDITAR][OK]', data);
-
-      } catch (err) {
-        console.error('[EDITAR][EXCEPTION]', err);
-        evNotify('error', 'Error inesperado', 'Ocurrió un problema al actualizar la publicación.');
-      } finally {
-        setSaving(false);
-      }
-    }
-
-    document.addEventListener('submit', (e) => {
-      const form = e.target;
-      if (!form || form.id !== 'formEditarPublicacion') return;
-      e.preventDefault();
-      actualizarPublicacion(form);
-    });
 
 })();
 
