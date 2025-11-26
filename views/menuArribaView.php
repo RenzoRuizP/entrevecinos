@@ -3,6 +3,7 @@
 $nombreUsuario = $nombreUsuario ?? 'Vecino';
 $rolUsuario = $rolUsuario ?? 'vecino';
 $fotoUsuario = "/entrevecinos/views/fotos/00000000.png";
+$iconEntreVecinos = "/entrevecinos/resources/images/logo/icon_logo.png";
 ?>
 
 <!-- 🔹 Barra superior -->
@@ -15,8 +16,17 @@ $fotoUsuario = "/entrevecinos/views/fotos/00000000.png";
     </button>
 
     <!-- 🔹 Marca -->
+    <!-- Brand Entre Vecinos con ícono -->
+    
+    <!-- 🔹 Marca -->
+     <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-white shadow-sm me-2"
+            style="width: 38px; height: 38px;">
+        <img src="<?= $iconEntreVecinos ?>"
+             alt="Logo Entre Vecinos"
+             class="img-fluid"
+             style="max-height: 40px;">
+      </span>
     <span class="navbar-brand mb-0 h5 text-white d-none d-md-inline">Entre Vecinos</span>
-
     <!-- 🔹 Usuario -->
     <ul class="navbar-nav align-items-center ms-auto">
       <li class="nav-item dropdown user-menu position-relative">

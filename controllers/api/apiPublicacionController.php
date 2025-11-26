@@ -468,7 +468,7 @@ class apiPublicacionController
             $pubModel->setPrecio($precio);
             $pubModel->setEstado($estado);
             $pubModel->setCodigoUsuario($codigoUsuario);
-            $pubModel->setVisible(1);
+            $pubModel->setVisible(1); // sigue visible para el usuario (1 = borrador / interno)
             if (method_exists($pubModel, 'setCodigoTipo')) {
                 $pubModel->setCodigoTipo($tipo);
             }
@@ -679,7 +679,7 @@ class apiPublicacionController
                 http_response_code(400);
                 echo json_encode([
                     'ok'      => false,
-                    'mensaje' => 'No se pudo anular la publicación (ya podría estar anulada).'
+                    'mensaje' => 'No se pudo anular la publicación (podría estar ya anulada).'
                 ]);
                 return;
             }
@@ -695,6 +695,117 @@ class apiPublicacionController
                 'ok'      => false,
                 'mensaje' => 'Error al anular la publicación.',
                 'error'   => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * POST /api/publicacion/{id}/publicar
+     * Marca la publicación como publicada (visible = 2).
+     */
+    public function publicarPublicacion($id)
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode([
+                'ok'      => false,
+                'mensaje' => 'Método no permitido'
+            ]);
+            return;
+        }
+
+        try {
+            $token = $_COOKIE['auth_token'] ?? null;
+            if (!$token) {
+                http_response_code(401);
+                echo json_encode(['ok' => false, 'error' => 'No se encontró el token de sesión.']);
+                return;
+            }
+
+            $usuario = SesionJWT::verificarToken($token);
+            if (!$usuario || empty($usuario['codigo_usuario'])) {
+                http_response_code(401);
+                echo json_encode(['ok' => false, 'error' => 'Token inválido o usuario no encontrado.']);
+                return;
+            }
+
+            $codigoUsuario     = (int)$usuario['codigo_usuario'];
+            $codigoPublicacion = (int)$id;
+
+            $pubModel = new Publicacion();
+
+            // Verificar que exista y sea del usuario
+            $detallePub = $pubModel->obtenerPorId($codigoPublicacion, $codigoUsuario);
+            if (!$detallePub) {
+                http_response_code(404);
+                echo json_encode([
+                    'ok'      => false,
+                    'mensaje' => 'Publicación no encontrada para este usuario.'
+                ]);
+                return;
+            }
+
+            $ok = $pubModel->publicarPublicacion($codigoPublicacion, $codigoUsuario);
+
+            if (!$ok) {
+                http_response_code(400);
+                echo json_encode([
+                    'ok'      => false,
+                    'mensaje' => 'No se pudo publicar la publicación (podría estar anulada o ya publicada).'
+                ]);
+                return;
+            }
+
+            echo json_encode([
+                'ok'      => true,
+                'mensaje' => 'Publicación publicada correctamente.'
+            ]);
+
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'ok'      => false,
+                'mensaje' => 'Error al publicar la publicación.',
+                'error'   => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * GET /api/publicacion/listar-publicadas
+     * Listado para el Marketplace (visible = 2).
+     */
+    public function listarPublicadasMarketplace()
+    {
+        try {
+            // Si quieres que el Marketplace sea público, puedes omitir esta validación.
+            $token = $_COOKIE['auth_token'] ?? null;
+            if (!$token) {
+                http_response_code(401);
+                echo json_encode(['ok' => false, 'error' => 'No se encontró el token de sesión.']);
+                return;
+            }
+
+            $usuario = SesionJWT::verificarToken($token);
+            if (!$usuario || empty($usuario['codigo_usuario'])) {
+                http_response_code(401);
+                echo json_encode(['ok' => false, 'error' => 'Token inválido o usuario no encontrado.']);
+                return;
+            }
+
+            $pubModel = new Publicacion();
+            $lista    = $pubModel->listarPublicadas();
+
+            echo json_encode([
+                'ok'   => true,
+                'data' => $lista
+            ]);
+
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'ok'    => false,
+                'error' => $e->getMessage()
             ]);
         }
     }

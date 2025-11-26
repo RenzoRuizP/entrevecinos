@@ -1,56 +1,152 @@
 <div class="container-fluid py-4">
 
-  <div class="card shadow-sm border-0 rounded-4">
-    <div class="card-header bg-white border-0 pb-0">
-      <h5 class="mb-0 fw-bold" style="color:#0F592F;">
-        <i class="bi bi-house-door"></i> Bienvenido a Entre Vecinos
-      </h5>
-      <p class="text-muted small mt-1">Selecciona una opción o explora las opciones rápidas a continuación.</p>
-    </div>
+  <div class="row g-4">
 
-    <div class="card-body">
-      <div class="row justify-content-center g-4 mt-2">
+    <!-- =========================
+         COLUMNA IZQUIERDA: ACCIONES RÁPIDAS
+    ========================== -->
+    <div class="col-lg-8">
 
-        <!-- 🛒 Tarjeta COMPRAR -->
-        <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6">
-          <a href="#" class="text-decoration-none">
-            <div class="small-box text-center shadow-sm" 
-                 style="background-color: #FFF9F0; color: #0F592F; border: 1px solid #E5E7EB;">
-              <div class="p-4">
-                <svg class="mb-3" fill="currentColor" width="48" height="48" viewBox="0 0 24 24">
-                  <path d="M3 3a1 1 0 011-1h1.22a1 1 0 01.97.757L6.89 5H21a1 1 0 01.96 1.274l-2 7A1 1 0 0119 14H8.28l-.94 3.764A1 1 0 016.36 19H5a1 1 0 110-2h.64l1.6-6.4L4.28 5H3a1 1 0 01-1-1zM9 21a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm8 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
-                </svg>
-                <h3 class="fw-bold fs-5 mb-1 text-uppercase">COMPRAR</h3>
-                <p class="mb-0 text-muted">Productos y/o Servicios</p>
-              </div>
+      <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-header bg-white border-0 pb-2">
+
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div>
+              <h5 class="mb-1 fw-bold" style="color:#0F592F;">
+                <i class="bi bi-house-door me-1"></i>
+                Hola, <?= $nombreUsuario ?> 👋
+              </h5>
+              <p class="text-muted small mb-0">
+                ¿Qué deseas hacer hoy dentro de tu condominio?
+              </p>
             </div>
-          </a>
+
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge rounded-pill px-3 py-2"
+                    style="background-color:#0F592F; color:#ffffff;">
+                Rol: <?= ucfirst($rolUsuario) ?>
+              </span>
+            </div>
+          </div>
+
         </div>
 
-        <!-- 💰 Tarjeta VENDER -->
-        <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6">
-          <a href="#" class="text-decoration-none">
-            <div class="small-box text-center shadow-sm" 
-                 style="background-color: #FFF9F0; color: #BF3604; border: 1px solid #E5E7EB;">
-              <div class="p-4">
-                <svg class="mb-3" fill="currentColor" width="48" height="48" viewBox="0 0 24 24">
-                  <text x="0" y="18" font-size="18" font-family="Arial, sans-serif" opacity="0.5">S/.</text>
-                  <text x="0.3" y="18" font-size="18" font-family="Arial, sans-serif">S/.</text>
-                </svg>
-                <h3 class="fw-bold fs-5 mb-1 text-uppercase">VENDER</h3>
-                <p class="mb-0 text-muted">Productos y/o Servicios</p>
-              </div>
-            </div>
-          </a>
-        </div>
+        <div class="card-body pt-3">
 
+          <!-- 🔹 Acciones rápidas -->
+          <div class="row g-3">
+
+            <!-- 🛒 COMPRAR -->
+            <div class="col-xl-4 col-lg-4 col-md-6 col-sm-6">
+              <a href="#" class="text-decoration-none">
+                <div class="h-100 border-0 shadow-sm rounded-4 p-3"
+                     style="background-color:#FFF9F0; border:1px solid #E5E7EB;">
+                  <div class="d-flex flex-column align-items-center text-center">
+                    <div class="mb-3 d-inline-flex align-items-center justify-content-center rounded-circle"
+                         style="width:52px;height:52px;background:#0F592F10;color:#0F592F;">
+                      <i class="bi bi-cart3 fs-4"></i>
+                    </div>
+                    <h3 class="fw-bold fs-6 text-uppercase mb-1" style="color:#0F592F;">COMPRAR</h3>
+                    <p class="mb-0 text-muted small">Explora productos y servicios publicados por tus vecinos.</p>
+                  </div>
+                </div>
+              </a>
+            </div>
+
+            <!-- 💰 VENDER -->
+            <div class="col-xl-4 col-lg-4 col-md-6 col-sm-6">
+              <a href="#" class="text-decoration-none">
+                <div class="h-100 border-0 shadow-sm rounded-4 p-3"
+                     style="background-color:#FFF9F0; border:1px solid #E5E7EB;">
+                  <div class="d-flex flex-column align-items-center text-center">
+                    <div class="mb-3 d-inline-flex align-items-center justify-content-center rounded-circle"
+                         style="width:52px;height:52px;background:#F9731610;color:#BF3604;">
+                      <i class="bi bi-cash-coin fs-4"></i>
+                    </div>
+                    <h3 class="fw-bold fs-6 text-uppercase mb-1" style="color:#BF3604;">VENDER</h3>
+                    <p class="mb-0 text-muted small">Publica lo que tienes y llega rápido a tus vecinos.</p>
+                  </div>
+                </div>
+              </a>
+            </div>
+
+            <!-- 📦 MIS PEDIDOS / PUBLICACIONES (placeholder para futuro) -->
+            <div class="col-xl-4 col-lg-4 col-md-6 col-sm-6">
+              <a href="#" class="text-decoration-none">
+                <div class="h-100 border-0 shadow-sm rounded-4 p-3"
+                     style="background-color:#F9FAFB; border:1px dashed #D1D5DB;">
+                  <div class="d-flex flex-column align-items-center text-center">
+                    <div class="mb-3 d-inline-flex align-items-center justify-content-center rounded-circle"
+                         style="width:52px;height:52px;background:#0F592F08;color:#0F592F;">
+                      <i class="bi bi-receipt-cutoff fs-4"></i>
+                    </div>
+                    <h3 class="fw-bold fs-6 text-uppercase mb-1" style="color:#111827;">Mis movimientos</h3>
+                    <p class="mb-0 text-muted small">
+                      Consulta tus publicaciones, pedidos y estado de tus transacciones.
+                    </p>
+                  </div>
+                </div>
+              </a>
+            </div>
+
+          </div>
+
+          <!-- 🔹 Línea divisoria suave -->
+          <hr class="mt-4 mb-3" />
+
+          <!-- 🔹 Sección futura de publicaciones destacadas -->
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0 fw-semibold" style="color:#0F592F;">
+              Últimas publicaciones en tu condominio
+            </h6>
+            <span class="badge bg-light text-muted border"
+                  style="font-size:0.75rem;">
+              Próximamente
+            </span>
+          </div>
+          <p class="text-muted small mb-0">
+            Aquí verás las publicaciones más recientes de tus vecinos para comprar más rápido.
+          </p>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================
+         COLUMNA DERECHA: MARCA + AYUDA
+    ========================== -->
+    <div class="col-lg-4">
+
+      <!-- Logo / Marca -->
+      <div class="card shadow-sm border-0 rounded-4 mb-3 text-center py-4">
+        <div class="card-body">
+          <img src="<?= BASE_URL ?>resources/images/logo/logo8.png"
+               alt="Logo Entre Vecinos"
+               class="img-fluid mb-3"
+               style="max-height: 120px;">
+          <p class="text-muted small mb-0">
+            El marketplace seguro para comprar y vender dentro de tu condominio.
+          </p>
+        </div>
       </div>
 
-      <div class="text-center mt-5">
-        <img src="<?= BASE_URL ?>resources/images/logo/logo8.png" alt="Logo Entre Vecinos" class="img-fluid" style="max-height: 200px;">
+      <!-- Consejos de seguridad -->
+      <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-body">
+          <h6 class="fw-semibold mb-2" style="color:#0F592F;">
+            Consejos rápidos de seguridad
+          </h6>
+          <ul class="text-muted small ps-3 mb-0">
+            <li>Verifica siempre el vecino y su número de departamento.</li>
+            <li>Coordina entregas en zonas comunes seguras del condominio.</li>
+            <li>No compartas datos sensibles por el chat.</li>
+            <li>Reporta cualquier comportamiento sospechoso al administrador.</li>
+          </ul>
+        </div>
       </div>
 
     </div>
+
   </div>
 
 </div>

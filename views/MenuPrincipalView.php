@@ -16,8 +16,8 @@ if (!$usuario) {
 }
 
 // 🔹 Obtener nombre o rol si deseas mostrarlo
-$nombreUsuario = htmlspecialchars($usuario['nombre'] ?? 'Usuario');
-$rolUsuario = htmlspecialchars($usuario['rol'] ?? 'vecino');
+$nombreUsuario = htmlspecialchars($usuario['nombre'] ?? 'Vecino(a)');
+$rolUsuario    = htmlspecialchars($usuario['rol'] ?? 'vecino');
 
 $menusParaMenuIzquierda = $menus ?? [];
 ?>
@@ -26,7 +26,7 @@ $menusParaMenuIzquierda = $menus ?? [];
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Entre Vecinos - Panel Principal</title>
+  <title>Entre Vecinos - Inicio</title>
 
   <!-- 🔹 Estilos base -->
   <?php include_once __DIR__ . '/libreria/libreria.php'; ?>
@@ -38,7 +38,7 @@ $menusParaMenuIzquierda = $menus ?? [];
 </head>
 
 <body class="hold-transition">
-  <div class="wrapper">
+  <div class="wrapper d-flex">
 
     <!-- 🔹 MENÚ IZQUIERDO -->
     <?php include __DIR__ . '/menuIzquierdaView.php'; ?>

@@ -95,11 +95,15 @@ $routes = [
     ['POST', '#^/api/usuario/actualizar$#', [usuarioDatosController::class, 'actualizarDatos'], 'json'],
 
     // --- API mis publicaciones ---
-    ['POST', '#^/api/publicacion/registrar$#',           [apiPublicacionController::class, 'registrarPublicacion'],  'json'],
-    ['GET',  '#^/api/publicacion/listar$#',              [apiPublicacionController::class, 'listarPublicaciones'],   'json'],
-    ['GET',  '#^/api/publicacion/(\d+)$#',               [apiPublicacionController::class, 'obtenerPublicacion'],    'json'],
-    ['POST', '#^/api/publicacion/(\d+)/actualizar$#',    [apiPublicacionController::class, 'actualizarPublicacion'], 'json'],
-    ['POST', '#^/api/publicacion/(\d+)/anular$#',        [apiPublicacionController::class, 'anularPublicacion'],     'json'],
+    ['POST', '#^/api/publicacion/registrar$#',        [apiPublicacionController::class, 'registrarPublicacion'], 'json'],
+    ['GET',  '#^/api/publicacion/listar$#',           [apiPublicacionController::class, 'listarPublicaciones'],  'json'],
+    ['GET',  '#^/api/publicacion/(\d+)$#',            [apiPublicacionController::class, 'obtenerPublicacion'],   'json'],
+    ['POST', '#^/api/publicacion/(\d+)/actualizar$#', [apiPublicacionController::class, 'actualizarPublicacion'],'json'],
+    ['POST', '#^/api/publicacion/(\d+)/anular$#',     [apiPublicacionController::class, 'anularPublicacion'],    'json'],
+    ['POST', '#^/api/publicacion/(\d+)/publicar$#',   [apiPublicacionController::class, 'publicarPublicacion'],  'json'],
+
+    // --- API Marketplace (publicadas visible=2) ---
+    ['GET', '#^/api/publicacion/listar-publicadas$#', [apiPublicacionController::class, 'listarPublicadasMarketplace'], 'json'],
 ];
 
 // ============================================================

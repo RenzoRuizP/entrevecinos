@@ -4,17 +4,10 @@
 ================================ */
 .container-publicaciones{
   width: 100%;
-  max-width: calc(100% - 40px); /* ocupa casi todo el ancho, dejando 20px por lado */
+  max-width: calc(100% - 40px);  /* ocupa casi todo el ancho, dejando 20px por lado */
   margin: 32px 20px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   animation: fadeIn 0.5s ease-out;
-}
-
-@media (max-width: 768px){
-  .container-publicaciones{
-    margin: 20px 10px;
-    max-width: calc(100% - 20px);
-  }
 }
 
 .ev-card,
@@ -47,6 +40,7 @@
   margin:0;
   font-weight:600;
 }
+
 
 /* ================================
    🔧 SUBHEADER / KPIs / CHIPS
@@ -509,7 +503,7 @@ textarea.input-premium{ min-height: 120px; }
   color:transparent !important;
 }
 .btn-guardar.saving::after{
-  content:'';
+  content:'';  
   position:absolute;
   top:50%; left:50%;
   width:18px; height:18px;
@@ -522,7 +516,7 @@ textarea.input-premium{ min-height: 120px; }
 @keyframes spin{ from{ transform:rotate(0)} to{ transform:rotate(360deg)} }
 
 /* ================================
-   🪟 MODALES (visual)
+   🪟 MODALES (estilo visual)
 ================================ */
 .modal .modal-content{
   border-radius: 18px;
@@ -772,37 +766,6 @@ textarea.input-premium{ min-height: 120px; }
   to{opacity:1; transform:none;}
 }
 
-/* ✅ Altura estable para modales AGREGAR y BUSCAR */
-#modalAgregarPublicacion .modal-dialog,
-#modalBuscarPublicacion .modal-dialog{
-  height: calc(100vh - var(--bs-modal-margin, .5rem)*2);
-  max-height: calc(100vh - var(--bs-modal-margin, .5rem)*2);
-}
-
-#modalAgregarPublicacion .modal-content,
-#modalBuscarPublicacion .modal-content{
-  height: 100%;
-  max-height: 100%;
-  display:flex;
-  flex-direction:column;
-}
-
-#modalAgregarPublicacion .modal-header,
-#modalBuscarPublicacion .modal-header,
-#modalAgregarPublicacion .modal-footer,
-#modalBuscarPublicacion .modal-footer{
-  flex:0 0 auto;
-}
-
-#modalAgregarPublicacion .modal-body,
-#modalBuscarPublicacion .modal-body{
-  flex:1 1 auto;
-  min-height:0;
-  overflow-y:auto;
-  overflow-x:hidden;
-  padding-bottom:1rem;
-}
-
 @media (max-width: 768px){
   .ev-chip{
     min-width:auto;
@@ -839,7 +802,7 @@ textarea.input-premium{ min-height: 120px; }
   .ev-table tbody td::before{
     content: attr(data-label);
     font-weight:600;
-    color:#64748b;
+		color:#64748b;
     font-size:.8rem;
   }
   .ev-foot{
@@ -907,7 +870,70 @@ textarea.input-premium{ min-height: 120px; }
   }
 }
 
-/* Barra inferior uploader */
+/* ================================
+   🪟 LÓGICA DE ALTURA / SCROLL SOLO EN EDITAR
+================================ */
+#modalEditarPublicacion .modal-dialog{
+  max-height: calc(100vh - var(--bs-modal-margin, .5rem)*2);
+  height: auto;
+}
+#modalEditarPublicacion .modal-content{
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+}
+#modalEditarPublicacion .modal-header,
+#modalEditarPublicacion .modal-footer{
+  flex: 0 0 auto;
+  position: static;
+  box-shadow: none;
+}
+#modalEditarPublicacion .modal-body{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 1rem;
+}
+
+@media (max-width: 576px){
+  #modalEditarPublicacion .modal-dialog{
+    margin: 0 !important;
+    max-height: 100vh;
+  }
+  #modalEditarPublicacion .modal-content{
+    border-radius: 0;
+  }
+}
+
+/* ================================
+   ✅ ALTURA INICIAL FIJA PARA BUSCAR Y AGREGAR
+   (evita el “salto” en la primera apertura,
+    pero sin dejar tanto espacio vacío)
+================================ */
+
+/* Modal BUSCAR: algo más compacto */
+#modalBuscarPublicacion .modal-content{
+  min-height: 60vh;           /* antes casi 100vh */
+}
+
+/* Modal AGREGAR: un poco más alto por el preview */
+#modalAgregarPublicacion .modal-content{
+  min-height: 75vh;           /* antes casi 100vh */
+}
+
+@media (max-width: 576px){
+  /* En móviles sí usamos pantalla completa, UX tipo “pantalla entera” */
+  #modalBuscarPublicacion .modal-content,
+  #modalAgregarPublicacion .modal-content{
+    min-height: 100vh;
+  }
+}
+
+
+/* ================================
+   🧰 TOOLBAR UPLOADER
+================================ */
 .ev-toolbar-uploads{
   display:flex;
   align-items:center;

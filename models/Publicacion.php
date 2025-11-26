@@ -10,6 +10,7 @@
     - Elimina imágenes
     - Recalcula portada
     - Anula (visible = 0)
+    - Publica (visible = 2)
 */
 
 require_once __DIR__ . '/../Config/EnvConfig.php';
@@ -210,7 +211,7 @@ class Publicacion extends Conexion
 
     /**
      * Lista publicaciones de un usuario (para la tabla).
-     * Solo visibles (visible = 1).
+     * Solo visibles (visible = 1 ó 2) -> 0 = anulada.
      */
     public function listarPorUsuario(int $codigoUsuario): array
     {
@@ -228,7 +229,7 @@ class Publicacion extends Conexion
                     DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS fecha_creacion
                 FROM publicacion p
                 WHERE p.codigo_usuario = :p_codigo_usuario
-                  AND p.visible = 1
+                  AND p.visible IN (1, 2)
                 ORDER BY p.created_at DESC
             ";
 
@@ -260,6 +261,7 @@ class Publicacion extends Conexion
                     p.codigo_usuario,
                     p.codigo_tipo,
                     p.codigo_categoria,
+                    p.imagen_portada,
                     DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS fecha_creacion
                 FROM publicacion p
                 WHERE p.codigo_publicacion = :p_codigo_publicacion
@@ -314,7 +316,7 @@ class Publicacion extends Conexion
     }
 
     /* ==========================================================
-       NUEVOS MÉTODOS PARA ACTUALIZAR + IMÁGENES + ANULAR
+       NUEVOS MÉTODOS PARA ACTUALIZAR + IMÁGENES + ANULAR/PUBLICAR
        ========================================================== */
 
     /**
@@ -500,6 +502,33 @@ class Publicacion extends Conexion
                 SET visible = 0
                 WHERE codigo_publicacion = :p_codigo_publicacion
                   AND codigo_usuario     = :p_codigo_usuario
+                  AND visible IN (1, 2)
+            ";
+
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->bindParam(':p_codigo_publicacion', $codigoPublicacion, PDO::PARAM_INT);
+            $stmt->bindParam(':p_codigo_usuario',     $codigoUsuario,    PDO::PARAM_INT);
+            $stmt->execute();
+
+            return $stmt->rowCount() > 0;
+
+        } catch (Exception $e) {
+            throw $e;
+        }
+    }
+
+    /**
+     * Publica una publicación (visible = 2) del usuario.
+     * Solo permite publicar si actualmente está visible = 1.
+     */
+    public function publicarPublicacion(int $codigoPublicacion, int $codigoUsuario): bool
+    {
+        try {
+            $sql = "
+                UPDATE publicacion
+                SET visible = 2
+                WHERE codigo_publicacion = :p_codigo_publicacion
+                  AND codigo_usuario     = :p_codigo_usuario
                   AND visible = 1
             ";
 
@@ -509,6 +538,41 @@ class Publicacion extends Conexion
             $stmt->execute();
 
             return $stmt->rowCount() > 0;
+
+        } catch (Exception $e) {
+            throw $e;
+        }
+    }
+
+    /**
+     * Lista publicaciones publicadas (visible = 2) para el Marketplace.
+     * Aquí luego puedes filtrar por condominio, etc.
+     */
+    public function listarPublicadas(): array
+    {
+        try {
+            $sql = "
+                SELECT
+                    p.codigo_publicacion,
+                    p.titulo,
+                    p.descripcion,
+                    p.estado,
+                    p.precio,
+                    p.visible,
+                    p.codigo_usuario,
+                    p.codigo_tipo,
+                    p.codigo_categoria,
+                    p.imagen_portada,
+                    DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS fecha_creacion
+                FROM publicacion p
+                WHERE p.visible = 2
+                ORDER BY p.created_at DESC
+            ";
+
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         } catch (Exception $e) {
             throw $e;

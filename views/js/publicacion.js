@@ -528,76 +528,96 @@ function evNotify(icon, title, text) {
     }
   }
 
-  // ========================
-  // Anular publicación (visible = 0)
-  // ========================
-  async function anularPublicacion(idPublicacion, btnReferencia) {
-    const fila = btnReferencia?.closest('tr') || null;
+  // ==============================
+  // Acciones: Editar / Anular / Publicar
+  // ==============================
+  async function confirmarYAnular(id) {
+    if (!id) return;
+    const { isConfirmed } = await Swal.fire({
+      icon: 'warning',
+      title: 'Anular publicación',
+      text: '¿Seguro que deseas anular esta publicación? Ya no será visible para los vecinos.',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, anular',
+      cancelButtonText: 'Cancelar',
+      customClass: {
+        confirmButton: 'btn btn-danger me-2',
+        cancelButton: 'btn btn-outline-secondary'
+      },
+      buttonsStyling: false
+    });
 
-    // Confirmación
-    let confirmado = true;
-    if (window.Swal?.fire) {
-      const res = await Swal.fire({
-        title: '¿Anular publicación?',
-        text: 'Esta publicación dejará de ser visible en tu listado.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, anular',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#6c757d',
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: 'btn btn-danger me-2',
-          cancelButton: 'btn btn-outline-secondary'
-        }
-      });
-      confirmado = res.isConfirmed;
-    } else {
-      confirmado = window.confirm(
-        '¿Estás seguro de que deseas anular esta publicación? Dejará de ser visible en tu listado.'
-      );
-    }
-
-    if (!confirmado) return;
+    if (!isConfirmed) return;
 
     try {
-      const resp = await fetch(`${EV_API_BASE}/api/publicacion/${idPublicacion}/anular`, {
-        method: 'POST',
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest'
-        }
+      const resp = await fetch(`${EV_API_BASE}/api/publicacion/${id}/anular`, {
+        method: 'POST'
       });
-
       const data = await resp.json().catch(() => ({}));
 
       if (resp.status === 401) {
         evNotify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
-        setTimeout(() => {
-          window.location.href = `${EV_API_BASE}/`;
-        }, 1500);
+        setTimeout(() => { window.location.href = `${EV_API_BASE}/`; }, 1500);
         return;
       }
 
       if (!resp.ok || !data.ok) {
         const msg = data.mensaje || data.error || 'No se pudo anular la publicación.';
         evNotify('error', 'Error', msg);
-        console.error('[ANULAR][ERROR]', data);
         return;
       }
 
-      evNotify('success', 'Publicación anulada', data.mensaje || 'La publicación fue anulada correctamente.');
-
-      // Si tenemos la fila, la removemos; si no, recargamos la tabla
-      if (fila && fila.parentElement) {
-        fila.parentElement.removeChild(fila);
-      } else if (typeof window.evCargarPublicaciones === 'function') {
-        window.evCargarPublicaciones();
-      }
+      evNotify('success', 'Publicación anulada', 'La publicación ha sido anulada correctamente.');
+      if (window.evCargarPublicaciones) window.evCargarPublicaciones();
 
     } catch (err) {
-      console.error('[ANULAR][EXCEPTION]', err);
+      console.error(err);
       evNotify('error', 'Error inesperado', 'Ocurrió un problema al anular la publicación.');
+    }
+  }
+
+  async function confirmarYPublicar(id) {
+    if (!id) return;
+    const { isConfirmed } = await Swal.fire({
+      icon: 'question',
+      title: 'Publicar en el Marketplace',
+      text: '¿Deseas publicar esta publicación en el Marketplace para que la vean tus vecinos?',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, publicar',
+      cancelButtonText: 'Cancelar',
+      customClass: {
+        confirmButton: 'btn btn-success me-2',
+        cancelButton: 'btn btn-outline-secondary'
+      },
+      buttonsStyling: false
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+      const resp = await fetch(`${EV_API_BASE}/api/publicacion/${id}/publicar`, {
+        method: 'POST'
+      });
+      const data = await resp.json().catch(() => ({}));
+
+      if (resp.status === 401) {
+        evNotify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
+        setTimeout(() => { window.location.href = `${EV_API_BASE}/`; }, 1500);
+        return;
+      }
+
+      if (!resp.ok || !data.ok) {
+        const msg = data.mensaje || data.error || 'No se pudo publicar la publicación.';
+        evNotify('error', 'Error', msg);
+        return;
+      }
+
+      evNotify('success', 'Publicación publicada', 'Tu publicación ahora está visible en el Marketplace.');
+      if (window.evCargarPublicaciones) window.evCargarPublicaciones();
+
+    } catch (err) {
+      console.error(err);
+      evNotify('error', 'Error inesperado', 'Ocurrió un problema al publicar la publicación.');
     }
   }
 
@@ -623,19 +643,21 @@ function evNotify(icon, title, text) {
       return;
     }
 
-    // Botón Anular dentro de la tabla (usa data-action="anular")
+    // Botón Anular
     const btnAnular = e.target.closest('[data-action="anular"][data-id]');
     if (btnAnular) {
       const id = btnAnular.getAttribute('data-id');
-      if (id) {
-        anularPublicacion(id, btnAnular);
-      }
+      if (id) confirmarYAnular(id);
       return;
     }
 
-    // Si en el futuro implementas "ver"/"publicar":
-    // const btnVer = e.target.closest('[data-action="ver"][data-id]');
-    // if (btnVer) { ... }
+    // Botón Publicar
+    const btnPublicar = e.target.closest('[data-action="publicar"][data-id]');
+    if (btnPublicar && !btnPublicar.disabled) {
+      const id = btnPublicar.getAttribute('data-id');
+      if (id) confirmarYPublicar(id);
+      return;
+    }
   });
 
   // Buscar (por ahora solo log)
@@ -1376,11 +1398,17 @@ function evNotify(icon, title, text) {
         const precio  = Number(pub.precio || 0).toFixed(2);
         const estado  = (pub.estado || '').toUpperCase();
         const fecha   = pub.fecha_creacion || '';
+        const visible = Number(pub.visible ?? 1);
 
         let estadoClass = 'badge bg-secondary';
         if (estado === 'NUEVO')         estadoClass = 'badge bg-success';
         else if (estado === 'USADO')    estadoClass = 'badge bg-warning text-dark';
         else if (estado === 'NOAPLICA') estadoClass = 'badge bg-light text-muted';
+
+        const publicado = visible === 2;
+
+        const textoPublicar = publicado ? 'Publicado' : 'Publicar';
+        const extraAttrsPub = publicado ? ' data-status="publicado" disabled' : '';
 
         return `
           <tr>
@@ -1403,7 +1431,7 @@ function evNotify(icon, title, text) {
               <div class="ev-actions">
                 <button class="ev-chip ev-chip-green" data-action="editar" data-id="${pub.codigo_publicacion}">Editar</button>
                 <button class="ev-chip ev-chip-red" data-action="anular" data-id="${pub.codigo_publicacion}">Anular</button>
-                <button class="ev-chip ev-chip-amber" data-action="ver" data-id="${pub.codigo_publicacion}">Publicar</button>
+                <button class="ev-chip ev-chip-amber" data-action="publicar" data-id="${pub.codigo_publicacion}"${extraAttrsPub}>${textoPublicar}</button>
               </div>
             </td>
           </tr>`;

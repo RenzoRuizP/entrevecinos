@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../Config/config.php';
 $menus = $menusParaMenuIzquierda ?? [];
+$iconEntreVecinos = "/entrevecinos/resources/images/logo/icon_logo.png";
 ?>
 <?php include_once __DIR__ . '/estilos/menuIzquierdaEstilo.php'; ?>
 
@@ -8,13 +9,13 @@ $menus = $menusParaMenuIzquierda ?? [];
   <!-- 🔹 Encabezado del sidebar -->
   <div class="sidebar-brand d-flex align-items-center justify-content-center p-3 border-bottom">
     <a href="<?= BASE_URL ?>index.php" class="d-flex align-items-center text-decoration-none">
-      <img
-        src="<?= BASE_URL ?>resources/images/logo/logo.png"
-        alt="Entre Vecinos"
-        class="brand-image"
-        style="height:90px; object-fit:contain;"
-      />
-    </a>
+      <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-white shadow-sm me-2"
+            style="width: 50px; height: 50px;">
+        <img src="<?= $iconEntreVecinos ?>"
+             alt="Logo Entre Vecinos"
+             class="img-fluid"
+             style="max-height: 50px;">
+      </span>
   </div>
 
   <!-- 🔹 Menú lateral -->
