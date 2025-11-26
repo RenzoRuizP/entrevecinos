@@ -13,4 +13,5 @@
   <script src="<?= BASE_URL ?>views/js/publicacion.js"></script>
   <script src="<?= BASE_URL ?>views/js/combo_tipo.js"></script>
   <script src="<?= BASE_URL ?>views/js/marketplace.js"></script>
+  
  

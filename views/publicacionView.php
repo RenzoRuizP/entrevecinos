@@ -516,7 +516,7 @@ require_once __DIR__ . '/../Config/config.php';
           </div> <!-- mpm-grid -->
         </div> <!-- modal-body -->
 
-        <!-- FOOTER: aquí están los botones que no ves -->
+        <!-- FOOTER: aquí están los botones -->
         <div class="modal-footer">
           <button type="button" class="btn btn-cancelar" data-bs-dismiss="modal">
             Cancelar
@@ -530,12 +530,3 @@ require_once __DIR__ . '/../Config/config.php';
     </div> <!-- /modal-content -->
   </div>   <!-- /modal-dialog -->
 </div>     <!-- /modal -->
-
-
-
-
-
-
-<!-- Scripts únicos de esta vista -->
-<script src="<?= BASE_URL ?>public/js/combo_tipo.js"></script>
-<script src="<?= BASE_URL ?>public/js/publicacion.js"></script>
