@@ -111,6 +111,8 @@ $routes = [
 
     // --- API Billetera ---
     ['POST', '#^/api/billetera/debitar-publicacion$#', [apiBilleteraController::class, 'debitarPublicacion'], 'json'],
+    ['GET',  '#^/api/billetera/saldo$#',               [apiBilleteraController::class, 'obtenerSaldo'],       'json'],
+
 
     
 ];

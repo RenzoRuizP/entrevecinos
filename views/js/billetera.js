@@ -41,6 +41,64 @@
   }
 
   // ------------------------------------
+  // Formatear saldo
+  // ------------------------------------
+  function formatearSaldo(monto) {
+    const n = Number(monto || 0);
+    return 'S/ ' + n.toLocaleString('es-PE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  // ------------------------------------
+  // Llamar API para obtener saldo actual
+  // ------------------------------------
+  async function cargarSaldo() {
+    if (!refs.saldo) {
+      return;
+    }
+
+    const url = `${BASE}/api/billetera/saldo`;
+
+    try {
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        },
+        credentials: 'include',
+      });
+
+      if (resp.status === 401) {
+        error('No autorizado al obtener saldo de billetera.');
+        // Aquí solo dejamos el saldo en 0; el flujo de expiración de sesión
+        // ya lo manejas en otras partes del sistema.
+        return;
+      }
+
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => '');
+        error('Error HTTP al obtener saldo:', resp.status, txt);
+        return;
+      }
+
+      const json = await resp.json();
+
+      if (!json.ok) {
+        error('Respuesta API saldo no OK:', json);
+        return;
+      }
+
+      const saldo = json.saldo_actual ?? 0;
+      refs.saldo.textContent = formatearSaldo(saldo);
+
+    } catch (err) {
+      error('Excepción al cargar saldo:', err);
+    }
+  }
+
+  // ------------------------------------
   // Inicializar la vista de billetera
   // ------------------------------------
   function inicializarVista() {
@@ -50,9 +108,9 @@
 
     log('Vista Mi Billetera detectada en DOM. BASE_URL:', BASE || '(vacía)');
 
-    // Por ahora: saldo 0.00 y estado vacío visible
+    // Estado inicial (0.00 y sin movimientos visibles)
     if (refs.saldo) {
-      refs.saldo.textContent = 'S/ 0.00';
+      refs.saldo.textContent = formatearSaldo(0);
     }
 
     if (refs.emptyState) {
@@ -61,6 +119,9 @@
     if (refs.movimientos) {
       refs.movimientos.classList.add('d-none');
     }
+
+    // Una vez inicializada la vista, pedimos el saldo real al backend
+    cargarSaldo();
   }
 
   // ------------------------------------
@@ -111,7 +172,7 @@
       const html = await resp.text();
       contentWrapper.innerHTML = html;
 
-      // Una vez insertado el HTML, inicializamos la vista
+      // Una vez insertado el HTML, inicializamos la vista (y carga saldo)
       inicializarVista();
 
     } catch (err) {
@@ -176,7 +237,7 @@
 
   // ------------------------------------
   // Soporte para carga dinámica (por si otro JS inserta la vista)
-// ------------------------------------
+  // ------------------------------------
   const observer = new MutationObserver(() => {
     const wrapperActual = document.querySelector('.ev-wallet-wrapper');
     if (wrapperActual && wrapperActual !== refs.wrapper) {

@@ -7,6 +7,64 @@ require_once __DIR__ . '/../../models/Billetera.php';
 class apiBilleteraController
 {
     /**
+     * GET /api/billetera/saldo
+     *
+     * Retorna el saldo actual de la billetera del usuario autenticado.
+     */
+    public function obtenerSaldo()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        try {
+            // 1) Validar token
+            $token = $_COOKIE['auth_token'] ?? null;
+            if (!$token) {
+                http_response_code(401);
+                echo json_encode([
+                    'ok'      => false,
+                    'codigo'  => 'NO_TOKEN',
+                    'mensaje' => 'Tu sesión ha expirado. Vuelve a iniciar sesión.'
+                ]);
+                return;
+            }
+
+            $datosToken = SesionJWT::verificarToken($token);
+            if (!$datosToken || empty($datosToken['codigo_usuario'])) {
+                http_response_code(401);
+                echo json_encode([
+                    'ok'      => false,
+                    'codigo'  => 'TOKEN_INVALIDO',
+                    'mensaje' => 'Token inválido. Vuelve a iniciar sesión.'
+                ]);
+                return;
+            }
+
+            $codigo_usuario = (int)$datosToken['codigo_usuario'];
+
+            // 2) Obtener saldo desde el modelo
+            $billeteraModel = new Billetera();
+            $saldo = $billeteraModel->obtenerSaldo($codigo_usuario);
+
+            // 3) Respuesta OK
+            echo json_encode([
+                'ok'           => true,
+                'codigo'       => 'OK',
+                'saldo_actual' => (float)$saldo,
+            ]);
+
+        } catch (Throwable $e) {
+            error_log('apiBilleteraController::obtenerSaldo -> ' . $e->getMessage());
+
+            http_response_code(500);
+            echo json_encode([
+                'ok'      => false,
+                'codigo'  => 'ERROR_SERVIDOR',
+                'mensaje' => 'Ocurrió un error interno al obtener el saldo de tu billetera.'
+            ]);
+        }
+    }
+
+    /**
      * POST /api/billetera/debitar-publicacion
      *
      * Entrada:
