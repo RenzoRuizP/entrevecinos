@@ -579,40 +579,38 @@ class Publicacion extends Conexion
         }
     }
 
-        /**
+    /**
      * Listar publicaciones destacadas (pagadas) para el menú principal.
      *
-     * IMPORTANTE:
-     *  - Ajusta el WHERE según tu esquema real de "pagadas".
-     *  - Ahora mismo filtra por visible = 2 (publicadas) y limita a 30 resultados.
+     * Solo se consideran aquellas publicaciones que:
+     *  - Están publicadas (visible = 2)
+     *  - Tienen al menos un movimiento en billetera_movimiento
+     *    con origen = 'PUBLICACION_DESTACADA' (es decir, pagaron el destaque)
      */
-    public function listarDestacadasPagadas()
+    public function listarDestacadasPagadas(): array
     {
-       try {
-
-            // OJO:
-            //  - visible = 2: publicaciones publicadas
-            //  - Si tienes columna específica para pagadas/destacadas, agrégala aquí.
-            //
-            //  Ejemplo si tienes columna "es_destacada" o "es_pagada":
-            //  WHERE visible = 2 AND es_destacada = 1
-            //
+        try {
             $sql = "
-                SELECT 
-                    codigo_publicacion,
-                    titulo,
-                    precio,
-                    imagen_portada
-                FROM publicacion
-                WHERE visible = 2
-                ORDER BY created_at DESC
+                SELECT DISTINCT
+                    p.codigo_publicacion,
+                    p.titulo,
+                    p.precio,
+                    p.imagen_portada
+                FROM publicacion p
+                INNER JOIN billetera_movimiento m
+                    ON m.codigo_referencia = p.codigo_publicacion
+                   AND m.origen = 'PUBLICACION_DESTACADA'
+                INNER JOIN billetera b
+                    ON b.codigo_billetera = m.codigo_billetera
+                WHERE p.visible = 2
+                ORDER BY p.created_at DESC
                 LIMIT 30
             ";
 
             $stmt = $this->dblink->prepare($sql);
             $stmt->execute();
 
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         } catch (Exception $e) {
             throw $e;

@@ -16,6 +16,7 @@
   <script src="<?= BASE_URL ?>views/js/billetera.js"></script>
   <script src="<?= BASE_URL ?>views/js/publicacionPublicarWallet.js"></script>
   <script src="<?= BASE_URL ?>views/js/menuPrincipalContenido.js"></script>
+  <script src="<?= BASE_URL ?>views/js/publicacionDestacar.js"></script>
 
   
  

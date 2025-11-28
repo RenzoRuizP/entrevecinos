@@ -110,11 +110,9 @@ $routes = [
     ['GET', '#^/api/publicacion/listar-publicadas$#', [apiPublicacionController::class, 'listarPublicadasMarketplace'], 'json'],
 
     // --- API Billetera ---
-    ['POST', '#^/api/billetera/debitar-publicacion$#', [apiBilleteraController::class, 'debitarPublicacion'], 'json'],
-    ['GET',  '#^/api/billetera/saldo$#',               [apiBilleteraController::class, 'obtenerSaldo'],       'json'],
-
-
-    
+    ['GET',  '#^/api/billetera/saldo$#',              [apiBilleteraController::class, 'obtenerSaldo'],       'json'],
+    ['GET',  '#^/api/billetera/movimientos$#',        [apiBilleteraController::class, 'obtenerMovimientos'], 'json'],
+    ['POST', '#^/api/billetera/debitar-publicacion$#',[apiBilleteraController::class, 'debitarPublicacion'], 'json'],
 ];
 
 // ============================================================

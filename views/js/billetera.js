@@ -41,13 +41,25 @@
   }
 
   // ------------------------------------
-  // Formatear saldo
+  // Utilitarios
   // ------------------------------------
-  function formatearSaldo(monto) {
+  function formatearMonto(monto) {
     const n = Number(monto || 0);
     return 'S/ ' + n.toLocaleString('es-PE', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
+    });
+  }
+
+  function escapeHTML(str) {
+    return (str || '').replace(/[&<>"']/g, function (c) {
+      switch (c) {
+        case '&': return '&amp;';
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '"': return '&quot;';
+        default: return c;
+      }
     });
   }
 
@@ -72,8 +84,6 @@
 
       if (resp.status === 401) {
         error('No autorizado al obtener saldo de billetera.');
-        // Aquí solo dejamos el saldo en 0; el flujo de expiración de sesión
-        // ya lo manejas en otras partes del sistema.
         return;
       }
 
@@ -91,10 +101,129 @@
       }
 
       const saldo = json.saldo_actual ?? 0;
-      refs.saldo.textContent = formatearSaldo(saldo);
+      refs.saldo.textContent = formatearMonto(saldo);
 
     } catch (err) {
       error('Excepción al cargar saldo:', err);
+    }
+  }
+
+  // ------------------------------------
+  // Renderizar movimientos en tabla
+  // ------------------------------------
+  function renderizarMovimientos(lista) {
+    if (!refs.movimientos || !refs.emptyState) return;
+
+    if (!lista || !lista.length) {
+      refs.emptyState.classList.remove('d-none');
+      refs.movimientos.classList.add('d-none');
+      refs.movimientos.innerHTML = '';
+      return;
+    }
+
+    refs.emptyState.classList.add('d-none');
+    refs.movimientos.classList.remove('d-none');
+
+    const filas = lista.map((m) => {
+      const tipo = (m.tipo_movimiento || '').toUpperCase();
+      const esDebito = (tipo === 'D');
+      const signo = esDebito ? '-' : '+';
+      const claseMonto = esDebito
+        ? 'ev-wallet-monto--debito'
+        : 'ev-wallet-monto--credito';
+
+      const desc = escapeHTML(m.descripcion || 'Movimiento en billetera');
+      const origen = escapeHTML(m.origen || '');
+      const ref = m.codigo_referencia ? ` · Ref: ${escapeHTML(String(m.codigo_referencia))}` : '';
+
+      return `
+        <tr>
+          <td>
+            <div class="ev-wallet-mov-concepto">
+              <div class="ev-wallet-mov-titulo">${desc}</div>
+              <div class="ev-wallet-mov-detalle text-muted small">
+                ${origen}${ref}
+              </div>
+            </div>
+          </td>
+          <td class="text-end">
+            <span class="ev-wallet-mov-monto ${claseMonto}">
+              ${signo} ${formatearMonto(m.monto)}
+            </span>
+          </td>
+          <td class="text-end">
+            <span class="ev-wallet-mov-saldo text-muted">
+              ${formatearMonto(m.saldo_despues)}
+            </span>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    const html = `
+      <div class="table-responsive ev-wallet-table-wrapper">
+        <table class="table align-middle ev-wallet-table">
+          <thead>
+            <tr>
+              <th>Movimiento</th>
+              <th class="text-end">Monto</th>
+              <th class="text-end">Saldo después</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filas}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    refs.movimientos.innerHTML = html;
+  }
+
+  // ------------------------------------
+  // Cargar movimientos desde API
+  // ------------------------------------
+  async function cargarMovimientos() {
+    if (!refs.movimientos) return;
+
+    const url = `${BASE}/api/billetera/movimientos`;
+
+    try {
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        },
+        credentials: 'include',
+      });
+
+      if (resp.status === 401) {
+        error('No autorizado al obtener movimientos de billetera.');
+        renderizarMovimientos([]);
+        return;
+      }
+
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => '');
+        error('Error HTTP al obtener movimientos:', resp.status, txt);
+        renderizarMovimientos([]);
+        return;
+      }
+
+      const json = await resp.json();
+
+      if (!json.ok) {
+        error('Respuesta API movimientos no OK:', json);
+        renderizarMovimientos([]);
+        return;
+      }
+
+      const lista = json.movimientos || [];
+      renderizarMovimientos(lista);
+
+    } catch (err) {
+      error('Excepción al cargar movimientos:', err);
+      renderizarMovimientos([]);
     }
   }
 
@@ -108,9 +237,9 @@
 
     log('Vista Mi Billetera detectada en DOM. BASE_URL:', BASE || '(vacía)');
 
-    // Estado inicial (0.00 y sin movimientos visibles)
+    // Estado inicial
     if (refs.saldo) {
-      refs.saldo.textContent = formatearSaldo(0);
+      refs.saldo.textContent = formatearMonto(0);
     }
 
     if (refs.emptyState) {
@@ -118,10 +247,12 @@
     }
     if (refs.movimientos) {
       refs.movimientos.classList.add('d-none');
+      refs.movimientos.innerHTML = '';
     }
 
-    // Una vez inicializada la vista, pedimos el saldo real al backend
+    // Cargar saldo real y movimientos
     cargarSaldo();
+    cargarMovimientos();
   }
 
   // ------------------------------------
@@ -172,7 +303,7 @@
       const html = await resp.text();
       contentWrapper.innerHTML = html;
 
-      // Una vez insertado el HTML, inicializamos la vista (y carga saldo)
+      // Una vez insertado el HTML, inicializamos la vista
       inicializarVista();
 
     } catch (err) {
@@ -236,7 +367,7 @@
   });
 
   // ------------------------------------
-  // Soporte para carga dinámica (por si otro JS inserta la vista)
+  // Soporte para carga dinámica
   // ------------------------------------
   const observer = new MutationObserver(() => {
     const wrapperActual = document.querySelector('.ev-wallet-wrapper');
