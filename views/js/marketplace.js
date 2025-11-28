@@ -1,10 +1,11 @@
 /* marketplace.js
    Marketplace Entre Vecinos
-   - Consume API de publicaciones publicadas (visible = 2)
+   - Consume API de publicaciones publicadas
    - Pinta cards con la UI actual
-   - Filtro por categoría
+   - Filtros por categoría
    - Búsqueda por título / descripción
    - Ordenamiento
+   - Soporte para "Recomendados" (publicaciones potenciadas)
 */
 
 (function () {
@@ -12,6 +13,11 @@
 
   const BASE = (window.BASE_URL || '').replace(/\/$/, '');
   const LOG_PREFIX = '[MARKETPLACE]';
+
+  // Nombre del condominio para el resumen (viene de marketplaceView.php)
+  const CONDO_NOMBRE_RESUMEN = (typeof window !== 'undefined' && window.EV_CONDOMINIO_NOMBRE)
+    ? window.EV_CONDOMINIO_NOMBRE
+    : 'tu condominio';
 
   let refs = {
     grid: null,
@@ -83,7 +89,7 @@
 
   function buildImgUrl(relPath) {
     if (!relPath) {
-      // Ajusta este placeholder si deseas
+      // Placeholder por defecto
       return BASE + '/public/img/placeholder-ev.png';
     }
     if (/^https?:\/\//i.test(relPath)) {
@@ -118,19 +124,32 @@
 
     let lista = Array.isArray(publicaciones) ? [...publicaciones] : [];
 
-    // Filtro por categoría
+    // Filtro por categoría / tipo especial
     if (filtroCategoria && filtroCategoria !== 'todos') {
-      lista = lista.filter((pub) => {
-        const catSlug = String(
-          pub.categoria_slug ||
-          pub.tipo_slug ||
-          pub.categoria_nombre ||
-          pub.tipo_nombre ||
-          ''
-        ).toLowerCase();
 
-        return catSlug.includes(filtroCategoria.slice(0, 4)); // "prod", "serv", etc.
-      });
+      // Caso especial: RECOMENDADOS (publicaciones potenciadas)
+      if (filtroCategoria === 'recomendados') {
+        lista = lista.filter((pub) => {
+          // es_potenciado se espera como 1/0 desde la API
+          return Number(pub.es_potenciado || 0) === 1;
+        });
+
+      } else {
+        // Filtro por "productos", "servicios", "alimentos", etc. usando slug
+        lista = lista.filter((pub) => {
+          const catSlug = String(
+            pub.categoria_slug ||
+            pub.tipo_slug ||
+            pub.categoria_nombre ||
+            pub.tipo_nombre ||
+            ''
+          ).toLowerCase();
+
+          // Se toma los primeros 4 caracteres del filtro original,
+          // para "prod", "serv", etc.
+          return catSlug.includes(filtroCategoria.slice(0, 4));
+        });
+      }
     }
 
     // Búsqueda por título + descripción
@@ -177,7 +196,8 @@
       refs.grid.innerHTML = '';
       if (refs.emptyState) refs.emptyState.style.display = '';
       if (refs.resumenResultados) {
-        refs.resumenResultados.textContent = 'Mostrando 0 resultados en El Pilar';
+        refs.resumenResultados.textContent =
+          `Mostrando 0 resultados en ${CONDO_NOMBRE_RESUMEN}`;
       }
       return;
     }
@@ -208,6 +228,18 @@
         pub.codigo_publicacion ||
         (idx + 1);
 
+      const esPotenciado = Number(pub.es_potenciado || 0) === 1;
+
+      // Badges dinámicos
+      let badgesHtml = `
+        <span class="ev-mp-badge ev-mp-badge-nuevo">Publicado</span>
+      `;
+      if (esPotenciado) {
+        badgesHtml += `
+        <span class="ev-mp-badge ev-mp-badge-potenciado">Recomendado</span>
+        `;
+      }
+
       return `
         <div class="ev-mp-card"
              data-category="${catSlug}"
@@ -216,7 +248,7 @@
           <div class="ev-mp-card-media">
             <img src="${imgUrl}" alt="${titulo}">
             <div class="ev-mp-card-badges">
-              <span class="ev-mp-badge ev-mp-badge-nuevo">Publicado</span>
+              ${badgesHtml}
             </div>
           </div>
           <div class="ev-mp-card-body">
@@ -263,7 +295,7 @@
     if (refs.resumenResultados) {
       const n = lista.length;
       refs.resumenResultados.textContent =
-        `Mostrando ${n} resultado${n === 1 ? '' : 's'} en El Pilar`;
+        `Mostrando ${n} resultado${n === 1 ? '' : 's'} en ${CONDO_NOMBRE_RESUMEN}`;
     }
   }
 
@@ -360,7 +392,6 @@
       return;
     }
 
-    // Permitir re-inicializar si se reemplazó el contenido
     log('Inicializando Marketplace…');
     yaInicializado = true;
     bindEvents();
@@ -375,7 +406,6 @@
 
   // 2) Soporte para carga dinámica: cada vez que el contenido cambie
   const observer = new MutationObserver(() => {
-    // Solo intentamos si aún no tenemos grid o si se reemplazó el nodo
     const gridActual = document.getElementById('mp_grid_publicaciones');
     if (gridActual && gridActual !== refs.grid) {
       log('Detectado mp_grid_publicaciones vía MutationObserver.');
@@ -395,5 +425,5 @@
     init: initMarketplace
   };
 
-  log('JS cargado. BASE_URL:', BASE || '(vacía)');
+  log('JS cargado. BASE_URL:', BASE || '(vacía)', '| Condominio:', CONDO_NOMBRE_RESUMEN);
 })();

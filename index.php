@@ -13,11 +13,14 @@ require_once __DIR__ . '/controllers/MenuPrincipalController.php';
 require_once __DIR__ . '/controllers/CondominioController.php';
 require_once __DIR__ . '/controllers/UserController.php';
 require_once __DIR__ . '/controllers/miPerfilController.php';
-require_once __DIR__ . '/controllers/api/usuarioDatosController.php';
 require_once __DIR__ . '/controllers/publicacionController.php';
-require_once __DIR__ . '/controllers/api/apiPublicacionController.php';
 require_once __DIR__ . '/controllers/tipoController.php';
 require_once __DIR__ . '/controllers/marketplaceController.php';
+require_once __DIR__ . '/controllers/billeteraController.php';
+
+require_once __DIR__ . '/controllers/api/usuarioDatosController.php';
+require_once __DIR__ . '/controllers/api/apiPublicacionController.php';
+require_once __DIR__ . '/controllers/api/apiBilleteraController.php';
 
 require_once __DIR__ . '/models/SesionJWT.php';
 
@@ -67,7 +70,7 @@ $routes = [
     // --- API REST (Condominios/Torres/Departamentos) ---
     ['GET',  '#^/condominios$#',                 [CondominioController::class, 'listar'],             'json'],
     ['GET',  '#^/condominios/(\d+)/torres$#',    [CondominioController::class, 'listarTorres'],       'json'],
-    ['GET',  '#^/torres/(\d+)/departamentos$#',  [CondominioController::class, 'listarDepartamentos'], 'json'],
+    ['GET',  '#^/torres/(\d+)/departamentos$#',  [CondominioController::class, 'listarDepartamentos'],'json'],
 
     // --- API REST (Tipos / Categorías por Grupo) ---
     ['GET',  '#^/tipos$#',                        [tipoController::class, 'listar'],                'json'],
@@ -86,6 +89,7 @@ $routes = [
     ['GET', '#^/mi-perfil$#',   [miPerfilController::class, 'index'], 'html'],
     ['GET', '#^/publicacion$#', [publicacionController::class, 'index'], 'html'],
     ['GET', '#^/marketplace$#', [marketplaceController::class, 'index'], 'html'],
+    ['GET', '#^/billetera$#',   [billeteraController::class, 'index'], 'html'],
     // ------------------------------
     //  FIN VISTAS
     // ------------------------------
@@ -104,6 +108,11 @@ $routes = [
 
     // --- API Marketplace (publicadas visible=2) ---
     ['GET', '#^/api/publicacion/listar-publicadas$#', [apiPublicacionController::class, 'listarPublicadasMarketplace'], 'json'],
+
+    // --- API Billetera ---
+    ['POST', '#^/api/billetera/debitar-publicacion$#', [apiBilleteraController::class, 'debitarPublicacion'], 'json'],
+
+    
 ];
 
 // ============================================================
@@ -132,6 +141,9 @@ foreach ($routes as [$httpMethod, $pattern, $handler, $type]) {
                     throw new Exception('Token no encontrado');
                 }
                 $usuario = SesionJWT::verificarToken($token);
+                if (!$usuario) {
+                    throw new Exception('Token inválido o expirado');
+                }
                 // $usuario disponible si se requiere
             } catch (Exception $e) {
                 header('Content-Type: application/json; charset=utf-8');

@@ -1,9 +1,79 @@
 <?php 
 require_once __DIR__ . '/../Config/config.php';
+require_once __DIR__ . '/../models/SesionJWT.php';
+require_once __DIR__ . '/../models/User.php';
+
+// ==========================================
+// 1) Valores por defecto (fallback)
+// ==========================================
+$condominioNombre      = 'Tu condominio';
+$condominioNombreCorto = 'Tu condominio';
+$torreNombre           = null;
+$condominioTextoChip   = 'Tu condominio';
+
+try {
+    // ==========================================
+    // 2) Leer JWT desde cookie auth_token
+    // ==========================================
+    if (!empty($_COOKIE['auth_token'])) {
+        $datosToken = SesionJWT::verificarToken($_COOKIE['auth_token']);
+
+        if (is_array($datosToken) && !empty($datosToken)) {
+            $emailUsuario = $datosToken['email'] ?? null;
+
+            // ==========================================
+            // 3) Si tenemos email, buscamos datos completos
+            //    usando User::DatosUsuario($email)
+            // ==========================================
+            if ($emailUsuario) {
+                $userModel    = new User();
+                $datosUsuario = $userModel->DatosUsuario($emailUsuario);
+
+                if ($datosUsuario) {
+                    // nombre_condominio viene del SELECT de DatosUsuario()
+                    if (!empty($datosUsuario['nombre_condominio'])) {
+                        $condominioNombre = $datosUsuario['nombre_condominio'];
+
+                        // Versión corta sin prefijo "Condominio "
+                        $condominioNombreCorto = preg_replace(
+                            '/^Condominio\s+/i',
+                            '',
+                            $condominioNombre
+                        );
+                    }
+
+                    // nombre_torre viene como nombre_torre
+                    if (!empty($datosUsuario['nombre_torre'])) {
+                        $torreNombre = $datosUsuario['nombre_torre'];
+                    }
+
+                    // Texto que se muestra en el chip (parte superior derecha)
+                    if ($torreNombre) {
+                        $condominioTextoChip = sprintf(
+                            '%s · Torre %s',
+                            $condominioNombre,
+                            $torreNombre
+                        );
+                    } else {
+                        $condominioTextoChip = $condominioNombre;
+                    }
+                }
+            }
+        }
+    }
+} catch (Exception $e) {
+    // Si algo falla con token o consulta, mantenemos los defaults
+    $condominioNombre      = 'Tu condominio';
+    $condominioNombreCorto = 'Tu condominio';
+    $condominioTextoChip   = 'Tu condominio';
+}
+
 ?>
 <script>
-  // Exponer BASE_URL para los fetch del front
+  // Exponer BASE_URL y datos de condominio para el front
   window.BASE_URL = "<?= rtrim(BASE_URL, '/'); ?>";
+  window.EV_CONDOMINIO_TEXTO  = <?= json_encode($condominioTextoChip,  JSON_UNESCAPED_UNICODE); ?>;
+  window.EV_CONDOMINIO_NOMBRE = <?= json_encode($condominioNombreCorto, JSON_UNESCAPED_UNICODE); ?>;
 </script>
 
 <?php include_once __DIR__ . '/estilos/marketplaceEstilo.php'; ?>
@@ -33,9 +103,8 @@ require_once __DIR__ . '/../Config/config.php';
           </div>
           <div class="ev-mp-condominio-text">
             <span class="ev-mp-condominio-label">Condominio actual</span>
-            <!-- Aquí puedes imprimir dinámicamente el condominio actual -->
             <span class="ev-mp-condominio-name">
-              Condominio El Pilar · Torre C
+              <?= htmlspecialchars($condominioTextoChip, ENT_QUOTES, 'UTF-8'); ?>
             </span>
           </div>
         </div>
@@ -75,6 +144,7 @@ require_once __DIR__ . '/../Config/config.php';
       <!-- Chips de categorías -->
       <div class="ev-mp-chips">
         <button type="button" class="ev-mp-chip active" data-filtro="todos">Todos</button>
+        <!-- luego agregaremos aquí la pestaña Recomendados -->
         <button type="button" class="ev-mp-chip" data-filtro="productos">Productos</button>
         <button type="button" class="ev-mp-chip" data-filtro="servicios">Servicios</button>
         <button type="button" class="ev-mp-chip" data-filtro="alimentos">Alimentos</button>
@@ -84,7 +154,7 @@ require_once __DIR__ . '/../Config/config.php';
 
       <!-- Resumen -->
       <p class="ev-mp-resumen mb-0" id="mp_resumen_resultados">
-        Mostrando 0 resultados en El Pilar
+        Mostrando 0 resultados en <?= htmlspecialchars($condominioNombreCorto, ENT_QUOTES, 'UTF-8'); ?>
       </p>
     </div>
   </div>
@@ -100,9 +170,7 @@ require_once __DIR__ . '/../Config/config.php';
        (se rellena dinámicamente por marketplace.js)
   ======================================== -->
   <div class="ev-mp-grid" id="mp_grid_publicaciones">
-    <!-- Aquí el JS inyecta las .ev-mp-card según las publicaciones visible = 2 -->
+    <!-- Aquí el JS inyecta las .ev-mp-card según las publicaciones visibles -->
   </div><!-- /.ev-mp-grid -->
 
 </div><!-- /.container-fluid -->
-
-

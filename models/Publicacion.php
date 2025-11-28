@@ -226,7 +226,7 @@ class Publicacion extends Conexion
                     p.visible,
                     p.codigo_tipo,
                     p.codigo_categoria,
-                    DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS fecha_creacion
+                    DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS create_at
                 FROM publicacion p
                 WHERE p.codigo_usuario = :p_codigo_usuario
                   AND p.visible IN (1, 2)
@@ -262,7 +262,7 @@ class Publicacion extends Conexion
                     p.codigo_tipo,
                     p.codigo_categoria,
                     p.imagen_portada,
-                    DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS fecha_creacion
+                    DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS create_at
                 FROM publicacion p
                 WHERE p.codigo_publicacion = :p_codigo_publicacion
                   AND p.codigo_usuario     = :p_codigo_usuario
@@ -563,7 +563,7 @@ class Publicacion extends Conexion
                     p.codigo_tipo,
                     p.codigo_categoria,
                     p.imagen_portada,
-                    DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS fecha_creacion
+                    DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS create_at
                 FROM publicacion p
                 WHERE p.visible = 2
                 ORDER BY p.created_at DESC
@@ -578,4 +578,45 @@ class Publicacion extends Conexion
             throw $e;
         }
     }
+
+        /**
+     * Listar publicaciones destacadas (pagadas) para el menú principal.
+     *
+     * IMPORTANTE:
+     *  - Ajusta el WHERE según tu esquema real de "pagadas".
+     *  - Ahora mismo filtra por visible = 2 (publicadas) y limita a 30 resultados.
+     */
+    public function listarDestacadasPagadas()
+    {
+       try {
+
+            // OJO:
+            //  - visible = 2: publicaciones publicadas
+            //  - Si tienes columna específica para pagadas/destacadas, agrégala aquí.
+            //
+            //  Ejemplo si tienes columna "es_destacada" o "es_pagada":
+            //  WHERE visible = 2 AND es_destacada = 1
+            //
+            $sql = "
+                SELECT 
+                    codigo_publicacion,
+                    titulo,
+                    precio,
+                    imagen_portada
+                FROM publicacion
+                WHERE visible = 2
+                ORDER BY created_at DESC
+                LIMIT 30
+            ";
+
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (Exception $e) {
+            throw $e;
+        }
+    }
+
 }

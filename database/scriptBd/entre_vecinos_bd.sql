@@ -458,3 +458,57 @@ INSERT INTO `usuario_departamento` (`codigo_usuario_departamento`, `fecha_inicio
 /*!40014 SET FOREIGN_KEY_CHECKS=IFNULL(@OLD_FOREIGN_KEY_CHECKS, 1) */;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40111 SET SQL_NOTES=IFNULL(@OLD_SQL_NOTES, 1) */;
+
+
+CREATE TABLE billetera (
+    codigo_billetera    INT AUTO_INCREMENT PRIMARY KEY,
+    codigo_usuario      INT NOT NULL,
+    
+    -- Saldo disponible en la billetera del usuario
+    saldo_actual        DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    
+    -- 1 = Activa, 0 = Inactiva (por si en algún momento se quiere bloquear)
+    estado              TINYINT(1) NOT NULL DEFAULT 1,
+    
+    fecha_creacion      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                                      ON UPDATE CURRENT_TIMESTAMP,
+    
+    -- Un usuario solo puede tener UNA billetera
+    CONSTRAINT uq_billetera_usuario UNIQUE (codigo_usuario),
+    
+    CONSTRAINT fk_billetera_usuario
+        FOREIGN KEY (codigo_usuario)
+        REFERENCES usuario(codigo_usuario)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
+CREATE TABLE billetera_movimiento (
+    codigo_movimiento   INT AUTO_INCREMENT PRIMARY KEY,
+    codigo_billetera    INT NOT NULL,
+    
+    -- C = Crédito (entra dinero), D = Débito (sale dinero)
+    tipo_movimiento     ENUM('C','D') NOT NULL,
+    
+    monto               DECIMAL(10, 2) NOT NULL,
+    
+    -- Saldo resultante en la billetera DESPUÉS del movimiento
+    saldo_despues       DECIMAL(10, 2) NOT NULL,
+    
+    -- Ej: 'RECARGA_MANUAL', 'PUBLICACION_DESTACADA', 'AJUSTE_ADMIN', etc.
+    origen              VARCHAR(50) NOT NULL,
+    
+    -- Por ejemplo, el código de publicación cuando se cobra S/1 para destacar
+    codigo_referencia   INT NULL,
+    
+    descripcion         VARCHAR(255) NULL,
+    
+    fecha_movimiento    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_mov_billetera
+        FOREIGN KEY (codigo_billetera)
+        REFERENCES billetera(codigo_billetera)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);

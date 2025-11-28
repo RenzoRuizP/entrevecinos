@@ -1,4 +1,4 @@
-/* publicaciones.js */
+/* publicacion.js */
 
 /* ==============================
    Config base + helper de alertas
@@ -578,6 +578,15 @@ function evNotify(icon, title, text) {
 
   async function confirmarYPublicar(id) {
     if (!id) return;
+
+    // 1) Delegar a billetera si está disponible (flujo con cobro S/ 1.00)
+    if (window.EVBilletera &&
+        typeof window.EVBilletera.publicarConCobro === 'function') {
+      window.EVBilletera.publicarConCobro(id);
+      return;
+    }
+
+    // 2) Flujo original (sin billetera) como fallback
     const { isConfirmed } = await Swal.fire({
       icon: 'question',
       title: 'Publicar en el Marketplace',
@@ -952,7 +961,9 @@ function evNotify(icon, title, text) {
         th.className = 'ev-preview-thumb' + (i === selectedIndex ? ' active' : '');
         const img = document.createElement('img'); img.src = f.url;
         th.appendChild(img);
-        th.addEventListener('click', () => { selectedIndex = i; updateMain(); renderThumbs(); });
+        th.addEventListener('click', () => {
+          selectedIndex = i; updateMain(); renderThumbs();
+        });
         previewThumbs.appendChild(th);
       });
     }
@@ -1397,7 +1408,7 @@ function evNotify(icon, title, text) {
         const titulo  = (pub.titulo || '').substring(0, 80);
         const precio  = Number(pub.precio || 0).toFixed(2);
         const estado  = (pub.estado || '').toUpperCase();
-        const fecha   = pub.fecha_creacion || '';
+        const fecha   = pub.created_at || '';
         const visible = Number(pub.visible ?? 1);
 
         let estadoClass = 'badge bg-secondary';
@@ -1471,3 +1482,4 @@ function evNotify(icon, title, text) {
   observer.observe(target, { childList: true, subtree: true });
 
 })();
+

@@ -55,6 +55,97 @@
    PUBLICACIONES DESTACADAS (CARRUSEL)
 -------------------------------------------------- */
 
+/* Contenedor donde el JS pinta las tarjetas */
+.ev-home-dashboard .ev-destacadas-wrapper {
+  display: flex;
+  gap: 1rem;
+  padding: 0.25rem 0 0.5rem 0;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+}
+
+.ev-home-dashboard .ev-destacadas-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.ev-home-dashboard .ev-destacadas-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ev-home-dashboard .ev-destacadas-wrapper::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 999px;
+}
+
+/* Tarjeta individual destacada */
+.ev-home-dashboard .ev-card-destacada {
+  min-width: 220px;
+  max-width: 260px;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #E5E7EB;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ev-home-dashboard .ev-card-destacada:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+}
+
+/* Imagen de portada */
+.ev-home-dashboard .ev-card-destacada-img {
+  position: relative;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  overflow: hidden;
+}
+
+.ev-home-dashboard .ev-card-destacada-img img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  display: block;
+}
+
+/* Badge "Destacado" */
+.ev-home-dashboard .ev-card-destacada-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: #F97316;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 10px rgba(249, 115, 22, 0.45);
+}
+
+/* Cuerpo de la tarjeta */
+.ev-home-dashboard .ev-card-destacada-body {
+  padding: 0.65rem 0.85rem 0.85rem 0.85rem;
+}
+
+.ev-home-dashboard .ev-card-destacada-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 0.25rem;
+  line-height: 1.3;
+}
+
+.ev-home-dashboard .ev-card-destacada-price {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0F592F;
+}
+
+/* Si en el futuro quieres un carrusel tipo Bootstrap, 
+   estos estilos siguen funcionando sin problema */
 .ev-home-dashboard #destacadosCarousel .carousel-inner {
   padding: 4px 0;
 }
@@ -208,7 +299,15 @@
     margin-top: 1rem;
   }
 
-  /* Carrusel */
+  /* Carrusel / tarjetas destacadas */
+  .ev-home-dashboard .ev-destacadas-wrapper {
+    padding-bottom: 0.3rem;
+  }
+
+  .ev-home-dashboard .ev-card-destacada {
+    min-width: 200px;
+  }
+
   .ev-home-dashboard #destacadosCarousel .d-flex.gap-3 {
     justify-content: flex-start;
     overflow-x: auto;
