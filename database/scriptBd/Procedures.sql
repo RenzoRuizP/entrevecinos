@@ -21,15 +21,43 @@ BEGIN
         end if;
 END $$
 
+--
+
+ 
+DELIMITER $$
+CREATE PROCEDURE `sp_registrar_usuario`(
+                                    in p_nombre varchar(100),
+                                    in p_documento varchar(15),
+                                    in p_telefono varchar(50),
+                                    in p_email varchar(100),
+                                    in p_clave varchar(255),
+                                    in p_codigo_rol int(11),
+                                    in p_codigo_departamento int(11),
+                                    in p_fecha_inicio DATE
+										)
+BEGIN
+			
+				INSERT INTO usuario (nombre, email, clave, codigo_rol, documento, telefono, fecha_creacion)
+				VALUES (p_nombre, p_email, p_clave, 2, p_documento, p_telefono, (SELECT NOW())); -- 123456
+				
+				INSERT INTO usuario_departamento(fecha_inicio, codigo_usuario, codigo_departamento, fecha_creacion)
+				VALUES (p_fecha_inicio, (SELECT NOW()));
+END $$
+
+
+-- 
 SELECT * FROM rol;
 SELECT * FROM usuario_departamento;
-SELECT * FROM usuario
+SELECT * FROM usuario;
+SELECT NOW();
+
 SELECT * FROM menu;
 SELECT * FROM menu_item;
 SELECT * FROM menu_item_accesos;
 SELECT * FROM publicacion;
 SELECT * FROM publicacion_imagen;
 
+SELECT NOW()
 
 SELECT
                 p.codigo_publicacion,
@@ -46,3 +74,6 @@ SELECT
             FROM publicacion p
             WHERE p.visible = 2
             ORDER BY p.created_at DESC
+            
+            
+DELIMITER $$

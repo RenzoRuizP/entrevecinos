@@ -16,24 +16,22 @@ $iconEntreVecinos = "/entrevecinos/resources/images/logo/icon_logo.png";
     </button>
 
     <!-- 🔹 Marca -->
-    <!-- Brand Entre Vecinos con ícono -->
-    
-    <!-- 🔹 Marca -->
-     <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-white shadow-sm me-2"
-            style="width: 38px; height: 38px;">
-        <img src="<?= $iconEntreVecinos ?>"
-             alt="Logo Entre Vecinos"
-             class="img-fluid"
-             style="max-height: 40px;">
-      </span>
+    <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-white shadow-sm me-2"
+          style="width: 38px; height: 38px;">
+      <img src="<?= $iconEntreVecinos ?>"
+           alt="Logo Entre Vecinos"
+           class="img-fluid"
+           style="max-height: 40px;">
+    </span>
     <span class="navbar-brand mb-0 h5 text-white d-none d-md-inline">Entre Vecinos</span>
+
     <!-- 🔹 Usuario -->
     <ul class="navbar-nav align-items-center ms-auto">
       <li class="nav-item dropdown user-menu position-relative">
-        <a href="#" 
-           class="nav-link dropdown-toggle d-flex align-items-center text-white" 
-           id="userDropdown" 
-           data-bs-toggle="dropdown" 
+        <a href="#"
+           class="nav-link dropdown-toggle d-flex align-items-center text-white"
+           id="userDropdown"
+           data-bs-toggle="dropdown"
            aria-expanded="false">
 
           <img
@@ -46,7 +44,6 @@ $iconEntreVecinos = "/entrevecinos/resources/images/logo/icon_logo.png";
         </a>
 
         <!-- 🔹 Dropdown del usuario -->
-        <!-- dropdown-menu-end para alinear a la derecha en escritorio -->
         <ul class="dropdown-menu border-0 shadow-lg mt-3 rounded-4 overflow-hidden" style="min-width: 230px;">
 
           <li class="text-center p-3 bg-success text-white">
@@ -59,16 +56,24 @@ $iconEntreVecinos = "/entrevecinos/resources/images/logo/icon_logo.png";
             <p class="mb-0 fw-semibold"><?= htmlspecialchars($nombreUsuario) ?></p>
             <small><?= ucfirst(htmlspecialchars($rolUsuario)) ?></small>
           </li>
+
           <li class="bg-white">
             <div class="d-flex justify-content-between px-3 py-3">
-              <a href="#" id="btnPerfil" class="btn btn-outline-success btn-sm">
-                <i class="bi bi-person-circle me-1"></i> Perfil
+              <!-- 🔹 Mis datos: usa la misma ruta que el menú "Datos personales" -->
+              <a href="<?= rtrim(BASE_URL, '/') ?>/mi-perfil"
+                 id="btnPerfil"
+                 class="btn btn-outline-success btn-sm submenu-link">
+                <i class="bi bi-person-circle me-1"></i> Mis datos
               </a>
-              <a href="#" id="btnCerrarSesion" class="btn btn-danger btn-sm">
+
+              <a href="#"
+                 id="btnCerrarSesion"
+                 class="btn btn-danger btn-sm">
                 <i class="bi bi-box-arrow-right me-1"></i> Salir
               </a>
             </div>
           </li>
+
         </ul>
       </li>
     </ul>

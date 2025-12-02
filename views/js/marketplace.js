@@ -38,13 +38,21 @@
   // Helpers
   // ------------------------------------
   function log() {
-    console.log(LOG_PREFIX, ...arguments);
+    if (window.console && console.log) {
+      console.log(LOG_PREFIX, ...arguments);
+    }
   }
+
   function warn() {
-    console.warn(LOG_PREFIX, ...arguments);
+    if (window.console && console.warn) {
+      console.warn(LOG_PREFIX, ...arguments);
+    }
   }
+
   function error() {
-    console.error(LOG_PREFIX, ...arguments);
+    if (window.console && console.error) {
+      console.error(LOG_PREFIX, ...arguments);
+    }
   }
 
   const notify = (icon, title, text) => {

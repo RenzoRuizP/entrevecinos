@@ -11,17 +11,18 @@
   const LOG_PREFIX = '[PUBLI+BILLETERA]';
 
   const BASE = (window.BASE_URL || '').replace(/\/+$/, '');
-
+/*
   function log() {
     console.log(LOG_PREFIX, ...arguments);
   }
+   
   function warn() {
     console.warn(LOG_PREFIX, ...arguments);
   }
   function error() {
     console.error(LOG_PREFIX, ...arguments);
   }
-
+ */
   const notify = (icon, title, text) => {
     if (typeof window.evNotify === 'function') {
       window.evNotify(icon, title, text);
@@ -219,7 +220,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    log('publicacionPublicarWallet.js cargado. BASE:', BASE || '(vacía)');
+    //log('publicacionPublicarWallet.js cargado. BASE:', BASE || '(vacía)');
     bindEventos();
   });
 })();

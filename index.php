@@ -17,6 +17,7 @@ require_once __DIR__ . '/controllers/publicacionController.php';
 require_once __DIR__ . '/controllers/tipoController.php';
 require_once __DIR__ . '/controllers/marketplaceController.php';
 require_once __DIR__ . '/controllers/billeteraController.php';
+require_once __DIR__ . '/controllers/credencialController.php'; // ✅ NUEVO
 
 require_once __DIR__ . '/controllers/api/usuarioDatosController.php';
 require_once __DIR__ . '/controllers/api/apiPublicacionController.php';
@@ -44,6 +45,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 // ------------------------------
 // 4) Rutas públicas (no token)
 // ------------------------------
+publicRoutes:
 $publicRoutes = [
     '#^/$#',
     '#^/login$#',
@@ -57,8 +59,6 @@ $publicRoutes = [
 
 // ------------------------------
 // 5) Definición de rutas
-//    Formato: [METHOD, PATRÓN, [Controlador, Acción], tipo_respuesta]
-//    tipo_respuesta: 'html' | 'json'
 // ------------------------------
 $routes = [
 
@@ -84,12 +84,13 @@ $routes = [
     ['POST', '#^/logout$#', [AuthController::class, 'logout'], 'json'],
 
     // ------------------------------
-    //  VISTAS
+    //  VISTAS 
     // ------------------------------
     ['GET', '#^/mi-perfil$#',   [miPerfilController::class, 'index'], 'html'],
     ['GET', '#^/publicacion$#', [publicacionController::class, 'index'], 'html'],
     ['GET', '#^/marketplace$#', [marketplaceController::class, 'index'], 'html'],
     ['GET', '#^/billetera$#',   [billeteraController::class, 'index'], 'html'],
+    ['GET', '#^/credencial$#',  [credencialController::class, 'index'], 'html'], // ✅ NUEVO
     // ------------------------------
     //  FIN VISTAS
     // ------------------------------
@@ -106,7 +107,7 @@ $routes = [
     ['POST', '#^/api/publicacion/(\d+)/anular$#',     [apiPublicacionController::class, 'anularPublicacion'],    'json'],
     ['POST', '#^/api/publicacion/(\d+)/publicar$#',   [apiPublicacionController::class, 'publicarPublicacion'],  'json'],
 
-    // --- API Marketplace (publicadas visible=2) ---
+    // --- API Marketplace ---
     ['GET', '#^/api/publicacion/listar-publicadas$#', [apiPublicacionController::class, 'listarPublicadasMarketplace'], 'json'],
 
     // --- API Billetera ---
@@ -144,7 +145,6 @@ foreach ($routes as [$httpMethod, $pattern, $handler, $type]) {
                 if (!$usuario) {
                     throw new Exception('Token inválido o expirado');
                 }
-                // $usuario disponible si se requiere
             } catch (Exception $e) {
                 header('Content-Type: application/json; charset=utf-8');
                 http_response_code(401);

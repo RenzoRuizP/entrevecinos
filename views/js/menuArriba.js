@@ -29,15 +29,32 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 🔹 Botón de perfil
+  // ============================================================
+  // 🔹 Botón "Mis datos" → cargar vista /mi-perfil con AJAX
+  // ============================================================
   if (btnPerfil) {
     btnPerfil.addEventListener("click", (e) => {
       e.preventDefault();
-      window.location.href = `${window.location.origin}/entrevecinos/views/miPerfilView.php`;
+
+      // Cerrar dropdown del usuario
+      const dropdownInstance = bootstrap.Dropdown.getInstance(userDropdown);
+      dropdownInstance?.hide();
+
+      // Buscar en el menú lateral el enlace a /mi-perfil
+      const link = document.querySelector(`.submenu-link[href="/mi-perfil"]`);
+
+      if (link) {
+        link.click(); // Dispara el flujo AJAX de menuIzquierda.js
+      } else {
+        // Fallback seguro si no se encuentra el link (no debería pasar)
+        window.location.href = `${window.BASE_URL || '/entrevecinos'}/mi-perfil`;
+      }
     });
   }
 
+  // ============================================================
   // 🔹 Botón de cerrar sesión
+  // ============================================================
   if (btnCerrarSesion) {
     btnCerrarSesion.addEventListener("click", async (e) => {
       e.preventDefault();
@@ -100,19 +117,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // 🔹 Función para ajustar el dropdown según tamaño de pantalla
+  // 🔹 Ajustes responsivos del dropdown
   function ajustarDropdownUsuario() {
     const menu = document.querySelector('#userDropdown + .dropdown-menu');
     if (!menu) return;
 
     if (window.innerWidth < 992) {
-      // Móvil: centrar y ancho mayor
       menu.classList.remove('dropdown-menu-end');
       menu.style.left = '50%';
       menu.style.transform = 'translateX(-50%)';
       menu.style.minWidth = '90%';
     } else {
-      // Desktop: alinear a la derecha del botón
       menu.classList.add('dropdown-menu-end');
       menu.style.left = '';
       menu.style.transform = '';
@@ -120,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // 🔹 Ajustar al cargar y al redimensionar
   ajustarDropdownUsuario();
   window.addEventListener('resize', ajustarDropdownUsuario);
+
 });

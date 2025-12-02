@@ -12,16 +12,25 @@
     movimientos: null,
   };
 
+  // ------------------------------------
+  // Helpers de log
+  // ------------------------------------
   function log() {
-    console.log(LOG_PREFIX, ...arguments);
+    if (window.console && console.log) {
+      console.log(LOG_PREFIX, ...arguments);
+    }
   }
 
   function warn() {
-    console.warn(LOG_PREFIX, ...arguments);
+    if (window.console && console.warn) {
+      console.warn(LOG_PREFIX, ...arguments);
+    }
   }
 
   function error() {
-    console.error(LOG_PREFIX, ...arguments);
+    if (window.console && console.error) {
+      console.error(LOG_PREFIX, ...arguments);
+    }
   }
 
   // ------------------------------------
@@ -349,18 +358,18 @@
     linkBilletera.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      log('Click en menú Mi billetera, cargando vista parcial…');
+      //log('Click en menú Mi billetera, cargando vista parcial…');
       cargarVistaParcialBilletera(contentWrapper);
     });
 
-    log('Hook de menú "Mi billetera" instalado correctamente.');
+    // log('Hook de menú "Mi billetera" instalado correctamente.');
   }
 
   // ------------------------------------
   // Inicialización estándar
   // ------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
-    log('billetera.js cargado. BASE_URL:', BASE || '(vacía)');
+    //log('billetera.js cargado. BASE_URL:', BASE || '(vacía)');
     engancharMenuBilletera();
     // Si la vista ya estuviera montada por acceso directo:
     inicializarVista();

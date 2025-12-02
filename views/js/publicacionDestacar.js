@@ -4,7 +4,7 @@
 
   const BASE = (window.BASE_URL || '').replace(/\/$/, '');
   const LOG_PREFIX = '[PUBLICACION_DESTACAR]';
-
+/*
   function log() {
     console.log(LOG_PREFIX, ...arguments);
   }
@@ -16,7 +16,7 @@
   function error() {
     console.error(LOG_PREFIX, ...arguments);
   }
-
+*/
   /**
    * Intenta obtener el código de publicación a partir del botón o la fila.
    */
@@ -302,11 +302,11 @@
       }
     });
 
-    log('Delegación de clicks para botón "Publicar/Publicado" instalada.');
+    //log('Delegación de clicks para botón "Publicar/Publicado" instalada.');
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    log('publicacionDestacar.js cargado. BASE_URL:', BASE || '(vacía)');
+    //log('publicacionDestacar.js cargado. BASE_URL:', BASE || '(vacía)');
     configurarDelegacionClicks();
   });
 })();
