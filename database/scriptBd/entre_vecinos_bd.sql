@@ -512,3 +512,4 @@ CREATE TABLE billetera_movimiento (
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
+

@@ -1,4 +1,4 @@
-<?php /* marketplaceEstilo.php – UX/UI Marketplace Entre Vecinos */ ?>
+<?php /* views/estilos/marketplaceEstilo.php – UX/UI Marketplace Entre Vecinos */ ?>
 
 <style>
 :root{
@@ -97,7 +97,7 @@
 
 .ev-mp-search-input-wrapper{
   flex:1;
-  min-width:280px;
+  min-width:260px;
   display:flex;
   align-items:center;
   gap:10px;
@@ -118,6 +118,7 @@
   border:none!important;
   box-shadow:none!important;
   font-size:15px;
+  width:100%;
 }
 
 .ev-mp-search-input:focus{
@@ -207,6 +208,29 @@
   gap:22px;
 }
 
+/* ============================================================
+   ⭐ REDUCCIÓN DE CARDS 25% (Opción A confirmada)
+============================================================ */
+.ev-mp-card{
+  transform:scale(0.75);
+  transform-origin:top left;
+  margin-bottom:-38px; /* compensa espacio visual */
+}
+
+/* Imagen más compacta */
+.ev-mp-card-media{
+  height:170px !important;
+}
+
+/* Texto más compacto */
+.ev-mp-card-title{
+  font-size:14px !important;
+}
+
+.ev-mp-card-price{
+  font-size:15px !important;
+}
+
 /* =======================================
    CARD – PUBLICACIÓN
 ======================================= */
@@ -222,7 +246,7 @@
 }
 
 .ev-mp-card:hover{
-  transform:translateY(-5px);
+  transform:translateY(-5px) scale(0.75);
   box-shadow:0 18px 32px rgba(0,0,0,0.1);
   border-color:var(--ev-verde);
 }
@@ -240,7 +264,7 @@
   object-fit:cover;
 }
 
-/* Badges sobre la imagen */
+/* Badges */
 .ev-mp-card-badges{
   position:absolute;
   top:10px;
@@ -269,7 +293,7 @@
   background:rgba(0,0,0,0.6);
 }
 
-/* Body card */
+/* Body */
 .ev-mp-card-body{
   padding:16px 18px;
   display:flex;
@@ -278,25 +302,23 @@
 }
 
 .ev-mp-card-title{
-  font-size:17px;
+  margin:0;
   font-weight:600;
   color:var(--ev-texto);
-  margin:0;
 }
 
 .ev-mp-card-price{
-  font-size:18px;
-  font-weight:700;
-  color:var(--ev-verde-oscuro);
   margin:0;
+  font-weight:700;
+  color:var(--ev-verde);
 }
 
-/* Meta (vecino + rating) */
 .ev-mp-card-meta{
+  margin-top:8px;
   display:flex;
-  justify-content:space-between;
   align-items:center;
-  gap:8px;
+  justify-content:space-between;
+  gap:10px;
 }
 
 .ev-mp-card-vecino{
@@ -321,101 +343,176 @@
 .ev-mp-vecino-nombre{
   font-size:13px;
   font-weight:600;
-  color:var(--ev-texto);
 }
 
 .ev-mp-vecino-condominio{
-  font-size:11px;
-  color:var(--ev-texto-suave);
-}
-
-.ev-mp-card-rating{
-  display:flex;
-  align-items:center;
-  gap:4px;
   font-size:12px;
   color:var(--ev-texto-suave);
 }
 
-.ev-mp-card-rating i{
-  color:#F59E0B;
+.ev-mp-card-rating{
+  font-size:12px;
+  color:var(--ev-texto-suave);
+  display:flex;
+  align-items:center;
+  gap:4px;
 }
 
-.ev-mp-rating-votos{
-  font-size:11px;
+.ev-mp-card-rating i{
+  color:#f59e0b;
 }
 
 /* Acciones */
 .ev-mp-card-actions{
-  margin-top:8px;
+  margin-top:10px;
   display:flex;
-  gap:10px;
+  justify-content:space-between;
+  gap:8px;
 }
 
-.ev-mp-btn-detalle,
-.ev-mp-btn-pedir{
-  border-radius:50px;
-  padding:6px 14px;
-  font-size:13px;
-  font-weight:600;
+.ev-mp-card-actions .btn{
+  flex:1;
+  border-radius:999px;
+}
+
+/* Estado vacío */
+#mp_empty_state{
+  display:none;
+  margin-top:24px;
+  text-align:center;
+  color:var(--ev-texto-suave);
+}
+
+/* ============================================================
+   MODAL DETALLE PUBLICACIÓN – Estilo igual a previsualización
+============================================================ */
+
+/* Caja principal del modal */
+.ev-mp-modal-body {
+  padding: 20px 26px;
+}
+
+/* Card interna que replica la previsualización */
+.ev-mp-preview-card{
+  background:#ffffff;
+  border-radius:16px;
+  border:1px solid var(--ev-gris-borde);
+  padding:16px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.04);
+}
+
+/* CONTENEDOR de la imagen principal */
+.ev-mp-modal-media {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #E3E8EF;
+  border-radius: 16px;
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 380px;              /* misma altura que previsualización */
+}
+
+/* Imagen principal */
+.ev-mp-modal-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;           /* igual que previsualización */
+  border-radius: 12px;
+}
+
+/* Miniaturas */
+.ev-mp-modal-thumbs {
+  display: flex;
+  gap: 10px;
+  margin: 15px 0 25px;
+  padding-left: 4px;
+}
+
+.ev-mp-modal-thumb {
+  width: 62px;
+  height: 62px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  overflow: hidden;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ev-mp-modal-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ev-mp-modal-thumb.active {
+  border-color: var(--ev-verde);
+}
+
+/* Títulos / textos */
+.ev-mp-modal-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ev-verde-oscuro);
+  margin-bottom: 4px;
+}
+
+.ev-mp-modal-price {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ev-verde);
+  margin-bottom: 14px;
+}
+
+.ev-mp-modal-desc {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.5;
+}
+
+/* Responsive modal */
+@media(max-width:575px){
+  .ev-mp-modal-body{
+    padding-inline:14px;
+  }
+  .ev-mp-modal-media{
+    height:auto;
+    max-height:320px;
+  }
 }
 
 /* =======================================
-   RESPONSIVE
+   RESPONSIVE GRID
 ======================================= */
-
-/* Laptops / pantallas medianas: 3 columnas */
-@media (max-width:1400px){
+@media (max-width: 1199.98px){
   .ev-mp-grid{
     grid-template-columns:repeat(3,1fr);
   }
 }
 
-/* Tablets horizontales: 2 columnas */
-@media (max-width:991.98px){
+@media (max-width: 991.98px){
   .ev-mp-header .card-body{
-    padding:20px 18px;
+    padding:18px 18px 16px 18px;
   }
-
-  .ev-mp-grid{
-    grid-template-columns:repeat(2,1fr);
-  }
-
-  .ev-mp-search-row{
-    flex-direction:column;
-  }
-
-  .ev-mp-search-actions{
-    justify-content:space-between;
-  }
-
-  .ev-mp-search-input-wrapper{
-    min-width:0;
-    width:100%;
-  }
-}
-
-/* Móvil: 1 columna */
-@media (max-width:575.98px){
   .ev-mp-title{
     font-size:24px;
   }
+  .ev-mp-grid{
+    grid-template-columns:repeat(2,1fr);
+  }
+}
 
+@media (max-width: 575.98px){
+  .ev-mp-search-row{
+    flex-direction:column;
+  }
+  .ev-mp-search-input-wrapper{
+    width:100%;
+  }
   .ev-mp-grid{
     grid-template-columns:1fr;
-  }
-
-  .ev-mp-card-media{
-    height:210px;
-  }
-
-  .ev-mp-search-row{
-    gap:10px;
-  }
-
-  .ev-mp-search-input-wrapper{
-    min-width:0;
-    width:100%;
   }
 }
 </style>

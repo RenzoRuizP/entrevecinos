@@ -6,6 +6,7 @@
    - Búsqueda por título / descripción
    - Ordenamiento
    - Soporte para "Recomendados" (publicaciones potenciadas)
+   - VER DETALLE: abre modal con previsualización estilo publicación
 */
 
 (function () {
@@ -32,27 +33,20 @@
   let filtroCategoria = 'todos';
   let textoBusqueda   = '';
   let criterioOrden   = 'recientes';
-  let yaInicializado  = false;
 
   // ------------------------------------
   // Helpers
   // ------------------------------------
   function log() {
-    if (window.console && console.log) {
-      console.log(LOG_PREFIX, ...arguments);
-    }
+    if (window.console && console.log) console.log(LOG_PREFIX, ...arguments);
   }
 
   function warn() {
-    if (window.console && console.warn) {
-      console.warn(LOG_PREFIX, ...arguments);
-    }
+    if (window.console && console.warn) console.warn(LOG_PREFIX, ...arguments);
   }
 
   function error() {
-    if (window.console && console.error) {
-      console.error(LOG_PREFIX, ...arguments);
-    }
+    if (window.console && console.error) console.error(LOG_PREFIX, ...arguments);
   }
 
   const notify = (icon, title, text) => {
@@ -97,7 +91,6 @@
 
   function buildImgUrl(relPath) {
     if (!relPath) {
-      // Placeholder por defecto
       return BASE + '/public/img/placeholder-ev.png';
     }
     if (/^https?:\/\//i.test(relPath)) {
@@ -122,6 +115,126 @@
   }
 
   // ------------------------------------
+  // Modal: cargar detalle de publicación
+  // ------------------------------------
+  async function abrirModalDetalle(codigoPublicacion) {
+    if (!codigoPublicacion) {
+      warn('abrirModalDetalle llamado sin código de publicación');
+      return;
+    }
+
+    try {
+      const resp = await fetch(`${BASE}/api/publicacion/detalle/${codigoPublicacion}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      const data = await resp.json().catch(() => ({}));
+
+      if (resp.status === 401) {
+        notify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
+        setTimeout(() => { window.location.href = `${BASE}/`; }, 1500);
+        return;
+      }
+
+      if (!resp.ok || !data.ok) {
+        const msg = data.mensaje || data.error || 'No se pudo obtener el detalle de la publicación.';
+        error('ERROR API DETALLE', data);
+        notify('error', 'Error', msg);
+        return;
+      }
+
+      const pub = data.data || {};
+
+      // Referencias al modal
+      const modalEl        = document.getElementById('mp_modal_detalle');
+      const imgPrincipalEl = document.getElementById('mp_modal_img_principal');
+      const thumbsWrapper  = document.getElementById('mp_modal_thumbs');
+      const tituloTxtEl    = document.getElementById('mp_modal_titulo_txt');
+      const precioEl       = document.getElementById('mp_modal_precio');
+      const catEl          = document.getElementById('mp_modal_categoria');
+      const tipoEl         = document.getElementById('mp_modal_tipo');
+      const descEl         = document.getElementById('mp_modal_descripcion');
+
+      if (!modalEl || !imgPrincipalEl || !thumbsWrapper ||
+          !tituloTxtEl || !precioEl || !catEl || !tipoEl || !descEl) {
+        warn('No se encontraron elementos del modal de detalle en el DOM.');
+        return;
+      }
+
+      const titulo   = pub.titulo || '';
+      const precio   = pub.precio || 0;
+      const catName  = pub.categoria_nombre || '';
+      const tipoName = pub.tipo_nombre || '';
+      const desc     = pub.descripcion || '';
+
+      const imagenes = Array.isArray(pub.imagenes) ? pub.imagenes : [];
+      let   portada  = pub.imagen_portada || '';
+
+      // Si por algún motivo no llega imagen_portada, usamos la primera de la lista
+      if (!portada && imagenes.length > 0) {
+        const first = imagenes[0];
+        portada = first.url || buildImgUrl(first.ruta);
+      }
+
+      // Llenar datos
+      tituloTxtEl.textContent = titulo;
+      precioEl.textContent    = formatPrecio(precio);
+      catEl.textContent       = catName;
+      tipoEl.textContent      = tipoName;
+      descEl.textContent      = desc;
+
+      imgPrincipalEl.src = portada || (BASE + '/public/img/placeholder-ev.png');
+      imgPrincipalEl.alt = titulo || 'Imagen de publicación';
+
+      // Thumbnails
+      thumbsWrapper.innerHTML = '';
+
+      imagenes.forEach((imgObj, index) => {
+        const url = imgObj.url || buildImgUrl(imgObj.ruta);
+
+        const thumbWrapper = document.createElement('div');
+        thumbWrapper.className = 'ev-mp-modal-thumb';
+
+        const thumbImg = document.createElement('img');
+        thumbImg.src   = url;
+        thumbImg.alt   = `Imagen ${index + 1} de ${titulo || 'publicación'}`;
+
+        thumbWrapper.appendChild(thumbImg);
+
+        thumbWrapper.addEventListener('click', () => {
+          imgPrincipalEl.src = url;
+          // marcar activo
+          document
+            .querySelectorAll('.ev-mp-modal-thumb')
+            .forEach(el => el.classList.remove('active'));
+          thumbWrapper.classList.add('active');
+        });
+
+        thumbsWrapper.appendChild(thumbWrapper);
+      });
+
+      // marcar primera miniatura como activa
+      const firstThumb = thumbsWrapper.querySelector('.ev-mp-modal-thumb');
+      if (firstThumb) firstThumb.classList.add('active');
+
+      // Abrir modal (Bootstrap 5)
+      if (window.bootstrap && typeof window.bootstrap.Modal === 'function') {
+        const modalInstance = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+        modalInstance.show();
+      } else if (typeof $ === 'function' && typeof $(modalEl).modal === 'function') {
+        $(modalEl).modal('show'); // fallback Bootstrap 4
+      } else {
+        warn('Bootstrap Modal no disponible; no se puede mostrar el modal de detalle.');
+      }
+
+    } catch (err) {
+      error('EXCEPTION DETALLE', err);
+      notify('error', 'Error inesperado', 'Ocurrió un problema al cargar el detalle de la publicación.');
+    }
+  }
+
+  // ------------------------------------
   // Filtro + pintado
   // ------------------------------------
   function aplicarFiltrosYRedibujar() {
@@ -134,16 +247,9 @@
 
     // Filtro por categoría / tipo especial
     if (filtroCategoria && filtroCategoria !== 'todos') {
-
-      // Caso especial: RECOMENDADOS (publicaciones potenciadas)
       if (filtroCategoria === 'recomendados') {
-        lista = lista.filter((pub) => {
-          // es_potenciado se espera como 1/0 desde la API
-          return Number(pub.es_potenciado || 0) === 1;
-        });
-
+        lista = lista.filter((pub) => Number(pub.es_potenciado || 0) === 1);
       } else {
-        // Filtro por "productos", "servicios", "alimentos", etc. usando slug
         lista = lista.filter((pub) => {
           const catSlug = String(
             pub.categoria_slug ||
@@ -152,15 +258,12 @@
             pub.tipo_nombre ||
             ''
           ).toLowerCase();
-
-          // Se toma los primeros 4 caracteres del filtro original,
-          // para "prod", "serv", etc.
           return catSlug.includes(filtroCategoria.slice(0, 4));
         });
       }
     }
 
-    // Búsqueda por título + descripción
+    // Búsqueda
     if (textoBusqueda.trim() !== '') {
       const needle = normalizar(textoBusqueda);
       lista = lista.filter((pub) => {
@@ -177,20 +280,15 @@
       const precioB  = Number(b.precio || 0);
       const ratingA  = Number(a.rating || 0);
       const ratingB  = Number(b.rating || 0);
-
-      const recA = a.orden_reciente || a.codigo_publicacion || 0;
-      const recB = b.orden_reciente || b.codigo_publicacion || 0;
+      const recA     = a.orden_reciente || a.codigo_publicacion || 0;
+      const recB     = b.orden_reciente || b.codigo_publicacion || 0;
 
       switch (criterioOrden) {
-        case 'precio_menor':
-          return precioA - precioB;
-        case 'precio_mayor':
-          return precioB - precioA;
-        case 'mejor_valorados':
-          return ratingB - ratingA;
+        case 'precio_menor':   return precioA - precioB;
+        case 'precio_mayor':   return precioB - precioA;
+        case 'mejor_valorados':return ratingB - ratingA;
         case 'recientes':
-        default:
-          return recB - recA;
+        default:               return recB - recA;
       }
     });
 
@@ -238,7 +336,6 @@
 
       const esPotenciado = Number(pub.es_potenciado || 0) === 1;
 
-      // Badges dinámicos
       let badgesHtml = `
         <span class="ev-mp-badge ev-mp-badge-nuevo">Publicado</span>
       `;
@@ -252,7 +349,8 @@
         <div class="ev-mp-card"
              data-category="${catSlug}"
              data-precio="${precioNum}"
-             data-reciente="${ordenReciente}">
+             data-reciente="${ordenReciente}"
+             data-id="${pub.codigo_publicacion || ''}">
           <div class="ev-mp-card-media">
             <img src="${imgUrl}" alt="${titulo}">
             <div class="ev-mp-card-badges">
@@ -305,6 +403,19 @@
       refs.resumenResultados.textContent =
         `Mostrando ${n} resultado${n === 1 ? '' : 's'} en ${CONDO_NOMBRE_RESUMEN}`;
     }
+
+    // Eventos de "Ver detalle"
+    const cards = Array.from(refs.grid.querySelectorAll('.ev-mp-card'));
+    cards.forEach((card) => {
+      const pubId = card.getAttribute('data-id');
+      const btnDetalle = card.querySelector('.ev-mp-btn-detalle');
+
+      if (btnDetalle && pubId) {
+        btnDetalle.addEventListener('click', () => {
+          abrirModalDetalle(pubId);
+        });
+      }
+    });
   }
 
   // ------------------------------------
@@ -332,9 +443,7 @@
 
       if (resp.status === 401) {
         notify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
-        setTimeout(() => {
-          window.location.href = `${BASE}/`;
-        }, 1500);
+        setTimeout(() => { window.location.href = `${BASE}/`; }, 1500);
         return;
       }
 
@@ -363,7 +472,6 @@
   // Eventos de UI
   // ------------------------------------
   function bindEvents() {
-    // Chips
     refs.chips.forEach((chip) => {
       chip.addEventListener('click', () => {
         refs.chips.forEach(c => c.classList.remove('active'));
@@ -373,7 +481,6 @@
       });
     });
 
-    // Búsqueda
     if (refs.searchInput) {
       refs.searchInput.addEventListener('input', () => {
         textoBusqueda = refs.searchInput.value || '';
@@ -381,7 +488,6 @@
       });
     }
 
-    // Ordenar
     if (refs.selectOrdenar) {
       criterioOrden = refs.selectOrdenar.value || 'recientes';
       refs.selectOrdenar.addEventListener('change', () => {
@@ -395,24 +501,17 @@
   // Inicialización
   // ------------------------------------
   function initMarketplace() {
-    if (!capturarRefs()) {
-      // No está montada la vista Marketplace en este momento.
-      return;
-    }
-
+    if (!capturarRefs()) return;
     log('Inicializando Marketplace…');
-    yaInicializado = true;
     bindEvents();
     cargarPublicaciones();
   }
 
-  // 1) Intento normal: cuando la página termina de cargar
   document.addEventListener('DOMContentLoaded', () => {
     log('DOMContentLoaded');
     initMarketplace();
   });
 
-  // 2) Soporte para carga dinámica: cada vez que el contenido cambie
   const observer = new MutationObserver(() => {
     const gridActual = document.getElementById('mp_grid_publicaciones');
     if (gridActual && gridActual !== refs.grid) {
@@ -428,10 +527,7 @@
     subtree: true
   });
 
-  // 3) Exponer init explícito por si algún JS quiere llamarlo luego de cargar la vista
-  window.EVMarketplace = {
-    init: initMarketplace
-  };
+  window.EVMarketplace = { init: initMarketplace };
 
   log('JS cargado. BASE_URL:', BASE || '(vacía)', '| Condominio:', CONDO_NOMBRE_RESUMEN);
 })();

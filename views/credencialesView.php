@@ -106,12 +106,8 @@ $nombreUsuario = htmlspecialchars(
         </div>
 
         <div class="d-flex flex-column flex-md-row justify-content-end gap-2 gap-md-3 mt-4">
-          <button type="button" class="btn ev-btn-outline" id="btnCancelarContrasena">
-            Cancelar
-          </button>
-          <button type="button" class="btn ev-btn-primary" id="btnGuardarContrasena">
-            Guardar contraseña
-          </button>
+          <button type="button" class="btn btn-ev-neutral">Cancelar</button>
+          <button type="button" class="btn btn-ev-primary">Guardar contraseña</button>
         </div>
       </form>
     </div>

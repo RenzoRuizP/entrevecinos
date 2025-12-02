@@ -17,7 +17,7 @@ require_once __DIR__ . '/controllers/publicacionController.php';
 require_once __DIR__ . '/controllers/tipoController.php';
 require_once __DIR__ . '/controllers/marketplaceController.php';
 require_once __DIR__ . '/controllers/billeteraController.php';
-require_once __DIR__ . '/controllers/credencialController.php'; // ✅ NUEVO
+require_once __DIR__ . '/controllers/credencialController.php'; // NUEVO
 
 require_once __DIR__ . '/controllers/api/usuarioDatosController.php';
 require_once __DIR__ . '/controllers/api/apiPublicacionController.php';
@@ -67,12 +67,12 @@ $routes = [
     ['POST', '#^/login$#',                 [AuthController::class, 'login'],     'json'],
     ['GET',  '#^/MenuPrincipal$#',         [MenuPrincipalController::class, 'index'], 'html'],
 
-    // --- API REST (Condominios/Torres/Departamentos) ---
+    // --- API REST Condominios/Torres/Departamentos ---
     ['GET',  '#^/condominios$#',                 [CondominioController::class, 'listar'],             'json'],
     ['GET',  '#^/condominios/(\d+)/torres$#',    [CondominioController::class, 'listarTorres'],       'json'],
     ['GET',  '#^/torres/(\d+)/departamentos$#',  [CondominioController::class, 'listarDepartamentos'],'json'],
 
-    // --- API REST (Tipos / Categorías por Grupo) ---
+    // --- Tipos / Categorías ---
     ['GET',  '#^/tipos$#',                        [tipoController::class, 'listar'],                'json'],
     ['GET',  '#^/tipos/(\d+)/categoria_grupo$#',  [tipoController::class, 'listarCategoria_grupo'], 'json'],
 
@@ -90,16 +90,16 @@ $routes = [
     ['GET', '#^/publicacion$#', [publicacionController::class, 'index'], 'html'],
     ['GET', '#^/marketplace$#', [marketplaceController::class, 'index'], 'html'],
     ['GET', '#^/billetera$#',   [billeteraController::class, 'index'], 'html'],
-    ['GET', '#^/credencial$#',  [credencialController::class, 'index'], 'html'], // ✅ NUEVO
+    ['GET', '#^/credencial$#',  [credencialController::class, 'index'], 'html'],
     // ------------------------------
     //  FIN VISTAS
     // ------------------------------
 
-    // --- API de datos del usuario autenticado ---
+    // --- API datos usuario autenticado ---
     ['GET',  '#^/api/usuario/datos$#',      [usuarioDatosController::class, 'obtenerDatos'],    'json'],
     ['POST', '#^/api/usuario/actualizar$#', [usuarioDatosController::class, 'actualizarDatos'], 'json'],
 
-    // --- API mis publicaciones ---
+    // --- API Publicaciones (Mis publicaciones) ---
     ['POST', '#^/api/publicacion/registrar$#',        [apiPublicacionController::class, 'registrarPublicacion'], 'json'],
     ['GET',  '#^/api/publicacion/listar$#',           [apiPublicacionController::class, 'listarPublicaciones'],  'json'],
     ['GET',  '#^/api/publicacion/(\d+)$#',            [apiPublicacionController::class, 'obtenerPublicacion'],   'json'],
@@ -107,12 +107,15 @@ $routes = [
     ['POST', '#^/api/publicacion/(\d+)/anular$#',     [apiPublicacionController::class, 'anularPublicacion'],    'json'],
     ['POST', '#^/api/publicacion/(\d+)/publicar$#',   [apiPublicacionController::class, 'publicarPublicacion'],  'json'],
 
+    // --- NUEVO: API Detalle público del Marketplace ---
+    ['GET', '#^/api/publicacion/detalle/(\d+)$#', [apiPublicacionController::class, 'detallePublicacion'], 'json'],
+
     // --- API Marketplace ---
     ['GET', '#^/api/publicacion/listar-publicadas$#', [apiPublicacionController::class, 'listarPublicadasMarketplace'], 'json'],
 
     // --- API Billetera ---
-    ['GET',  '#^/api/billetera/saldo$#',              [apiBilleteraController::class, 'obtenerSaldo'],       'json'],
-    ['GET',  '#^/api/billetera/movimientos$#',        [apiBilleteraController::class, 'obtenerMovimientos'], 'json'],
+    ['GET',  '#^/api/billetera/saldo$#',               [apiBilleteraController::class, 'obtenerSaldo'],       'json'],
+    ['GET',  '#^/api/billetera/movimientos$#',         [apiBilleteraController::class, 'obtenerMovimientos'], 'json'],
     ['POST', '#^/api/billetera/debitar-publicacion$#',[apiBilleteraController::class, 'debitarPublicacion'], 'json'],
 ];
 
@@ -134,7 +137,7 @@ foreach ($routes as [$httpMethod, $pattern, $handler, $type]) {
             }
         }
 
-        // 6.2 Si es protegida, validar token
+        // 6.2 Validar token si no es pública
         if (!$isPublic) {
             try {
                 $token = $_COOKIE['auth_token'] ?? null;
@@ -163,7 +166,7 @@ foreach ($routes as [$httpMethod, $pattern, $handler, $type]) {
             header('Content-Type: text/html; charset=utf-8');
         }
 
-        array_shift($matches); // descartar coincidencia completa
+        array_shift($matches);
         call_user_func_array([$controller, $action], $matches);
         break;
     }

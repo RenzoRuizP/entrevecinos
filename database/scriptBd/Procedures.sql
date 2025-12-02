@@ -37,13 +37,66 @@ CREATE PROCEDURE `sp_registrar_usuario`(
 										)
 BEGIN
 			
+				
+	DECLARE p_codigo_usuario INT;
+				
 				INSERT INTO usuario (nombre, email, clave, codigo_rol, documento, telefono, fecha_creacion)
 				VALUES (p_nombre, p_email, p_clave, 2, p_documento, p_telefono, (SELECT NOW())); -- 123456
 				
-				INSERT INTO usuario_departamento(fecha_inicio, codigo_usuario, codigo_departamento, fecha_creacion)
-				VALUES (p_fecha_inicio, (SELECT NOW()));
+			SET p_codigo_usuario = 	(SELECT codigo_usuario FROM usuario WHERE documento = p_documento);
+				
+				IF p_codigo_usuario IS NOT NULL THEN
+				
+					INSERT INTO usuario_departamento(fecha_inicio, codigo_usuario, codigo_departamento, fecha_creacion)
+					VALUES (p_fecha_inicio, p_codigo_usuario, p_codigo_departamento, (SELECT NOW()));
+					
+				ELSE
+					SELECT 'No se pudo registrar. Codigo usuario no encontrado';
+					
+				END IF;
 END $$
 
+DROP PROCEDURE IF EXISTS sp_registrar_usuario;
+
+
+-- 
+
+
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS sp_actualizar_usuario $$
+CREATE PROCEDURE sp_actualizar_usuario(
+    IN p_nombre              VARCHAR(150),
+    IN p_documento           VARCHAR(20),
+    IN p_telefono            VARCHAR(20),
+    IN p_codigo_departamento INT,
+    IN p_codigo_usuario      INT
+)
+BEGIN
+    -- 1) Actualizar datos básicos del usuario
+    UPDATE usuario
+    SET nombre    = p_nombre,
+        documento = p_documento,
+        telefono  = p_telefono
+    WHERE codigo_usuario = p_codigo_usuario;
+
+    -- 2) ¿Ya tiene fila en usuario_departamento?
+    IF EXISTS (
+        SELECT 1
+        FROM usuario_departamento
+        WHERE codigo_usuario = p_codigo_usuario
+    ) THEN
+
+        UPDATE usuario_departamento
+        SET codigo_departamento = p_codigo_departamento
+        WHERE codigo_usuario = p_codigo_usuario;
+    ELSE
+        INSERT INTO usuario_departamento (codigo_usuario, codigo_departamento)
+        VALUES (p_codigo_usuario, p_codigo_departamento);
+    END IF;
+END $$
+
+DELIMITER ;
 
 -- 
 SELECT * FROM rol;
@@ -55,9 +108,19 @@ SELECT * FROM menu;
 SELECT * FROM menu_item;
 SELECT * FROM menu_item_accesos;
 SELECT * FROM publicacion;
-SELECT * FROM publicacion_imagen;
+SELECT * FROM rol;
+bi-person-circle
 
-SELECT NOW()
+
+SELECT 
+                    m_i.codigo_menu_item, m_i.nombre, m_i.icono, m_i.ruta
+                FROM rol r 
+                INNER JOIN menu_item_accesos m_i_a ON r.codigo_rol = m_i_a.codigo_rol 
+                INNER JOIN menu_item m_i          ON m_i.codigo_menu_item = m_i_a.codigo_menu_item 
+                INNER JOIN menu m                 ON m.codigo_menu = m_i.codigo_menu
+                WHERE r.nombre LIKE 'vecino' 
+                  AND m.codigo_menu = 1;
+                  
 
 SELECT
                 p.codigo_publicacion,

@@ -1,176 +1,172 @@
-<?php 
+<?php
+// views/marketplaceView.php
 require_once __DIR__ . '/../Config/config.php';
-require_once __DIR__ . '/../models/SesionJWT.php';
-require_once __DIR__ . '/../models/User.php';
 
-// ==========================================
-// 1) Valores por defecto (fallback)
-// ==========================================
-$condominioNombre      = 'Tu condominio';
-$condominioNombreCorto = 'Tu condominio';
-$torreNombre           = null;
-$condominioTextoChip   = 'Tu condominio';
-
-try {
-    // ==========================================
-    // 2) Leer JWT desde cookie auth_token
-    // ==========================================
-    if (!empty($_COOKIE['auth_token'])) {
-        $datosToken = SesionJWT::verificarToken($_COOKIE['auth_token']);
-
-        if (is_array($datosToken) && !empty($datosToken)) {
-            $emailUsuario = $datosToken['email'] ?? null;
-
-            // ==========================================
-            // 3) Si tenemos email, buscamos datos completos
-            //    usando User::DatosUsuario($email)
-            // ==========================================
-            if ($emailUsuario) {
-                $userModel    = new User();
-                $datosUsuario = $userModel->DatosUsuario($emailUsuario);
-
-                if ($datosUsuario) {
-                    // nombre_condominio viene del SELECT de DatosUsuario()
-                    if (!empty($datosUsuario['nombre_condominio'])) {
-                        $condominioNombre = $datosUsuario['nombre_condominio'];
-
-                        // Versión corta sin prefijo "Condominio "
-                        $condominioNombreCorto = preg_replace(
-                            '/^Condominio\s+/i',
-                            '',
-                            $condominioNombre
-                        );
-                    }
-
-                    // nombre_torre viene como nombre_torre
-                    if (!empty($datosUsuario['nombre_torre'])) {
-                        $torreNombre = $datosUsuario['nombre_torre'];
-                    }
-
-                    // Texto que se muestra en el chip (parte superior derecha)
-                    if ($torreNombre) {
-                        $condominioTextoChip = sprintf(
-                            '%s · Torre %s',
-                            $condominioNombre,
-                            $torreNombre
-                        );
-                    } else {
-                        $condominioTextoChip = $condominioNombre;
-                    }
-                }
-            }
-        }
-    }
-} catch (Exception $e) {
-    // Si algo falla con token o consulta, mantenemos los defaults
-    $condominioNombre      = 'Tu condominio';
-    $condominioNombreCorto = 'Tu condominio';
-    $condominioTextoChip   = 'Tu condominio';
-}
-
+// Nombre de condominio para el resumen (ajusta si lo obtienes de otro lado)
+$condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
 ?>
+
 <script>
-  // Exponer BASE_URL y datos de condominio para el front
   window.BASE_URL = "<?= rtrim(BASE_URL, '/'); ?>";
-  window.EV_CONDOMINIO_TEXTO  = <?= json_encode($condominioTextoChip,  JSON_UNESCAPED_UNICODE); ?>;
-  window.EV_CONDOMINIO_NOMBRE = <?= json_encode($condominioNombreCorto, JSON_UNESCAPED_UNICODE); ?>;
+  window.EV_CONDOMINIO_NOMBRE = "<?= htmlspecialchars($condominioNombre, ENT_QUOTES, 'UTF-8'); ?>";
 </script>
 
 <?php include_once __DIR__ . '/estilos/marketplaceEstilo.php'; ?>
 
-<!-- IMPORTANTE: aquí NO usamos content-wrapper.
-     El main ya es .content-wrapper en menuPrincipalView.php -->
-<div class="container-fluid py-4 ev-mp-wrapper">
+<div class="ev-mp-wrapper fade-in">
+  <div class="container-fluid px-2 px-lg-3 py-2 py-lg-3">
 
-  <!-- =======================================
-       ENCABEZADO MARKETPLACE
-  ======================================== -->
-  <div class="card ev-mp-header mb-3">
-    <div class="card-body">
+    <!-- ===========================
+         HEADER PRINCIPAL
+    ============================ -->
+    <div class="card ev-mp-header mb-3">
+      <div class="card-body">
 
-      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center">
-        <div>
-          <h2 class="ev-mp-title mb-1">Marketplace</h2>
-          <p class="ev-mp-subtitle mb-0">
-            Compra y vende productos y servicios con tus vecinos, sin salir de casa.
-          </p>
-        </div>
-
-        <!-- Condominio actual -->
-        <div class="ev-mp-condominio mt-3 mt-md-0">
-          <div class="ev-mp-condominio-icon">
-            <i class="bi bi-buildings"></i>
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+          <div>
+            <h1 class="ev-mp-title mb-1">Marketplace</h1>
+            <p class="ev-mp-subtitle mb-0">
+              Compra y vende productos entre vecinos de tu condominio.
+            </p>
           </div>
-          <div class="ev-mp-condominio-text">
-            <span class="ev-mp-condominio-label">Condominio actual</span>
-            <span class="ev-mp-condominio-name">
-              <?= htmlspecialchars($condominioTextoChip, ENT_QUOTES, 'UTF-8'); ?>
-            </span>
+
+          <div class="ev-mp-condominio">
+            <div class="ev-mp-condominio-icon">
+              <i class="bi bi-buildings"></i>
+            </div>
+            <div class="ev-mp-condominio-text">
+              <span class="ev-mp-condominio-label">Condominio actual</span>
+              <span class="ev-mp-condominio-name">
+                <?= htmlspecialchars($condominioNombre, ENT_QUOTES, 'UTF-8'); ?>
+              </span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Buscador + filtros -->
-      <div class="ev-mp-search-row">
-        <!-- Buscador -->
-        <div class="ev-mp-search-input-wrapper">
-          <i class="bi bi-search"></i>
-          <input
-            type="text"
-            class="form-control ev-mp-search-input"
-            id="mp_busqueda"
-            placeholder="¿Qué estás buscando hoy? (ej. pollo a la brasa, gas, manicure)"
-          >
+        <!-- Buscador + ordenar -->
+        <div class="ev-mp-search-row mt-3">
+          <!-- Buscador -->
+          <div class="ev-mp-search-input-wrapper">
+            <i class="bi bi-search"></i>
+            <input
+              type="text"
+              id="mp_busqueda"
+              class="form-control ev-mp-search-input"
+              placeholder="Busca por título o descripción..."
+              autocomplete="off"
+            >
+          </div>
+
+          <!-- Orden -->
+          <div class="ev-mp-search-actions">
+            <div class="ev-mp-sort-wrapper">
+              <span class="ev-mp-sort-label">Ordenar por:</span>
+              <select id="mp_orden" class="form-select ev-mp-sort-select">
+                <option value="recientes">Más recientes</option>
+                <option value="precio_menor">Precio: menor a mayor</option>
+                <option value="precio_mayor">Precio: mayor a menor</option>
+                <option value="mejor_valorados">Mejor valorados</option>
+              </select>
+            </div>
+          </div>
         </div>
 
-        <!-- Filtros y orden -->
-        <div class="ev-mp-search-actions">
-          <button type="button" class="btn btn-outline-success ev-mp-btn-filtros" id="mp_btn_filtros">
-            <i class="bi bi-sliders"></i> Filtros
+        <!-- Chips categorías -->
+        <div class="ev-mp-chips">
+          <button type="button" class="ev-mp-chip active" data-filtro="todos">
+            Todos
           </button>
+          <button type="button" class="ev-mp-chip" data-filtro="recomendados">
+            Recomendados
+          </button>
+          <button type="button" class="ev-mp-chip" data-filtro="productos">
+            Productos
+          </button>
+          <button type="button" class="ev-mp-chip" data-filtro="servicios">
+            Servicios
+          </button>
+        </div>
 
-          <div class="ev-mp-sort-wrapper">
-            <span class="ev-mp-sort-label">Ordenar por</span>
-            <select class="form-select ev-mp-sort-select" id="mp_orden">
-              <option value="recientes">Más recientes</option>
-              <option value="precio_menor">Precio: menor a mayor</option>
-              <option value="precio_mayor">Precio: mayor a menor</option>
-              <option value="mejor_valorados">Mejor valorados</option>
-            </select>
+        <!-- Resumen resultados -->
+        <div id="mp_resumen_resultados" class="ev-mp-resumen">
+          Mostrando 0 resultados en <?= htmlspecialchars($condominioNombre, ENT_QUOTES, 'UTF-8'); ?>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ===========================
+         GRID PUBLICACIONES
+    ============================ -->
+    <div id="mp_empty_state">
+      No encontramos publicaciones con los filtros actuales.
+    </div>
+
+    <div id="mp_grid_publicaciones" class="ev-mp-grid">
+      <!-- Cards generadas por marketplace.js -->
+    </div>
+
+  </div>
+</div>
+
+<!-- ===========================
+     MODAL DETALLE PUBLICACIÓN
+     (IDs alineados con marketplace.js)
+=========================== -->
+<div class="modal fade" id="mp_modal_detalle" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title d-flex align-items-center gap-2">
+          <i class="bi bi-image"></i>
+          <span>Detalle de publicación</span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body ev-mp-modal-body">
+        <div class="ev-mp-preview-card">
+
+          <!-- Imagen principal -->
+          <div class="ev-mp-modal-media">
+            <img
+              id="mp_modal_img_principal"
+              src=""
+              alt="Imagen principal de la publicación"
+            >
           </div>
+
+          <!-- Thumbnails -->
+          <div id="mp_modal_thumbs" class="ev-mp-modal-thumbs"></div>
+
+          <!-- Badges tipo / categoría -->
+          <div class="d-flex flex-wrap gap-2 mb-2">
+            <span id="mp_modal_tipo"
+                  class="badge rounded-pill bg-success-subtle text-success fw-semibold"></span>
+            <span id="mp_modal_categoria"
+                  class="badge rounded-pill bg-secondary-subtle text-secondary fw-semibold"></span>
+          </div>
+
+          <!-- Título / precio / descripción -->
+          <h5 id="mp_modal_titulo_txt" class="ev-mp-modal-title mt-2 mb-1"></h5>
+          <div id="mp_modal_precio" class="ev-mp-modal-price mb-2"></div>
+          <p id="mp_modal_descripcion" class="ev-mp-modal-desc mb-0"></p>
         </div>
       </div>
 
-      <!-- Chips de categorías -->
-      <div class="ev-mp-chips">
-        <button type="button" class="ev-mp-chip active" data-filtro="todos">Todos</button>
-        <!-- luego agregaremos aquí la pestaña Recomendados -->
-        <button type="button" class="ev-mp-chip" data-filtro="productos">Productos</button>
-        <button type="button" class="ev-mp-chip" data-filtro="servicios">Servicios</button>
-        <button type="button" class="ev-mp-chip" data-filtro="alimentos">Alimentos</button>
-        <button type="button" class="ev-mp-chip" data-filtro="mascotas">Mascotas</button>
-        <button type="button" class="ev-mp-chip" data-filtro="hogar">Hogar</button>
+      <div class="modal-footer d-flex justify-content-between">
+        <button type="button" class="btn-ev-neutral" data-bs-dismiss="modal">
+          Cerrar
+        </button>
+        <button type="button" id="btnPedirAhoraDetalle" class="btn-ev-primary">
+          Pedir ahora
+        </button>
       </div>
 
-      <!-- Resumen -->
-      <p class="ev-mp-resumen mb-0" id="mp_resumen_resultados">
-        Mostrando 0 resultados en <?= htmlspecialchars($condominioNombreCorto, ENT_QUOTES, 'UTF-8'); ?>
-      </p>
     </div>
   </div>
-  <!-- /card header -->
+</div>
 
-  <!-- Estado vacío / mensaje general -->
-  <div id="mp_empty_state" class="text-center text-muted mt-3" style="display:none;">
-    No se encontraron publicaciones publicadas en este momento.
-  </div>
-
-  <!-- =======================================
-       GRID DE PUBLICACIONES
-       (se rellena dinámicamente por marketplace.js)
-  ======================================== -->
-  <div class="ev-mp-grid" id="mp_grid_publicaciones">
-    <!-- Aquí el JS inyecta las .ev-mp-card según las publicaciones visibles -->
-  </div><!-- /.ev-mp-grid -->
-
-</div><!-- /.container-fluid -->
+<!-- JS específico del marketplace -->
+<script src="<?= BASE_URL ?>views/js/marketplace.js"></script>

@@ -1,6 +1,10 @@
+<?php
+// views/estilos/credencialesEstilo.php
+// Estilos específicos para la vista de Credenciales (cambiar contraseña)
+?>
 <style>
 /* =========================================
-   ENTRE VECINOS - CREDENCIALES (Premium EV Classic)
+   ENTRE VECINOS - CREDENCIALES (Premium)
    Vista de cambio de contraseña
 ========================================= */
 
@@ -50,7 +54,7 @@
 .ev-credenciales-card {
   position: relative;
   border-radius: 20px;
-  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.12); /* sombra más suave */
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.12);
   border: 1px solid rgba(148, 163, 184, 0.25);
   background-color: #FFFFFF;
   margin-top: 20px;
@@ -66,7 +70,7 @@
   background: linear-gradient(135deg, #0F592F, #198754);
 }
 
-/* Header interno del card: BLANCO (sobreescribe estilo global) */
+/* Header interno del card: BLANCO (sobreescribe estilo global de .card-header) */
 .ev-credenciales-card .card-header {
   border: 0;
   border-radius: 0;
@@ -122,7 +126,7 @@
 }
 
 /* ---------------------------
-   Tipografías de formulario
+   Tipografías de formulario específicas de esta vista
 ---------------------------- */
 .ev-credenciales-form-label {
   font-size: 0.9rem;
@@ -133,88 +137,6 @@
 .ev-credenciales-form-text {
   font-size: 0.82rem;
   color: #6B7280;
-}
-
-/* ---------------------------
-   Inputs redondeados
----------------------------- */
-.ev-input-rounded {
-  border-radius: 999px;
-  padding-left: 42px;
-  border-color: #E5E7EB;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-}
-
-.ev-input-rounded:focus {
-  border-color: #0F592F;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.18);
-}
-
-/* Icono dentro del input */
-.ev-input-icon {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #9CA3AF;
-  font-size: 1.1rem;
-}
-
-/* ---------------------------
-   Botones (Premium EV Classic)
----------------------------- */
-
-/* Botón primario: sólido, corporativo, sombra suave */
-.ev-btn-primary {
-  background-color: #0F592F;         /* verde EV sólido */
-  border-color: #0F592F;
-  border-radius: 999px;
-  padding-inline: 30px;
-  font-weight: 600;
-  color: #FFFFFF;
-  box-shadow: 0 10px 20px rgba(15, 89, 47, 0.30); /* sombra más controlada */
-  transition: background-color 0.18s ease, box-shadow 0.18s ease,
-              transform 0.12s ease;
-}
-
-.ev-btn-primary:hover {
-  background-color: #0C4524;        /* un poco más oscuro en hover */
-  border-color: #0C4524;
-  color: #FFFFFF;
-  box-shadow: 0 12px 24px rgba(15, 89, 47, 0.35);
-  transform: translateY(-1px);
-}
-
-.ev-btn-primary:active {
-  background-color: #09321A;
-  border-color: #09321A;
-  box-shadow: 0 6px 14px rgba(15, 89, 47, 0.35);
-  transform: translateY(0);
-}
-
-/* Botón secundario: limpio, ligero, jerarquía clara */
-.ev-btn-outline {
-  border-radius: 999px;
-  font-weight: 500;
-  border: 1px solid #15803D;        /* verde un poco más suave */
-  color: #166534;                   /* texto verde medio */
-  background-color: #FFFFFF;
-  padding-inline: 22px;
-  transition: background-color 0.18s ease, color 0.18s ease,
-              box-shadow 0.18s ease, border-color 0.18s ease;
-}
-
-.ev-btn-outline:hover {
-  background-color: #ECFDF3;        /* verde muy suave */
-  color: #0B3D26;
-  border-color: #15803D;
-  box-shadow: 0 6px 14px rgba(21, 128, 61, 0.20);
-}
-
-.ev-btn-outline:active {
-  background-color: #DCFCE7;
-  color: #064E3B;
-  box-shadow: 0 3px 8px rgba(21, 128, 61, 0.25);
 }
 
 /* ---------------------------
@@ -235,11 +157,67 @@
 }
 
 /* ---------------------------
-   Responsivo
+   Responsivo específico
 ---------------------------- */
 @media (max-width: 991.98px) {
   .ev-credenciales-card .card-body {
     padding-inline: 16px;
+  }
+}
+
+/* === Ajustes extra para modo móvil (Opción A tipo app) === */
+@media (max-width: 768px) {
+  .ev-credenciales-wrapper {
+    padding: 18px 12px;
+    min-height: auto;
+  }
+
+  .ev-credenciales-header h2 {
+    font-size: 1.35rem;
+  }
+
+  .ev-credenciales-header p {
+    font-size: 0.9rem;
+  }
+
+  .ev-credenciales-card {
+    border-radius: 18px;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.16);
+    margin-top: 16px;
+  }
+
+  .ev-credenciales-card .card-header {
+    padding: 14px 16px 10px 16px;
+    gap: 10px;
+  }
+
+  .ev-credenciales-card .card-header h5 {
+    font-size: 1rem;
+  }
+
+  .ev-credenciales-card .card-body {
+    padding: 16px 14px 18px 14px;
+  }
+}
+
+@media (max-width: 576px) {
+  /* Botones apilados y full width dentro de la tarjeta */
+  .ev-credenciales-card .card-body .btn {
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+
+  .ev-credenciales-card .card-body .btn:last-child {
+    margin-bottom: 0;
+  }
+
+  .ev-credenciales-form-label {
+    font-size: 0.85rem;
+  }
+
+  .ev-credenciales-form-text {
+    font-size: 0.78rem;
   }
 }
 </style>

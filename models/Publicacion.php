@@ -617,4 +617,43 @@ class Publicacion extends Conexion
         }
     }
 
+    /* ===============================================================
+       NUEVO MÉTODO PARA DETALLE PÚBLICO EN MARKETPLACE
+       - Solo visible = 2
+       - Devuelve título, precio, tipo, categoría, descripción, portada
+       =============================================================== */
+    public function obtenerDetalleMarketplace(int $codigoPublicacion): ?array
+    {
+        try {
+            $sql = "
+                SELECT
+                    p.codigo_publicacion,
+                    p.titulo,
+                    p.descripcion,
+                    p.precio,
+                    p.imagen_portada,
+                    t.nombre AS tipo_nombre,
+                    c.nombre AS categoria_nombre
+                FROM publicacion p
+                LEFT JOIN tipo t
+                    ON t.codigo_tipo = p.codigo_tipo
+                LEFT JOIN categoria c
+                    ON c.codigo_categoria = p.codigo_categoria
+                WHERE p.codigo_publicacion = :id
+                  AND p.visible = 2
+                LIMIT 1
+            ";
+
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->bindParam(':id', $codigoPublicacion, PDO::PARAM_INT);
+            $stmt->execute();
+
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $row ?: null;
+
+        } catch (Exception $e) {
+            throw $e;
+        }
+    }
+
 }

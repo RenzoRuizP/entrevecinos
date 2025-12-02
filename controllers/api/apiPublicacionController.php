@@ -771,6 +771,104 @@ class apiPublicacionController
         }
     }
 
+    /* ================================================================
+     * ✔ ENDPOINT PARA MODAL DEL MARKETPLACE
+     * ---------------------------------------------------------------
+     * GET /api/publicacion/detalle/{id}
+     * Trae SOLO datos que se pueden mostrar públicamente.
+     * ================================================================ */
+    public function detallePublicacion($id)
+    {
+        try {
+            if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+                http_response_code(405);
+                echo json_encode([
+                    'ok' => false,
+                    'mensaje' => 'Método no permitido'
+                ]);
+                return;
+            }
+
+            // Requiere usuario autenticado
+            $token = $_COOKIE['auth_token'] ?? null;
+            if (!$token) {
+                http_response_code(401);
+                echo json_encode(['ok' => false, 'error' => 'Token no encontrado.']);
+                return;
+            }
+
+            $usuario = SesionJWT::verificarToken($token);
+            if (!$usuario || empty($usuario['codigo_usuario'])) {
+                http_response_code(401);
+                echo json_encode(['ok' => false, 'error' => 'Token inválido o usuario no encontrado.']);
+                return;
+            }
+
+            $codigoPublicacion = (int)$id;
+            $pubModel = new Publicacion();
+
+            /* ---------------------------------------------------------
+               1) Obtener SOLO publicaciones visibles (visible = 2)
+            --------------------------------------------------------- */
+            $detalle = $pubModel->obtenerDetalleMarketplace($codigoPublicacion);
+
+            if (!$detalle) {
+                http_response_code(404);
+                echo json_encode([
+                    'ok' => false,
+                    'mensaje' => 'Publicación no encontrada o no está publicada.'
+                ]);
+                return;
+            }
+
+            /* ---------------------------------------------------------
+               2) Obtener imágenes
+            --------------------------------------------------------- */
+            $imagenes = $pubModel->obtenerImagenes($codigoPublicacion);
+
+            $baseUrl = rtrim(BASE_URL, '/');
+            foreach ($imagenes as &$img) {
+                $ruta = $img['ruta'] ?? '';
+                if ($ruta !== '') {
+                    if (preg_match('#^https?://#i', $ruta)) {
+                        $img['url'] = $ruta;
+                    } else {
+                        $img['url'] = $baseUrl . '/' . ltrim($ruta, '/');
+                    }
+                } else {
+                    $img['url'] = '';
+                }
+            }
+            unset($img);
+
+            /* ---------------------------------------------------------
+               3) Respuesta JSON PARA EL MODAL
+            --------------------------------------------------------- */
+            echo json_encode([
+                'ok' => true,
+                'data' => [
+                    'titulo'            => $detalle['titulo'],
+                    'precio'            => $detalle['precio'],
+                    'categoria_nombre'  => $detalle['categoria_nombre'] ?? '',
+                    'tipo_nombre'       => $detalle['tipo_nombre'] ?? '',
+                    'descripcion'       => $detalle['descripcion'],
+                    'imagen_portada'    => $detalle['imagen_portada'] 
+                                            ? $baseUrl . '/' . ltrim($detalle['imagen_portada'], '/')
+                                            : '',
+                    'imagenes'          => $imagenes
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'ok' => false,
+                'mensaje' => 'Error interno.',
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
     /**
      * GET /api/publicacion/listar-publicadas
      * Listado para el Marketplace (visible = 2).
