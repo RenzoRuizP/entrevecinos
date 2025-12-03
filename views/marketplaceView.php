@@ -111,13 +111,12 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
 
 <!-- ===========================
      MODAL DETALLE PUBLICACIÓN
-     (IDs alineados con marketplace.js)
 =========================== -->
 <div class="modal fade" id="mp_modal_detalle" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-centered">
-    <div class="modal-content">
+  <div class="modal-dialog ev-mp-modal-dialog modal-dialog-centered">
+    <div class="modal-content ev-mp-modal-content">
 
-      <div class="modal-header">
+      <div class="modal-header ev-mp-modal-header">
         <h5 class="modal-title d-flex align-items-center gap-2">
           <i class="bi bi-image"></i>
           <span>Detalle de publicación</span>
@@ -128,13 +127,15 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
       <div class="modal-body ev-mp-modal-body">
         <div class="ev-mp-preview-card">
 
-          <!-- Imagen principal -->
+          <!-- Imagen principal con relación de aspecto estándar -->
           <div class="ev-mp-modal-media">
-            <img
-              id="mp_modal_img_principal"
-              src=""
-              alt="Imagen principal de la publicación"
-            >
+            <div class="ev-mp-modal-media-inner">
+              <img
+                id="mp_modal_img_principal"
+                src=""
+                alt="Imagen principal de la publicación"
+              >
+            </div>
           </div>
 
           <!-- Thumbnails -->
@@ -155,8 +156,7 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
         </div>
       </div>
 
-      <!-- Footer con botones estándar EV juntos -->
-      <div class="modal-footer ev-mp-modal-footer">
+      <div class="modal-footer ev-mp-modal-footer d-flex justify-content-end gap-2 flex-wrap">
         <button type="button" class="btn-ev-neutral" data-bs-dismiss="modal">
           Cerrar
         </button>

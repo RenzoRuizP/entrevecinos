@@ -251,7 +251,7 @@
   border-color:var(--ev-verde);
 }
 
-/* Imagen */
+/* Imagen de la card */
 .ev-mp-card-media{
   position:relative;
   width:100%;
@@ -395,17 +395,15 @@
 /* Card interna que replica la previsualización */
 .ev-mp-preview-card{
   background:#ffffff;
-  border-radius:16px;
+  border-radius:18px;
   border:1px solid var(--ev-gris-borde);
   padding:16px;
   box-shadow:0 4px 12px rgba(0,0,0,0.04);
-  max-width: 780px;        /* ancho razonable en escritorio */
-  margin: 0 auto;          /* centrado dentro del modal */
+  max-width:860px;
+  margin:0 auto;
 }
 
-/* CONTENEDOR de la imagen principal
-   ✅ Sin altura fija: deja que la imagen mande
-*/
+/* CONTENEDOR de la imagen principal */
 .ev-mp-modal-media {
   width: 100%;
   background: #ffffff;
@@ -413,17 +411,23 @@
   border-radius: 16px;
   overflow: hidden;
   padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  aspect-ratio: 4 / 3;          /* mismo marco para todas las fotos */
+  max-height: 520px;
+  margin-bottom: 14px;
 }
 
-/* Imagen principal
-   ✅ Ocupa todo el ancho, altura en proporción (como en previsualización)
-   ✅ No se recorta porque height es auto
-*/
+/* Imagen principal – zoom suave para recortar un poco más */
 .ev-mp-modal-media img {
   width: 100%;
-  height: auto;
-  display: block;
+  height: 100%;
+  object-fit: cover;
   border-radius: 12px;
+  transform: scale(1.08);
+  transform-origin: center center;
+  transition: transform 0.25s ease;
 }
 
 /* Miniaturas */
@@ -448,6 +452,9 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transform: scale(1.03);          /* ligero zoom también en miniaturas */
+  transform-origin: center center;
+  transition: transform 0.2s ease;
 }
 
 .ev-mp-modal-thumb.active {
@@ -475,13 +482,41 @@
   line-height: 1.5;
 }
 
+/* Botones del footer juntos y en armonía con el estándar */
+.modal-footer {
+  border-top: none;
+  padding: 16px 24px 20px 24px;
+}
+
+.modal-footer .btn-ev-neutral,
+.modal-footer .btn-ev-primary{
+  min-width: 150px;
+}
+
+/* Ajuste de tamaño general del modal en escritorio */
+@media (min-width: 768px){
+  .modal-dialog.modal-xl{
+    max-width: 980px;
+  }
+}
+
 /* Responsive modal */
 @media(max-width:575px){
   .ev-mp-modal-body{
     padding-inline:14px;
   }
   .ev-mp-preview-card{
-    max-width: 100%;
+    border-radius:16px;
+  }
+  .ev-mp-modal-media{
+    max-height:360px;
+  }
+  /* En móvil recortamos un poco menos para que no se pierda tanto contenido */
+  .ev-mp-modal-media img{
+    transform: scale(1.03);
+  }
+  .ev-mp-modal-thumb img{
+    transform: scale(1.0);
   }
 }
 
