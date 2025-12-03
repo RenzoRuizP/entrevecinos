@@ -316,7 +316,22 @@ CREATE TABLE IF NOT EXISTS `publicacion` (
   CONSTRAINT `fk_publicacion_categoria` FOREIGN KEY (`codigo_categoria`) REFERENCES `categoria` (`codigo_categoria`),
   CONSTRAINT `fk_publicacion_tipo` FOREIGN KEY (`codigo_tipo`) REFERENCES `tipo` (`codigo_tipo`),
   CONSTRAINT `publicacion_ibfk_1` FOREIGN KEY (`codigo_usuario`) REFERENCES `usuario` (`codigo_usuario`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=UTF8MB4_GENERAL_CI;
+
+-- ============================================
+-- AGREGAR CAMPO PARA FECHA DE DESTACADO
+-- ============================================
+ALTER TABLE publicacion
+ADD COLUMN fecha_destacado DATETIME NULL
+AFTER visible;
+
+-- ============================================
+-- OPCIONAL: ÍNDICE PARA CONSULTAS MÁS RÁPIDAS
+-- (especialmente para expiración)
+-- ============================================
+ALTER TABLE publicacion
+ADD INDEX idx_fecha_destacado (fecha_destacado);
+
 
 -- Volcando datos para la tabla entre_vecinos_bd.publicacion: ~2 rows (aproximadamente)
 /*!40000 ALTER TABLE `publicacion` DISABLE KEYS */;
@@ -514,5 +529,3 @@ CREATE TABLE billetera_movimiento (
 );
 
 
-ALTER TABLE publicacion
-ADD COLUMN fecha_destacado DATETIME NULL AFTER visible;

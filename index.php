@@ -19,9 +19,15 @@ require_once __DIR__ . '/controllers/marketplaceController.php';
 require_once __DIR__ . '/controllers/billeteraController.php';
 require_once __DIR__ . '/controllers/credencialController.php'; // NUEVO
 
+// NUEVO: controlador para vista Recibir pedidos
+require_once __DIR__ . '/controllers/recibirPedidosController.php';
+
 require_once __DIR__ . '/controllers/api/usuarioDatosController.php';
 require_once __DIR__ . '/controllers/api/apiPublicacionController.php';
 require_once __DIR__ . '/controllers/api/apiBilleteraController.php';
+
+// NUEVO: controlador para API de pedidos (por ahora stub)
+require_once __DIR__ . '/controllers/api/apiPedidoController.php';
 
 require_once __DIR__ . '/models/SesionJWT.php';
 
@@ -86,11 +92,14 @@ $routes = [
     // ------------------------------
     //  VISTAS 
     // ------------------------------
-    ['GET', '#^/mi-perfil$#',   [miPerfilController::class, 'index'], 'html'],
-    ['GET', '#^/publicacion$#', [publicacionController::class, 'index'], 'html'],
-    ['GET', '#^/marketplace$#', [marketplaceController::class, 'index'], 'html'],
-    ['GET', '#^/billetera$#',   [billeteraController::class, 'index'], 'html'],
-    ['GET', '#^/credencial$#',  [credencialController::class, 'index'], 'html'],
+    ['GET', '#^/mi-perfil$#',        [miPerfilController::class, 'index'],       'html'],
+    ['GET', '#^/publicacion$#',      [publicacionController::class, 'index'],    'html'],
+    ['GET', '#^/marketplace$#',      [marketplaceController::class, 'index'],    'html'],
+    ['GET', '#^/billetera$#',        [billeteraController::class, 'index'],      'html'],
+    ['GET', '#^/credencial$#',       [credencialController::class, 'index'],     'html'],
+
+    // NUEVO: vista Recibir pedidos
+    ['GET', '#^/recibir$#',  [recibirPedidosController::class, 'index'], 'html'],
     // ------------------------------
     //  FIN VISTAS
     // ------------------------------
@@ -117,6 +126,9 @@ $routes = [
     ['GET',  '#^/api/billetera/saldo$#',               [apiBilleteraController::class, 'obtenerSaldo'],       'json'],
     ['GET',  '#^/api/billetera/movimientos$#',         [apiBilleteraController::class, 'obtenerMovimientos'], 'json'],
     ['POST', '#^/api/billetera/debitar-publicacion$#',[apiBilleteraController::class, 'debitarPublicacion'], 'json'],
+
+    // --- NUEVO: API Recibir pedidos (stub) ---
+    ['GET', '#^/api/pedidos/recibir$#', [apiPedidoController::class, 'listarPedidos'], 'json'],
 ];
 
 // ============================================================
