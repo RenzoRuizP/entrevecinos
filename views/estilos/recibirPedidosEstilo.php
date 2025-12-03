@@ -55,10 +55,8 @@
   font-size: 1.35rem;
 }
 
-/* Badge estado */
+/* Badge estado base */
 .badge-estado {
-  background: rgba(255,255,255,0.1);
-  color: #e8f5ed;
   border-radius: 999px;
   padding: 6px 14px;
   font-size: 0.82rem;
@@ -66,6 +64,17 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Estados del badge */
+.badge-estado.offline {
+  background-color: #dfe4ea;
+  color: #536071;
+}
+
+.badge-estado.online {
+  background-color: rgba(255,255,255,0.18);
+  color: #e8f5ed;
 }
 
 /* BODY */
@@ -81,9 +90,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  margin: 10px 0 24px 0;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(0,0,0,0.06);
+  margin: 16px 0 24px 0; /* sin línea divisoria */
 }
 
 .rp-slider-toggle {
@@ -108,6 +115,7 @@
 
 .rp-slider-toggle:hover {
   transform: translateY(-3px);
+  filter: brightness(0.98);
   box-shadow:
     inset 0 2px 6px rgba(255,255,255,0.85),
     0 12px 26px rgba(15, 89, 47, 0.18);
@@ -153,7 +161,7 @@
 }
 
 .rp-slider-toggle:hover .rp-slider-arrow {
-  transform: translateX(3px);
+  transform: translateX(3px) scale(1.06);
 }
 
 .rp-slider-text {
@@ -197,7 +205,7 @@
 }
 
 .rp-estado-img {
-  max-width: 170px;
+  max-width: 160px; /* un poco más compacta aún */
   width: 100%;
   height: auto;
 }
@@ -218,6 +226,7 @@
   font-size: 1rem;
   color: #6c757d;
   margin-bottom: 0;
+  line-height: 1.55;
 }
 
 /* ==========================

@@ -17,7 +17,8 @@ require_once __DIR__ . '/../Config/config.php';
         Recibir pedidos
       </h5>
 
-      <span class="badge-estado" id="rpBadgeEstadoTexto">
+      <!-- Estado inicial: DESCONECTADO -->
+      <span class="badge-estado offline" id="rpBadgeEstadoTexto">
         <i class="bi bi-toggle-off"></i>
         Desconectado
       </span>
