@@ -6,9 +6,7 @@ require_once __DIR__ . '/../Config/config.php';
   // Exponer BASE_URL para los fetch del front
   window.BASE_URL = "<?= rtrim(BASE_URL, '/'); ?>";
 </script>
-
 <?php require_once __DIR__ . '/estilos/recibirPedidosEstilo.php'; ?>
-
 <div class="container-recibir-pedidos fade-in">
   <div class="card">
 
@@ -20,7 +18,7 @@ require_once __DIR__ . '/../Config/config.php';
       </h5>
 
       <span class="badge-estado" id="rpBadgeEstadoTexto">
-        <i class="bi bi-wifi-off"></i>
+        <i class="bi bi-toggle-off"></i>
         Desconectado
       </span>
     </div>
@@ -29,13 +27,16 @@ require_once __DIR__ . '/../Config/config.php';
     <div class="card-body">
 
       <!-- 1) SLIDER PRINCIPAL -->
-      <section class="rp-slider-banner mb-4">
+      <section class="rp-slider-banner">
         <button
           type="button"
           class="rp-slider-toggle rp-off"
           id="rpToggleEstado"
           aria-pressed="false"
         >
+          <span class="rp-slider-arrow">
+            <i class="bi bi-arrow-right-short"></i>
+          </span>
           <span class="rp-slider-text" id="rpTextoSlider">
             Desliza para conectarte
           </span>
@@ -56,7 +57,7 @@ require_once __DIR__ . '/../Config/config.php';
 
           <div class="rp-estado-texto">
             <p class="rp-estado-title">
-              Empieza a recibir pedidos en tiempo real
+              Conéctate para recibir pedidos en tiempo real
             </p>
             <p class="rp-estado-subtitle">
               Cuando te conectes, solo verás pedidos del condominio en el que vives.

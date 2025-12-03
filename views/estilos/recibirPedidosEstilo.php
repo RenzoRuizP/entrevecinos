@@ -81,39 +81,94 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-bottom: 20px;
+  margin: 10px 0 24px 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
 }
 
 .rp-slider-toggle {
   border-radius: 999px;
-  border: 2px solid #dde2ea;
+  border: 2px solid #c5ccda;
   padding: 14px 40px;
-  background: #f5f6f8;
-  color: #4b5563;
+  background: linear-gradient(145deg, #c7cedd, #e4e7ef);
+  color: #3b4252;
   font-weight: 600;
   font-size: 1rem;
   min-width: min(420px, 100%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   cursor: pointer;
-  box-shadow: 0 8px 20px rgba(15, 89, 47, 0.08);
+  box-shadow:
+    inset 0 2px 6px rgba(255,255,255,0.75),
+    0 8px 18px rgba(15, 89, 47, 0.12);
   transition: all .25s ease;
 }
 
 .rp-slider-toggle:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 26px rgba(15, 89, 47, 0.18);
+  transform: translateY(-3px);
+  box-shadow:
+    inset 0 2px 6px rgba(255,255,255,0.85),
+    0 12px 26px rgba(15, 89, 47, 0.18);
+}
+
+.rp-slider-toggle:active {
+  transform: scale(0.985);
+  box-shadow:
+    inset 0 1px 3px rgba(0,0,0,0.10),
+    0 6px 16px rgba(15,89,47,0.16);
 }
 
 .rp-slider-toggle.rp-on {
-  background: var(--verde-ev);
+  background: linear-gradient(145deg, #0f592f, #138f57);
   border-color: var(--verde-ev);
   color: #ffffff;
+  box-shadow:
+    inset 0 2px 6px rgba(255,255,255,0.35),
+    0 12px 28px rgba(15,89,47,0.45);
 }
 
-.rp-slider-toggle.rp-off {
-  background: #f5f6f8;
+.rp-slider-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.75);
+  color: #3b4252;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.12);
+  transition: transform .25s ease;
+}
+
+.rp-slider-arrow i {
+  font-size: 1.3rem;
+  transform: translateX(1px);
+}
+
+.rp-slider-toggle.rp-on .rp-slider-arrow {
+  background: rgba(255,255,255,0.9);
+  color: var(--verde-ev);
+}
+
+.rp-slider-toggle:hover .rp-slider-arrow {
+  transform: translateX(3px);
+}
+
+.rp-slider-text {
+  letter-spacing: 0.02em;
+}
+
+/* Animación de la flecha en estado desconectado */
+@keyframes arrowPulse {
+  0%   { transform: translateX(1px); }
+  50%  { transform: translateX(6px); }
+  100% { transform: translateX(1px); }
+}
+
+.rp-slider-toggle.rp-off .rp-slider-arrow i {
+  animation: arrowPulse 1.4s ease-in-out infinite;
 }
 
 /* ==========================
@@ -127,9 +182,9 @@
 .rp-estado-card {
   border-radius: 18px;
   background: #ffffff;
-  padding: 22px 24px;
+  padding: 20px 26px;
   display: grid;
-  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 230px) minmax(0, 1fr);
   align-items: center;
   gap: 22px;
   box-shadow: 0 8px 22px rgba(0,0,0,0.05);
@@ -142,7 +197,7 @@
 }
 
 .rp-estado-img {
-  max-width: 220px;
+  max-width: 170px;
   width: 100%;
   height: auto;
 }
@@ -153,15 +208,15 @@
 }
 
 .rp-estado-title {
-  font-size: 1.2rem;
+  font-size: 1.28rem;
   font-weight: 700;
   margin-bottom: 6px;
   color: var(--verde-ev);
 }
 
 .rp-estado-subtitle {
-  font-size: 0.95rem;
-  color: var(--gris-texto);
+  font-size: 1rem;
+  color: #6c757d;
   margin-bottom: 0;
 }
 
@@ -266,7 +321,7 @@
   margin-bottom: 4px;
 }
 
-/* ANIMACIÓN */
+/* ANIMACIÓN GENERAL */
 @keyframes fadeIn {
   from { opacity:0; transform: translateY(10px); }
   to   { opacity:1; transform: translateY(0); }

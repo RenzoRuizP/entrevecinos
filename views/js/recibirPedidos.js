@@ -56,7 +56,7 @@
         toggle.classList.add('rp-off');
         toggle.setAttribute('aria-pressed', 'false');
         textoSlider.textContent = 'Desliza para conectarte';
-        badgeEstado.innerHTML = '<i class="bi bi-wifi-off"></i> Desconectado';
+        badgeEstado.innerHTML = '<i class="bi bi-toggle-off"></i> Desconectado';
 
         listaWrapper.classList.add('d-none');
         panelEstado.classList.remove('d-none');
@@ -75,7 +75,7 @@
         toggle.classList.add('rp-on');
         toggle.setAttribute('aria-pressed', 'true');
         textoSlider.textContent = 'Estás en línea y recibiendo pedidos';
-        badgeEstado.innerHTML = '<i class="bi bi-wifi"></i> Conectado';
+        badgeEstado.innerHTML = '<i class="bi bi-toggle-on"></i> Conectado';
 
         panelEstado.classList.add('d-none');
         listaWrapper.classList.remove('d-none');
