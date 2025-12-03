@@ -155,7 +155,8 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
         </div>
       </div>
 
-      <div class="modal-footer d-flex justify-content-between">
+      <!-- Footer con botones estándar EV juntos -->
+      <div class="modal-footer ev-mp-modal-footer">
         <button type="button" class="btn-ev-neutral" data-bs-dismiss="modal">
           Cerrar
         </button>

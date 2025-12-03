@@ -67,7 +67,7 @@
         case '<': return '&lt;';
         case '>': return '&gt;';
         case '"': return '&quot;';
-        default: return c;
+        default:  return c;
       }
     });
   }
@@ -141,15 +141,24 @@
         ? 'ev-wallet-monto--debito'
         : 'ev-wallet-monto--credito';
 
+      const iconClass = esDebito
+        ? 'bi-arrow-down-right-circle-fill ev-wallet-mov-icon ev-wallet-mov-icon--debito'
+        : 'bi-arrow-up-right-circle-fill ev-wallet-mov-icon ev-wallet-mov-icon--credito';
+
       const desc = escapeHTML(m.descripcion || 'Movimiento en billetera');
       const origen = escapeHTML(m.origen || '');
-      const ref = m.codigo_referencia ? ` · Ref: ${escapeHTML(String(m.codigo_referencia))}` : '';
+      const ref = m.codigo_referencia
+        ? ` · Ref: ${escapeHTML(String(m.codigo_referencia))}`
+        : '';
 
       return `
         <tr>
           <td>
             <div class="ev-wallet-mov-concepto">
-              <div class="ev-wallet-mov-titulo">${desc}</div>
+              <div class="ev-wallet-mov-header">
+                <i class="${iconClass}"></i>
+                <span class="ev-wallet-mov-titulo">${desc}</span>
+              </div>
               <div class="ev-wallet-mov-detalle text-muted small">
                 ${origen}${ref}
               </div>
@@ -358,18 +367,14 @@
     linkBilletera.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      //log('Click en menú Mi billetera, cargando vista parcial…');
       cargarVistaParcialBilletera(contentWrapper);
     });
-
-    // log('Hook de menú "Mi billetera" instalado correctamente.');
   }
 
   // ------------------------------------
   // Inicialización estándar
   // ------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
-    //log('billetera.js cargado. BASE_URL:', BASE || '(vacía)');
     engancharMenuBilletera();
     // Si la vista ya estuviera montada por acceso directo:
     inicializarVista();

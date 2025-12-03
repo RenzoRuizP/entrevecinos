@@ -513,3 +513,6 @@ CREATE TABLE billetera_movimiento (
         ON DELETE CASCADE
 );
 
+
+ALTER TABLE publicacion
+ADD COLUMN fecha_destacado DATETIME NULL AFTER visible;

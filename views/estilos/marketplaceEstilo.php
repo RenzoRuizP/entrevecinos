@@ -399,9 +399,13 @@
   border:1px solid var(--ev-gris-borde);
   padding:16px;
   box-shadow:0 4px 12px rgba(0,0,0,0.04);
+  max-width: 780px;        /* ancho razonable en escritorio */
+  margin: 0 auto;          /* centrado dentro del modal */
 }
 
-/* CONTENEDOR de la imagen principal */
+/* CONTENEDOR de la imagen principal
+   ✅ Sin altura fija: deja que la imagen mande
+*/
 .ev-mp-modal-media {
   width: 100%;
   background: #ffffff;
@@ -409,17 +413,16 @@
   border-radius: 16px;
   overflow: hidden;
   padding: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 380px;              /* misma altura que previsualización */
 }
 
-/* Imagen principal */
+/* Imagen principal
+   ✅ Ocupa todo el ancho, altura en proporción (como en previsualización)
+   ✅ No se recorta porque height es auto
+*/
 .ev-mp-modal-media img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;           /* igual que previsualización */
+  height: auto;
+  display: block;
   border-radius: 12px;
 }
 
@@ -477,9 +480,8 @@
   .ev-mp-modal-body{
     padding-inline:14px;
   }
-  .ev-mp-modal-media{
-    height:auto;
-    max-height:320px;
+  .ev-mp-preview-card{
+    max-width: 100%;
   }
 }
 

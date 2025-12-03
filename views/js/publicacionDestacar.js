@@ -4,19 +4,28 @@
 
   const BASE = (window.BASE_URL || '').replace(/\/$/, '');
   const LOG_PREFIX = '[PUBLICACION_DESTACAR]';
-/*
+
+  // ------------------------------------
+  // Helpers de log seguros
+  // ------------------------------------
   function log() {
-    console.log(LOG_PREFIX, ...arguments);
+    if (window.console && console.log) {
+      console.log(LOG_PREFIX, ...arguments);
+    }
   }
 
   function warn() {
-    console.warn(LOG_PREFIX, ...arguments);
+    if (window.console && console.warn) {
+      console.warn(LOG_PREFIX, ...arguments);
+    }
   }
 
   function error() {
-    console.error(LOG_PREFIX, ...arguments);
+    if (window.console && console.error) {
+      console.error(LOG_PREFIX, ...arguments);
+    }
   }
-*/
+
   /**
    * Intenta obtener el código de publicación a partir del botón o la fila.
    */
@@ -57,6 +66,19 @@
     }
 
     return codigo ? (parseInt(codigo, 10) || null) : null;
+  }
+
+  /**
+   * Actualiza el botón de la fila para que quede como "Destacar".
+   */
+  function actualizarBotonADestacar(btn, codigoPublicacion) {
+    if (!btn) return;
+    // Guardamos el código explícitamente
+    if (codigoPublicacion) {
+      btn.dataset.codigoPublicacion = codigoPublicacion;
+    }
+    // Cambiamos el texto visible
+    btn.textContent = 'Destacar';
   }
 
   /**
@@ -168,7 +190,7 @@
             await Swal.fire({
               icon: 'warning',
               title: 'Saldo insuficiente',
-              text: 'Tu billetera no tiene saldo suficiente para destacar esta publicación. La publicación ha sido publicada, pero no aparecerá como destacada.'
+              text: 'Tu billetera no tiene saldo suficiente para destacar esta publicación. La publicación ya está publicada, pero no aparecerá como destacada.'
             });
           }
           return { ok: false };
@@ -193,10 +215,65 @@
         await Swal.fire({
           icon: 'error',
           title: 'Error de conexión',
-          text: 'No pudimos procesar el pago. La publicación ha sido publicada, pero no se destacó.'
+          text: 'No pudimos procesar el pago. La publicación ya está publicada, pero no se destacó.'
         });
       }
       return { ok: false };
+    }
+  }
+
+  /**
+   * Flujo cuando se hace click en "Destacar" (solo destacar, sin publicar de nuevo).
+   */
+  async function manejarClickDestacar(btn) {
+    const codigo = obtenerCodigoPublicacionDesdeBoton(btn);
+    if (!codigo) {
+      warn('No se pudo determinar el código de publicación para destacar.');
+      if (window.Swal?.fire) {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'No se pudo procesar',
+          text: 'No pudimos identificar la publicación. Intenta recargar la página.'
+        });
+      }
+      return;
+    }
+
+    if (!window.Swal?.fire) {
+      const seguir = window.confirm(
+        'Se descontará S/ 1.00 de tu billetera para destacar esta publicación. ¿Deseas continuar?'
+      );
+      if (!seguir) return;
+
+      const debRes = await debitarPublicacion(codigo);
+      if (!debRes.ok) return;
+      window.location.reload();
+      return;
+    }
+
+    const result = await Swal.fire({
+      icon: 'question',
+      title: 'Destacar publicación',
+      text: 'Se descontará S/ 1.00 de tu billetera para destacar esta publicación en la portada de tu condominio. ¿Deseas continuar?',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, destacar',
+      cancelButtonText: 'Cancelar',
+      reverseButtons: true
+    });
+
+    if (!result.isConfirmed) {
+      return;
+    }
+
+    const debRes = await debitarPublicacion(codigo);
+    if (debRes.ok) {
+      await Swal.fire({
+        icon: 'success',
+        title: 'Publicación destacada',
+        text: 'Se descontó S/ 1.00 de tu billetera y tu publicación ahora aparece como destacada.',
+        confirmButtonText: 'Entendido'
+      });
+      window.location.reload();
     }
   }
 
@@ -206,7 +283,7 @@
   async function manejarClickPublicado(btn) {
     const codigo = obtenerCodigoPublicacionDesdeBoton(btn);
     if (!codigo) {
-      warn('No se pudo determinar el código de publicación para destacar/publicar.');
+      warn('No se pudo determinar el código de publicación para publicar/destacar.');
       if (window.Swal?.fire) {
         await Swal.fire({
           icon: 'warning',
@@ -226,6 +303,8 @@
 
       const pubRes = await publicarPublicacion(codigo);
       if (!pubRes.ok) return;
+
+      // En modo simple, recargamos
       window.location.reload();
       return;
     }
@@ -238,7 +317,7 @@
       showDenyButton: true,
       showCancelButton: true,
       confirmButtonText: 'Sí, destacar',
-      denyButtonText: 'No, destacar',
+      denyButtonText: 'No, solo publicar',
       cancelButtonText: 'Cancelar',
       reverseButtons: true
     });
@@ -260,7 +339,10 @@
         text: 'Tu publicación ya se muestra en el marketplace en la pestaña "Todos".',
         confirmButtonText: 'Ok'
       });
-      window.location.reload();
+
+      // ✅ Aquí aplicamos el nuevo flujo:
+      // El botón pasa a comportarse como "Destacar"
+      actualizarBotonADestacar(btn, codigo);
       return;
     }
 
@@ -282,7 +364,7 @@
   }
 
   /**
-   * Delegación global de clicks para botones "Publicar"/"Publicado".
+   * Delegación global de clicks para botones "Publicar"/"Publicado"/"Destacar".
    */
   function configurarDelegacionClicks() {
     document.addEventListener('click', function (ev) {
@@ -294,15 +376,22 @@
 
       const texto = (btn.textContent || '').trim().toLowerCase();
 
-      // Ajusta aquí si tus botones usan textos distintos
       if (texto === 'publicar' || texto === 'publicado') {
         ev.preventDefault();
         ev.stopPropagation();
         manejarClickPublicado(btn);
+        return;
+      }
+
+      if (texto === 'destacar') {
+        ev.preventDefault();
+        ev.stopPropagation();
+        manejarClickDestacar(btn);
+        return;
       }
     });
 
-    //log('Delegación de clicks para botón "Publicar/Publicado" instalada.');
+    //log('Delegación de clicks para botón Publicar/Publicado/Destacar instalada.');
   }
 
   document.addEventListener('DOMContentLoaded', () => {
