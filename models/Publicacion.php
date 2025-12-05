@@ -11,6 +11,7 @@
     - Recalcula portada
     - Anula (visible = 0)
     - Publica (visible = 2)
+    - Destaca (usa fecha_destacado)
 */
 
 require_once __DIR__ . '/../Config/EnvConfig.php';
@@ -582,29 +583,25 @@ class Publicacion extends Conexion
     /**
      * Listar publicaciones destacadas (pagadas) para el menú principal.
      *
-     * Estrategia Opción A:
-     *  - visible = 2
-     *  - fecha_destacado no nula
-     *  - fecha_destacado dentro de las últimas 24 horas
+     * Estrategia: usamos fecha_destacado dentro de las últimas 24 horas.
+     * Solo se llenará fecha_destacado cuando se haya cobrado S/ 1 en billetera,
+     * así que implícitamente son "pagadas".
      */
     public function listarDestacadasPagadas(): array
     {
         try {
             $sql = "
-                SELECT DISTINCT
+                SELECT
                     p.codigo_publicacion,
                     p.titulo,
                     p.precio,
                     p.imagen_portada
                 FROM publicacion p
-                INNER JOIN billetera_movimiento m
-                    ON m.codigo_referencia = p.codigo_publicacion
-                AND m.tipo_movimiento = 'D'
-                AND m.origen LIKE 'PUBLICACION_DESTACADA%'  -- admite sufijos como _24H
-                INNER JOIN billetera b
-                    ON b.codigo_billetera = m.codigo_billetera
                 WHERE p.visible = 2
-                ORDER BY m.fecha_movimiento DESC, m.codigo_movimiento DESC
+                  AND p.fecha_destacado IS NOT NULL
+                  AND p.fecha_destacado <> '0000-00-00 00:00:00'
+                  AND p.fecha_destacado >= (NOW() - INTERVAL 24 HOUR)
+                ORDER BY p.fecha_destacado DESC, p.created_at DESC
                 LIMIT 30
             ";
 
@@ -619,6 +616,59 @@ class Publicacion extends Conexion
         }
     }
 
+    /**
+     * Marca una publicación como destacada, poniendo fecha_destacado = NOW().
+     * No cambia el visible (se asume que ya está en 2).
+     */
+    public function destacarPublicacion(int $codigoPublicacion, int $codigoUsuario): bool
+    {
+        try {
+            $sql = "
+                UPDATE publicacion
+                SET fecha_destacado = NOW()
+                WHERE codigo_publicacion = :p_codigo_publicacion
+                  AND codigo_usuario     = :p_codigo_usuario
+                  AND visible = 2
+            ";
+
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->bindParam(':p_codigo_publicacion', $codigoPublicacion, PDO::PARAM_INT);
+            $stmt->bindParam(':p_codigo_usuario',     $codigoUsuario,    PDO::PARAM_INT);
+            $stmt->execute();
+
+            return $stmt->rowCount() > 0;
+
+        } catch (Exception $e) {
+            throw $e;
+        }
+    }
+
+    /**
+     * Limpia los destacados vencidos:
+     * - fecha_destacado no nula
+     * - más de 24 horas de antigüedad
+     * Devuelve cuántas filas se actualizaron.
+     */
+    public function limpiarDestacadosExpirados(): int
+    {
+        try {
+            $sql = "
+                UPDATE publicacion
+                SET fecha_destacado = NULL
+                WHERE fecha_destacado IS NOT NULL
+                  AND fecha_destacado <> '0000-00-00 00:00:00'
+                  AND fecha_destacado < (NOW() - INTERVAL 24 HOUR)
+            ";
+
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->execute();
+
+            return $stmt->rowCount();
+
+        } catch (Exception $e) {
+            throw $e;
+        }
+    }
 
     /* ===============================================================
        NUEVO MÉTODO PARA DETALLE PÚBLICO EN MARKETPLACE

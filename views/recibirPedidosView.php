@@ -9,9 +9,13 @@ require_once __DIR__ . '/../Config/config.php';
 <?php include_once __DIR__ . '/estilos/recibirPedidosEstilo.php'; ?>
 
 <div class="container-fluid py-4 ev-recibir-wrapper fade-in">
+
+  <!-- =========================================
+       CARD: RECIBIR PEDIDOS (ESTADO + TOGGLE)
+  ========================================== -->
   <div class="card ev-recibir-card">
 
-    <!-- HEADER LIMPIO (sin franja verde gruesa) -->
+    <!-- HEADER LIMPIO -->
     <div class="card-header ev-recibir-header d-flex justify-content-between align-items-center">
       <div class="d-flex align-items-center gap-2">
         <div class="ev-recibir-icon-wrapper d-flex align-items-center justify-content-center">
@@ -20,7 +24,7 @@ require_once __DIR__ . '/../Config/config.php';
         <div>
           <h5 class="mb-0 ev-recibir-title">Recibir pedidos</h5>
           <small class="text-muted ev-recibir-subtitle">
-            Controla si deseas estar disponible para recibir pedidos.
+            Activa tu disponibilidad para que los vecinos puedan enviarte pedidos desde el marketplace.
           </small>
         </div>
       </div>
@@ -36,7 +40,7 @@ require_once __DIR__ . '/../Config/config.php';
     <div class="card-body ev-recibir-body">
 
       <!-- BLOQUE TOGGLE PRINCIPAL -->
-      <div class="ev-toggle-row d-flex flex-column flex-md-row align-items-md-center gap-3 mb-4">
+      <div class="ev-toggle-row d-flex flex-column flex-md-row align-items-md-center gap-3">
         <div class="ev-switch-wrapper">
           <label class="ev-switch">
             <input type="checkbox" id="toggleRecibirPedidos">
@@ -53,32 +57,53 @@ require_once __DIR__ . '/../Config/config.php';
             Actualmente: <strong>Desconectado</strong>
           </span>
           <p class="mb-0 ev-estado-secundario-help">
-            Cuando estés conectado, tus vecinos podrán enviarte pedidos desde el marketplace
-            de tu condominio.
-          </p>
-        </div>
-      </div>
-
-      <!-- BLOQUE EXPLICATIVO / INFO CARD -->
-      <div class="ev-recibir-info-card d-flex align-items-center gap-3">
-        <div class="ev-recibir-info-illustration d-flex align-items-center justify-content-center">
-          <!-- Usa aquí la ilustración que ya tenías.
-               Si la ruta es otra, solo cambia el src. -->
-          <img src="<?= BASE_URL ?>/resources/images/deslizar.png"
-               alt="Conéctate para recibir pedidos" 
-               class="img-fluid">
-        </div>
-        <div>
-          <h6 class="mb-1 ev-recibir-info-title">
-            Conéctate para recibir pedidos en tiempo real
-          </h6>
-          <p class="mb-0 ev-recibir-info-text">
-            Al activarte, solo recibirás pedidos de los vecinos del condominio en el que vives.
-            Puedes desconectarte cuando quieras.
+            Conéctate cuando quieras para empezar a recibir pedidos de tus vecinos.
           </p>
         </div>
       </div>
 
     </div>
   </div>
+
+  <!-- =========================================
+       SECCIÓN: PEDIDOS ENTRANTES (TIEMPO REAL)
+       CARD INDEPENDIENTE
+  ========================================== -->
+  <section class="ev-pedidos-section mt-4">
+    <div class="card ev-pedidos-card">
+
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+          <h5 class="mb-0 ev-pedidos-title">Pedidos entrantes</h5>
+          <small class="text-muted ev-pedidos-subtitle">
+            Aquí verás los pedidos que recibas mientras estés conectado.
+          </small>
+        </div>
+
+        <span id="evPedidosCounter" class="ev-pedidos-counter badge bg-secondary-subtle text-muted">
+          0 pedidos activos
+        </span>
+      </div>
+
+      <div class="card-body">
+
+        <!-- Mensaje cuando está desconectado -->
+        <div id="evPedidosDesconectado" class="ev-pedidos-info-alert ev-pedidos-info-alert-off">
+          Conéctate usando el botón superior. Los pedidos nuevos aparecerán aquí automáticamente.
+        </div>
+
+        <!-- Mensaje cuando está conectado pero no hay pedidos -->
+        <div id="evPedidosEmpty" class="ev-pedidos-info-alert ev-pedidos-info-alert-empty d-none">
+          Aún no tienes pedidos. Cuando un vecino haga un pedido, lo verás aquí en tiempo real.
+        </div>
+
+        <!-- Contenedor de cards de pedidos -->
+        <div id="evPedidosLista" class="ev-pedidos-lista">
+          <!-- Aquí el JS irá renderizando las cards de pedidos -->
+        </div>
+
+      </div>
+
+    </div>
+  </section>
 </div>

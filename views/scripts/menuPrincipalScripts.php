@@ -19,6 +19,7 @@
   <script src="<?= BASE_URL ?>views/js/publicacionDestacar.js"></script>
   <script src="<?= BASE_URL ?>views/js/credenciales.js"></script>
   <script src="<?= BASE_URL ?>views/js/recibirPedidos.js"></script>
+  <script src="<?= BASE_URL ?>views/js/pedidosEntrantes.js"></script>
 
 
   
