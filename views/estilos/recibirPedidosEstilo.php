@@ -91,7 +91,7 @@
 ========================================= */
 
 .ev-toggle-row{
-  margin-bottom: 4px; /* reducido porque ya no hay info-card debajo */
+  margin-bottom: 4px;
 }
 
 .ev-switch-wrapper{
@@ -186,76 +186,48 @@
   color: #6B7280;
 }
 
-/* (Quedan por si los reutilizas más adelante) */
-.ev-recibir-info-card{
-  margin-top: 8px;
-  padding: 16px 18px;
-  border-radius: 16px;
-  background-color: #FFFFFF;
-  border: 1px solid rgba(209, 213, 219, 0.8);
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
-}
-
-.ev-recibir-info-illustration{
-  width: 78px;
-  height: 78px;
-  border-radius: 18px;
-  background-color: #ECFDF3;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.ev-recibir-info-illustration img{
-  max-width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.ev-recibir-info-title{
-  font-weight: 600;
-  color: #166534;
-  font-size: 0.98rem;
-}
-
-.ev-recibir-info-text{
-  font-size: 0.88rem;
-  color: #4B5563;
-}
-
 /* =========================================
    SECCIÓN: PEDIDOS ENTRANTES
 ========================================= */
 
 .ev-pedidos-section{
-  margin-top: 40px;       /* un poco más de aire respecto a la card superior */
+  margin-top: 40px;
   padding-top: 12px;
-  border-top: 1px solid #E5E7EB; /* separador suave entre módulos */
+  border-top: 1px solid rgba(229, 231, 235, 0.8);
 }
 
 /* Card de pedidos */
 .ev-pedidos-card{
   border-radius: 18px;
   border: 1px solid rgba(209, 213, 219, 0.7);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.10);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.09);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ev-pedidos-card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
 }
 
 .ev-pedidos-card .card-header{
   background-color: #ffffff;
   border-bottom: 1px solid #E5E7EB;
-  padding: 16px 24px;
+  padding: 14px 24px 12px 24px; /* ligeramente más compacto */
 }
 
 .ev-pedidos-card .card-body{
-  padding: 20px 24px 18px 24px;
+  padding: 16px 24px 16px 24px; /* padding vertical reducido */
 }
 
 .ev-pedidos-title{
   font-weight: 600;
   color: #111827;
-  margin-bottom: 2px;
+  margin-bottom: 0;           /* título y subtítulo más cercanos */
 }
 
 .ev-pedidos-subtitle{
+  display: block;
+  margin-top: 2px;
   font-size: 0.85rem;
   color: #6B7280;
 }
@@ -267,23 +239,24 @@
   background-color: #F3F4F6;
   color: #4B5563;
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06); /* ligera sombra para más presencia */
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
 /* Mensajes informativos */
 .ev-pedidos-info-alert{
   font-size: 0.87rem;
   border-radius: 12px;
-  padding: 14px 16px;        /* un poco más de aire */
-  margin-bottom: 8px;
+  padding: 12px 16px;
+  margin-top: 8px;
+  margin-bottom: 12px;
   max-width: 92%;
   margin-left: auto;
   margin-right: auto;
 }
 
-/* Estado: desconectado (info neutra, no “alerta fuerte”) */
+/* Estado: desconectado (gris cálido y amigable) */
 .ev-pedidos-info-alert-off{
-  background-color: #F3F4F6;
+  background-color: #F8F9FA;
   color: #4B5563;
   border: 1px solid #E5E7EB;
 }
@@ -300,7 +273,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 /* Card individual de pedido */
@@ -466,10 +439,6 @@
 
   .ev-estado-secundario{
     max-width: 100%;
-  }
-
-  .ev-recibir-info-card{
-    flex-direction: row;
   }
 
   .ev-pedidos-card .card-header,
