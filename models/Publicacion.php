@@ -582,10 +582,10 @@ class Publicacion extends Conexion
     /**
      * Listar publicaciones destacadas (pagadas) para el menú principal.
      *
-     * Solo se consideran aquellas publicaciones que:
-     *  - Están publicadas (visible = 2)
-     *  - Tienen al menos un movimiento en billetera_movimiento
-     *    con origen = 'PUBLICACION_DESTACADA' (es decir, pagaron el destaque)
+     * Estrategia Opción A:
+     *  - visible = 2
+     *  - fecha_destacado no nula
+     *  - fecha_destacado dentro de las últimas 24 horas
      */
     public function listarDestacadasPagadas(): array
     {
@@ -599,23 +599,26 @@ class Publicacion extends Conexion
                 FROM publicacion p
                 INNER JOIN billetera_movimiento m
                     ON m.codigo_referencia = p.codigo_publicacion
-                   AND m.origen = 'PUBLICACION_DESTACADA'
+                AND m.tipo_movimiento = 'D'
+                AND m.origen LIKE 'PUBLICACION_DESTACADA%'  -- admite sufijos como _24H
                 INNER JOIN billetera b
                     ON b.codigo_billetera = m.codigo_billetera
                 WHERE p.visible = 2
-                ORDER BY p.created_at DESC
+                ORDER BY m.fecha_movimiento DESC, m.codigo_movimiento DESC
                 LIMIT 30
             ";
 
             $stmt = $this->dblink->prepare($sql);
             $stmt->execute();
 
-            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return $rows ?: [];
 
         } catch (Exception $e) {
             throw $e;
         }
     }
+
 
     /* ===============================================================
        NUEVO MÉTODO PARA DETALLE PÚBLICO EN MARKETPLACE

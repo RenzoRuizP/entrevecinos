@@ -7,231 +7,160 @@ require_once __DIR__ . '/../../models/Billetera.php';
 class apiBilleteraController
 {
     /**
+     * Devuelve el código de usuario autenticado o corta con 401.
+     */
+    private function obtenerUsuarioAuth(): int
+    {
+        $token = $_COOKIE['auth_token'] ?? null;
+        if (!$token) {
+            http_response_code(401);
+            echo json_encode(['ok' => false, 'mensaje' => 'Token no encontrado.']);
+            exit;
+        }
+
+        $usuario = SesionJWT::verificarToken($token);
+        if (!$usuario || empty($usuario['codigo_usuario'])) {
+            http_response_code(401);
+            echo json_encode(['ok' => false, 'mensaje' => 'Token inválido o usuario no encontrado.']);
+            exit;
+        }
+
+        return (int)$usuario['codigo_usuario'];
+    }
+
+    /**
      * GET /api/billetera/saldo
-     *
-     * Retorna el saldo actual de la billetera del usuario autenticado.
+     * (El router la llama como obtenerSaldo según tu error de PHP)
      */
     public function obtenerSaldo()
     {
-        header('Content-Type: application/json; charset=utf-8');
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            http_response_code(405);
+            echo json_encode(['ok' => false, 'mensaje' => 'Método no permitido']);
+            return;
+        }
 
         try {
-            // 1) Validar token
-            $token = $_COOKIE['auth_token'] ?? null;
-            if (!$token) {
-                http_response_code(401);
-                echo json_encode([
-                    'ok'      => false,
-                    'codigo'  => 'NO_TOKEN',
-                    'mensaje' => 'Tu sesión ha expirado. Vuelve a iniciar sesión.'
-                ]);
-                return;
-            }
+            $codigoUsuario = $this->obtenerUsuarioAuth();
 
-            $datosToken = SesionJWT::verificarToken($token);
-            if (!$datosToken || empty($datosToken['codigo_usuario'])) {
-                http_response_code(401);
-                echo json_encode([
-                    'ok'      => false,
-                    'codigo'  => 'TOKEN_INVALIDO',
-                    'mensaje' => 'Token inválido. Vuelve a iniciar sesión.'
-                ]);
-                return;
-            }
+            $model = new Billetera();
+            $saldo = $model->obtenerSaldoActual($codigoUsuario);
 
-            $codigo_usuario = (int)$datosToken['codigo_usuario'];
-
-            // 2) Obtener saldo desde el modelo
-            $billeteraModel = new Billetera();
-            $saldo = $billeteraModel->obtenerSaldo($codigo_usuario);
-
-            // 3) Respuesta OK
             echo json_encode([
                 'ok'           => true,
-                'codigo'       => 'OK',
-                'saldo_actual' => (float)$saldo,
+                'saldo_actual' => $saldo
             ]);
 
-        } catch (Throwable $e) {
-            error_log('apiBilleteraController::obtenerSaldo -> ' . $e->getMessage());
-
+        } catch (Exception $e) {
             http_response_code(500);
             echo json_encode([
                 'ok'      => false,
-                'codigo'  => 'ERROR_SERVIDOR',
-                'mensaje' => 'Ocurrió un error interno al obtener el saldo de tu billetera.'
+                'mensaje' => 'Error al obtener saldo.',
+                'error'   => $e->getMessage()
             ]);
         }
+    }
+
+    /**
+     * Alias opcional por si en algún momento usas /api/billetera/saldo -> saldo
+     */
+    public function saldo()
+    {
+        $this->obtenerSaldo();
     }
 
     /**
      * GET /api/billetera/movimientos
-     *
-     * Lista los movimientos de la billetera del usuario autenticado.
      */
     public function obtenerMovimientos()
     {
-        header('Content-Type: application/json; charset=utf-8');
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            http_response_code(405);
+            echo json_encode(['ok' => false, 'mensaje' => 'Método no permitido']);
+            return;
+        }
 
         try {
-            // 1) Validar token
-            $token = $_COOKIE['auth_token'] ?? null;
-            if (!$token) {
-                http_response_code(401);
-                echo json_encode([
-                    'ok'      => false,
-                    'codigo'  => 'NO_TOKEN',
-                    'mensaje' => 'Tu sesión ha expirado. Vuelve a iniciar sesión.'
-                ]);
-                return;
-            }
+            $codigoUsuario = $this->obtenerUsuarioAuth();
 
-            $datosToken = SesionJWT::verificarToken($token);
-            if (!$datosToken || empty($datosToken['codigo_usuario'])) {
-                http_response_code(401);
-                echo json_encode([
-                    'ok'      => false,
-                    'codigo'  => 'TOKEN_INVALIDO',
-                    'mensaje' => 'Token inválido. Vuelve a iniciar sesión.'
-                ]);
-                return;
-            }
-
-            $codigo_usuario = (int)$datosToken['codigo_usuario'];
-
-            // 2) Obtener movimientos desde el modelo
-            $billeteraModel = new Billetera();
-            $movimientos = $billeteraModel->listarMovimientosPorUsuario($codigo_usuario, 50);
+            $model = new Billetera();
+            $movs  = $model->listarMovimientos($codigoUsuario);
 
             echo json_encode([
                 'ok'          => true,
-                'codigo'      => 'OK',
-                'movimientos' => $movimientos,
+                'movimientos' => $movs
             ]);
 
-        } catch (Throwable $e) {
-            error_log('apiBilleteraController::obtenerMovimientos -> ' . $e->getMessage());
-
+        } catch (Exception $e) {
             http_response_code(500);
             echo json_encode([
                 'ok'      => false,
-                'codigo'  => 'ERROR_SERVIDOR',
-                'mensaje' => 'Ocurrió un error interno al obtener los movimientos de tu billetera.'
+                'mensaje' => 'Error al obtener movimientos.',
+                'error'   => $e->getMessage()
             ]);
         }
     }
 
     /**
+     * Alias por si tu router usa otro nombre.
+     */
+    public function movimientos()
+    {
+        $this->obtenerMovimientos();
+    }
+
+    /**
      * POST /api/billetera/debitar-publicacion
-     *
-     * Entrada:
-     *  - codigo_publicacion (POST o JSON)
-     *
-     * Usa el usuario autenticado (JWT)
-     * y descuenta S/ 1.00 de su billetera.
+     * Body JSON: { "codigo_publicacion": 123 }
+     * Usado por publicacionDestacar.js
      */
     public function debitarPublicacion()
     {
-        header('Content-Type: application/json; charset=utf-8');
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['ok' => false, 'mensaje' => 'Método no permitido']);
+            return;
+        }
 
         try {
-            // 1) Validar token
-            $token = $_COOKIE['auth_token'] ?? null;
-            if (!$token) {
-                http_response_code(401);
-                echo json_encode([
-                    'ok'      => false,
-                    'codigo'  => 'NO_TOKEN',
-                    'mensaje' => 'Tu sesión ha expirado. Vuelve a iniciar sesión.'
-                ]);
-                return;
-            }
+            $codigoUsuario = $this->obtenerUsuarioAuth();
 
-            $datosToken = SesionJWT::verificarToken($token);
-            if (!$datosToken || empty($datosToken['codigo_usuario'])) {
-                http_response_code(401);
-                echo json_encode([
-                    'ok'      => false,
-                    'codigo'  => 'TOKEN_INVALIDO',
-                    'mensaje' => 'Token inválido. Vuelve a iniciar sesión.'
-                ]);
-                return;
-            }
-
-            $codigo_usuario = (int)$datosToken['codigo_usuario'];
-
-            // 2) Leer payload POST + JSON
-            $payload = $_POST;
-
-            if (empty($payload)) {
-                $raw = file_get_contents('php://input');
-                if ($raw) {
-                    $json = json_decode($raw, true);
-                    if (is_array($json)) {
-                        $payload = $json;
-                    }
-                }
-            }
-
-            $codigo_publicacion = isset($payload['codigo_publicacion'])
-                ? (int)$payload['codigo_publicacion']
+            $raw  = file_get_contents('php://input');
+            $json = json_decode($raw, true);
+            $codigoPublicacion = isset($json['codigo_publicacion'])
+                ? (int)$json['codigo_publicacion']
                 : 0;
 
-            if ($codigo_publicacion <= 0) {
+            if ($codigoPublicacion <= 0) {
                 http_response_code(400);
                 echo json_encode([
                     'ok'      => false,
-                    'codigo'  => 'SIN_PUBLICACION',
-                    'mensaje' => 'No se recibió la publicación a destacar.'
+                    'mensaje' => 'Código de publicación inválido.'
                 ]);
                 return;
             }
 
-            // 3) Lógica de negocio de billetera
-            $billeteraModel = new Billetera();
+            $model = new Billetera();
+            $res   = $model->debitarPorPublicacionDestacada($codigoUsuario, $codigoPublicacion, 1.00);
 
-            $resultado = $billeteraModel->debitarPorPublicacionDestacada(
-                $codigo_usuario,
-                $codigo_publicacion,
-                1.00
-            );
-
-            if (!$resultado['ok']) {
-                if (($resultado['codigo'] ?? '') === 'SALDO_INSUFICIENTE') {
-                    echo json_encode([
-                        'ok'      => false,
-                        'codigo'  => 'SALDO_INSUFICIENTE',
-                        'mensaje' => 'Tu billetera no tiene saldo suficiente para publicar. Recarga tu billetera y vuelve a intentarlo.'
-                    ]);
-                    return;
-                }
-
-                http_response_code(500);
-                echo json_encode([
-                    'ok'      => false,
-                    'codigo'  => 'ERROR',
-                    'mensaje' => $resultado['mensaje']
-                        ?? 'Ocurrió un problema al procesar el cargo en tu billetera.'
-                ]);
+            if (!$res['ok']) {
+                // Puede ser SALDO_INSUFICIENTE u otro error de negocio
+                echo json_encode($res);
                 return;
             }
 
-            // 4) OK
             echo json_encode([
                 'ok'           => true,
-                'codigo'       => 'OK',
-                'mensaje'      => 'Se ha descontado S/ 1.00 de tu billetera para publicar la publicación.',
-                'saldo_actual' => $resultado['saldo_actual']
+                'mensaje'      => 'Se debitó S/ 1.00 por destacar la publicación.',
+                'saldo_actual' => $res['saldo_actual']
             ]);
 
-        } catch (Throwable $e) {
-            error_log('apiBilleteraController::debitarPublicacion -> ' . $e->getMessage());
-
+        } catch (Exception $e) {
             http_response_code(500);
             echo json_encode([
                 'ok'      => false,
-                'codigo'  => 'ERROR_SERVIDOR',
-                'mensaje' => 'Ocurrió un error interno al procesar tu solicitud.'
+                'mensaje' => 'Error al debitar la publicación.',
+                'error'   => $e->getMessage()
             ]);
         }
     }

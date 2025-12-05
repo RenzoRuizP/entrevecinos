@@ -80,6 +80,7 @@
       return;
     }
 
+    // Endpoint API (mantenemos la ruta que ya usas)
     const url = `${BASE}/api/billetera/saldo`;
 
     try {
@@ -109,7 +110,8 @@
         return;
       }
 
-      const saldo = json.saldo_actual ?? 0;
+      // Soportar distintas claves: saldo_actual o saldo
+      const saldo = (json.saldo_actual ?? json.saldo ?? 0);
       refs.saldo.textContent = formatearMonto(saldo);
 
     } catch (err) {
@@ -134,9 +136,12 @@
     refs.movimientos.classList.remove('d-none');
 
     const filas = lista.map((m) => {
-      const tipo = (m.tipo_movimiento || '').toUpperCase();
-      const esDebito = (tipo === 'D');
+      // Soportar tanto tipo_movimiento ('D'/'C') como tipo ('CARGO'/'ABONO')
+      const tipoRaw = (m.tipo_movimiento || m.tipo || '').toUpperCase();
+      const esDebito  = (tipoRaw === 'D' || tipoRaw === 'CARGO');
+      const esCredito = (tipoRaw === 'C' || tipoRaw === 'ABONO');
       const signo = esDebito ? '-' : '+';
+
       const claseMonto = esDebito
         ? 'ev-wallet-monto--debito'
         : 'ev-wallet-monto--credito';
@@ -149,6 +154,13 @@
       const origen = escapeHTML(m.origen || '');
       const ref = m.codigo_referencia
         ? ` · Ref: ${escapeHTML(String(m.codigo_referencia))}`
+        : '';
+
+      const monto = (typeof m.monto !== 'undefined') ? m.monto : 0;
+
+      // Puede que no exista saldo_despues en la respuesta: lo manejamos elegante
+      const saldoDespues = (typeof m.saldo_despues !== 'undefined' && m.saldo_despues !== null)
+        ? formatearMonto(m.saldo_despues)
         : '';
 
       return `
@@ -166,12 +178,12 @@
           </td>
           <td class="text-end">
             <span class="ev-wallet-mov-monto ${claseMonto}">
-              ${signo} ${formatearMonto(m.monto)}
+              ${signo} ${formatearMonto(monto)}
             </span>
           </td>
           <td class="text-end">
             <span class="ev-wallet-mov-saldo text-muted">
-              ${formatearMonto(m.saldo_despues)}
+              ${saldoDespues}
             </span>
           </td>
         </tr>
@@ -236,7 +248,8 @@
         return;
       }
 
-      const lista = json.movimientos || [];
+      // Soportar tanto data como movimientos
+      const lista = json.data || json.movimientos || [];
       renderizarMovimientos(lista);
 
     } catch (err) {

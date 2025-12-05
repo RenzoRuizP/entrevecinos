@@ -190,7 +190,7 @@
             await Swal.fire({
               icon: 'warning',
               title: 'Saldo insuficiente',
-              text: 'Tu billetera no tiene saldo suficiente para destacar esta publicación. La publicación ya está publicada, pero no aparecerá como destacada.'
+              text: 'Tu billetera no tiene saldo suficiente para destacar esta publicación. La publicación ya está publicada, pero no aparecerá como destacada en Recomendados.'
             });
           }
           return { ok: false };
@@ -215,7 +215,7 @@
         await Swal.fire({
           icon: 'error',
           title: 'Error de conexión',
-          text: 'No pudimos procesar el pago. La publicación ya está publicada, pero no se destacó.'
+          text: 'No pudimos procesar el pago. La publicación ya está publicada, pero no se destacó en Recomendados.'
         });
       }
       return { ok: false };
@@ -241,7 +241,7 @@
 
     if (!window.Swal?.fire) {
       const seguir = window.confirm(
-        'Se descontará S/ 1.00 de tu billetera para destacar esta publicación. ¿Deseas continuar?'
+        'Se descontará S/ 1.00 de tu billetera para destacar esta publicación en Recomendados de tu condominio durante 24 horas. ¿Deseas continuar?'
       );
       if (!seguir) return;
 
@@ -254,7 +254,7 @@
     const result = await Swal.fire({
       icon: 'question',
       title: 'Destacar publicación',
-      text: 'Se descontará S/ 1.00 de tu billetera para destacar esta publicación en la portada de tu condominio. ¿Deseas continuar?',
+      text: 'Se descontará S/ 1.00 de tu billetera para destacar esta publicación en Recomendados de tu condominio durante 24 horas. ¿Deseas continuar?',
       showCancelButton: true,
       confirmButtonText: 'Sí, destacar',
       cancelButtonText: 'Cancelar',
@@ -270,7 +270,7 @@
       await Swal.fire({
         icon: 'success',
         title: 'Publicación destacada',
-        text: 'Se descontó S/ 1.00 de tu billetera y tu publicación ahora aparece como destacada.',
+        text: 'Se descontó S/ 1.00 de tu billetera y tu publicación ahora aparece como destacada en Recomendados durante las próximas 24 horas.',
         confirmButtonText: 'Entendido'
       });
       window.location.reload();
@@ -297,7 +297,7 @@
     if (!window.Swal?.fire) {
       // Fallback sin SweetAlert: solo publicar sin destacar
       const seguir = window.confirm(
-        '¿Deseas publicar esta publicación? (No se destacará en portada en este modo simple).'
+        '¿Deseas publicar esta publicación? (No se destacará en Recomendados en este modo simple).'
       );
       if (!seguir) return;
 
@@ -313,7 +313,7 @@
     const result = await Swal.fire({
       icon: 'question',
       title: 'Destacar publicación',
-      text: 'Se descontará S/ 1.00 de tu billetera para destacar esta publicación en la portada de tu condominio. ¿Deseas continuar?',
+      text: 'Se descontará S/ 1.00 de tu billetera para destacar esta publicación en Recomendados de tu condominio durante 24 horas. ¿Deseas continuar?',
       showDenyButton: true,
       showCancelButton: true,
       confirmButtonText: 'Sí, destacar',
@@ -340,7 +340,6 @@
         confirmButtonText: 'Ok'
       });
 
-      // ✅ Aquí aplicamos el nuevo flujo:
       // El botón pasa a comportarse como "Destacar"
       actualizarBotonADestacar(btn, codigo);
       return;
@@ -354,7 +353,7 @@
         await Swal.fire({
           icon: 'success',
           title: 'Publicación destacada',
-          text: 'Se ha descontado S/ 1.00 de tu billetera y tu publicación será mostrada como destacada en el inicio.',
+          text: 'Se ha descontado S/ 1.00 de tu billetera y tu publicación será mostrada como destacada en Recomendados durante las próximas 24 horas.',
           confirmButtonText: 'Entendido'
         });
       }

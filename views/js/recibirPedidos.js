@@ -1,227 +1,162 @@
-/* recibirPedidos.js
-   UX para módulo "Recibir pedidos" en Entre Vecinos
-   - Maneja estados Conectado / Desconectado
-   - Actualiza la UI (slider + badge + panel)
-   - Cuando está conectado, consulta periódicamente los pedidos
-*/
+// views/js/recibirPedidos.js
 
-(function () {
-  'use strict';
+document.addEventListener('DOMContentLoaded', () => {
+  const BASE_URL = window.BASE_URL || '/';
 
-  console.log('[RECIBIR PEDIDOS] JS cargado');
+  const toggle = document.getElementById('toggleRecibirPedidos');
+  const sliderLabel = document.getElementById('evSliderLabel');
+  const estadoBadge = document.getElementById('estadoBadge');
+  const estadoBadgeText = document.getElementById('estadoBadgeText');
+  const estadoDot = document.getElementById('estadoDot');
+  const estadoTextoSecundario = document.getElementById('estadoTextoSecundario');
 
-  const BASE = (window.BASE_URL || '').replace(/\/$/, '');
-  const EV_API_PEDIDOS = BASE + '/api/pedidos/recibir'; // Ajusta esta ruta a tu backend real
+  if (!toggle) {
+    console.warn('[RecibirPedidos] No se encontró el checkbox toggleRecibirPedidos.');
+    return;
+  }
 
-  // Helper de alertas
-  function evNotify(icon, title, text) {
-    if (window.Swal?.fire) {
-      Swal.fire({
-        icon,
-        title,
-        text,
-        confirmButtonText: 'Aceptar',
-        customClass: {
-          confirmButton: 'btn btn-outline-success'
-        },
-        buttonsStyling: false
-      });
+  /**
+   * Aplica el estado visual en toda la vista
+   * @param {boolean} estaConectado
+   */
+  function aplicarEstadoUI(estaConectado) {
+    toggle.checked = estaConectado;
+
+    if (estaConectado) {
+      // Slider
+      if (sliderLabel) {
+        sliderLabel.textContent = 'Estás conectado';
+      }
+
+      // Badge
+      if (estadoBadge) {
+        estadoBadge.classList.remove('ev-status-off');
+        estadoBadge.classList.add('ev-status-on');
+      }
+      if (estadoDot) {
+        estadoDot.classList.remove('ev-status-dot-off');
+        estadoDot.classList.add('ev-status-dot-on');
+      }
+      if (estadoBadgeText) {
+        estadoBadgeText.textContent = 'Conectado';
+      }
+
+      // Texto secundario
+      if (estadoTextoSecundario) {
+        estadoTextoSecundario.innerHTML = 'Actualmente: <strong>Conectado</strong>';
+      }
+
     } else {
-      alert(title ? (title + '\n\n' + text) : text);
+      // Slider
+      if (sliderLabel) {
+        sliderLabel.textContent = 'Desliza para conectarte';
+      }
+
+      // Badge
+      if (estadoBadge) {
+        estadoBadge.classList.remove('ev-status-on');
+        estadoBadge.classList.add('ev-status-off');
+      }
+      if (estadoDot) {
+        estadoDot.classList.remove('ev-status-dot-on');
+        estadoDot.classList.add('ev-status-dot-off');
+      }
+      if (estadoBadgeText) {
+        estadoBadgeText.textContent = 'Desconectado';
+      }
+
+      // Texto secundario
+      if (estadoTextoSecundario) {
+        estadoTextoSecundario.innerHTML = 'Actualmente: <strong>Desconectado</strong>';
+      }
     }
   }
 
-  document.addEventListener('DOMContentLoaded', function () {
-    const toggle = document.getElementById('rpToggleEstado');
-    const textoSlider = document.getElementById('rpTextoSlider');
-    const badgeEstado = document.getElementById('rpBadgeEstadoTexto');
-    const panelEstado = document.getElementById('rpPanelEstado');
-    const listaWrapper = document.getElementById('rpListaPedidosWrapper');
-    const listaPedidos = document.getElementById('rpPedidosList');
-    const emptyState = document.getElementById('rpEmptyState');
-    const lastUpdate = document.getElementById('rpLastUpdate');
-
-    if (!toggle || !panelEstado) {
-      console.warn('[RECIBIR PEDIDOS] Elementos base no encontrados. No se inicializa.');
-      return;
-    }
-
-    let estaConectado = false;
-    let pollingTimer = null;
-
-    function setEstadoUI() {
-      if (!estaConectado) {
-        // DESCONECTADO
-        toggle.classList.remove('rp-on');
-        toggle.classList.add('rp-off');
-        toggle.setAttribute('aria-pressed', 'false');
-        textoSlider.textContent = 'Desliza para conectarte';
-
-        if (badgeEstado) {
-          badgeEstado.classList.remove('online');
-          badgeEstado.classList.add('offline');
-          badgeEstado.innerHTML = '<i class="bi bi-toggle-off"></i> Desconectado';
-        }
-
-        listaWrapper.classList.add('d-none');
-        panelEstado.classList.remove('d-none');
-
-        if (pollingTimer) {
-          clearInterval(pollingTimer);
-          pollingTimer = null;
-        }
-
-        if (lastUpdate) {
-          lastUpdate.textContent = 'Actualizado: —';
-        }
-      } else {
-        // CONECTADO
-        toggle.classList.remove('rp-off');
-        toggle.classList.add('rp-on');
-        toggle.setAttribute('aria-pressed', 'true');
-        textoSlider.textContent = 'Estás en línea y recibiendo pedidos';
-
-        if (badgeEstado) {
-          badgeEstado.classList.remove('offline');
-          badgeEstado.classList.add('online');
-          badgeEstado.innerHTML = '<i class="bi bi-toggle-on"></i> Conectado';
-        }
-
-        panelEstado.classList.add('d-none');
-        listaWrapper.classList.remove('d-none');
-
-        if (!pollingTimer) {
-          cargarPedidos(); // primera carga
-          pollingTimer = setInterval(cargarPedidos, 7000); // cada 7 segundos
-        }
+  /**
+   * Carga estado inicial desde API
+   * Ajusta la URL a tu endpoint real si es necesario.
+   */
+  function cargarEstadoInicial() {
+    fetch(`${BASE_URL}/api/recibir-pedidos/estado`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json'
       }
-    }
-
-    async function cargarPedidos() {
-      console.log('[RECIBIR PEDIDOS] Consultando pedidos en', EV_API_PEDIDOS);
-
-      try {
-        const resp = await fetch(EV_API_PEDIDOS, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json'
-          },
-          credentials: 'include' // si usas cookies/JWT en cookie
-        });
-
-        if (!resp.ok) {
-          console.error('[RECIBIR PEDIDOS] Error HTTP', resp.status);
-          return;
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Error al obtener estado inicial');
         }
-
-        const data = await resp.json();
-        console.log('[RECIBIR PEDIDOS] Respuesta API:', data);
-
-        if (!data.ok) {
-          console.warn('[RECIBIR PEDIDOS] API respondió ok = false:', data.error || '');
-          return;
-        }
-
-        const pedidos = Array.isArray(data.pedidos) ? data.pedidos : [];
-
-        pintarPedidos(pedidos);
-
-        if (lastUpdate) {
-          const now = new Date();
-          const hh = String(now.getHours()).padStart(2, '0');
-          const mm = String(now.getMinutes()).padStart(2, '0');
-          lastUpdate.textContent = 'Actualizado: ' + hh + ':' + mm;
-        }
-      } catch (err) {
-        console.error('[RECIBIR PEDIDOS] Error al consultar pedidos:', err);
-      }
-    }
-
-    function pintarPedidos(pedidos) {
-      if (!listaPedidos) return;
-
-      listaPedidos.innerHTML = '';
-
-      if (!pedidos.length) {
-        if (emptyState) emptyState.classList.remove('d-none');
-        return;
-      }
-
-      if (emptyState) emptyState.classList.add('d-none');
-
-      pedidos.forEach(function (p) {
-        /*
-          Estructura esperada:
-          {
-            id_pedido,
-            titulo_publicacion,
-            nombre_vecino,
-            torre,
-            departamento,
-            fecha_hora,
-            monto_total
-          }
-          Ajusta los nombres de campos a tu API real.
-        */
-
-        const item = document.createElement('div');
-        item.className = 'rp-pedido-item';
-
-        const left = document.createElement('div');
-        const right = document.createElement('div');
-        right.className = 'rp-pedido-actions';
-
-        left.innerHTML = `
-          <div class="rp-pedido-header">
-            <span class="rp-pedido-title">${p.titulo_publicacion || 'Pedido de tu vecino'}</span>
-            <span class="badge bg-success-subtle text-success-emphasis">
-              ${p.torre || ''} ${p.departamento || ''}
-            </span>
-          </div>
-          <div class="rp-pedido-meta">
-            <span><i class="bi bi-person"></i> ${p.nombre_vecino || 'Vecino'}</span>
-            &nbsp;·&nbsp;
-            <span><i class="bi bi-clock"></i> ${p.fecha_hora || ''}</span>
-            ${p.monto_total ? `&nbsp;·&nbsp;<span><i class="bi bi-cash-coin"></i> S/ ${p.monto_total}</span>` : ''}
-          </div>
-        `;
-
-        const btnAceptar = document.createElement('button');
-        btnAceptar.type = 'button';
-        btnAceptar.className = 'btn btn-sm rp-btn-accept';
-        btnAceptar.innerHTML = '<i class="bi bi-check-lg me-1"></i>Aceptar';
-
-        const btnRechazar = document.createElement('button');
-        btnRechazar.type = 'button';
-        btnRechazar.className = 'btn btn-sm rp-btn-reject';
-        btnRechazar.innerHTML = '<i class="bi bi-x-lg me-1"></i>Rechazar';
-
-        // Hooks para luego conectar con tu API real
-        btnAceptar.addEventListener('click', function () {
-          evNotify('success', 'Pedido aceptado', 'Conecta este botón con tu endpoint para aceptar pedidos.');
-        });
-
-        btnRechazar.addEventListener('click', function () {
-          evNotify('warning', 'Pedido rechazado', 'Conecta este botón con tu endpoint para rechazar pedidos.');
-        });
-
-        right.appendChild(btnAceptar);
-        right.appendChild(btnRechazar);
-
-        item.appendChild(left);
-        item.appendChild(right);
-
-        listaPedidos.appendChild(item);
+        return response.json();
+      })
+      .then(data => {
+        // Asumo que el backend responde algo como { ok: true, activo: 1 }
+        const activo = data && (data.activo === 1 || data.activo === true || data.activo === '1');
+        aplicarEstadoUI(!!activo);
+      })
+      .catch(err => {
+        console.error('[RecibirPedidos] No se pudo cargar el estado inicial:', err);
+        // Por defecto, desconectado
+        aplicarEstadoUI(false);
       });
-    }
+  }
 
-    // Toggle conectar / desconectar
-    toggle.addEventListener('click', function () {
-      estaConectado = !estaConectado;
-      setEstadoUI();
-    });
+  /**
+   * Envía el nuevo estado al backend
+   * Ajusta la URL/estructura del body a tu API real.
+   */
+  function actualizarEstadoBackend(nuevoEstado) {
+    fetch(`${BASE_URL}/api/recibir-pedidos/estado`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        activo: nuevoEstado ? 1 : 0
+      })
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Error HTTP ' + response.status);
+        }
+        return response.json();
+      })
+      .then(data => {
+        if (data && data.ok === false) {
+          throw new Error(data.error || 'Error en la respuesta de la API');
+        }
+        // Si todo OK, no hacemos nada más (la UI ya se actualizó).
+      })
+      .catch(err => {
+        console.error('[RecibirPedidos] Error al actualizar estado:', err);
 
-    // Estado inicial
-    setEstadoUI();
+        // Si falla el backend, revertimos visualmente el estado
+        aplicarEstadoUI(!nuevoEstado);
+
+        // Si usas SweetAlert2 global, puedes descomentar:
+        /*
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'error',
+            title: 'No se pudo actualizar tu estado',
+            text: 'Inténtalo nuevamente en unos segundos.',
+            confirmButtonText: 'Entendido'
+          });
+        }
+        */
+      });
+  }
+
+  // Evento de cambio del toggle
+  toggle.addEventListener('change', () => {
+    const nuevoEstado = toggle.checked;
+    aplicarEstadoUI(nuevoEstado);
+    actualizarEstadoBackend(nuevoEstado);
   });
-})();
+
+  // Inicializar
+  cargarEstadoInicial();
+});

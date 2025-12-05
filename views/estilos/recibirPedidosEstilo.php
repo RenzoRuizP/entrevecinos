@@ -1,392 +1,261 @@
-<?php
-// views/estilos/recibirPedidosEstilo.php
-?>
 <style>
-/* ===========================================
-   ESTILO RECIBIR PEDIDOS
-   Basado en DatosPersonalesEstilo.php
-=========================================== */
+/* =========================================
+   ENTRE VECINOS - RECIBIR PEDIDOS (Opción A)
+========================================= */
 
-:root {
-  --verde-ev: #0F592F;
-  --verde-ev-claro: #138f57;
-  --gris-borde: #d9e3dc;
-  --gris-fondo: #f5f6f8;
-  --gris-texto: #555;
+.ev-recibir-wrapper{
+  max-width: 1100px;
+  margin: 0 auto;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* CONTENEDOR GENERAL */
-.container-recibir-pedidos {
-  max-width: 1150px;
-  margin: 25px auto;
-  padding: 0 15px;
-  animation: fadeIn .4s ease-in-out;
-}
-
-/* CARD BASE */
-.container-recibir-pedidos .card {
-  border-radius: 16px;
-  border: none;
-  background: #ffffff;
-  box-shadow: 0 10px 26px rgba(0,0,0,0.08);
+/* Card principal */
+.ev-recibir-card{
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
   overflow: hidden;
 }
 
-/* HEADER */
-.container-recibir-pedidos .card-header {
-  background: var(--verde-ev);
-  padding: 22px 28px;
-  border: none;
+/* Header limpio, sin franja verde gruesa */
+.ev-recibir-card .ev-recibir-header{
+  background-color: #ffffff;
+  border-bottom: 1px solid #E5E7EB;
+  padding: 16px 24px;
 }
 
-.container-recibir-pedidos .card-header h5 {
-  margin: 0;
-  font-size: 1.35rem;
-  color: #ffffff;
-  font-weight: 600;
-  line-height: 1.25;
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-
-.container-recibir-pedidos .card-header h5 i {
-  font-size: 1.35rem;
-}
-
-/* Badge estado base */
-.badge-estado {
+.ev-recibir-icon-wrapper{
+  width: 40px;
+  height: 40px;
   border-radius: 999px;
-  padding: 6px 14px;
+  background-color: #ECFDF3;
+  color: #16A34A;
+  font-size: 1.2rem;
+}
+
+.ev-recibir-title{
+  font-weight: 600;
+  color: #111827;
+}
+
+.ev-recibir-subtitle{
   font-size: 0.82rem;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  color: #6B7280 !important;
 }
 
-/* Estados del badge */
-.badge-estado.offline {
-  background-color: #dfe4ea;
-  color: #536071;
-}
-
-.badge-estado.online {
-  background-color: rgba(255,255,255,0.18);
-  color: #e8f5ed;
-}
-
-/* BODY */
-.container-recibir-pedidos .card-body {
-  padding: 22px 24px 24px 24px;
-}
-
-/* ==========================
-   SLIDER PRINCIPAL
-========================== */
-
-.rp-slider-banner {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 16px 0 24px 0; /* sin línea divisoria */
-}
-
-.rp-slider-toggle {
+/* Pill de estado */
+.ev-status-pill{
+  padding: 6px 12px;
   border-radius: 999px;
-  border: 2px solid #c5ccda;
-  padding: 14px 40px;
-  background: linear-gradient(145deg, #c7cedd, #e4e7ef);
-  color: #3b4252;
-  font-weight: 600;
-  font-size: 1rem;
-  min-width: min(420px, 100%);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  cursor: pointer;
-  box-shadow:
-    inset 0 2px 6px rgba(255,255,255,0.75),
-    0 8px 18px rgba(15, 89, 47, 0.12);
-  transition: all .25s ease;
-}
-
-.rp-slider-toggle:hover {
-  transform: translateY(-3px);
-  filter: brightness(0.98);
-  box-shadow:
-    inset 0 2px 6px rgba(255,255,255,0.85),
-    0 12px 26px rgba(15, 89, 47, 0.18);
-}
-
-.rp-slider-toggle:active {
-  transform: scale(0.985);
-  box-shadow:
-    inset 0 1px 3px rgba(0,0,0,0.10),
-    0 6px 16px rgba(15,89,47,0.16);
-}
-
-.rp-slider-toggle.rp-on {
-  background: linear-gradient(145deg, #0f592f, #138f57);
-  border-color: var(--verde-ev);
-  color: #ffffff;
-  box-shadow:
-    inset 0 2px 6px rgba(255,255,255,0.35),
-    0 12px 28px rgba(15,89,47,0.45);
-}
-
-.rp-slider-arrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.75);
-  color: #3b4252;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.12);
-  transition: transform .25s ease;
-}
-
-.rp-slider-arrow i {
-  font-size: 1.3rem;
-  transform: translateX(1px);
-}
-
-.rp-slider-toggle.rp-on .rp-slider-arrow {
-  background: rgba(255,255,255,0.9);
-  color: var(--verde-ev);
-}
-
-.rp-slider-toggle:hover .rp-slider-arrow {
-  transform: translateX(3px) scale(1.06);
-}
-
-.rp-slider-text {
-  letter-spacing: 0.02em;
-}
-
-/* Animación de la flecha en estado desconectado */
-@keyframes arrowPulse {
-  0%   { transform: translateX(1px); }
-  50%  { transform: translateX(6px); }
-  100% { transform: translateX(1px); }
-}
-
-.rp-slider-toggle.rp-off .rp-slider-arrow i {
-  animation: arrowPulse 1.4s ease-in-out infinite;
-}
-
-/* ==========================
-   ESTADO DESCONECTADO
-========================== */
-
-.rp-estado-wrapper {
-  margin-top: 4px;
-}
-
-.rp-estado-card {
-  border-radius: 18px;
-  background: #ffffff;
-  padding: 20px 26px;
-  display: grid;
-  grid-template-columns: minmax(0, 230px) minmax(0, 1fr);
-  align-items: center;
-  gap: 22px;
-  box-shadow: 0 8px 22px rgba(0,0,0,0.05);
-}
-
-.rp-estado-illustration {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.rp-estado-img {
-  max-width: 160px; /* un poco más compacta aún */
-  width: 100%;
-  height: auto;
-}
-
-/* Texto estado */
-.rp-estado-texto {
-  text-align: left;
-}
-
-.rp-estado-title {
-  font-size: 1.28rem;
-  font-weight: 700;
-  margin-bottom: 6px;
-  color: var(--verde-ev);
-}
-
-.rp-estado-subtitle {
-  font-size: 1rem;
-  color: #6c757d;
-  margin-bottom: 0;
-  line-height: 1.55;
-}
-
-/* ==========================
-   LISTA DE PEDIDOS (CONECTADO)
-========================== */
-
-.rp-lista-wrapper {
-  margin-top: 22px;
-  background: #ffffff;
-  border-radius: 18px;
-  padding: 18px 18px 20px 18px;
-  box-shadow: 0 8px 22px rgba(0,0,0,0.05);
-}
-
-.rp-pedidos-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.rp-pedido-item {
-  border-radius: 12px;
-  border: 1px solid var(--gris-borde);
-  padding: 10px 12px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-}
-
-.rp-pedido-header {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-  align-items: center;
-}
-
-.rp-pedido-title {
-  font-weight: 600;
-  color: var(--verde-ev);
-}
-
-.rp-pedido-meta {
-  font-size: 0.85rem;
-  color: var(--gris-texto);
-}
-
-.rp-pedido-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
-}
-
-.rp-btn-accept,
-.rp-btn-reject {
-  border-radius: 10px;
   font-size: 0.8rem;
-  padding: 5px 14px;
-  border-width: 1px;
+  border: 1px solid transparent;
+}
+
+.ev-status-text{
+  font-weight: 500;
+}
+
+.ev-status-dot{
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+}
+
+/* Estado desconectado */
+.ev-status-off{
+  background-color: #F3F4F6;
+  color: #6B7280;
+  border-color: #E5E7EB;
+}
+.ev-status-dot-off{
+  background-color: #9CA3AF;
+}
+
+/* Estado conectado */
+.ev-status-on{
+  background-color: #DCFCE7;
+  color: #15803D;
+  border-color: #BBF7D0;
+}
+.ev-status-dot-on{
+  background-color: #16A34A;
+}
+
+/* Cuerpo */
+.ev-recibir-body{
+  padding: 24px 24px 26px 24px;
+}
+
+/* =========================================
+   Toggle principal (inspirado en Opción A)
+========================================= */
+
+.ev-toggle-row{
+  margin-bottom: 28px;
+}
+
+/* Wrapper para mantener tamaño máximo */
+.ev-switch-wrapper{
+  min-width: 260px;
+}
+
+/* Label general del switch */
+.ev-switch{
+  position: relative;
+  display: inline-block;
+  width: 260px;
+  height: 54px;
+}
+
+/* Ocultamos el checkbox */
+.ev-switch input{
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* Pista del slider */
+.ev-slider{
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #E5E7EB; /* OFF */
+  border-radius: 999px;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.10);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  transition: background-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* Texto dentro del slider */
+.ev-slider-label{
+  z-index: 2;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #4B5563;
+}
+
+/* Thumb (círculo) usando ::before */
+.ev-slider::before{
+  content: "";
+  position: absolute;
+  left: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background-color: #FFFFFF;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.15);
+  transition: transform 0.25s ease;
+}
+
+/* Estado ON */
+/* El checkbox está checked => modificamos color y posición */
+.ev-switch input:checked + .ev-slider{
+  background-color: #16A34A; /* Verde EV */
+  box-shadow: 0 10px 22px rgba(22, 163, 74, 0.35);
+}
+
+.ev-switch input:checked + .ev-slider .ev-slider-label{
+  color: #ffffff;
+}
+
+/* Mover el thumb a la derecha cuando está ON */
+.ev-switch input:checked + .ev-slider::before{
+  transform: translateX(180px);
+}
+
+/* Hover sutil */
+.ev-switch:hover .ev-slider{
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.22);
+}
+
+/* Texto secundario de estado */
+.ev-estado-secundario{
+  max-width: 420px;
+}
+
+.ev-estado-secundario-label{
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.ev-estado-secundario-label strong{
   font-weight: 600;
 }
 
-/* Aceptar */
-.rp-btn-accept {
-  background: var(--verde-ev);
-  color: #ffffff;
-  border: none;
-  box-shadow: 0 4px 12px rgba(15,89,47,0.25);
+.ev-estado-secundario-help{
+  margin-top: 4px;
+  font-size: 0.85rem;
+  color: #6B7280;
 }
 
-.rp-btn-accept:hover {
-  background: var(--verde-ev-claro);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(15,89,47,0.32);
+/* Info card inferior */
+.ev-recibir-info-card{
+  margin-top: 8px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background-color: #FFFFFF;
+  border: 1px solid rgba(209, 213, 219, 0.8);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
 }
 
-/* Rechazar */
-.rp-btn-reject {
-  background: #fbe9eb;
-  border-color: #dc3545;
-  color: #dc3545;
+.ev-recibir-info-illustration{
+  width: 86px;
+  height: 86px;
+  border-radius: 18px;
+  background-color: #ECFDF3;
+  flex-shrink: 0;
+  overflow: hidden;
 }
 
-.rp-btn-reject:hover {
-  background: #dc3545;
-  color: #ffffff;
+.ev-recibir-info-illustration img{
+  max-width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
-/* Estado vacío */
-.rp-empty-state {
-  border-radius: 12px;
-  padding: 14px 12px;
-  border: 1px dashed #ced4da;
-  text-align: center;
-  color: var(--gris-texto);
+.ev-recibir-info-title{
+  font-weight: 600;
+  color: #166534;
+  font-size: 0.98rem;
 }
 
-.rp-empty-icon {
-  font-size: 1.6rem;
-  display: block;
-  margin-bottom: 4px;
+.ev-recibir-info-text{
+  font-size: 0.88rem;
+  color: #4B5563;
 }
 
-/* ANIMACIÓN GENERAL */
-@keyframes fadeIn {
-  from { opacity:0; transform: translateY(10px); }
-  to   { opacity:1; transform: translateY(0); }
-}
+/* =========================================
+   Responsivo
+========================================= */
 
-/* RESPONSIVE */
-@media (max-width: 768px) {
-  .container-recibir-pedidos {
+@media (max-width: 767.98px){
+  .ev-recibir-card .ev-recibir-header{
+    padding-inline: 16px;
+  }
+
+  .ev-recibir-body{
+    padding-inline: 16px;
+  }
+
+  .ev-toggle-row{
+    align-items: flex-start !important;
+  }
+
+  .ev-switch-wrapper{
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  .ev-estado-secundario{
     max-width: 100%;
-    margin: 18px auto;
-    padding: 0 12px;
   }
 
-  .container-recibir-pedidos .card {
-    border-radius: 14px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.10);
-  }
-
-  .container-recibir-pedidos .card-header {
-    padding: 16px 18px;
-  }
-
-  .container-recibir-pedidos .card-header h5 {
-    font-size: 1.1rem;
-  }
-
-  .container-recibir-pedidos .card-body {
-    padding: 18px 16px 20px 16px;
-  }
-
-  .rp-estado-card {
-    grid-template-columns: minmax(0, 1fr);
-    text-align: center;
-  }
-
-  .rp-estado-texto {
-    text-align: center;
-  }
-
-  .rp-slider-toggle {
-    min-width: 100%;
-  }
-
-  .rp-pedido-item {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .rp-pedido-actions {
+  .ev-recibir-info-card{
     flex-direction: row;
-    justify-content: flex-start;
-  }
-}
-
-@media (max-width: 576px) {
-  .container-recibir-pedidos .card-body {
-    padding: 16px 12px 18px 12px;
   }
 }
 </style>
