@@ -9,11 +9,12 @@
   background-color: #F3F4F6; /* gris suave */
 }
 
-/* Estilo base de todas las cards */
+/* Estilo base de todas las cards (coherente con login) */
 .ev-home-dashboard .card {
   border-radius: 18px;
-  border: 0;
-  box-shadow: 0 10px 30px rgba(15, 89, 47, 0.06);
+  border: 1px solid #E5E7EB;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+  background-color: #FFFFFF;
 }
 
 
@@ -23,6 +24,7 @@
 
 .ev-home-dashboard .card:first-of-type {
   border: 0 !important;
+  box-shadow: none !important; /* bienvenida más ligera */
 }
 
 .ev-home-dashboard .card:first-of-type .d-flex {
@@ -33,10 +35,12 @@
 .ev-home-dashboard h3.fw-bold {
   font-size: 1.55rem;
   letter-spacing: 0.3px;
+  color: #0F592F;
 }
 
 .ev-home-dashboard .card:first-of-type p {
   font-size: 0.97rem;
+  color: #6B7280;
 }
 
 /* Logo circular */
@@ -144,8 +148,7 @@
   color: #0F592F;
 }
 
-/* Si en el futuro quieres un carrusel tipo Bootstrap, 
-   estos estilos siguen funcionando sin problema */
+/* Carrusel tipo Bootstrap (compatible) */
 .ev-home-dashboard #destacadosCarousel .carousel-inner {
   padding: 4px 0;
 }
@@ -214,8 +217,9 @@
 .ev-home-dashboard .card-accion-comprar,
 .ev-home-dashboard .card-accion-vender {
   border-radius: 18px;
-  border: 0;
+  border: 1px solid #E5E7EB;
   padding: 1.5rem !important;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
 }
 
 /* Fondos */
@@ -227,7 +231,7 @@
   background-color: #FFF7F5;
 }
 
-/* Botones */
+/* Botones (unificados con estilo EV) */
 .ev-home-dashboard .card-accion-comprar .btn,
 .ev-home-dashboard .card-accion-vender .btn {
   border-radius: 12px;
@@ -238,30 +242,35 @@
 
 /* Botón COMPRAR */
 .ev-home-dashboard .btn-ev-comprar {
-  background-color: #0F592F;
+  background: linear-gradient(135deg, #0F592F, #166534);
   border-color: #0F592F;
+  color: #FFFFFF;
 }
 
 .ev-home-dashboard .btn-ev-comprar:hover {
-  background-color: #0b4122;
+  background: linear-gradient(135deg, #0b4122, #14532d);
   border-color: #0b4122;
+  color: #FFFFFF;
 }
 
-/* Botón VENDER */
+/* Botón VENDER (coherente con btn-login) */
 .ev-home-dashboard .btn-ev-vender {
-  background-color: #F97316;
-  border-color: #F97316;
+  background: linear-gradient(135deg, #D97706, #EA7C12);
+  border-color: #D97706;
+  color: #FFFFFF;
 }
 
 .ev-home-dashboard .btn-ev-vender:hover {
-  background-color: #dd5e06;
-  border-color: #dd5e06;
+  background: linear-gradient(135deg, #C46B05, #D46F0F);
+  border-color: #C46B05;
+  color: #FFFFFF;
 }
 
 /* Títulos */
 .ev-home-dashboard .card-accion-comprar h5,
 .ev-home-dashboard .card-accion-vender h5 {
   letter-spacing: 0.4px;
+  color: #0F592F;
 }
 
 
@@ -272,6 +281,7 @@
 .ev-home-dashboard .card-consejos h6 {
   font-size: 0.95rem;
   letter-spacing: 0.2px;
+  color: #0F592F;
 }
 
 .ev-home-dashboard .card-consejos ul li {

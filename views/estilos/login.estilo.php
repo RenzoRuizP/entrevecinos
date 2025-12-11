@@ -1,160 +1,211 @@
-<!-- login.estilo.php -->
-<!-- 🔹 Tipografía -->
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+<!-- ===============================
+     ESTILOS BASE PARA LOGIN ENTRE VECINOS
+     =============================== -->
 
-<!-- 🔹 Bootstrap -->
+<!-- 🔹 Tipografía profesional (Poppins) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/poppins@5.0.3/index.min.css">
+
+<!-- 🔹 Bootstrap 5 (CSS) -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
-<!-- 🔹 Bootstrap Icons -->
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
-
-<!-- 🔹 SweetAlert2 -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
+<!-- ===============================
+     ESTILO PERSONALIZADO LOGIN
+     =============================== -->
 <style>
-/* =====================================================
-   🌿 ENTRE VECINOS - LOGIN PROFESIONAL (UX/UI)
-===================================================== */
-
-/* --- Fondo general --- */
-body {
-  background: radial-gradient(circle at 20% 20%, #FFF8EC 0%, #FFFDF8 40%, #F5FBF6 100%);
-  font-family: 'Poppins', 'Inter', sans-serif;
+/* --------------------------
+   Fondo general / Layout
+-------------------------- */
+body.login-body {
   min-height: 100vh;
+  margin: 0;
+  padding: 24px;
+  background: linear-gradient(135deg, #FFF7ED 0%, #ECFDF5 100%);
   display: flex;
-  align-items: center;
   justify-content: center;
-  color: #0D0D0D;
+  align-items: center;
+  font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #111827;
 }
 
-/* --- Tarjeta principal --- */
+/* --------------------------
+   Tarjeta principal de login
+-------------------------- */
 .login-card {
-  background-color: #ffffff;
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border: 1px solid #E5E7EB;
   border-radius: 18px;
-  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.08);
-  padding: 2rem;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.10);
   text-align: center;
-  transition: all 0.3s ease;
-}
-.login-card:hover {
-  transform: translateY(-3px);
 }
 
-/* --- Logo y encabezado --- */
-.login-card .card-header {
-  background: transparent;
-  border: none;
-}
-.login-card img {
-  max-width: 280px;
-  margin-bottom: 0.8rem;
-}
-.login-card h5 {
-  font-weight: 600;
-  color: #115C41;
-  margin-bottom: 0.3rem;
-}
-.login-card small {
-  color: #6B7280;
-  font-size: 0.9rem;
+/* Logo y textos encabezado */
+.login-logo {
+  max-height: 110px;
 }
 
-/* --- Inputs e íconos --- */
+.login-card h4 {
+  color: #0F592F;
+  font-weight: 700;
+  font-size: 1.35rem;
+}
+
+.login-subtitle {
+  font-size: 0.95rem;
+  color: #6b7280;
+}
+
+/* --------------------------
+   Inputs y iconos
+-------------------------- */
 .input-icon {
   position: absolute;
   top: 50%;
   left: 12px;
   transform: translateY(-50%);
-  color: #9CA3AF;
+  color: #9ca3af;
+  font-size: 1rem;
 }
+
 input.form-control {
   padding-left: 38px;
   border-radius: 10px;
-  border: 1px solid #73E7A6;
-  transition: all 0.2s;
+  border: 1px solid #d1fae5;
+  font-size: 0.95rem;
+  transition: all 0.18s ease-out;
 }
+
+input.form-control::placeholder {
+  color: #79808c;
+  font-size: 0.93rem;
+}
+
 input.form-control:focus {
-  border-color: #157251;
-  box-shadow: 0 0 0 2px rgba(7, 140, 3, 0.25);
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+  outline: none;
 }
 
-/* --- Botones --- */
+/* --------------------------
+   Botón principal
+-------------------------- */
 .btn-login {
-  background-color: #D96704;
+  background: linear-gradient(135deg, #D97706, #EA7C12);
   border: none;
-  color: #fff;
-  transition: all 0.3s ease;
+  color: #ffffff;
+  border-radius: 10px;
+  font-size: 1rem;
+  box-shadow: 0 8px 20px rgba(217, 119, 6, 0.35);
+  transition: all 0.2s ease;
 }
+
 .btn-login:hover {
-  background-color: #E4691B;
-  color: #fff;
-  transform: translateY(-2px);
-}
-.btn-outline-secondary:hover {
-  background-color: #494F5B;
-  color: #fff;
+  background: linear-gradient(135deg, #C46B05, #D46F0F);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(217, 119, 6, 0.45);
 }
 
-/* --- Enlaces --- */
-.text-center a {
-  color: #115C41;
-  transition: color 0.3s ease;
-}
-.text-center a:hover {
-  color: #D96704;
+.btn-login:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.30);
 }
 
-/* --- Footer --- */
-.login-footer {
-  background: transparent;
-  border-top: none;
-  color: #6B7280;
-  font-size: 0.85rem;
-  margin-top: 1rem;
+/* --------------------------
+   Links secundarios
+-------------------------- */
+.login-actions a {
+  font-size: 0.93rem;
 }
 
-/* --- Spinner --- */
+.login-link-forgot {
+  color: #15803d;
+}
+
+.login-link-forgot:hover {
+  color: #166534;
+  text-decoration: underline;
+}
+
+.login-link-register {
+  display: inline-block;
+  margin-top: 4px;
+  border-radius: 999px;
+  border: 1px solid #16a34a;
+  color: #15803d;
+  padding: 6px 16px;
+  font-size: 0.92rem;
+  text-decoration: none;
+}
+
+.login-link-register:hover {
+  background-color: #ecfdf5;
+  color: #166534;
+}
+
+/* --------------------------
+   Footer
+-------------------------- */
+.login-footer small {
+  font-size: 0.78rem;
+  color: #9ca3af;
+}
+
+/* --------------------------
+   Spinner
+-------------------------- */
 .spinner-overlay {
   position: fixed;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  background: rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.82);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 9999;
-  display: none;
+  display: none; /* se muestra vía JS cuando se necesite */
 }
+
 .spinner {
   border: 4px solid #D1FAE5;
-  border-top: 4px solid #157251;
+  border-top: 4px solid #0F592F;
   border-radius: 50%;
-  width: 45px;
-  height: 45px;
+  width: 40px;
+  height: 40px;
   animation: spin 0.8s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
 
-/* --- Modales --- */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* --------------------------
+   Modales
+-------------------------- */
 .modal-content {
-  border-radius: 15px;
+  border-radius: 12px;
   border: none;
 }
+
 .modal-header.bg-success {
- 
-  color: #115C41;
-}
-.modal-header h5 {
-  font-weight: 600;
+  background: linear-gradient(135deg, #0F592F 0%, #0F592F 100%);
 }
 
-/* --- Responsive --- */
-@media (max-width: 768px) {
-  .login-card {
-    padding: 1.5rem;
+.modal-footer .btn-outline-secondary:hover {
+  background-color: #494F5B;
+  color: #ffffff;
+}
+
+/* --------------------------
+   Responsividad
+-------------------------- */
+@media (max-width: 576px) {
+  body.login-body {
+    padding: 16px;
   }
-  .login-card img {
-    max-width: 200px;
+  .login-card {
+    max-width: 100%;
   }
 }
 </style>

@@ -170,4 +170,4 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
 </div>
 
 <!-- JS específico del marketplace -->
-<script src="<?= BASE_URL ?>views/js/marketplace.js"></script>
+<!--<script src="<?= BASE_URL ?>views/js/marketplace.js"></script> -->

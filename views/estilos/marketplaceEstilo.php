@@ -15,6 +15,7 @@
 /* Fondo suave solo para el área donde se monta el marketplace */
 .ev-mp-wrapper{
   background-color:var(--ev-gris-fondo);
+  padding-bottom:40px;
 }
 
 /* =======================================
@@ -28,17 +29,17 @@
 }
 
 .ev-mp-header .card-body{
-  padding:24px 32px 22px 32px;
+  padding:16px 24px 12px 24px; /* un poco menos padding abajo */
 }
 
 .ev-mp-title{
-  font-size:32px;
+  font-size:28px;
   font-weight:700;
   color:var(--ev-verde-oscuro);
 }
 
 .ev-mp-subtitle{
-  font-size:15px;
+  font-size:14px;
   color:var(--ev-texto-suave);
 }
 
@@ -91,8 +92,8 @@
 .ev-mp-search-row{
   display:flex;
   flex-wrap:wrap;
-  gap:16px;
-  margin-top:18px;
+  gap:14px;
+  margin-top:14px;
 }
 
 .ev-mp-search-input-wrapper{
@@ -101,11 +102,11 @@
   display:flex;
   align-items:center;
   gap:10px;
-  padding:10px 16px;
+  padding:8px 14px;
   border-radius:999px;
   border:1px solid var(--ev-gris-borde);
   background:#fff;
-  height:50px;
+  height:46px;
   box-sizing:border-box;
 }
 
@@ -117,7 +118,7 @@
 .ev-mp-search-input{
   border:none!important;
   box-shadow:none!important;
-  font-size:15px;
+  font-size:14px;
   width:100%;
 }
 
@@ -133,7 +134,7 @@
 }
 
 .ev-mp-btn-filtros{
-  height:50px;
+  height:46px;
   border-radius:12px;
   font-weight:500;
 }
@@ -154,7 +155,7 @@
 }
 
 .ev-mp-sort-select{
-  height:50px;
+  height:46px;
   border-radius:12px;
   font-size:13px;
 }
@@ -163,10 +164,10 @@
    CHIPS DE CATEGORÍAS
 ======================================= */
 .ev-mp-chips{
-  margin-top:16px;
+  margin-top:12px;
   display:flex;
   flex-wrap:wrap;
-  gap:10px;
+  gap:8px;
 }
 
 .ev-mp-chip{
@@ -195,40 +196,21 @@
 .ev-mp-resumen{
   font-size:13px;
   color:var(--ev-texto-suave);
-  margin-top:8px;
+  margin-top:6px;
 }
 
 /* =======================================
-   GRID – 4 / 3 / 2 / 1 COLUMNAS
+   GRID – columnas entre 280 y 340px alineadas a la izquierda
 ======================================= */
 .ev-mp-grid{
-  margin-top:20px;
+  margin-top:10px; /* menos espacio entre header y resultados */
   display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:22px;
-}
-
-/* ============================================================
-   ⭐ REDUCCIÓN DE CARDS 25% (Opción A confirmada)
-============================================================ */
-.ev-mp-card{
-  transform:scale(0.75);
-  transform-origin:top left;
-  margin-bottom:-38px; /* compensa espacio visual */
-}
-
-/* Imagen más compacta */
-.ev-mp-card-media{
-  height:170px !important;
-}
-
-/* Texto más compacto */
-.ev-mp-card-title{
-  font-size:14px !important;
-}
-
-.ev-mp-card-price{
-  font-size:15px !important;
+  grid-template-columns:repeat(auto-fit, minmax(280px, 340px));
+  column-gap:22px;  /* separación horizontal un poco mayor */
+  row-gap:18px;
+  justify-content:start;
+  margin-left:auto;
+  margin-right:auto;
 }
 
 /* =======================================
@@ -242,26 +224,32 @@
   display:flex;
   flex-direction:column;
   transition:all .22s ease;
-  box-shadow:0 4px 14px rgba(0,0,0,0.04);
+  box-shadow:0 3px 10px rgba(0,0,0,0.04);
 }
 
 .ev-mp-card:hover{
-  transform:translateY(-5px) scale(0.75);
-  box-shadow:0 18px 32px rgba(0,0,0,0.1);
+  transform:translateY(-4px);
+  box-shadow:0 16px 30px rgba(0,0,0,0.12);
   border-color:var(--ev-verde);
 }
 
-/* Imagen de la card */
+/* Imagen de la card – portada completa */
 .ev-mp-card-media{
   position:relative;
   width:100%;
-  height:230px;
+  height:220px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#f5f7fa;
 }
 
 .ev-mp-card-media img{
   width:100%;
   height:100%;
-  object-fit:cover;
+  object-fit:cover; /* cubre todo el contenedor */
+  border-top-left-radius:20px;   /* integración visual con la card */
+  border-top-right-radius:20px;
 }
 
 /* Badges */
@@ -273,6 +261,7 @@
   gap:6px;
 }
 
+/* Badge genérico */
 .ev-mp-badge{
   padding:3px 9px;
   border-radius:25px;
@@ -285,8 +274,10 @@
   background:#FF7A1Acc;
 }
 
+/* Ocultamos el badge verde (donde se mostraba "Publicado") */
 .ev-mp-badge-nuevo{
   background:#22c55ecc;
+  display:none !important;
 }
 
 .ev-mp-badge-category{
@@ -295,26 +286,28 @@
 
 /* Body */
 .ev-mp-card-body{
-  padding:16px 18px;
+  padding:10px 14px 10px 14px; /* más compacto en alto */
   display:flex;
   flex-direction:column;
-  gap:8px;
+  gap:6px;
 }
 
 .ev-mp-card-title{
   margin:0;
   font-weight:600;
   color:var(--ev-texto);
+  font-size:15px; /* un poco más grande */
 }
 
 .ev-mp-card-price{
   margin:0;
   font-weight:700;
   color:var(--ev-verde);
+  font-size:17px; /* destaca más el precio */
 }
 
 .ev-mp-card-meta{
-  margin-top:8px;
+  margin-top:6px;
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -328,12 +321,12 @@
 }
 
 .ev-mp-avatar{
-  width:32px;
-  height:32px;
+  width:30px;
+  height:30px;
   border-radius:50%;
   background:var(--ev-verde-suave);
   color:var(--ev-verde-oscuro);
-  font-size:14px;
+  font-size:13px;
   font-weight:700;
   display:flex;
   align-items:center;
@@ -364,7 +357,7 @@
 
 /* Acciones */
 .ev-mp-card-actions{
-  margin-top:10px;
+  margin-top:8px;
   display:flex;
   justify-content:space-between;
   gap:8px;
@@ -373,6 +366,12 @@
 .ev-mp-card-actions .btn{
   flex:1;
   border-radius:999px;
+  transition:all .16s ease;
+}
+
+.ev-mp-card-actions .btn:hover{
+  transform:translateY(-2px);
+  box-shadow:0 4px 12px rgba(0,0,0,0.12);
 }
 
 /* Estado vacío */
@@ -384,15 +383,13 @@
 }
 
 /* ============================================================
-   MODAL DETALLE PUBLICACIÓN – Estilo igual a previsualización
+   MODAL DETALLE PUBLICACIÓN
 ============================================================ */
 
-/* Caja principal del modal */
 .ev-mp-modal-body {
-  padding: 20px 26px;
+  padding:20px 26px;
 }
 
-/* Card interna que replica la previsualización */
 .ev-mp-preview-card{
   background:#ffffff;
   border-radius:18px;
@@ -403,105 +400,100 @@
   margin:0 auto;
 }
 
-/* CONTENEDOR de la imagen principal */
 .ev-mp-modal-media {
-  width: 100%;
-  background: #ffffff;
-  border: 1px solid #E3E8EF;
-  border-radius: 16px;
-  overflow: hidden;
-  padding: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  aspect-ratio: 4 / 3;          /* mismo marco para todas las fotos */
-  max-height: 520px;
-  margin-bottom: 14px;
+  width:100%;
+  background:#ffffff;
+  border:1px solid #E3E8EF;
+  border-radius:16px;
+  overflow:hidden;
+  padding:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  aspect-ratio:4 / 3;
+  max-height:520px;
+  margin-bottom:14px;
 }
 
-/* Imagen principal – zoom suave para recortar un poco más */
 .ev-mp-modal-media img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 12px;
-  transform: scale(1.08);
-  transform-origin: center center;
-  transition: transform 0.25s ease;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  border-radius:12px;
+  transform:scale(1.08);
+  transform-origin:center center;
+  transition:transform 0.25s ease;
 }
 
-/* Miniaturas */
 .ev-mp-modal-thumbs {
-  display: flex;
-  gap: 10px;
-  margin: 15px 0 25px;
-  padding-left: 4px;
+  display:flex;
+  gap:10px;
+  margin:15px 0 25px;
+  padding-left:4px;
 }
 
 .ev-mp-modal-thumb {
-  width: 62px;
-  height: 62px;
-  border-radius: 8px;
-  border: 2px solid transparent;
-  overflow: hidden;
-  cursor: pointer;
-  flex-shrink: 0;
+  width:62px;
+  height:62px;
+  border-radius:8px;
+  border:2px solid transparent;
+  overflow:hidden;
+  cursor:pointer;
+  flex-shrink:0;
 }
 
 .ev-mp-modal-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transform: scale(1.03);          /* ligero zoom también en miniaturas */
-  transform-origin: center center;
-  transition: transform 0.2s ease;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  transform:scale(1.03);
+  transform-origin:center center;
+  transition:transform 0.2s ease;
 }
 
 .ev-mp-modal-thumb.active {
-  border-color: var(--ev-verde);
+  border-color:var(--ev-verde);
 }
 
-/* Títulos / textos */
 .ev-mp-modal-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--ev-verde-oscuro);
-  margin-bottom: 4px;
+  font-size:20px;
+  font-weight:700;
+  color:var(--ev-verde-oscuro);
+  margin-bottom:4px;
 }
 
 .ev-mp-modal-price {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--ev-verde);
-  margin-bottom: 14px;
+  font-size:18px;
+  font-weight:700;
+  color:var(--ev-verde);
+  margin-bottom:14px;
 }
 
 .ev-mp-modal-desc {
-  font-size: 14px;
-  color: #555;
-  line-height: 1.5;
+  font-size:14px;
+  color:#555;
+  line-height:1.5;
 }
 
-/* Botones del footer juntos y en armonía con el estándar */
 .modal-footer {
-  border-top: none;
-  padding: 16px 24px 20px 24px;
+  border-top:none;
+  padding:16px 24px 20px 24px;
 }
 
 .modal-footer .btn-ev-neutral,
 .modal-footer .btn-ev-primary{
-  min-width: 150px;
+  min-width:150px;
 }
 
 /* Ajuste de tamaño general del modal en escritorio */
-@media (min-width: 768px){
+@media (min-width:768px){
   .modal-dialog.modal-xl{
-    max-width: 980px;
+    max-width:980px;
   }
 }
 
 /* Responsive modal */
-@media(max-width:575px){
+@media(max-width:575.98px){
   .ev-mp-modal-body{
     padding-inline:14px;
   }
@@ -511,37 +503,27 @@
   .ev-mp-modal-media{
     max-height:360px;
   }
-  /* En móvil recortamos un poco menos para que no se pierda tanto contenido */
   .ev-mp-modal-media img{
-    transform: scale(1.03);
+    transform:scale(1.03);
   }
   .ev-mp-modal-thumb img{
-    transform: scale(1.0);
+    transform:scale(1.0);
   }
 }
 
 /* =======================================
    RESPONSIVE GRID
 ======================================= */
-@media (max-width: 1199.98px){
-  .ev-mp-grid{
-    grid-template-columns:repeat(3,1fr);
-  }
-}
-
-@media (max-width: 991.98px){
+@media (max-width:991.98px){
   .ev-mp-header .card-body{
-    padding:18px 18px 16px 18px;
+    padding:14px 16px 10px 16px;
   }
   .ev-mp-title{
     font-size:24px;
   }
-  .ev-mp-grid{
-    grid-template-columns:repeat(2,1fr);
-  }
 }
 
-@media (max-width: 575.98px){
+@media (max-width:575.98px){
   .ev-mp-search-row{
     flex-direction:column;
   }
@@ -549,7 +531,9 @@
     width:100%;
   }
   .ev-mp-grid{
-    grid-template-columns:1fr;
+    grid-template-columns:minmax(0, 1fr);
+    column-gap:0;
+    row-gap:16px;
   }
 }
 </style>

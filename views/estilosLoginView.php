@@ -5,29 +5,25 @@
 <!-- 🔹 Tipografía profesional (Poppins) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/poppins@5.0.3/index.min.css">
 
-<!-- 🔹 Bootstrap 5 -->
+<!-- 🔹 Bootstrap 5 (CSS) -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
-<!-- 🔹 Bootstrap Icons -->
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
-
-<!-- 🔹 SweetAlert2 -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <!-- ===============================
      ESTILO PERSONALIZADO LOGIN
      =============================== -->
 <style>
 /* --------------------------
-   Fondo general
+   Fondo general / Layout
 -------------------------- */
 body.login-body {
   min-height: 100vh;
+  margin: 0;
+  padding: 24px;
   background: linear-gradient(135deg, #f9fafb 0%, #f0fdf4 100%);
   display: flex;
   justify-content: center;
   align-items: center;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   color: #111827;
 }
 
@@ -35,22 +31,27 @@ body.login-body {
    Tarjeta principal de login
 -------------------------- */
 .login-card {
-  background: rgba(255, 255, 255, 0.9);
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
   border: 1px solid #e5e7eb;
-  backdrop-filter: blur(12px);
-  border-radius: 16px;
-  box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+  border-radius: 20px;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.10);
   text-align: center;
-  padding-top: 2rem;
 }
 
-.login-card h5 {
+/* Logo y textos encabezado */
+.login-logo {
+  max-height: 110px;
+}
+
+.login-card h4 {
   color: #0F592F;
-  font-weight: 600;
-  margin-top: 0.5rem;
+  font-weight: 700;
 }
 
-.login-card small {
+.login-subtitle {
+  font-size: 0.92rem;
   color: #6b7280;
 }
 
@@ -63,44 +64,91 @@ body.login-body {
   left: 12px;
   transform: translateY(-50%);
   color: #9ca3af;
+  font-size: 1rem;
 }
 
 input.form-control {
-  padding-left: 36px;
+  padding-left: 38px;
   border-radius: 10px;
   border: 1px solid #d1fae5;
-  transition: all 0.2s;
+  font-size: 0.95rem;
+  transition: all 0.18s ease-out;
+}
+
+input.form-control::placeholder {
+  color: #9ca3af;
+  font-size: 0.93rem;
 }
 
 input.form-control:focus {
   border-color: #22c55e;
-  box-shadow: 0 0 0 3px rgba(34,197,94,0.25);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+  outline: none;
 }
 
 /* --------------------------
    Botón principal
 -------------------------- */
 .btn-login {
-  background-color: #E4691B;
+  background: linear-gradient(135deg, #D97706, #EA7C12);
   border: none;
-  color: #fff;
-  transition: all 0.3s ease;
+  color: #ffffff;
+  border-radius: 10px;
+  font-size: 0.98rem;
+  box-shadow: 0 8px 20px rgba(217, 119, 6, 0.35);
+  transition: all 0.2s ease;
 }
 
 .btn-login:hover {
-  background-color: #CC6018;
-  color: #fff;
-  transform: translateY(-2px);
+  background: linear-gradient(135deg, #C46B05, #D46F0F);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(217, 119, 6, 0.45);
+}
+
+.btn-login:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.30);
+}
+
+/* --------------------------
+   Links secundarios
+-------------------------- */
+.login-actions a {
+  font-size: 0.93rem;
+}
+
+.login-link-forgot {
+  color: #15803d;
+}
+
+.login-link-forgot:hover {
+  color: #166534;
+  text-decoration: underline;
+}
+
+.login-link-register {
+  display: inline-block;
+  margin-top: 4px;
+  border-radius: 999px;
+  border: 1px solid #16a34a;
+  color: #15803d;
+  padding: 6px 16px;
+  font-size: 0.92rem;
+  text-decoration: none;
+}
+
+.login-link-register:hover {
+  background-color: #ecfdf5;
+  color: #166534;
 }
 
 /* --------------------------
    Footer
 -------------------------- */
-.login-footer {
-  font-size: 0.9rem;
+.login-footer small {
+  font-size: 0.78rem;
   color: #9ca3af;
-  background: transparent;
-  border-top: none;
 }
 
 /* --------------------------
@@ -110,12 +158,12 @@ input.form-control:focus {
   position: fixed;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  background: rgba(255,255,255,0.8);
+  background: rgba(255,255,255,0.82);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 9999;
-  display: none;
+  display: none; /* se muestra vía JS cuando se necesite */
 }
 
 .spinner {
@@ -145,14 +193,18 @@ input.form-control:focus {
 
 .modal-footer .btn-outline-secondary:hover {
   background-color: #494F5B;
+  color: #ffffff;
 }
 
 /* --------------------------
    Responsividad
 -------------------------- */
 @media (max-width: 576px) {
+  body.login-body {
+    padding: 16px;
+  }
   .login-card {
-    width: 95%;
+    max-width: 100%;
   }
 }
 </style>
