@@ -1,16 +1,9 @@
-<!-- ===============================
-     ESTILOS BASE PARA LOGIN ENTRE VECINOS
-     =============================== -->
-
 <!-- Tipografía Poppins -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/poppins@5.0.3/index.min.css">
 
 <!-- Bootstrap 5 (CSS) -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
-<!-- ===============================
-     ESTILO PERSONALIZADO LOGIN
-     =============================== -->
 <style>
 :root {
   --ev-verde-oscuro: #0F592F;
@@ -24,9 +17,9 @@
   --ev-gris-600: #4B5563;
 }
 
-/* --------------------------
-   Fondo general / Layout
--------------------------- */
+/* ============================
+   FONDO / LAYOUT LOGIN
+============================ */
 body.login-body {
   min-height: 100vh;
   margin: 0;
@@ -36,14 +29,11 @@ body.login-body {
   align-items: center;
   font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   color: #111827;
-
-  /* Fondo neutro premium */
   background-color: var(--ev-gris-100);
   background-image:
     radial-gradient(circle at 50% 20%, rgba(22,163,74,0.10), transparent 60%);
 }
 
-/* Contenedor principal */
 .login-shell {
   width: 100%;
   max-width: 980px;
@@ -58,24 +48,21 @@ body.login-body {
     0 4px 12px rgba(0,0,0,0.06);
 }
 
-/* --------------------------
-   Panel izquierdo (Hero)
--------------------------- */
+/* ============================
+   HERO IZQUIERDO
+============================ */
 .login-hero {
   flex: 1.1;
   position: relative;
   overflow: hidden;
   padding: 48px 40px;
   color: #F9FAFB;
-
-  /* Degradado verde corporativo orgánico */
   background:
     radial-gradient(circle at 75% 30%, rgba(255,255,255,0.08), transparent 60%),
     radial-gradient(circle at 20% 80%, rgba(0,0,0,0.08), transparent 70%),
     linear-gradient(145deg, #0F592F 0%, #0E7A43 45%, #16A34A 85%);
 }
 
-/* Capa sutil de profundidad */
 .login-hero-layer::before {
   content: "";
   position: absolute;
@@ -86,7 +73,6 @@ body.login-body {
   pointer-events: none;
 }
 
-/* Contenido hero */
 .login-hero-content {
   position: relative;
   z-index: 2;
@@ -135,7 +121,6 @@ body.login-body {
   color: #FEF3C7;
 }
 
-/* Botón “Si lo tengo, vecina” con efecto glass */
 .login-hero-badge .badge-pill {
   display: inline-flex;
   align-items: center;
@@ -151,9 +136,9 @@ body.login-body {
   box-shadow: 0 8px 20px rgba(15,23,42,0.25);
 }
 
-/* --------------------------
-   Panel derecho (Login)
--------------------------- */
+/* ============================
+   PANEL DERECHO LOGIN
+============================ */
 .login-panel {
   flex: 0.9;
   background: #ffffff;
@@ -167,7 +152,6 @@ body.login-body {
   position: relative;
 }
 
-/* Spotlight suave bajo el logo */
 .login-panel-header::before {
   content: "";
   position: absolute;
@@ -206,9 +190,7 @@ body.login-body {
   padding-bottom: 12px;
 }
 
-/* --------------------------
-   Inputs e iconos
--------------------------- */
+/* Inputs login */
 .login-form .input-icon {
   position: absolute;
   top: 50%;
@@ -238,7 +220,6 @@ body.login-body {
   outline: none;
 }
 
-/* Más respiración entre campos */
 .login-form .mb-3 {
   margin-bottom: 1.15rem !important;
 }
@@ -247,7 +228,7 @@ body.login-body {
   margin-bottom: 1.05rem !important;
 }
 
-/* Recordarme + link olvidar contraseña */
+/* Recordarme + link */
 .login-remember-row .form-check-input {
   border-radius: 4px;
 }
@@ -268,9 +249,7 @@ body.login-body {
   text-decoration: underline;
 }
 
-/* --------------------------
-   Botón principal
--------------------------- */
+/* Botón Iniciar sesión */
 .btn-login {
   background: linear-gradient(135deg, var(--ev-naranja), #F59E0B);
   border: none;
@@ -293,7 +272,7 @@ body.login-body {
   box-shadow: 0 6px 16px rgba(234,124,18,0.30);
 }
 
-/* Botón “Crear cuenta” */
+/* Botón Crear cuenta */
 .login-actions {
   margin-top: 12px;
 }
@@ -323,15 +302,15 @@ body.login-body {
   color: var(--ev-verde);
 }
 
-/* Footer panel derecho */
+/* Footer */
 .login-panel-footer small {
   font-size: 0.78rem;
   color: #9ca3af;
 }
 
-/* --------------------------
-   Spinner
--------------------------- */
+/* ============================
+   SPINNER
+============================ */
 .spinner-overlay {
   position: fixed;
   top: 0; left: 0;
@@ -357,26 +336,195 @@ body.login-body {
   to { transform: rotate(360deg); }
 }
 
-/* --------------------------
-   Modales
--------------------------- */
-.modal-content {
-  border-radius: 12px;
-  border: none;
+/* ============================
+   MODALES ENTRE VECINOS
+============================ */
+.modal.show .modal-dialog {
+  padding-top: 3rem;
+  padding-bottom: 2rem;
 }
 
+/* Contenedor transparente para que el header pinte las esquinas */
+.modal-content {
+  border-radius: 18px;
+  border: none;
+  overflow: hidden;
+  background: transparent;
+  box-shadow:
+    0 18px 45px rgba(0,0,0,0.22),
+    0 6px 12px rgba(0,0,0,0.12);
+}
+
+/* Header con degradado y borde redondeado */
 .modal-header.bg-success {
-  background: linear-gradient(135deg, var(--ev-verde-oscuro) 0%, var(--ev-verde-oscuro) 100%);
+  background: linear-gradient(140deg, #0F592F 0%, #0E7A43 55%, #16A34A 100%);
+  padding-top: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.20);
+  border-radius: 18px 18px 0 0;
+}
+
+.modal-header .modal-title {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.modal-header .btn-close {
+  filter: invert(1);
+}
+
+/* Fondo blanco + sombra interna suave para separar barra de pasos */
+.modal-body {
+  padding-left: 2rem;
+  padding-right: 2rem;
+  padding-top: 1.8rem;
+  padding-bottom: 1.4rem;
+  background: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(0,0,0,0.06);
+}
+
+.modal-footer {
+  border-top: 1px solid #E5E7EB;
+  border-radius: 0 0 18px 18px;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  background: #ffffff;
+}
+
+/* Wizard pasos */
+.modal .progress {
+  height: 32px !important;
+  border-radius: 999px;
+  background-color: #E5E7EB;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(148,163,184,0.35);
+}
+
+.modal .progress-bar {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal .progress-bar.bg-success {
+  background: linear-gradient(135deg, #0F592F 0%, #16A34A 100%);
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.03em;
+}
+
+.modal .progress-bar.bg-secondary {
+  background-color: #D1D5DB !important;
+  color: #4B5563;
+}
+
+/* Título de sección del paso */
+.step h6 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+  color: #0F592F;
+  font-size: 1.05rem;
+  margin-bottom: 0.8rem;
+}
+
+/* Inputs del modal */
+.modal-content .form-label {
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.modal-content .form-control,
+.modal-content .form-select {
+  border-radius: 10px;
+  border: 1px solid #D1FAE5;
+  font-size: 0.95rem;
+  transition: all 0.18s ease-out;
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+.modal-content .form-control::placeholder {
+  color: #A3A3A3;
+}
+
+.modal-content .form-control:focus,
+.modal-content .form-select:focus {
+  border-color: #16A34A;
+  box-shadow: 0 0 0 3px rgba(22,163,74,0.20);
+  outline: none;
+}
+
+.modal-content .row.g-3 {
+  row-gap: 1.4rem;
+}
+
+/* Ajustes específicos para el PASO 2 (Residencia) */
+#formStep2 h6 {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+#formStep2 h6 i {
+  font-size: 1.25rem;
+  margin-right: 4px;
+}
+
+/* Más aire horizontal entre los combos */
+#formStep2 .row.g-3 {
+  column-gap: 1rem;
+}
+
+/* Altura consistente y alineación vertical de los selects */
+#formStep2 .form-select {
+  height: 45px;
+  line-height: 45px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* Botones footer modal */
+.modal-footer .btn {
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+
+/* Botón Anterior */
+.modal-footer .btn-outline-secondary {
+  border-color: #D1D5DB;
+  color: #4B5563;
+  background-color: #FFFFFF;
 }
 
 .modal-footer .btn-outline-secondary:hover {
-  background-color: #4B5563;
-  color: #ffffff;
+  background-color: #F3F4F6;
+  color: #111827;
 }
 
-/* --------------------------
-   Responsividad
--------------------------- */
+/* Botón Siguiente / Registrar */
+.modal-footer .btn-success {
+  background: linear-gradient(135deg, #16A34A 0%, #22C55E 100%);
+  border: none;
+  box-shadow: 0 8px 18px rgba(22,163,74,0.35);
+  border-radius: 30px !important;
+  padding: 10px 26px;
+  font-size: 0.95rem;
+  margin-right: 4px;
+}
+
+.modal-footer .btn-success:hover {
+  background: linear-gradient(135deg, #15803D 0%, #16A34A 100%);
+  box-shadow: 0 10px 22px rgba(22,163,74,0.45);
+}
+
+/* ============================
+   RESPONSIVO
+============================ */
 @media (max-width: 992px) {
   .login-shell {
     max-width: 880px;
@@ -386,7 +534,7 @@ body.login-body {
 @media (max-width: 768px) {
   body.login-body {
     padding: 16px;
-    background-image: none; /* en móvil aún más limpio */
+    background-image: none;
   }
 
   .login-shell {
@@ -420,5 +568,26 @@ body.login-body {
   .login-shell {
     border-radius: 20px;
   }
+
+  /* Ajustes específicos para el modal en móvil */
+  .modal-body {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+
+  .modal .progress {
+    height: 30px !important;
+  }
+
+  .modal .progress-bar {
+    font-size: 0.6rem;
+    letter-spacing: 0.01em;
+    padding: 0 2px;
+  }
+
+  /* Más ancho al paso 1 en móviles para que quepa el texto */
+  #step1 { width: 40% !important; }
+  #step2 { width: 30% !important; }
+  #step3 { width: 30% !important; }
 }
 </style>

@@ -70,6 +70,7 @@ $routes = [
 
     // --- Autenticación y menú ---
     ['GET',  '#^/$#',                      [AuthController::class, 'loginForm'], 'html'],
+    ['GET',  '#^/login$#',                 [AuthController::class, 'loginForm'], 'html'],   // NUEVO: mostrar login
     ['POST', '#^/login$#',                 [AuthController::class, 'login'],     'json'],
     ['GET',  '#^/MenuPrincipal$#',         [MenuPrincipalController::class, 'index'], 'html'],
 
@@ -161,9 +162,65 @@ foreach ($routes as [$httpMethod, $pattern, $handler, $type]) {
                     throw new Exception('Token inválido o expirado');
                 }
             } catch (Exception $e) {
+                // Si la ruta es HTML, mostramos un mensaje amigable y redirigimos al login
+                if ($type === 'html') {
+                    http_response_code(401);
+                    header('Content-Type: text/html; charset=utf-8');
+                    ?>
+                    <!doctype html>
+                    <html lang="es">
+                    <head>
+                        <meta charset="utf-8" />
+                        <title>Sesión finalizada | Entre Vecinos</title>
+                        <meta name="viewport" content="width=device-width, initial-scale=1" />
+                        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+                        <style>
+                            .ev-swal-title {
+                                font-weight: 700;
+                                color: #1A1F36; /* Texto principal EV */
+                            }
+                            .ev-swal-text {
+                                color: #4B5563; /* Texto suave EV */
+                                font-size: 0.95rem;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function () {
+                            Swal.fire({
+                                title: 'Tu sesión ha finalizado',
+                                text: 'Por tu seguridad, tu sesión en Entre Vecinos ha expirado. Vuelve a iniciar sesión para continuar.',
+                                icon: 'info',
+                                iconColor: '#198754',          // Verde EV para el ícono
+                                confirmButtonText: 'Ir al inicio de sesión',
+                                confirmButtonColor: '#198754', // Verde EV para el botón
+                                background: '#FFFFFF',
+                                customClass: {
+                                    title: 'ev-swal-title',
+                                    htmlContainer: 'ev-swal-text'
+                                },
+                                allowOutsideClick: false,
+                                allowEscapeKey: false
+                            }).then(function () {
+                                window.location.href = '<?= BASE_URL ?>login';
+                            });
+                        });
+                    </script>
+                    </body>
+                    </html>
+                    <?php
+                    exit;
+                }
+
+                // Si la ruta es JSON (API), devolvemos un 401 estándar en JSON
                 header('Content-Type: application/json; charset=utf-8');
                 http_response_code(401);
-                echo json_encode(['error' => $e->getMessage()]);
+                echo json_encode([
+                    'ok'      => false,
+                    'error'   => 'TOKEN_INVALIDO_O_EXPIRADO',
+                    'mensaje' => 'Tu sesión ha expirado por seguridad. Vuelve a iniciar sesión.'
+                ]);
                 exit;
             }
         }

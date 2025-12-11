@@ -17,34 +17,34 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
   <!-- SweetAlert2 (para index.js / iniciarSesion.js) -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-  <!-- Bootstrap Icons (una sola vez, no duplicar) -->
+  <!-- Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 
-  <!-- 🔹 Estilos globales y del login -->
+  <!-- Estilos globales y del login -->
   <?php include_once VIEW_STYLE_PATH . 'login.estilo.php'; ?>
 </head>
 
 <body class="login-body">
 
-  <!-- 🔹 Spinner -->
+  <!-- Spinner -->
   <div class="spinner-overlay" id="spinnerOverlay">
     <div class="spinner"></div>
   </div>
 
-  <!-- 🔹 Layout tipo “hero + login” -->
-  <div class="login-shell shadow-lg">
-    <!-- Panel izquierdo: mensaje de bienvenida -->
-    <div class="login-hero">
+  <!-- Contenedor principal -->
+  <div class="login-shell">
+    <!-- HERO IZQUIERDO -->
+    <section class="login-hero">
       <div class="login-hero-layer"></div>
-
       <div class="login-hero-content">
         <h1 class="login-hero-title">
-          Bienvenido a <span>Entre Vecinos</span>
+          Bienvenido a
+          <span>Entre Vecinos</span>
         </h1>
+
         <p class="login-hero-text">
           El marketplace seguro para comprar y vender entre vecinos de tu condominio.
-          Publica lo que ya no usas, descubre servicios cerca de ti y construye
-          una comunidad más conectada.
+          Publica lo que ya no usas, descubre servicios cerca de ti y construye una comunidad más conectada.
         </p>
 
         <ul class="login-hero-list">
@@ -53,7 +53,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
             Identidad verificada por condominio.
           </li>
           <li>
-            <i class="bi bi-heart"></i>
+            <i class="bi bi-people"></i>
             Confianza y cercanía entre vecinos.
           </li>
           <li>
@@ -63,27 +63,28 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
         </ul>
 
         <div class="login-hero-badge">
-          <span class="badge-pill">Si lo tengo, vecina</span>
+          <span class="badge-pill">
+            Si lo tengo, vecina
+          </span>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Panel derecho: formulario de login -->
-    <div class="login-panel">
-      <div class="login-panel-header text-center">
+    <!-- PANEL DERECHO LOGIN -->
+    <section class="login-panel">
+      <header class="login-panel-header text-center">
         <img
           src="<?= BASE_URL ?>resources/images/logo/logo8.png"
           alt="Logo Entre Vecinos"
-          class="img-fluid login-logo mb-2"
-        >
+          class="img-fluid login-logo mb-2">
         <h2 class="login-panel-title">Inicia sesión</h2>
         <p class="login-panel-subtitle">
           Accede con tu correo y contraseña para empezar a conectarte con tus vecinos.
         </p>
-      </div>
+      </header>
 
       <div class="login-panel-body">
-        <form id="formLogin" class="login-form text-start">
+        <form id="formLogin" class="login-form">
           <div class="mb-3 position-relative">
             <i class="bi bi-envelope-fill input-icon"></i>
             <input
@@ -92,11 +93,12 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
               type="email"
               class="form-control"
               placeholder="Correo electrónico"
+              autocomplete="email"
               required
             />
           </div>
 
-          <div class="mb-2 position-relative">
+          <div class="mb-3 position-relative">
             <i class="bi bi-lock-fill input-icon"></i>
             <input
               id="clave"
@@ -104,29 +106,27 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
               type="password"
               class="form-control"
               placeholder="Contraseña"
+              autocomplete="current-password"
               required
             />
           </div>
 
-          <div class="d-flex justify-content-between align-items-center mb-3 login-remember-row">
+          <div class="d-flex justify-content-between align-items-center mb-2 login-remember-row">
             <div class="form-check mb-0">
-              <input class="form-check-input" type="checkbox" value="" id="recordarme">
+              <input class="form-check-input" type="checkbox" id="recordarme">
               <label class="form-check-label" for="recordarme">
                 Recordarme
               </label>
             </div>
-
-            <button
-              type="button"
-              class="btn btn-link p-0 login-link-forgot"
-              data-bs-toggle="modal"
-              data-bs-target="#recuperar_cuenta"
-            >
+            <a href="#"
+               data-bs-toggle="modal"
+               data-bs-target="#recuperar_cuenta"
+               class="login-link-forgot">
               ¿Olvidaste tu contraseña?
-            </button>
+            </a>
           </div>
 
-          <div class="d-grid mb-3">
+          <div class="d-grid mb-2">
             <button type="submit" class="btn btn-login btn-lg fw-semibold">
               <i class="bi bi-box-arrow-in-right me-1"></i>
               Iniciar sesión
@@ -135,29 +135,28 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
         </form>
 
         <div class="text-center mt-3 login-actions">
-          <p class="mb-2 login-actions-text">
+          <p class="login-actions-text mb-2">
             ¿Aún no tienes cuenta?
           </p>
           <button
             type="button"
-            data-bs-toggle="modal"
-            data-bs-target="#crear_usuario"
             class="btn btn-outline-register"
-          >
+            data-bs-toggle="modal"
+            data-bs-target="#crear_usuario">
             Crear una cuenta nueva
           </button>
         </div>
       </div>
 
-      <div class="login-panel-footer text-center">
+      <footer class="login-panel-footer text-center mt-2">
         <small>
           &copy; <?= date('Y'); ?> <strong>Entre Vecinos</strong>. Todos los derechos reservados.
         </small>
-      </div>
-    </div>
+      </footer>
+    </section>
   </div>
 
-  <!-- 🔹 Modal recuperar cuenta -->
+  <!-- MODAL RECUPERAR CUENTA -->
   <div class="modal fade" id="recuperar_cuenta" tabindex="-1" aria-hidden="true"
        data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered">
@@ -198,7 +197,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
     </div>
   </div>
 
-  <!-- 🔹 Modal crear usuario -->
+  <!-- MODAL CREAR USUARIO -->
   <div class="modal fade" id="crear_usuario" tabindex="-1" aria-hidden="true"
        data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -212,21 +211,26 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 
         <form id="formCrearUsuario">
           <div class="modal-body">
-            <div class="progress mb-4" style="height: 28px;">
+
+            <!-- Barra de pasos -->
+            <div class="progress mb-4">
               <div class="progress-bar bg-success fw-bold" id="step1" style="width: 33%;">
-                1. Datos personales
+                1. DATOS PERSONALES
               </div>
               <div class="progress-bar bg-secondary fw-bold" id="step2" style="width: 33%;">
-                2. Residencia
+                2. RESIDENCIA
               </div>
               <div class="progress-bar bg-secondary fw-bold" id="step3" style="width: 34%;">
-                3. Cuenta
+                3. CUENTA
               </div>
             </div>
 
             <!-- Paso 1 -->
             <div class="step" id="formStep1">
-              <h6 class="fw-bold text-success mb-3">👤 Datos personales</h6>
+              <h6 class="fw-bold text-success mb-3">
+                <i class="bi bi-person-circle"></i>
+                Datos personales
+              </h6>
               <div class="row g-3 mb-4">
                 <div class="col-md-6">
                   <label for="nombre" class="form-label">Nombre completo</label>
@@ -245,24 +249,42 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 
             <!-- Paso 2 -->
             <div class="step d-none" id="formStep2">
-              <h6 class="fw-bold text-success mb-3">🏠 Residencia</h6>
+              <h6 class="fw-bold text-success mb-3">
+                <i class="bi bi-building"></i>
+                Residencia
+              </h6>
               <div class="row g-3 mb-4">
-                <div class="col-md-4">
+                <div class="col-md-5">
                   <label for="comboCondominio" class="form-label">Condominio</label>
-                  <select class="form-select" id="comboCondominio" name="comboCondominio" required>
-                    <option value="">Seleccione un condominio</option>
+                  <select
+                    class="form-select"
+                    id="comboCondominio"
+                    name="comboCondominio"
+                    required
+                  >
+                    <option value="">Selecciona condominio</option>
                   </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-5">
                   <label for="comboTorre" class="form-label">Torre</label>
-                  <select class="form-select" id="comboTorre" name="comboTorre" required>
-                    <option value="">Seleccione torre...</option>
+                  <select
+                    class="form-select"
+                    id="comboTorre"
+                    name="comboTorre"
+                    required
+                  >
+                    <option value="">Selecciona torre</option>
                   </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-5">
                   <label for="comboDepartamento" class="form-label">Departamento</label>
-                  <select class="form-select" id="comboDepartamento" name="comboDepartamento" required>
-                    <option value="">Seleccione departamento...</option>
+                  <select
+                    class="form-select"
+                    id="comboDepartamento"
+                    name="comboDepartamento"
+                    required
+                  >
+                    <option value="">Selecciona departamento</option>
                   </select>
                 </div>
               </div>
@@ -270,7 +292,10 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 
             <!-- Paso 3 -->
             <div class="step d-none" id="formStep3">
-              <h6 class="fw-bold text-success mb-3">🔑 Datos de la cuenta</h6>
+              <h6 class="fw-bold text-success mb-3">
+                <i class="bi bi-key-fill"></i>
+                Datos de la cuenta
+              </h6>
               <div class="row g-3 mb-4">
                 <div class="col-md-6">
                   <label for="rEmail" class="form-label">Correo electrónico</label>
@@ -307,7 +332,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
     </div>
   </div>
 
-  <!-- 🔹 Scripts de la vista -->
+  <!-- Scripts de la vista -->
   <script>window.BASE_URL = '<?= BASE_URL ?>';</script>
   <script src="<?= BASE_URL ?>views/js/vistaRegistrarUser.js"></script>
   <script src="<?= BASE_URL ?>views/js/combo_condominio.js"></script>
