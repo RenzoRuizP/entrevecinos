@@ -73,7 +73,7 @@
           <h5 class="fw-bold mb-1" style="color:#0F592F;">COMPRAR</h5>
           <p class="text-muted mb-3 small">Ir al marketplace de tu condominio</p>
 
-          <a href="<?= BASE_URL ?>views/marketplace.php"
+          <a href="<?= rtrim(BASE_URL, '/') ?>/marketplace" id="btnMarketplace"
              class="btn px-4 py-2 text-white btn-ev-comprar">
             Ir al Marketplace
           </a>
@@ -88,7 +88,7 @@
           <h5 class="fw-bold mb-1" style="color:#BF3604;">VENDER</h5>
           <p class="text-muted mb-3 small">Publica un producto o servicio</p>
 
-          <a href="<?= BASE_URL ?>views/publicaciones.php"
+          <a href="<?= rtrim(BASE_URL, '/') ?>/publicacion" id="btnPublicacion"
              class="btn px-4 py-2 text-white btn-ev-vender">
             Crear publicación
           </a>

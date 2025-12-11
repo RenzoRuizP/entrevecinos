@@ -2,11 +2,59 @@
   const BASE = (window.BASE_URL || '').replace(/\/$/, '');
   const cont = document.getElementById('evDestacadasPagadas');
   const msg  = document.getElementById('evDestacadasPagadasMensaje');
+  const btnMarketplace = document.getElementById("btnMarketplace");
+  const btnPublicacion = document.getElementById("btnPublicacion");
 
   function formatPrecio(v) {
     return Number(v).toLocaleString("es-PE", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
+    });
+  }
+
+  // ============================================================
+  // 🔹 Botón "btnMarketplace" → cargar vista /marketplace con AJAX
+  // ============================================================
+  if (btnMarketplace) {
+    btnMarketplace.addEventListener("click", (e) => {
+      e.preventDefault();
+
+      // Cerrar dropdown del usuario
+      const dropdownInstance = bootstrap.Dropdown.getInstance(userDropdown);
+      dropdownInstance?.hide();
+
+      // Buscar en el menú lateral el enlace a /marketplace
+      const link = document.querySelector(`.submenu-link[href="/marketplace"]`);
+
+      if (link) {
+        link.click(); // Dispara el flujo AJAX de menuIzquierda.js
+      } else {
+        // Fallback seguro si no se encuentra el link (no debería pasar)
+        window.location.href = `${window.BASE_URL || '/entrevecinos'}/marketplace`;
+      }
+    });
+  }
+
+    // ============================================================
+  // 🔹 Botón "btnPublicacion" → cargar vista /publicacion con AJAX
+  // ============================================================
+  if (btnPublicacion) {
+    btnPublicacion.addEventListener("click", (e) => {
+      e.preventDefault();
+
+      // Cerrar dropdown del usuario
+      const dropdownInstance = bootstrap.Dropdown.getInstance(userDropdown);
+      dropdownInstance?.hide();
+
+      // Buscar en el menú lateral el enlace a /publicacion
+      const link = document.querySelector(`.submenu-link[href="/publicacion"]`);
+
+      if (link) {
+        link.click(); // Dispara el flujo AJAX de menuIzquierda.js
+      } else {
+        // Fallback seguro si no se encuentra el link (no debería pasar)
+        window.location.href = `${window.BASE_URL || '/entrevecinos'}/publicacion`;
+      }
     });
   }
 
