@@ -7,22 +7,25 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 
 <div class="container-datos-personales fade-in">
   <div class="card shadow-lg border-0 rounded-4 ev-datos-card">
+
+    <!-- HEADER -->
     <div class="card-header d-flex align-items-center justify-content-between">
-      <div class="d-flex align-items-center gap-2">
+      <div class="d-flex align-items-center gap-3">
         <span class="ev-datos-icon">
-          <i class="fas fa-user-circle"></i>
+          <i class="bi bi-person-badge-fill"></i>
         </span>
         <div>
           <h5 class="mb-1">Datos personales</h5>
-          <!--<small class="ev-datos-subtitle">
-            Mantén tu información actualizada para mejorar la experiencia dentro del condominio.
-          </small>-->
+          <small class="ev-datos-subtitle">
+            Mantén tu información actualizada para mejorar tu experiencia dentro del condominio.
+          </small>
         </div>
       </div>
     </div>
 
+    <!-- BODY -->
     <div class="card-body p-4">
-      <form id="formDatosPersonales" class="row g-3" autocomplete="off">
+      <form id="formDatosPersonales" class="row g-3 ev-datos-form" autocomplete="off">
 
         <!-- Nombre completo -->
         <div class="col-md-6">
@@ -125,15 +128,17 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
           <hr class="ev-datos-divider">
         </div>
 
-        <!-- Botones de acción -->
-        <div class="col-12 text-end mt-2 d-flex flex-wrap gap-2 justify-content-end">
-          <button type="button" id="btnGuardar" class="btn btn-ev-primary btn-guardar">
-            <i class="fas fa-save me-1"></i> Guardar cambios
-          </button>
+        <!-- Footer de acciones -->
+        <div class="col-12 ev-datos-footer">
+          <div class="d-flex flex-wrap gap-2 justify-content-end">
+            <button type="button" id="btnGuardar" class="btn btn-ev-primary btn-guardar">
+              <i class="fas fa-save me-1"></i> Guardar cambios
+            </button>
 
-          <button type="button" id="btnCancelar" class="btn btn-ev-neutral btn-cancelar" style="display:none;">
-            <i class="fas fa-times me-1"></i> Cancelar
-          </button>
+            <button type="button" id="btnCancelar" class="btn btn-ev-neutral btn-cancelar" style="display:none;">
+              <i class="fas fa-times me-1"></i> Cancelar
+            </button>
+          </div>
         </div>
 
       </form>

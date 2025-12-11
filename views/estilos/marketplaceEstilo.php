@@ -6,13 +6,13 @@
   --ev-verde:#198754;
   --ev-verde-suave:#E6F4EC;
   --ev-naranja:#FF7A1A;
-  --ev-gris-fondo:#F5F7FA;
-  --ev-gris-borde:#E3E8EF;
+  --ev-gris-fondo:#F3F4F6;
+  --ev-gris-borde:#E5E7EB;
   --ev-texto:#1A1F36;
   --ev-texto-suave:#6B7280;
 }
 
-/* Fondo suave solo para el área donde se monta el marketplace */
+/* Fondo suave sólo para el área del marketplace */
 .ev-mp-wrapper{
   background-color:var(--ev-gris-fondo);
   padding-bottom:40px;
@@ -22,14 +22,14 @@
    HEADER – CARD PRINCIPAL
 ======================================= */
 .ev-mp-header{
-  border-radius:20px;
+  border-radius:18px;
   border:1px solid var(--ev-gris-borde);
   background:#ffffff;
-  box-shadow:0 6px 18px rgba(0,0,0,0.05);
+  box-shadow:0 12px 40px rgba(15,23,42,0.08);
 }
 
 .ev-mp-header .card-body{
-  padding:16px 24px 12px 24px; /* un poco menos padding abajo */
+  padding:16px 24px 12px 24px;
 }
 
 .ev-mp-title{
@@ -87,7 +87,7 @@
 }
 
 /* =======================================
-   BUSCADOR + FILTROS
+   BUSCADOR + ORDEN
 ======================================= */
 .ev-mp-search-row{
   display:flex;
@@ -131,16 +131,6 @@
   flex-wrap:wrap;
   align-items:center;
   gap:10px;
-}
-
-.ev-mp-btn-filtros{
-  height:46px;
-  border-radius:12px;
-  font-weight:500;
-}
-
-.ev-mp-btn-filtros i{
-  margin-right:4px;
 }
 
 .ev-mp-sort-wrapper{
@@ -200,13 +190,13 @@
 }
 
 /* =======================================
-   GRID – columnas entre 280 y 340px alineadas a la izquierda
+   GRID DE PUBLICACIONES
 ======================================= */
 .ev-mp-grid{
-  margin-top:10px; /* menos espacio entre header y resultados */
+  margin-top:10px;
   display:grid;
   grid-template-columns:repeat(auto-fit, minmax(280px, 340px));
-  column-gap:22px;  /* separación horizontal un poco mayor */
+  column-gap:22px;
   row-gap:18px;
   justify-content:start;
   margin-left:auto;
@@ -217,19 +207,19 @@
    CARD – PUBLICACIÓN
 ======================================= */
 .ev-mp-card{
-  border-radius:20px;
+  border-radius:18px;
   overflow:hidden;
   border:1px solid var(--ev-gris-borde);
   background:#fff;
   display:flex;
   flex-direction:column;
   transition:all .22s ease;
-  box-shadow:0 3px 10px rgba(0,0,0,0.04);
+  box-shadow:0 8px 24px rgba(15,23,42,0.08);
 }
 
 .ev-mp-card:hover{
   transform:translateY(-4px);
-  box-shadow:0 16px 30px rgba(0,0,0,0.12);
+  box-shadow:0 16px 30px rgba(15,23,42,0.14);
   border-color:var(--ev-verde);
 }
 
@@ -247,12 +237,12 @@
 .ev-mp-card-media img{
   width:100%;
   height:100%;
-  object-fit:cover; /* cubre todo el contenedor */
-  border-top-left-radius:20px;   /* integración visual con la card */
-  border-top-right-radius:20px;
+  object-fit:cover;
+  border-top-left-radius:18px;
+  border-top-right-radius:18px;
 }
 
-/* Badges */
+/* Badges de la card */
 .ev-mp-card-badges{
   position:absolute;
   top:10px;
@@ -261,7 +251,6 @@
   gap:6px;
 }
 
-/* Badge genérico */
 .ev-mp-badge{
   padding:3px 9px;
   border-radius:25px;
@@ -274,7 +263,7 @@
   background:#FF7A1Acc;
 }
 
-/* Ocultamos el badge verde (donde se mostraba "Publicado") */
+/* Badge verde "Publicado" oculto (sólo usamos Recomendado) */
 .ev-mp-badge-nuevo{
   background:#22c55ecc;
   display:none !important;
@@ -284,9 +273,9 @@
   background:rgba(0,0,0,0.6);
 }
 
-/* Body */
+/* Body de la card */
 .ev-mp-card-body{
-  padding:10px 14px 10px 14px; /* más compacto en alto */
+  padding:10px 14px 10px 14px;
   display:flex;
   flex-direction:column;
   gap:6px;
@@ -296,14 +285,14 @@
   margin:0;
   font-weight:600;
   color:var(--ev-texto);
-  font-size:15px; /* un poco más grande */
+  font-size:15px;
 }
 
 .ev-mp-card-price{
   margin:0;
   font-weight:700;
   color:var(--ev-verde);
-  font-size:17px; /* destaca más el precio */
+  font-size:17px;
 }
 
 .ev-mp-card-meta{
@@ -374,6 +363,34 @@
   box-shadow:0 4px 12px rgba(0,0,0,0.12);
 }
 
+/* Botón "Ver detalle" (secundario) */
+.ev-mp-card-actions .ev-mp-btn-detalle{
+  border:1px solid var(--ev-gris-borde);
+  background:#ffffff;
+  color:var(--ev-texto-suave);
+  font-weight:500;
+}
+
+.ev-mp-card-actions .ev-mp-btn-detalle:hover{
+  background:#F3F4F6;
+  color:var(--ev-texto);
+}
+
+/* Botón "Pedir ahora" (CTA principal, alineado al login) */
+.ev-mp-card-actions .ev-mp-btn-pedir{
+  border:none;
+  background:linear-gradient(135deg, #D97706, #EA7C12);
+  color:#ffffff;
+  font-weight:600;
+  box-shadow:0 8px 20px rgba(217,119,6,0.35);
+}
+
+.ev-mp-card-actions .ev-mp-btn-pedir:hover{
+  background:linear-gradient(135deg, #C46B05, #D46F0F);
+  color:#ffffff;
+  box-shadow:0 10px 24px rgba(217,119,6,0.45);
+}
+
 /* Estado vacío */
 #mp_empty_state{
   display:none;
@@ -386,53 +403,81 @@
    MODAL DETALLE PUBLICACIÓN
 ============================================================ */
 
-.ev-mp-modal-body {
-  padding:20px 26px;
+/* Header del modal */
+.ev-mp-modal-header{
+  border-bottom:1px solid var(--ev-gris-borde);
+  background:#ffffff;
 }
 
+.ev-mp-modal-header .modal-title{
+  font-weight:600;
+  color:var(--ev-verde-oscuro);
+  font-size:1rem;
+}
+
+.ev-mp-modal-header i{
+  color:var(--ev-verde-oscuro);
+}
+
+/* Cuerpo del modal con fondo suave */
+.ev-mp-modal-body{
+  padding:20px 26px;
+  background:#F3F4F6;
+}
+
+/* Card interna del modal */
 .ev-mp-preview-card{
   background:#ffffff;
   border-radius:18px;
   border:1px solid var(--ev-gris-borde);
   padding:16px;
-  box-shadow:0 4px 12px rgba(0,0,0,0.04);
+  box-shadow:0 8px 24px rgba(15,23,42,0.06);
   max-width:860px;
   margin:0 auto;
 }
 
-.ev-mp-modal-media {
+/* IMAGEN PRINCIPAL – MISMA CAJA, SIN RECORTAR */
+.ev-mp-modal-media{
   width:100%;
-  background:#ffffff;
+  max-height:520px;
+  border-radius:18px;
   border:1px solid #E3E8EF;
-  border-radius:16px;
-  overflow:hidden;
-  padding:0;
+  background:#ffffff;
   display:flex;
   justify-content:center;
   align-items:center;
-  aspect-ratio:4 / 3;
-  max-height:520px;
+  overflow:hidden;
+  padding:8px;
   margin-bottom:14px;
 }
 
-.ev-mp-modal-media img {
+.ev-mp-modal-media-inner{
   width:100%;
   height:100%;
-  object-fit:cover;
-  border-radius:12px;
-  transform:scale(1.08);
-  transform-origin:center center;
-  transition:transform 0.25s ease;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 
-.ev-mp-modal-thumbs {
+.ev-mp-modal-media img{
+  width:auto;
+  height:auto;
+  max-width:100%;
+  max-height:500px;
+  object-fit:contain;
+  border-radius:12px;
+  display:block;
+}
+
+/* Thumbnails inferiores */
+.ev-mp-modal-thumbs{
   display:flex;
   gap:10px;
   margin:15px 0 25px;
   padding-left:4px;
 }
 
-.ev-mp-modal-thumb {
+.ev-mp-modal-thumb{
   width:62px;
   height:62px;
   border-radius:8px;
@@ -440,49 +485,83 @@
   overflow:hidden;
   cursor:pointer;
   flex-shrink:0;
+  background:#f9fafb;
 }
 
-.ev-mp-modal-thumb img {
+.ev-mp-modal-thumb img{
   width:100%;
   height:100%;
   object-fit:cover;
-  transform:scale(1.03);
+  transform:scale(1.02);
   transform-origin:center center;
   transition:transform 0.2s ease;
 }
 
-.ev-mp-modal-thumb.active {
+.ev-mp-modal-thumb:hover img{
+  transform:scale(1.06);
+}
+
+.ev-mp-modal-thumb.active{
   border-color:var(--ev-verde);
 }
 
-.ev-mp-modal-title {
+/* Texto del modal */
+.ev-mp-modal-title{
   font-size:20px;
   font-weight:700;
   color:var(--ev-verde-oscuro);
   margin-bottom:4px;
 }
 
-.ev-mp-modal-price {
+.ev-mp-modal-price{
   font-size:18px;
   font-weight:700;
   color:var(--ev-verde);
   margin-bottom:14px;
 }
 
-.ev-mp-modal-desc {
+.ev-mp-modal-desc{
   font-size:14px;
   color:#555;
   line-height:1.5;
 }
 
-.modal-footer {
+/* Footer del modal */
+.ev-mp-modal-footer{
   border-top:none;
   padding:16px 24px 20px 24px;
 }
 
-.modal-footer .btn-ev-neutral,
-.modal-footer .btn-ev-primary{
+/* Botón neutral: Cerrar */
+.ev-mp-modal-footer .btn-ev-neutral{
   min-width:150px;
+  background:#ffffff;
+  border:1px solid var(--ev-gris-borde);
+  color:var(--ev-texto-suave);
+  border-radius:999px;
+  font-weight:500;
+}
+
+.ev-mp-modal-footer .btn-ev-neutral:hover{
+  background:#F3F4F6;
+  color:var(--ev-texto);
+}
+
+/* Botón principal: Pedir ahora (mismo CTA que login) */
+.ev-mp-modal-footer .btn-ev-primary{
+  min-width:150px;
+  border:none;
+  border-radius:999px;
+  background:linear-gradient(135deg, #D97706, #EA7C12);
+  color:#ffffff;
+  font-weight:600;
+  box-shadow:0 8px 20px rgba(217,119,6,0.35);
+}
+
+.ev-mp-modal-footer .btn-ev-primary:hover{
+  background:linear-gradient(135deg, #C46B05, #D46F0F);
+  color:#ffffff;
+  box-shadow:0 10px 24px rgba(217,119,6,0.45);
 }
 
 /* Ajuste de tamaño general del modal en escritorio */
@@ -503,16 +582,10 @@
   .ev-mp-modal-media{
     max-height:360px;
   }
-  .ev-mp-modal-media img{
-    transform:scale(1.03);
-  }
-  .ev-mp-modal-thumb img{
-    transform:scale(1.0);
-  }
 }
 
 /* =======================================
-   RESPONSIVE GRID
+   RESPONSIVE GENERAL
 ======================================= */
 @media (max-width:991.98px){
   .ev-mp-header .card-body{

@@ -31,73 +31,129 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
     <div class="spinner"></div>
   </div>
 
-  <!-- 🔹 Tarjeta principal -->
-  <div class="card login-card shadow border-0">
-    <div class="card-header text-center bg-transparent border-0 pb-0">
-      <img src="<?= BASE_URL ?>resources/images/logo/logo8.png"
-           alt="Logo Entre Vecinos"
-           class="img-fluid login-logo mb-2">
-      <h4 class="fw-bold text-success mb-1">Entre Vecinos</h4>
-      <small class="login-subtitle d-block mb-3">
-        Conectamos confianza entre vecinos de tu condominio
-      </small>
-    </div>
+  <!-- 🔹 Layout tipo “hero + login” -->
+  <div class="login-shell shadow-lg">
+    <!-- Panel izquierdo: mensaje de bienvenida -->
+    <div class="login-hero">
+      <div class="login-hero-layer"></div>
 
-    <div class="card-body px-4 pb-4 pt-2">
-      <form id="formLogin" class="text-start">
-        <div class="mb-3 position-relative">
-          <i class="bi bi-envelope-fill input-icon"></i>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            class="form-control"
-            placeholder="Correo electrónico"
-            required
-          />
+      <div class="login-hero-content">
+        <h1 class="login-hero-title">
+          Bienvenido a <span>Entre Vecinos</span>
+        </h1>
+        <p class="login-hero-text">
+          El marketplace seguro para comprar y vender entre vecinos de tu condominio.
+          Publica lo que ya no usas, descubre servicios cerca de ti y construye
+          una comunidad más conectada.
+        </p>
+
+        <ul class="login-hero-list">
+          <li>
+            <i class="bi bi-shield-check"></i>
+            Identidad verificada por condominio.
+          </li>
+          <li>
+            <i class="bi bi-heart"></i>
+            Confianza y cercanía entre vecinos.
+          </li>
+          <li>
+            <i class="bi bi-lightning-charge"></i>
+            Publicaciones rápidas y en tiempo real.
+          </li>
+        </ul>
+
+        <div class="login-hero-badge">
+          <span class="badge-pill">Si lo tengo, vecina</span>
         </div>
-
-        <div class="mb-3 position-relative">
-          <i class="bi bi-lock-fill input-icon"></i>
-          <input
-            id="clave"
-            name="clave"
-            type="password"
-            class="form-control"
-            placeholder="Contraseña"
-            required
-          />
-        </div>
-
-        <div class="d-grid mb-3">
-          <button type="submit" class="btn btn-login btn-lg fw-semibold">
-            <i class="bi bi-box-arrow-in-right me-1"></i>
-            Iniciar sesión
-          </button>
-        </div>
-      </form>
-
-      <div class="text-center mt-3 login-actions">
-        <a href="#"
-           data-bs-toggle="modal"
-           data-bs-target="#recuperar_cuenta"
-           class="d-block mb-2 text-decoration-none login-link-forgot">
-          ¿Olvidaste tu contraseña?
-        </a>
-
-        <a href="#"
-           data-bs-toggle="modal"
-           data-bs-target="#crear_usuario"
-           class="text-decoration-none login-link-register fw-semibold">
-          Crear una cuenta nueva
-        </a>
       </div>
     </div>
 
-    <div class="card-footer text-center login-footer bg-transparent border-0">
-      <small>
-        &copy; <?= date('Y'); ?> <strong>Entre Vecinos</strong>. Todos los derechos reservados.
-      </small>
+    <!-- Panel derecho: formulario de login -->
+    <div class="login-panel">
+      <div class="login-panel-header text-center">
+        <img
+          src="<?= BASE_URL ?>resources/images/logo/logo8.png"
+          alt="Logo Entre Vecinos"
+          class="img-fluid login-logo mb-2"
+        >
+        <h2 class="login-panel-title">Inicia sesión</h2>
+        <p class="login-panel-subtitle">
+          Accede con tu correo y contraseña para empezar a conectarte con tus vecinos.
+        </p>
+      </div>
+
+      <div class="login-panel-body">
+        <form id="formLogin" class="login-form text-start">
+          <div class="mb-3 position-relative">
+            <i class="bi bi-envelope-fill input-icon"></i>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              class="form-control"
+              placeholder="Correo electrónico"
+              required
+            />
+          </div>
+
+          <div class="mb-2 position-relative">
+            <i class="bi bi-lock-fill input-icon"></i>
+            <input
+              id="clave"
+              name="clave"
+              type="password"
+              class="form-control"
+              placeholder="Contraseña"
+              required
+            />
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mb-3 login-remember-row">
+            <div class="form-check mb-0">
+              <input class="form-check-input" type="checkbox" value="" id="recordarme">
+              <label class="form-check-label" for="recordarme">
+                Recordarme
+              </label>
+            </div>
+
+            <button
+              type="button"
+              class="btn btn-link p-0 login-link-forgot"
+              data-bs-toggle="modal"
+              data-bs-target="#recuperar_cuenta"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
+
+          <div class="d-grid mb-3">
+            <button type="submit" class="btn btn-login btn-lg fw-semibold">
+              <i class="bi bi-box-arrow-in-right me-1"></i>
+              Iniciar sesión
+            </button>
+          </div>
+        </form>
+
+        <div class="text-center mt-3 login-actions">
+          <p class="mb-2 login-actions-text">
+            ¿Aún no tienes cuenta?
+          </p>
+          <button
+            type="button"
+            data-bs-toggle="modal"
+            data-bs-target="#crear_usuario"
+            class="btn btn-outline-register"
+          >
+            Crear una cuenta nueva
+          </button>
+        </div>
+      </div>
+
+      <div class="login-panel-footer text-center">
+        <small>
+          &copy; <?= date('Y'); ?> <strong>Entre Vecinos</strong>. Todos los derechos reservados.
+        </small>
+      </div>
     </div>
   </div>
 
@@ -257,22 +313,16 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
   <script src="<?= BASE_URL ?>views/js/combo_condominio.js"></script>
   <script src="<?= BASE_URL ?>views/js/registrarUser.js"></script>
   <script src="<?= BASE_URL ?>views/js/iniciarSesion.js"></script>
-  <!-- Si usas index.js en el login, inclúyelo aquí -->
-  <!-- <script src="<?= BASE_URL ?>views/js/index.js"></script> -->
 
   <script>
-    // ============================================================
-    // 🧩 Evitar pantalla congelada al retroceder (cache del navegador)
-    // ============================================================
+    // Evitar pantalla congelada al retroceder (cache del navegador)
     window.addEventListener("pageshow", function (event) {
       if (event.persisted) {
         window.location.reload();
       }
     });
 
-    // ============================================================
-    // 🧩 Asegurar que el spinner esté oculto al entrar al login
-    // ============================================================
+    // Asegurar que el spinner esté oculto al entrar al login
     document.addEventListener("DOMContentLoaded", () => {
       const overlay = document.getElementById("spinnerOverlay");
       if (overlay) overlay.style.display = "none";
