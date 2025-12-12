@@ -15,7 +15,7 @@ require_once __DIR__ . '/../Config/config.php';
   ========================================== -->
   <div class="card ev-recibir-card">
 
-    <!-- HEADER LIMPIO -->
+    <!-- HEADER -->
     <div class="card-header ev-recibir-header d-flex justify-content-between align-items-center">
       <div class="d-flex align-items-center gap-2">
         <div class="ev-recibir-icon-wrapper d-flex align-items-center justify-content-center">
@@ -23,7 +23,7 @@ require_once __DIR__ . '/../Config/config.php';
         </div>
         <div>
           <h5 class="mb-0 ev-recibir-title">Recibir pedidos</h5>
-          <small class="text-muted ev-recibir-subtitle">
+          <small class="ev-recibir-subtitle">
             Activa tu disponibilidad para que los vecinos puedan enviarte pedidos desde el marketplace.
           </small>
         </div>
@@ -44,10 +44,11 @@ require_once __DIR__ . '/../Config/config.php';
         <div class="ev-switch-wrapper">
           <label class="ev-switch">
             <input type="checkbox" id="toggleRecibirPedidos">
-            <span class="ev-slider">
-              <span class="ev-slider-label" id="evSliderLabel">
-                Desliza para conectarte
-              </span>
+            <span class="ev-switch-track">
+              <span class="ev-switch-thumb"></span>
+            </span>
+            <span class="ev-switch-text" id="evSliderLabel">
+              Desliza para conectarte
             </span>
           </label>
         </div>
@@ -67,20 +68,24 @@ require_once __DIR__ . '/../Config/config.php';
 
   <!-- =========================================
        SECCIÓN: PEDIDOS ENTRANTES (TIEMPO REAL)
-       CARD INDEPENDIENTE
   ========================================== -->
   <section class="ev-pedidos-section mt-4">
     <div class="card ev-pedidos-card">
 
       <div class="card-header d-flex justify-content-between align-items-center">
-        <div>
-          <h5 class="mb-0 ev-pedidos-title">Pedidos entrantes</h5>
-          <small class="text-muted ev-pedidos-subtitle">
-            Aquí verás los pedidos que recibas mientras estés conectado.
-          </small>
+        <div class="d-flex align-items-center gap-2">
+          <div class="ev-pedidos-icon d-flex align-items-center justify-content-center">
+            <i class="bi bi-bag-plus-fill"></i>
+          </div>
+          <div>
+            <h5 class="mb-0 ev-pedidos-title">Pedidos entrantes</h5>
+            <small class="ev-pedidos-subtitle">
+              Aquí verás los pedidos que recibas mientras estés conectado.
+            </small>
+          </div>
         </div>
 
-        <span id="evPedidosCounter" class="ev-pedidos-counter badge bg-secondary-subtle text-muted">
+        <span id="evPedidosCounter" class="ev-pedidos-counter">
           0 pedidos activos
         </span>
       </div>

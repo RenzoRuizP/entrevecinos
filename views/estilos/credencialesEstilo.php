@@ -6,23 +6,27 @@
 /* =========================================
    ENTRE VECINOS - CREDENCIALES (Premium)
    Vista de cambio de contraseña
+   Alineada con Login / Datos personales / Billetera
 ========================================= */
 
+:root{
+  --ev-verde-oscuro: var(--verde-oscuro);
+  --ev-verde:        var(--verde-claro);
+  --ev-verde-suave:  #E6F4EC;
+  --ev-gris-fondo:   var(--gris-claro);
+  --ev-gris-borde:   var(--gris-borde);
+  --ev-texto:        #111827;
+  --ev-texto-suave:  var(--gris-texto);
+}
+
+/* Wrapper centrado y contenido acotado */
 .ev-credenciales-wrapper {
-  padding: 24px 18px;
-  background-color: #F3F4F6;
-  min-height: calc(100vh - 70px);
+  max-width: 1100px;
+  margin: 24px auto 32px auto;
+  padding: 0 12px;
 }
 
-@media (min-width: 992px) {
-  .ev-credenciales-wrapper {
-    padding: 32px 32px;
-  }
-}
-
-/* ---------------------------
-   Encabezado principal
----------------------------- */
+/* Encabezado principal */
 .ev-credenciales-header h2 {
   font-size: 1.7rem;
   font-weight: 700;
@@ -36,9 +40,7 @@
   color: #6B7280;
 }
 
-/* ---------------------------
-   Alert de consejo de seguridad
----------------------------- */
+/* Alert consejo de seguridad */
 .ev-credenciales-alert {
   border-radius: 14px;
   font-size: 0.88rem;
@@ -48,9 +50,7 @@
   padding-block: 10px;
 }
 
-/* ---------------------------
-   Card principal
----------------------------- */
+/* Card principal */
 .ev-credenciales-card {
   position: relative;
   border-radius: 20px;
@@ -70,12 +70,11 @@
   background: linear-gradient(135deg, #0F592F, #198754);
 }
 
-/* Header interno del card: BLANCO (sobreescribe estilo global de .card-header) */
+/* Header interno del card */
 .ev-credenciales-card .card-header {
   border: 0;
   border-radius: 0;
   background: #FFFFFF !important;
-  background-color: #FFFFFF !important;
   color: #0F592F;
   padding: 18px 24px 12px 24px;
   display: flex;
@@ -84,10 +83,9 @@
   margin-top: 5px; /* deja visible la banda superior */
 }
 
-/* Refuerzo extra por si hay selectores más específicos */
+/* Refuerzo por si hay estilos globales de card-header */
 .ev-credenciales-card > .card-header {
   background: #FFFFFF !important;
-  background-color: #FFFFFF !important;
 }
 
 /* Icono circular del header */
@@ -119,15 +117,24 @@
   padding: 20px 24px 24px 24px;
 }
 
-/* Separador sutil entre bloque de datos y formulario */
+/* Separador sutil entre datos y formulario */
 .ev-credenciales-divider {
   border-bottom: 1px solid #E5E7EB;
   margin: 14px 0 18px 0;
 }
 
-/* ---------------------------
-   Tipografías de formulario específicas de esta vista
----------------------------- */
+/* Datos de usuario */
+.ev-credenciales-user-name {
+  font-size: 0.92rem;
+  color: #374151;
+}
+
+.ev-credenciales-user-email {
+  font-size: 0.86rem;
+  color: #6B7280;
+}
+
+/* Tipografía de formulario */
 .ev-credenciales-form-label {
   font-size: 0.9rem;
   font-weight: 600;
@@ -139,9 +146,7 @@
   color: #6B7280;
 }
 
-/* ---------------------------
-   Barra de fuerza de contraseña
----------------------------- */
+/* Barra de fuerza de contraseña */
 .ev-password-strength {
   height: 6px;
   border-radius: 999px;
@@ -156,24 +161,21 @@
   transition: width 0.25s ease;
 }
 
-/* ---------------------------
-   Responsivo específico
----------------------------- */
+/* Responsivo general */
 @media (max-width: 991.98px) {
   .ev-credenciales-card .card-body {
-    padding-inline: 16px;
+    padding-inline: 18px;
   }
 }
 
-/* === Ajustes extra para modo móvil (Opción A tipo app) === */
 @media (max-width: 768px) {
   .ev-credenciales-wrapper {
-    padding: 18px 12px;
-    min-height: auto;
+    margin-top: 18px;
+    padding-inline: 10px;
   }
 
   .ev-credenciales-header h2 {
-    font-size: 1.35rem;
+    font-size: 1.4rem;
   }
 
   .ev-credenciales-header p {
@@ -192,7 +194,7 @@
   }
 
   .ev-credenciales-card .card-header h5 {
-    font-size: 1rem;
+    font-size: 1.02rem;
   }
 
   .ev-credenciales-card .card-body {
@@ -201,7 +203,7 @@
 }
 
 @media (max-width: 576px) {
-  /* Botones apilados y full width dentro de la tarjeta */
+  /* Botones apilados y full width */
   .ev-credenciales-card .card-body .btn {
     width: 100%;
     justify-content: center;

@@ -8,34 +8,24 @@ require_once __DIR__ . '/../Config/config.php';
 
 <div class="container-publicaciones fade-in">
   <div class="card ev-card">
-    <!-- HEADER LISTADO -->
     <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
       <h5 class="mb-0 d-flex align-items-center gap-2">
         <i class="bi bi-list-ul"></i> Publicaciones
       </h5>
 
       <div class="d-flex gap-2">
-        <button type="button"
-                id="btnBuscar"
-                class="btn btn-ev-outline d-flex align-items-center gap-2"
-                data-bs-toggle="modal"
-                data-bs-target="#modalBuscarPublicacion">
-          <i class="bi bi-search"></i>
-          <span class="d-none d-sm-inline">Buscar</span>
+        <button type="button" id="btnBuscar" class="btn btn-ev-outline d-flex align-items-center gap-2"
+          data-bs-toggle="modal" data-bs-target="#modalBuscarPublicacion">
+          <i class="bi bi-search"></i><span class="d-none d-sm-inline">Buscar</span>
         </button>
 
-        <button type="button"
-                id="btnAgregar"
-                class="btn btn-ev-primary d-flex align-items-center gap-2"
-                data-bs-toggle="modal"
-                data-bs-target="#modalAgregarPublicacion">
-          <i class="bi bi-plus-lg"></i>
-          <span class="d-none d-sm-inline">Agregar</span>
+        <button type="button" id="btnAgregar" class="btn btn-ev-primary d-flex align-items-center gap-2"
+          data-bs-toggle="modal" data-bs-target="#modalAgregarPublicacion">
+          <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline">Agregar</span>
         </button>
       </div>
     </div>
 
-    <!-- BODY LISTADO -->
     <div class="card-body p-0">
       <div class="table-responsive ev-table-wrap">
         <table class="table table-hover align-middle mb-0 ev-table" id="tablaPublicaciones">
@@ -59,7 +49,6 @@ require_once __DIR__ . '/../Config/config.php';
         </table>
       </div>
 
-      <!-- FOOTER LISTADO -->
       <div class="ev-foot">
         <div class="ev-page-size">
           Registros por página:
@@ -71,29 +60,13 @@ require_once __DIR__ . '/../Config/config.php';
         </div>
         <div class="ev-range small text-muted">–</div>
         <ul class="ev-pagination">
-          <li>
-            <button class="ev-page-btn" title="Primero" disabled>
-              <i class="bi bi-chevron-bar-left"></i>
-            </button>
-          </li>
-          <li>
-            <button class="ev-page-btn" title="Anterior" disabled>
-              <i class="bi bi-chevron-left"></i>
-            </button>
-          </li>
+          <li><button class="ev-page-btn" title="Primero" disabled><i class="bi bi-chevron-bar-left"></i></button></li>
+          <li><button class="ev-page-btn" title="Anterior" disabled><i class="bi bi-chevron-left"></i></button></li>
           <li><button class="ev-page-btn active">1</button></li>
           <li><button class="ev-page-btn">2</button></li>
           <li><button class="ev-page-btn">3</button></li>
-          <li>
-            <button class="ev-page-btn" title="Siguiente">
-              <i class="bi bi-chevron-right"></i>
-            </button>
-          </li>
-          <li>
-            <button class="ev-page-btn" title="Último">
-              <i class="bi bi-chevron-bar-right"></i>
-            </button>
-          </li>
+          <li><button class="ev-page-btn" title="Siguiente"><i class="bi bi-chevron-right"></i></button></li>
+          <li><button class="ev-page-btn" title="Último"><i class="bi bi-chevron-bar-right"></i></button></li>
         </ul>
       </div>
     </div>
@@ -102,38 +75,24 @@ require_once __DIR__ . '/../Config/config.php';
 
 <?php include_once __DIR__ . '/estilos/publicacionesEstilo.php'; ?>
 
-<!-- 🔎 MODAL BUSCAR PUBLICACIÓN -->
-<div class="modal fade" id="modalBuscarPublicacion" tabindex="-1"
-     aria-labelledby="lblBuscarPublicacion" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
-    <div class="modal-content ev-modal-card ev-modal-card--filters">
-
-      <div class="modal-header ev-modal-header">
-        <div class="d-flex align-items-center gap-2">
-          <div class="ev-modal-icon">
-            <i class="bi bi-search"></i>
-          </div>
-          <div>
-            <h5 class="modal-title mb-0" id="lblBuscarPublicacion">Buscar publicaciones</h5>
-            <p class="ev-modal-subtitle mb-0">
-              Filtra tus publicaciones por texto, categoría, estado, precio y fecha.
-            </p>
-          </div>
-        </div>
+<!-- 🔎 Modal Buscar -->
+<div class="modal fade" id="modalBuscarPublicacion" tabindex="-1" aria-labelledby="lblBuscarPublicacion" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-sm-down">
+    <div class="modal-content border-0 ev-card">
+      <div class="modal-header">
+        <h5 class="modal-title" id="lblBuscarPublicacion">
+          <i class="bi bi-search me-2"></i>Buscar publicaciones
+        </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
-
       <form id="formBuscarPublicacion">
-        <div class="modal-body ev-modal-body">
-          <div class="ev-filters-grid">
-            <div class="ev-filter-col">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
               <label class="form-label">Texto</label>
-              <input type="text" name="q"
-                     class="form-control input-premium"
-                     placeholder="Título o descripción…">
+              <input type="text" name="q" class="form-control input-premium" placeholder="Título o descripción…">
             </div>
-
-            <div class="ev-filter-col">
+            <div class="col-md-3">
               <label class="form-label">Categoría</label>
               <select name="categoria" class="form-select input-premium">
                 <option value="">Todas</option>
@@ -143,8 +102,7 @@ require_once __DIR__ . '/../Config/config.php';
                 <option>Otros</option>
               </select>
             </div>
-
-            <div class="ev-filter-col">
+            <div class="col-md-3">
               <label class="form-label">Estado</label>
               <select name="estado" class="form-select input-premium">
                 <option value="">Todos</option>
@@ -152,80 +110,61 @@ require_once __DIR__ . '/../Config/config.php';
                 <option>Usado</option>
               </select>
             </div>
-
-            <div class="ev-filter-col">
+            <div class="col-md-3">
               <label class="form-label">Precio mín. (S/)</label>
-              <input type="number" name="precio_min"
-                     class="form-control input-premium"
-                     step="0.01" min="0">
+              <input type="number" name="precio_min" class="form-control input-premium" step="0.01" min="0">
             </div>
-
-            <div class="ev-filter-col">
+            <div class="col-md-3">
               <label class="form-label">Precio máx. (S/)</label>
-              <input type="number" name="precio_max"
-                     class="form-control input-premium"
-                     step="0.01" min="0">
+              <input type="number" name="precio_max" class="form-control input-premium" step="0.01" min="0">
             </div>
-
-            <div class="ev-filter-col">
+            <div class="col-md-3">
               <label class="form-label">Desde</label>
               <input type="date" name="desde" class="form-control input-premium">
             </div>
-
-            <div class="ev-filter-col">
+            <div class="col-md-3">
               <label class="form-label">Hasta</label>
               <input type="date" name="hasta" class="form-control input-premium">
             </div>
           </div>
         </div>
-
-        <div class="modal-footer ev-modal-footer">
+        <div class="modal-footer">
           <button type="reset" class="btn btn-cancelar">Limpiar</button>
           <button type="submit" class="btn btn-outline-success">Aplicar</button>
         </div>
       </form>
-
     </div>
   </div>
 </div>
 
-<!-- ➕ MODAL NUEVA PUBLICACIÓN -->
-<div class="modal fade" id="modalAgregarPublicacion" tabindex="-1"
-     aria-labelledby="lblAgregarPublicacion" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-md-down">
-    <div class="modal-content ev-modal-card ev-modal-card--form">
-
-      <div class="modal-header ev-modal-header">
-        <div class="d-flex align-items-center gap-2">
-          <div class="ev-modal-icon">
-            <i class="bi bi-plus-lg"></i>
-          </div>
-          <div>
-            <h5 class="modal-title mb-0" id="lblAgregarPublicacion">Nueva publicación</h5>
-            <p class="ev-modal-subtitle mb-0">
-              Completa los datos y previsualiza cómo verán tu publicación tus vecinos.
-            </p>
-          </div>
-        </div>
+<!-- ➕ Modal Agregar -->
+<div class="modal fade" id="modalAgregarPublicacion" tabindex="-1" aria-labelledby="lblAgregarPublicacion" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-md-down">
+    <div class="modal-content border-0 ev-card">
+      <div class="modal-header">
+        <h5 class="modal-title" id="lblAgregarPublicacion">
+          <i class="bi bi-plus-lg me-2"></i>Nueva publicación
+        </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
 
       <form id="formAgregarPublicacion">
-        <div class="modal-body ev-modal-body">
+        <div class="modal-body">
           <div class="mpm-grid">
-            <!-- IZQUIERDA: FORMULARIO -->
+            <!-- IZQUIERDA: FORM -->
             <section class="mpm-left">
               <div class="row g-3">
 
-                <!-- 1. FOTOS -->
+                <!-- 1. FOTOS DEL PRODUCTO -->
                 <div class="col-12">
                   <h6 class="ev-section-title mb-1">1. Fotos del producto</h6>
-                  <label class="form-label fw-semibold ev-required text-ev-main">
+                  <label class="form-label fw-semibold ev-required" style="color:#0F592F;">
                     Fotos • <span id="contadorImagenes">0</span>/<span>10</span>
                     <span class="text-muted"> - Puedes agregar un máximo de 10 fotos.</span>
                   </label>
 
                   <div id="uploaderAgregar" class="ev-uploader mt-1">
+
                     <!-- input real oculto -->
                     <input
                       type="file"
@@ -274,6 +213,7 @@ require_once __DIR__ . '/../Config/config.php';
                     <small class="text-muted mt-2 d-block">
                       La primera foto será la imagen principal de tu publicación.
                     </small>
+
                   </div>
                 </div>
 
@@ -361,27 +301,19 @@ require_once __DIR__ . '/../Config/config.php';
                     required
                   ></textarea>
                 </div>
-
               </div>
             </section>
 
             <!-- DERECHA: PREVIEW -->
             <aside class="mpm-right">
               <div class="mpm-preview-wrap">
-                <div class="card ev-card ev-preview-card">
-                  <div class="card-body p-3">
-                    <div class="ev-preview-area" id="previewMount">
-                      <!-- Aquí se monta la previsualización desde JS -->
-                    </div>
-                  </div>
-                </div>
+                <div class="col-lg-12" id="previewMount"></div>
               </div>
             </aside>
-
           </div>
         </div>
 
-        <div class="modal-footer ev-modal-footer">
+        <div class="modal-footer">
           <button type="button" class="btn btn-cancelar" data-bs-dismiss="modal">Cancelar</button>
           <button type="submit" class="btn btn-outline-success btn-guardar">Guardar</button>
         </div>
@@ -390,44 +322,40 @@ require_once __DIR__ . '/../Config/config.php';
   </div>
 </div>
 
-<!-- ✏️ MODAL EDITAR PUBLICACIÓN -->
-<div class="modal fade" id="modalEditarPublicacion" tabindex="-1"
-     aria-labelledby="lblEditarPublicacion" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-md-down">
-    <div class="modal-content ev-modal-card ev-modal-card--form">
-
-      <div class="modal-header ev-modal-header">
-        <div class="d-flex align-items-center gap-2">
-          <div class="ev-modal-icon">
-            <i class="bi bi-pencil-square"></i>
-          </div>
-          <div>
-            <h5 class="modal-title mb-0" id="lblEditarPublicacion">Editar publicación</h5>
-            <p class="ev-modal-subtitle mb-0">
-              Actualiza la información y las fotos de tu publicación.
-            </p>
-          </div>
-        </div>
+<!-- ✏️ Modal Editar -->
+<div class="modal fade" id="modalEditarPublicacion" tabindex="-1" aria-labelledby="lblEditarPublicacion" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-md-down">
+    <div class="modal-content border-0 ev-card">
+      
+      <div class="modal-header">
+        <h5 class="modal-title" id="lblEditarPublicacion">
+          <i class="bi bi-pencil-square me-2"></i>Editar publicación
+        </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
 
+      <!-- IMPORTANTE: el form abre aquí y se cierra ANTES de cerrar modal-content -->
       <form id="formEditarPublicacion">
+        <!-- ID oculto de la publicación -->
         <input type="hidden" id="edit_id" name="codigo_publicacion">
 
-        <div class="modal-body ev-modal-body">
+        <div class="modal-body">
           <div class="mpm-grid">
-            <!-- IZQUIERDA: FORM + FOTOS -->
+            
+            <!-- IZQUIERDA: FORM + uploader edición -->
             <section class="mpm-left">
-
-              <!-- 1. FOTOS -->
+              
+              <!-- 1. FOTOS DEL PRODUCTO (EDITAR) -->
               <div class="mb-3">
                 <h6 class="ev-section-title mb-1">1. Fotos del producto</h6>
-                <label class="form-label fw-semibold ev-required text-ev-main">
+                <label class="form-label fw-semibold ev-required" style="color:#0F592F;">
                   Fotos • <span id="contadorImagenesEdit">0</span>/<span>10</span>
                   <span class="text-muted"> - Puedes agregar un máximo de 10 fotos.</span>
                 </label>
 
                 <div id="uploaderEditar" class="ev-uploader mt-1">
+
+                  <!-- input real oculto (solo nuevas imágenes) -->
                   <input
                     type="file"
                     id="inputImagenesEdit"
@@ -438,6 +366,7 @@ require_once __DIR__ . '/../Config/config.php';
                     class="visually-hidden"
                   />
 
+                  <!-- Zona Drag & Drop -->
                   <div id="dropZoneEdit" class="ev-dropzone mb-3">
                     <div class="dz-icon">
                       <i class="bi bi-cloud-arrow-up"></i>
@@ -450,10 +379,12 @@ require_once __DIR__ . '/../Config/config.php';
                     </div>
                   </div>
 
+                  <!-- Grid de miniaturas (existentes + nuevas) -->
                   <div id="evTilesEdit" class="ev-tiles ev-tiles-grid mb-2">
-                    <!-- JS insertará aquí las miniaturas existentes + nuevas -->
+                    <!-- JS insertará aquí las miniaturas -->
                   </div>
 
+                  <!-- Acciones y contador -->
                   <div class="ev-toolbar-uploads">
                     <button id="btnLimpiarImagenesEdit" type="button" class="btn-clear-images">
                       <i class="bi bi-trash3"></i>
@@ -468,6 +399,7 @@ require_once __DIR__ . '/../Config/config.php';
                   <small class="text-muted mt-2 d-block">
                     La primera foto será la imagen principal de tu publicación.
                   </small>
+
                 </div>
               </div>
 
@@ -524,7 +456,7 @@ require_once __DIR__ . '/../Config/config.php';
                     class="form-select input-premium"
                     required
                   >
-                    <!-- Se llena desde JS -->
+                    <!-- Se llena desde combo_tipo.js (modo edición) -->
                   </select>
                 </div>
 
@@ -536,7 +468,7 @@ require_once __DIR__ . '/../Config/config.php';
                     class="form-select input-premium"
                     required
                   >
-                    <!-- Se llena desde JS -->
+                    <!-- Se llena desde combo_tipo.js (modo edición) -->
                   </select>
                 </div>
               </div>
@@ -557,14 +489,15 @@ require_once __DIR__ . '/../Config/config.php';
                   required
                 ></textarea>
               </div>
+
             </section>
 
-            <!-- DERECHA: PREVIEW -->
+            <!-- DERECHA: PREVIEW EDICIÓN -->
             <aside class="mpm-right">
               <div class="mpm-preview-wrap d-none d-lg-block">
-                <div class="card ev-card ev-preview-card">
+                <div class="card ev-card">
                   <div class="card-body p-3">
-                    <div id="evPreviewWrapperEditContainer" class="ev-preview-area">
+                    <div id="evPreviewWrapperEditContainer">
                       <!-- Aquí se montará la previsualización desde JS -->
                     </div>
                   </div>
@@ -572,10 +505,11 @@ require_once __DIR__ . '/../Config/config.php';
               </div>
             </aside>
 
-          </div>
-        </div>
+          </div> <!-- mpm-grid -->
+        </div> <!-- modal-body -->
 
-        <div class="modal-footer ev-modal-footer">
+        <!-- FOOTER -->
+        <div class="modal-footer">
           <button type="button" class="btn btn-cancelar" data-bs-dismiss="modal">
             Cancelar
           </button>
@@ -583,8 +517,8 @@ require_once __DIR__ . '/../Config/config.php';
             Actualizar
           </button>
         </div>
-      </form>
+      </form> <!-- /formEditarPublicacion -->
 
-    </div>
-  </div>
-</div>
+    </div> <!-- /modal-content -->
+  </div>   <!-- /modal-dialog -->
+</div>     <!-- /modal -->

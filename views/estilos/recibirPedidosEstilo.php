@@ -1,27 +1,44 @@
 <style>
 /* =========================================
    ENTRE VECINOS - RECIBIR PEDIDOS
+   Estilo unificado con Login / Datos personales / Billetera
 ========================================= */
 
+:root{
+  --ev-verde-oscuro: var(--verde-oscuro);
+  --ev-verde:        var(--verde-claro);
+  --ev-verde-suave:  #E6F4EC;
+  --ev-naranja:      var(--naranja-ev, #FF7A1A);
+  --ev-gris-fondo:   var(--gris-claro);
+  --ev-gris-borde:   var(--gris-borde);
+  --ev-texto:        #111827;
+  --ev-texto-suave:  var(--gris-texto);
+}
+
+/* Wrapper general */
 .ev-recibir-wrapper{
   max-width: 1100px;
   margin: 0 auto;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* Card principal */
+/* =========================================
+   CARD PRINCIPAL: RECIBIR PEDIDOS
+========================================= */
+
 .ev-recibir-card{
   border-radius: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  border: 1px solid var(--ev-gris-borde);
+  box-shadow: 0 10px 30px rgba(15, 89, 47, 0.06);
   overflow: hidden;
+  background-color: #ffffff;
 }
 
-/* Header limpio */
+/* Header */
 .ev-recibir-card .ev-recibir-header{
   background-color: #ffffff;
   border-bottom: 1px solid #E5E7EB;
-  padding: 16px 24px;
+  padding: 20px 24px 18px 24px; /* un poco más de aire arriba */
 }
 
 .ev-recibir-icon-wrapper{
@@ -29,18 +46,18 @@
   height: 40px;
   border-radius: 999px;
   background-color: #ECFDF3;
-  color: #16A34A;
+  color: var(--ev-verde);
   font-size: 1.2rem;
 }
 
 .ev-recibir-title{
   font-weight: 600;
-  color: #111827;
+  color: var(--ev-verde-oscuro);
 }
 
 .ev-recibir-subtitle{
   font-size: 0.82rem;
-  color: #6B7280 !important;
+  color: var(--ev-texto-suave);
 }
 
 /* Pill de estado */
@@ -71,7 +88,7 @@
   background-color: #9CA3AF;
 }
 
-/* Estado conectado */
+/* Estado conectado (la lógica la maneja tu JS cambiando clases) */
 .ev-status-on{
   background-color: #DCFCE7;
   color: #15803D;
@@ -83,11 +100,11 @@
 
 /* Cuerpo */
 .ev-recibir-body{
-  padding: 24px 24px 22px 24px;
+  padding: 22px 24px 22px 24px;
 }
 
 /* =========================================
-   Toggle principal
+   Toggle principal - SWITCH PREMIUM EV
 ========================================= */
 
 .ev-toggle-row{
@@ -98,71 +115,71 @@
   min-width: 260px;
 }
 
+/* Contenedor del switch + texto */
 .ev-switch{
   position: relative;
-  display: inline-block;
-  width: 260px;
-  height: 54px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
 }
 
-/* Ocultamos checkbox */
+/* Input oculto */
 .ev-switch input{
   opacity: 0;
   width: 0;
   height: 0;
-}
-
-/* Pista */
-.ev-slider{
   position: absolute;
-  cursor: pointer;
-  inset: 0;
-  background-color: #E5E7EB;
-  border-radius: 999px;
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.10);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 18px;
-  transition: background-color 0.25s ease, box-shadow 0.25s ease;
 }
 
-/* Texto interno */
-.ev-slider-label{
-  z-index: 2;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #4B5563;
+/* Track */
+.ev-switch-track{
+  position: relative;
+  width: 54px;
+  height: 30px;
+  border-radius: 999px;
+  background-color: #E5E7EB;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.10);
+  transition: background-color 0.25s ease, box-shadow 0.25s ease;
+  flex-shrink: 0;
 }
 
 /* Thumb */
-.ev-slider::before{
-  content: "";
+.ev-switch-thumb{
   position: absolute;
-  left: 10px;
-  width: 34px;
-  height: 34px;
+  top: 3px;
+  left: 4px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background-color: #FFFFFF;
   box-shadow: 0 6px 14px rgba(15, 23, 42, 0.15);
   transition: transform 0.25s ease;
 }
 
-/* Estado ON */
-.ev-switch input:checked + .ev-slider{
-  background-color: #16A34A;
+/* Texto a la derecha del switch */
+.ev-switch-text{
+  font-size: 0.96rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Estado ON (checked) */
+.ev-switch input:checked + .ev-switch-track{
+  background-color: var(--ev-verde);
   box-shadow: 0 10px 22px rgba(22, 163, 74, 0.35);
 }
 
-.ev-switch input:checked + .ev-slider .ev-slider-label{
-  color: #ffffff;
+.ev-switch input:checked + .ev-switch-track .ev-switch-thumb{
+  transform: translateX(22px);
 }
 
-.ev-switch input:checked + .ev-slider::before{
-  transform: translateX(180px);
+.ev-switch input:checked ~ .ev-switch-text{
+  color: var(--ev-verde-oscuro);
 }
 
-.ev-switch:hover .ev-slider{
+/* Hover */
+.ev-switch:hover .ev-switch-track{
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.22);
 }
 
@@ -191,7 +208,7 @@
 ========================================= */
 
 .ev-pedidos-section{
-  margin-top: 40px;
+  margin-top: 36px;
   padding-top: 12px;
   border-top: 1px solid rgba(229, 231, 235, 0.8);
 }
@@ -199,43 +216,55 @@
 /* Card de pedidos */
 .ev-pedidos-card{
   border-radius: 18px;
-  border: 1px solid rgba(209, 213, 219, 0.7);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.09);
+  border: 1px solid var(--ev-gris-borde);
+  box-shadow: 0 9px 26px rgba(15, 23, 42, 0.08);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background-color: #ffffff;
 }
 
 .ev-pedidos-card:hover{
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
 }
 
 .ev-pedidos-card .card-header{
   background-color: #ffffff;
   border-bottom: 1px solid #E5E7EB;
-  padding: 14px 24px 12px 24px; /* ligeramente más compacto */
+  padding: 16px 24px 12px 24px;
 }
 
 .ev-pedidos-card .card-body{
-  padding: 16px 24px 16px 24px; /* padding vertical reducido */
+  padding: 16px 24px 18px 24px;
+}
+
+/* Icono del bloque de pedidos */
+.ev-pedidos-icon{
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background-color: #ECFDF3;
+  color: var(--ev-verde);
+  font-size: 1rem;
 }
 
 .ev-pedidos-title{
   font-weight: 600;
-  color: #111827;
-  margin-bottom: 0;           /* título y subtítulo más cercanos */
+  color: var(--ev-verde-oscuro);
+  margin-bottom: 0;
 }
 
 .ev-pedidos-subtitle{
   display: block;
   margin-top: 2px;
   font-size: 0.85rem;
-  color: #6B7280;
+  color: var(--ev-texto-suave);
 }
 
+/* Contador pill */
 .ev-pedidos-counter{
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   border-radius: 999px;
-  padding: 4px 10px;
+  padding: 4px 12px;
   background-color: #F3F4F6;
   color: #4B5563;
   font-weight: 600;
@@ -249,12 +278,13 @@
   padding: 12px 16px;
   margin-top: 8px;
   margin-bottom: 12px;
-  max-width: 92%;
+  max-width: 80%;
   margin-left: auto;
   margin-right: auto;
+  text-align: center;
 }
 
-/* Estado: desconectado (gris cálido y amigable) */
+/* Estado: desconectado */
 .ev-pedidos-info-alert-off{
   background-color: #F8F9FA;
   color: #4B5563;
@@ -383,8 +413,8 @@
 
 /* Botones específicos */
 .ev-btn-aceptar{
-  background-color: #16A34A;
-  border-color: #16A34A;
+  background-color: var(--ev-verde);
+  border-color: var(--ev-verde);
   color: #ffffff;
 }
 .ev-btn-aceptar:hover{

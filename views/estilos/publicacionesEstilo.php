@@ -248,12 +248,8 @@ textarea.input-premium{ min-height: 120px; }
 }
 
 /* Redondeo esquinas superiores */
-.ev-table thead th:first-child{
-  border-top-left-radius:16px;
-}
-.ev-table thead th:last-child{
-  border-top-right-radius:16px;
-}
+.ev-table thead th:first-child{ border-top-left-radius:16px; }
+.ev-table thead th:last-child{ border-top-right-radius:16px; }
 
 /* Cabecera ordenable */
 .ev-table thead th[data-sort]{
@@ -287,15 +283,9 @@ textarea.input-premium{ min-height: 120px; }
 }
 
 /* Zebra + hover */
-.ev-table tbody tr:nth-child(odd){
-  background:#ffffff;
-}
-.ev-table tbody tr:nth-child(even){
-  background:#f9fafb;
-}
-.ev-table tbody tr:hover{
-  background:#ecfdf5;
-}
+.ev-table tbody tr:nth-child(odd){ background:#ffffff; }
+.ev-table tbody tr:nth-child(even){ background:#f9fafb; }
+.ev-table tbody tr:hover{ background:#ecfdf5; }
 
 /* Código monoespaciado */
 .ev-code{
@@ -315,15 +305,11 @@ textarea.input-premium{ min-height: 120px; }
 
 /* Densidades opcionales */
 .ev-table[data-density="comfortable"] thead th,
-.ev-table[data-density="comfortable"] tbody td{
-  padding: 1.05rem 1rem;
-}
+.ev-table[data-density="comfortable"] tbody td{ padding: 1.05rem 1rem; }
 .ev-table[data-density="compact"] thead th,
-.ev-table[data-density="compact"] tbody td{
-  padding: .55rem .6rem;
-}
+.ev-table[data-density="compact"] tbody td{ padding: .55rem .6rem; }
 
-/* Badges de estado dentro de la tabla */
+/* Badges */
 .ev-table .badge{
   border-radius:999px;
   font-weight:600;
@@ -372,9 +358,7 @@ textarea.input-premium{ min-height: 120px; }
   min-width: 86px;
   font-size:.78rem;
 }
-.ev-chip:active{
-  transform: translateY(1px);
-}
+.ev-chip:active{ transform: translateY(1px); }
 .ev-chip-amber{ background:#f59e0b; }
 .ev-chip-green{ background:#16a34a; }
 .ev-chip-teal{  background:#0F592F; }
@@ -406,9 +390,7 @@ textarea.input-premium{ min-height: 120px; }
   margin-top:0;
 }
 
-.ev-select{
-  max-width: 120px;
-}
+.ev-select{ max-width: 120px; }
 
 /* paginador */
 .ev-pagination{
@@ -502,7 +484,7 @@ textarea.input-premium{ min-height: 120px; }
   color:transparent !important;
 }
 .btn-guardar.saving::after{
-  content:'';  
+  content:'';
   position:absolute;
   top:50%; left:50%;
   width:18px; height:18px;
@@ -515,12 +497,13 @@ textarea.input-premium{ min-height: 120px; }
 @keyframes spin{ from{ transform:rotate(0)} to{ transform:rotate(360deg)} }
 
 /* ================================
-   🪟 MODALES (estilo visual general)
+   🪟 MODALES (base)
 ================================ */
 .modal .modal-content{
   border-radius: 18px;
   overflow: hidden;
   border:1px solid rgba(148,163,184,.5);
+  background:#fff;
 }
 .modal .modal-header{
   background: radial-gradient(circle at 0 0, #22c55e 0, #0F592F 45%, #052e16 100%);
@@ -540,29 +523,11 @@ textarea.input-premium{ min-height: 120px; }
 }
 .modal .btn-close:hover{ opacity:1; }
 
-/* Ajuste específico para modales fullscreen en móviles:
-   sin bordes blancos laterales */
-@media (max-width: 576px){
-  .modal-fullscreen-sm-down .modal-content,
-  .modal-fullscreen-md-down .modal-content{
-    border-radius: 0;
-  }
-
-  .modal-fullscreen-sm-down .modal-dialog,
-  .modal-fullscreen-md-down .modal-dialog{
-    margin: 0;
-    max-width: 100%;
-  }
-}
-
 /* ================================
    📸 UPLOADER
 ================================ */
-.ev-uploader{
-  margin-top:6px;
-}
+.ev-uploader{ margin-top:6px; }
 
-/* Dropzone */
 .ev-dropzone{
   border:2px dashed #cbd5e1;
   border-radius:16px;
@@ -597,16 +562,13 @@ textarea.input-premium{ min-height: 120px; }
 }
 
 /* Grid miniaturas */
-.ev-tiles{
-  margin-top:12px;
-}
+.ev-tiles{ margin-top:12px; }
 .ev-tiles.ev-tiles-grid{
   display:grid;
   grid-template-columns: repeat(auto-fill, 120px);
   gap:12px;
 }
 
-/* Miniatura */
 .ev-tile{
   position:relative;
   width:120px;
@@ -633,10 +595,8 @@ textarea.input-premium{ min-height: 120px; }
   display:block;
 }
 
-/* Ocultar tile-agregar: usamos dropZone como entrada principal */
-.ev-tiles .ev-tile-add{
-  display:none !important;
-}
+/* Ocultar tile-agregar */
+.ev-tiles .ev-tile-add{ display:none !important; }
 
 /* Badge “Principal” */
 .ev-tiles-grid .ev-tile:first-child::after{
@@ -651,7 +611,6 @@ textarea.input-premium{ min-height: 120px; }
   border-radius:6px;
 }
 
-/* Botón eliminar */
 .ev-tile-remove{
   position:absolute;
   top:6px;
@@ -669,9 +628,7 @@ textarea.input-premium{ min-height: 120px; }
   cursor:pointer;
   box-shadow:0 2px 6px rgba(239,68,68,.35);
 }
-.ev-tile-remove:hover{
-  filter:brightness(1.07);
-}
+.ev-tile-remove:hover{ filter:brightness(1.07); }
 
 /* ================================
    🖼️ PREVISUALIZACIÓN
@@ -692,10 +649,7 @@ textarea.input-premium{ min-height: 120px; }
   color:#0F592F;
   margin-bottom:10px;
 }
-.ev-preview-actions{
-  display:flex;
-  gap:.45rem;
-}
+.ev-preview-actions{ display:flex; gap:.45rem; }
 .ev-preview-actions .btn{
   padding:.2rem .55rem;
   line-height:1;
@@ -742,9 +696,7 @@ textarea.input-premium{ min-height: 120px; }
   transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
   scroll-snap-align:start;
 }
-.ev-preview-thumb:hover{
-  transform: translateY(-1px);
-}
+.ev-preview-thumb:hover{ transform: translateY(-1px); }
 .ev-preview-thumb img{
   width:100%;
   height:100%;
@@ -756,13 +708,9 @@ textarea.input-premium{ min-height: 120px; }
   box-shadow:0 0 0 .15rem rgba(15,89,47,.22);
 }
 
-/* Expandido */
-.ev-preview-area.is-expanded .ev-preview-main{
-  max-height:76vh;
-}
-.ev-preview-area.is-expanded .ev-preview-main img{
-  max-height:76vh;
-}
+.ev-preview-area.is-expanded .ev-preview-main{ max-height:76vh; }
+.ev-preview-area.is-expanded .ev-preview-main img{ max-height:76vh; }
+
 #contadorImagenes{
   font-weight:600;
   color:#1b3d2f;
@@ -772,9 +720,7 @@ textarea.input-premium{ min-height: 120px; }
 /* ================================
    🌀 ANIMACIONES / RESPONSIVE
 ================================ */
-.fade-in{
-  animation: fadeIn 0.5s ease-out;
-}
+.fade-in{ animation: fadeIn 0.5s ease-out; }
 @keyframes fadeIn{
   from{opacity:0; transform: translateY(6px);}
   to{opacity:1; transform:none;}
@@ -786,19 +732,13 @@ textarea.input-premium{ min-height: 120px; }
     padding:.38rem .55rem;
     font-size:.82rem;
   }
-  .ev-table-wrap{
-    max-height: unset;
-  }
+  .ev-table-wrap{ max-height: unset; }
 }
 
 @media (max-width: 576px){
-  .card-body{
-    padding:18px 14px;
-  }
+  .card-body{ padding:18px 14px; }
 
-  .ev-table thead{
-    display:none;
-  }
+  .ev-table thead{ display:none; }
   .ev-table tbody tr{
     display:grid;
     grid-template-columns:1fr;
@@ -819,28 +759,17 @@ textarea.input-premium{ min-height: 120px; }
     color:#64748b;
     font-size:.8rem;
   }
-  .ev-foot{
-    flex-wrap:wrap;
-  }
-  .ev-preview-thumb{
-    width:72px;
-    height:54px;
-  }
-  .ev-preview-main{
-    min-height:200px;
-  }
+  .ev-foot{ flex-wrap:wrap; }
+  .ev-preview-thumb{ width:72px; height:54px; }
+  .ev-preview-main{ min-height:200px; }
 }
 
 /* Modal XL en pantallas grandes */
 @media (min-width: 1200px){
-  .modal-dialog.modal-xl{
-    --bs-modal-width: 1160px;
-  }
+  .modal-dialog.modal-xl{ --bs-modal-width: 1160px; }
 }
 @media (min-width: 1400px){
-  .modal-dialog.modal-xl{
-    --bs-modal-width: 1280px;
-  }
+  .modal-dialog.modal-xl{ --bs-modal-width: 1280px; }
 }
 
 /* Grid interno modal izq/der */
@@ -861,27 +790,70 @@ textarea.input-premium{ min-height: 120px; }
     grid-template-columns: 1fr;
     gap:14px;
   }
-  .mpm-preview-wrap{
-    position: static;
-  }
-  #modalAgregarPublicacion .ev-preview-main,
-  #modalEditarPublicacion .ev-preview-main{
-    max-height: 40vh !important;
-  }
+  .mpm-preview-wrap{ position: static; }
+  #modalAgregarPublicacion .ev-preview-main{ max-height: 40vh !important; }
 }
 
-/* Ocultar previsualización solo móvil */
+/* Ocultar previsualización solo móvil (mantener como venían trabajando) */
 @media (max-width: 576px){
   #previewMount,
   #evPreviewWrapper,
-  #evMetaCard{
-    display:none !important;
+  #evMetaCard{ display:none !important; }
+
+  .mpm-right{ display:none !important; }
+  .mpm-grid{ grid-template-columns: 1fr !important; }
+}
+
+/* ================================
+   🪟 LÓGICA DE ALTURA / SCROLL (COMÚN A LOS 3 MODALES)
+================================ */
+#modalAgregarPublicacion .modal-dialog,
+#modalBuscarPublicacion .modal-dialog,
+#modalEditarPublicacion .modal-dialog{
+  max-height: calc(100vh - var(--bs-modal-margin, .5rem)*2);
+  height: auto;
+}
+
+#modalAgregarPublicacion .modal-content,
+#modalBuscarPublicacion .modal-content,
+#modalEditarPublicacion .modal-content{
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+}
+
+#modalAgregarPublicacion .modal-header,
+#modalBuscarPublicacion .modal-header,
+#modalEditarPublicacion .modal-header,
+#modalAgregarPublicacion .modal-footer,
+#modalBuscarPublicacion .modal-footer,
+#modalEditarPublicacion .modal-footer{
+  flex: 0 0 auto;
+  position: static;
+  box-shadow: none;
+}
+
+#modalAgregarPublicacion .modal-body,
+#modalBuscarPublicacion .modal-body,
+#modalEditarPublicacion .modal-body{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 1rem;
+}
+
+@media (max-width: 576px){
+  #modalAgregarPublicacion .modal-dialog,
+  #modalBuscarPublicacion .modal-dialog,
+  #modalEditarPublicacion .modal-dialog{
+    margin: 0 !important;
+    max-height: 100vh;
   }
-  .mpm-right{
-    display:none !important;
-  }
-  .mpm-grid{
-    grid-template-columns: 1fr !important;
+  #modalAgregarPublicacion .modal-content,
+  #modalBuscarPublicacion .modal-content,
+  #modalEditarPublicacion .modal-content{
+    border-radius: 0;
   }
 }
 
@@ -912,9 +884,7 @@ textarea.input-premium{ min-height: 120px; }
   font-weight:500;
   transition:all .18s ease;
 }
-.btn-clear-images i{
-  font-size:.9rem;
-}
+.btn-clear-images i{ font-size:.9rem; }
 .btn-clear-images:hover{
   background:#e5e7eb;
   border-color:#d1d5db;
@@ -929,7 +899,6 @@ textarea.input-premium{ min-height: 120px; }
   gap: 12px;
   padding: 10px 0;
 }
-
 .ev-edit-img{
   width: 100%;
   height: 140px;
@@ -937,8 +906,134 @@ textarea.input-premium{ min-height: 120px; }
   border-radius: 12px;
   box-shadow: 0 3px 12px rgba(0,0,0,.15);
 }
+.ev-img-wrapper{ position: relative; }
 
-.ev-img-wrapper{
-  position: relative;
+
+/* =====================================================================
+   ✅✅✅ FIX DEFINITIVO SOLO PARA #modalEditarPublicacion (OPCIÓN A)
+   - Compactar ~20% en escritorio
+   - Scroll REAL en móvil (touch)
+   - Sin bordes blancos en header
+   - Estética alineada al patrón "Recuperar cuenta"
+   - Sin afectar otros modales
+===================================================================== */
+
+/* 1) Compactar el modal en escritorio (~20%) sin romper Bootstrap */
+#modalEditarPublicacion .modal-dialog{
+  /* Bootstrap modal-xl puede variar; aquí lo limitamos SOLO para editar */
+  max-width: 980px; /* aprox 20% menos que 1160/1280 */
 }
+
+/* En pantallas muy grandes, mantenemos proporcional */
+@media (min-width: 1400px){
+  #modalEditarPublicacion .modal-dialog{
+    max-width: 1040px;
+  }
+}
+
+/* 2) Modal-content y header perfectamente “sellados” (sin borde blanco) */
+#modalEditarPublicacion .modal-content{
+  border-radius: 18px;
+  overflow: hidden;          /* clave para que el verde tape esquinas */
+  border: 1px solid rgba(148,163,184,.55);
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.18);
+  background:#fff;
+}
+
+#modalEditarPublicacion .modal-header{
+  /* patrón más parecido a Recuperar cuenta */
+  background: linear-gradient(135deg, #198754 0%, #0F592F 45%, #052e16 100%);
+  border-bottom: 0;
+  width: 100%;
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
+  overflow: hidden;          /* evita “cortes” de color */
+}
+
+/* 3) Mejora de jerarquía tipográfica del header (sin afectar estructura HTML) */
+#modalEditarPublicacion .modal-title{
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+/* 4) Scroll REAL y estable (especialmente en móvil) */
+#modalEditarPublicacion .modal-body{
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;  /* iOS/Android */
+  touch-action: pan-y;                 /* permite swipe vertical */
+  overscroll-behavior: contain;
+}
+
+/* 5) En móvil: NO fullscreen duro, sino “sheet” con scroll interno real */
+@media (max-width: 576px){
+
+  /* Evita el bug típico: body bloqueado + modal sin área scrolleable */
+  #modalEditarPublicacion .modal-dialog{
+    margin: 10px !important;
+    height: calc(100vh - 20px);
+    max-height: calc(100vh - 20px);
+    width: auto;
+  }
+
+  #modalEditarPublicacion .modal-content{
+    height: 100%;
+    max-height: 100%;
+    border-radius: 18px;     /* mantiene look tipo “Recuperar cuenta” */
+    overflow: hidden;        /* elimina bordes blancos */
+  }
+
+  /* Header compacto */
+  #modalEditarPublicacion .modal-header{
+    padding: 12px 14px;
+  }
+
+  /* Footer fijo (sin salir de pantalla) */
+  #modalEditarPublicacion .modal-footer{
+    padding: 10px 12px;
+  }
+
+  /* Cuerpo: área scrolleable real */
+  #modalEditarPublicacion .modal-body{
+    min-height: 0;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding: 14px 14px 16px;
+  }
+
+  /* Asegura que el contenido no “encaje raro” por grids */
+  #modalEditarPublicacion .mpm-grid{
+    display: grid;
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+
+  #modalEditarPublicacion .mpm-right{
+    display:none !important; /* en móvil no mostramos preview lateral */
+  }
+
+  /* Reduce un poco el dropzone para que entre más contenido visible */
+  #modalEditarPublicacion .ev-dropzone{
+    padding: 18px 14px;
+  }
+
+  /* Miniaturas más amigables al ancho móvil */
+  #modalEditarPublicacion .ev-tiles.ev-tiles-grid{
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+    gap:10px;
+  }
+
+  #modalEditarPublicacion .ev-tile{
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    height: auto;
+  }
+}
+
+/* 6) Ajuste fino: evitar que algún contenedor padre “mate” el scroll en móvil */
+#modalEditarPublicacion .modal-body,
+#modalEditarPublicacion .mpm-left{
+  min-width: 0;
+}
+
+/* ===================================================================== */
 </style>
