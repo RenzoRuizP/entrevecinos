@@ -515,7 +515,7 @@ textarea.input-premium{ min-height: 120px; }
 @keyframes spin{ from{ transform:rotate(0)} to{ transform:rotate(360deg)} }
 
 /* ================================
-   🪟 MODALES (estilo visual)
+   🪟 MODALES (estilo visual general)
 ================================ */
 .modal .modal-content{
   border-radius: 18px;
@@ -539,6 +539,21 @@ textarea.input-premium{ min-height: 120px; }
   opacity:.85;
 }
 .modal .btn-close:hover{ opacity:1; }
+
+/* Ajuste específico para modales fullscreen en móviles:
+   sin bordes blancos laterales */
+@media (max-width: 576px){
+  .modal-fullscreen-sm-down .modal-content,
+  .modal-fullscreen-md-down .modal-content{
+    border-radius: 0;
+  }
+
+  .modal-fullscreen-sm-down .modal-dialog,
+  .modal-fullscreen-md-down .modal-dialog{
+    margin: 0;
+    max-width: 100%;
+  }
+}
 
 /* ================================
    📸 UPLOADER
@@ -849,7 +864,8 @@ textarea.input-premium{ min-height: 120px; }
   .mpm-preview-wrap{
     position: static;
   }
-  #modalAgregarPublicacion .ev-preview-main{
+  #modalAgregarPublicacion .ev-preview-main,
+  #modalEditarPublicacion .ev-preview-main{
     max-height: 40vh !important;
   }
 }
@@ -866,60 +882,6 @@ textarea.input-premium{ min-height: 120px; }
   }
   .mpm-grid{
     grid-template-columns: 1fr !important;
-  }
-}
-
-/* ================================
-   🪟 LÓGICA DE ALTURA / SCROLL (COMÚN A LOS 3 MODALES)
-   → Sin JS, sin “saltos” en la primera apertura
-================================ */
-#modalAgregarPublicacion .modal-dialog,
-#modalBuscarPublicacion .modal-dialog,
-#modalEditarPublicacion .modal-dialog{
-  max-height: calc(100vh - var(--bs-modal-margin, .5rem)*2);
-  height: auto;
-}
-
-#modalAgregarPublicacion .modal-content,
-#modalBuscarPublicacion .modal-content,
-#modalEditarPublicacion .modal-content{
-  display: flex;
-  flex-direction: column;
-  max-height: 100%;
-}
-
-#modalAgregarPublicacion .modal-header,
-#modalBuscarPublicacion .modal-header,
-#modalEditarPublicacion .modal-header,
-#modalAgregarPublicacion .modal-footer,
-#modalBuscarPublicacion .modal-footer,
-#modalEditarPublicacion .modal-footer{
-  flex: 0 0 auto;
-  position: static;
-  box-shadow: none;
-}
-
-#modalAgregarPublicacion .modal-body,
-#modalBuscarPublicacion .modal-body,
-#modalEditarPublicacion .modal-body{
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-bottom: 1rem;
-}
-
-@media (max-width: 576px){
-  #modalAgregarPublicacion .modal-dialog,
-  #modalBuscarPublicacion .modal-dialog,
-  #modalEditarPublicacion .modal-dialog{
-    margin: 0 !important;
-    max-height: 100vh;
-  }
-  #modalAgregarPublicacion .modal-content,
-  #modalBuscarPublicacion .modal-content,
-  #modalEditarPublicacion .modal-content{
-    border-radius: 0;
   }
 }
 

@@ -10,6 +10,27 @@
     saldo: null,
     emptyState: null,
     movimientos: null,
+
+    // Refs para el modal de recarga
+    recargaTipo: null,
+    qrImg: null,
+    qrTitle: null,
+    qrText: null,
+    qrCard: null,
+  };
+
+  // Configuración de imágenes y textos para QR
+  const QR_CONFIG = {
+    yape: {
+      img: `${BASE}/resources/images/yape.jpg`,
+      title: 'Paga tu recarga con Yape',
+      text: 'Escanea este código desde Yape, ingresa el monto que deseas recargar y luego sube el comprobante en este formulario.'
+    },
+    plin: {
+      img: `${BASE}/resources/images/plin.jpeg`,
+      title: 'Paga tu recarga con Plin',
+      text: 'Escanea este código desde tu app bancaria, ingresa el monto que deseas recargar y luego sube el comprobante en este formulario.'
+    }
   };
 
   // ------------------------------------
@@ -46,6 +67,13 @@
     refs.emptyState  = document.getElementById('ev_wallet_empty_state');
     refs.movimientos = document.getElementById('ev_wallet_movimientos');
 
+    // Refs del modal de recarga
+    refs.recargaTipo = document.getElementById('recarga_tipo');
+    refs.qrImg       = document.getElementById('ev_qr_img');
+    refs.qrTitle     = document.getElementById('ev_qr_title');
+    refs.qrText      = document.getElementById('ev_qr_text');
+    refs.qrCard      = document.getElementById('ev_qr_card');
+
     return true;
   }
 
@@ -73,6 +101,45 @@
   }
 
   // ------------------------------------
+  // Lógica QR dinámico Plin / Yape
+  // ------------------------------------
+  function actualizarQRDesdeSelect() {
+    if (!refs.recargaTipo) return;
+    const tipo = (refs.recargaTipo.value || '').toLowerCase();
+
+    // Si no ha elegido nada ("-"), ocultamos la tarjeta
+    if (!tipo) {
+      if (refs.qrCard) refs.qrCard.classList.add('d-none');
+      return;
+    }
+
+    const cfg = QR_CONFIG[tipo] || QR_CONFIG['yape'];
+
+    if (refs.qrCard)  refs.qrCard.classList.remove('d-none');
+    if (refs.qrImg)   refs.qrImg.src = cfg.img;
+    if (refs.qrTitle) refs.qrTitle.textContent = cfg.title;
+    if (refs.qrText)  refs.qrText.textContent = cfg.text;
+  }
+
+  function inicializarQR() {
+    if (!refs.recargaTipo || !refs.qrImg || !refs.qrTitle || !refs.qrText || !refs.qrCard) {
+      return;
+    }
+
+    // Evitar enganchar el listener más de una vez
+    if (refs.recargaTipo.dataset.evWalletQrHooked === '1') {
+      actualizarQRDesdeSelect();
+      return;
+    }
+
+    refs.recargaTipo.dataset.evWalletQrHooked = '1';
+    refs.recargaTipo.addEventListener('change', actualizarQRDesdeSelect);
+
+    // Estado inicial: opción "-" => sin QR
+    actualizarQRDesdeSelect();
+  }
+
+  // ------------------------------------
   // Llamar API para obtener saldo actual
   // ------------------------------------
   async function cargarSaldo() {
@@ -80,7 +147,6 @@
       return;
     }
 
-    // Endpoint API (mantenemos la ruta que ya usas)
     const url = `${BASE}/api/billetera/saldo`;
 
     try {
@@ -110,7 +176,6 @@
         return;
       }
 
-      // Soportar distintas claves: saldo_actual o saldo
       const saldo = (json.saldo_actual ?? json.saldo ?? 0);
       refs.saldo.textContent = formatearMonto(saldo);
 
@@ -136,7 +201,6 @@
     refs.movimientos.classList.remove('d-none');
 
     const filas = lista.map((m) => {
-      // Soportar tanto tipo_movimiento ('D'/'C') como tipo ('CARGO'/'ABONO')
       const tipoRaw = (m.tipo_movimiento || m.tipo || '').toUpperCase();
       const esDebito  = (tipoRaw === 'D' || tipoRaw === 'CARGO');
       const esCredito = (tipoRaw === 'C' || tipoRaw === 'ABONO');
@@ -158,7 +222,6 @@
 
       const monto = (typeof m.monto !== 'undefined') ? m.monto : 0;
 
-      // Puede que no exista saldo_despues en la respuesta: lo manejamos elegante
       const saldoDespues = (typeof m.saldo_despues !== 'undefined' && m.saldo_despues !== null)
         ? formatearMonto(m.saldo_despues)
         : '';
@@ -248,7 +311,6 @@
         return;
       }
 
-      // Soportar tanto data como movimientos
       const lista = json.data || json.movimientos || [];
       renderizarMovimientos(lista);
 
@@ -268,7 +330,6 @@
 
     log('Vista Mi Billetera detectada en DOM. BASE_URL:', BASE || '(vacía)');
 
-    // Estado inicial
     if (refs.saldo) {
       refs.saldo.textContent = formatearMonto(0);
     }
@@ -284,6 +345,9 @@
     // Cargar saldo real y movimientos
     cargarSaldo();
     cargarMovimientos();
+
+    // Inicializar comportamiento de QR dinámico
+    inicializarQR();
   }
 
   // ------------------------------------
@@ -359,7 +423,6 @@
       return;
     }
 
-    // Buscar el enlace cuyo texto visible sea "Mi billetera"
     const enlaces = Array.from(document.querySelectorAll('a'));
     const linkBilletera = enlaces.find((a) => {
       const txt = (a.textContent || '').trim().toLowerCase();
@@ -371,7 +434,6 @@
       return;
     }
 
-    // Evitar múltiples registros
     if (linkBilletera.dataset.evWalletHooked === '1') {
       return;
     }
@@ -389,8 +451,7 @@
   // ------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
     engancharMenuBilletera();
-    // Si la vista ya estuviera montada por acceso directo:
-    inicializarVista();
+    inicializarVista(); // por si la vista ya está montada
   });
 
   // ------------------------------------
@@ -402,7 +463,6 @@
       inicializarVista();
     }
 
-    // Por si el menú se redibuja dinámicamente
     engancharMenuBilletera();
   });
 
