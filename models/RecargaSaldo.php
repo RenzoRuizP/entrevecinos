@@ -48,9 +48,9 @@ class RecargaSaldo extends Conexion
     ): int {
         $sql = "
             INSERT INTO recarga_saldo
-              (codigo_usuario, monto, metodo, id_operacion, comprobante_path, estado)
+            (codigo_usuario, monto, metodo, id_operacion, comprobante_path, estado, fecha_creacion)
             VALUES
-              (:codigo_usuario, :monto, :metodo, :id_operacion, :comprobante_path, 'pendiente')
+            (:codigo_usuario, :monto, :metodo, :id_operacion, :comprobante_path, 'pendiente', NOW())
         ";
         $stmt = $this->dblink->prepare($sql);
         $stmt->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
@@ -62,6 +62,7 @@ class RecargaSaldo extends Conexion
 
         return (int)$this->dblink->lastInsertId();
     }
+
 
     // NUEVO: alias para que calce con el controlador que te pasé
     public function registrarSolicitud(

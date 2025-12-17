@@ -18,6 +18,9 @@
 
   /* soporte para “rebote” móvil */
   --ev-vh: 1vh;
+
+  /* Degradado header (mismo concepto que “Recuperar cuenta”) */
+  --ev-header-grad: linear-gradient(90deg, #0F592F 0%, #137A43 55%, #0F592F 100%);
 }
 
 /* =========================
@@ -100,7 +103,7 @@
 
 .ev-pubs-table tbody td{
   border-color: rgba(229, 231, 235, 0.9);
-  vertical-align: middle; /* ayuda a que los chips se vean centrados */
+  vertical-align: middle;
 }
 
 .ev-pubs-table tbody tr:hover{
@@ -134,9 +137,21 @@
   letter-spacing: .02em;
 }
 
-.ev-badge--nuevo{ background: rgba(25,135,84,.14); color: var(--ev-verde-oscuro); border:1px solid rgba(25,135,84,.22); }
-.ev-badge--usado{ background: rgba(255, 193, 7, .22); color: #7a5a00; border:1px solid rgba(255, 193, 7, .35); }
-.ev-badge--noaplica{ background: #F3F4F6; color: #64748b; border:1px solid rgba(148,163,184,.35); }
+.ev-badge--nuevo{
+  background: rgba(25,135,84,.14);
+  color: var(--ev-verde-oscuro);
+  border:1px solid rgba(25,135,84,.22);
+}
+.ev-badge--usado{
+  background: rgba(255, 193, 7, .22);
+  color: #7a5a00;
+  border:1px solid rgba(255, 193, 7, .35);
+}
+.ev-badge--noaplica{
+  background: #F3F4F6;
+  color: #64748b;
+  border:1px solid rgba(148,163,184,.35);
+}
 
 /* =========================
    BOTONES (IGUAL QUE BILLETERA)
@@ -162,6 +177,7 @@
   box-shadow: 0 18px 32px rgba(255, 122, 26, 0.55);
   color: #ffffff;
 }
+
 .btn-ev-outline{
   background-color: #ffffff;
   border-radius: 999px;
@@ -183,38 +199,38 @@
 
 /* =========================
    ACCIONES TABLA (ALINEACIÓN PERFECTA)
+   - 3 botones con ancho fijo (evita desalineado en "Publicado")
 ========================= */
 .ev-actions{
-  display: inline-flex;        /* mejor que flex + width variable */
-  width: 100%;                 /* clave: ocupa TODO el ancho del td */
-  align-items: center;
-  justify-content: center;     /* centrado real */
+  display: grid;
+  grid-template-columns: repeat(3, 104px);
   gap: 10px;
-  flex-wrap: nowrap;           /* evita que “Publicado” se baje */
+  justify-content: center;
+  align-items: center;
 }
 
-/* Chip base (estandarizado) */
+/* Chip base */
 .ev-chip{
-  display: inline-flex;
-  align-items: center;
+  width: 104px;
   justify-content: center;
-  gap: 6px;
-
-  height: 38px;                /* FIX: mismo alto para todos */
-  min-width: 96px;             /* FIX: mismo “bloque” para todos */
-  padding: 0 16px;             /* FIX: no depende del texto */
+  text-align: center;
 
   border-radius: 999px;
+  padding: 0.40rem 0.95rem;
   font-weight: 800;
-  font-size: .90rem;
+  font-size: .86rem;
   line-height: 1;
-  background:#fff;
 
+  background:#fff;
   border:1px solid rgba(148,163,184,.45);
   box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06);
+
   transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease, border-color .15s ease;
   user-select:none;
   white-space:nowrap;
+
+  display: inline-flex;
+  align-items:center;
 }
 
 .ev-chip:hover{
@@ -227,15 +243,15 @@
   box-shadow: 0 0 0 .2rem rgba(25,135,84,.18), 0 10px 18px rgba(15, 23, 42, 0.08);
 }
 
+/* Deshabilitado: mantiene tamaño, más legible */
 .ev-chip:disabled,
 .ev-chip[disabled]{
-  opacity:.55;
-  box-shadow:none;
-  transform:none;
-  cursor:not-allowed;
+  opacity: .65;
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
 }
 
-/* Colores + hover */
 .ev-chip-green{
   border-color: rgba(15,89,47,.55);
   color: var(--ev-verde-oscuro);
@@ -263,7 +279,7 @@
   border-color: rgba(255,122,26,.85);
 }
 
-/* Publicado (deshabilitado) más consistente */
+/* Publicado (apagado, pero consistente) */
 .ev-chip-amber[disabled],
 .ev-chip[data-status="publicado"]{
   background: rgba(255,122,26,.06);
@@ -393,19 +409,22 @@
    MODALES EV – CENTRADOS + ESTABLES
 ========================= */
 .ev-modal{
-  --bs-modal-margin: 12px; /* Bootstrap usa esto para cálculos */
+  --bs-modal-margin: 12px;
 }
 
+/* Centrado horizontal */
 .ev-modal .modal-dialog{
   width: calc(100% - (var(--bs-modal-margin) * 2));
-  margin: var(--bs-modal-margin) auto; /* centra */
+  margin: var(--bs-modal-margin) auto;
 }
 
+/* Tamaño XL */
 .ev-modal-xl{ max-width: 980px; }
 @media (min-width: 992px){
   .ev-modal-xl{ max-width: 1040px; }
 }
 
+/* Contenido */
 .ev-modal-content{
   border-radius: var(--ev-radius-modal);
   overflow: hidden;
@@ -413,14 +432,16 @@
   box-shadow: 0 22px 60px rgba(15, 23, 42, 0.35);
 }
 
+/* Header (con degradado) */
 .ev-modal-header{
   display:flex;
   align-items:center;
   justify-content:space-between;
   padding: 16px 24px;
-  background-color: var(--ev-verde-oscuro);
+  background-image: var(--ev-header-grad);
   color:#fff;
 }
+
 .ev-modal-title{
   font-size: 1.1rem;
   font-weight: 700;
@@ -430,11 +451,13 @@
   gap:8px;
 }
 
+/* Body */
 .ev-modal-body{
   padding: 22px 26px;
   background:#fff;
 }
 
+/* Footer */
 .ev-modal-footer{
   padding: 14px 26px 20px 26px;
   background:#fff;
@@ -444,6 +467,7 @@
   gap:.75rem;
 }
 
+/* “Sin rebote”: modal content en flex, body con scroll */
 .ev-modal-flex{
   display:flex;
   flex-direction:column;
@@ -499,7 +523,9 @@
   border: 1px solid rgba(148,163,184,.35);
 }
 
-/* Responsive */
+/* =========================
+   RESPONSIVE
+========================= */
 @media (max-width: 575.98px){
   .ev-pubs-wrapper{ padding-left:12px !important; padding-right:12px !important; }
   .ev-pubs-card{ margin:16px auto 28px auto; }
@@ -516,17 +542,11 @@
 
   .td-trunc{ max-width: 220px; }
 
-  /* Acciones en móvil */
+  /* Acciones en móvil: 2 columnas ordenadas, misma altura visual */
   .ev-actions{
-    flex-wrap:wrap;
-    justify-content:flex-end;
-    gap:8px;
+    grid-template-columns: repeat(2, 1fr);
+    justify-content: end;
   }
-  .ev-chip{
-    min-width: 92px;
-    height: 38px;
-    padding: 0 14px;
-    font-size: .88rem;
-  }
+  .ev-chip{ width: 100%; }
 }
 </style>

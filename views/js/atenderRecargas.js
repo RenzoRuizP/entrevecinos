@@ -1,446 +1,387 @@
-/* =========================================================
-   EV - Atender Recargas (Soporte)
-   - Lista recargas
-   - Abre modal de revisión
-   - Aprueba / Observa / Rechaza
-   Nota: Endpoints son placeholders; ajusta rutas cuando
-   implementes controllers/api.
-========================================================= */
+// views/js/atenderRecargas.js
+(function () {
+  'use strict';
 
-(() => {
-  "use strict";
+  const BASE = (window.BASE_URL || '').replace(/\/$/, '');
+  const LOG_PREFIX = '[ATENDER_RECARGAS]';
 
-  const $ = (sel) => document.querySelector(sel);
+  const refs = {
+    form: null,
+    fEstado: null,
+    fRango: null,
+    fTexto: null,
+    tbody: null,
+    lblMeta: null,
+    lblPendientes: null,
+    lblFooterLeft: null,
+    btnPrev: null,
+    btnNext: null,
+    lblPagina: null,
+    btnRefrescar: null,
+    btnExportar: null,
+    btnVerPendientes: null,
+    btnVerObservadas: null,
+    btnVerAprobadas: null,
+    btnVerRechazadas: null,
 
-  // UI refs
-  const lblPendientes = $("#lblPendientes");
-  const lblMeta = $("#lblMeta");
-  const tbody = $("#tbodyRecargas");
-
-  const btnPrev = $("#btnPrev");
-  const btnNext = $("#btnNext");
-  const lblPagina = $("#lblPagina");
-
-  const formFiltros = $("#formFiltros");
-  const fEstado = $("#fEstado");
-  const fRango = $("#fRango");
-  const fTexto = $("#fTexto");
-
-  const btnRefrescar = $("#btnRefrescar");
-  const btnExportar = $("#btnExportar");
-  const btnVerPendientes = $("#btnVerPendientes");
-  const btnVerObservadas = $("#btnVerObservadas");
-  const btnVerAprobadas = $("#btnVerAprobadas");
-  const btnVerRechazadas = $("#btnVerRechazadas");
-
-  // Modal refs
-  const modalEl = $("#modalRecarga");
-  const modal = modalEl ? new bootstrap.Modal(modalEl) : null;
-
-  const mUsuario = $("#mUsuario");
-  const mDni = $("#mDni");
-  const mResidencia = $("#mResidencia");
-  const mCondominio = $("#mCondominio");
-  const mMonto = $("#mMonto");
-  const mMetodo = $("#mMetodo");
-  const mOperacion = $("#mOperacion");
-  const mImagen = $("#mImagen");
-  const mNoImagen = $("#mNoImagen");
-  const mComentario = $("#mComentario");
-  const mEstadoBadge = $("#mEstadoBadge");
-
-  const btnAprobar = $("#btnAprobar");
-  const btnObservar = $("#btnObservar");
-  const btnRechazar = $("#btnRechazar");
-
-  // State
-  let currentPage = 1;
-  const pageSize = 10;
-  let currentFilters = {
-    estado: "pendiente",
-    rango: "7",
-    q: ""
+    // Modal
+    modalEl: null,
+    modal: null,
+    mUsuario: null,
+    mDni: null,
+    mResidencia: null,
+    mCondominio: null,
+    mMonto: null,
+    mMetodo: null,
+    mOperacion: null,
+    mEstadoBadge: null,
+    mComentario: null,
+    mImagen: null,
+    mNoImagen: null,
+    btnAprobar: null,
+    btnObservar: null,
+    btnRechazar: null,
   };
 
-  let currentModalRecarga = null;
+  let state = {
+    page: 1,
+    size: 10,
+    total: 0,
+    pendientes: 0,
+    items: [],
+    seleccionado: null,
+  };
 
-  // ----------------------------
-  // Helpers
-  // ----------------------------
-  function money(n) {
-    // Render 2 decimals
-    const num = Number(n || 0);
-    return `S/ ${num.toFixed(2)}`;
+  function log() { if (console && console.log) console.log(LOG_PREFIX, ...arguments); }
+  function error() { if (console && console.error) console.error(LOG_PREFIX, ...arguments); }
+
+  function swalInfo(msg) {
+    if (window.Swal?.fire) return Swal.fire({ icon: 'info', title: 'Entre Vecinos', text: msg });
+    alert(msg);
+  }
+  function swalOk(msg) {
+    if (window.Swal?.fire) return Swal.fire({ icon: 'success', title: 'Listo', text: msg, timer: 1400, showConfirmButton: false });
+    alert(msg);
+  }
+  function swalErr(msg) {
+    if (window.Swal?.fire) return Swal.fire({ icon: 'error', title: 'Ocurrió un problema', text: msg });
+    alert(msg);
   }
 
-  function badgeClass(estado) {
-    switch ((estado || "").toLowerCase()) {
-      case "aprobada": return "ev-badge ev-badge-aprobada";
-      case "observada": return "ev-badge ev-badge-observada";
-      case "rechazada": return "ev-badge ev-badge-rechazada";
-      default: return "ev-badge ev-badge-pendiente";
+  function capturarRefs() {
+    refs.form = document.getElementById('formFiltros');
+    refs.fEstado = document.getElementById('fEstado');
+    refs.fRango = document.getElementById('fRango');
+    refs.fTexto = document.getElementById('fTexto');
+    refs.tbody = document.getElementById('tbodyRecargas');
+    refs.lblMeta = document.getElementById('lblMeta');
+    refs.lblPendientes = document.getElementById('lblPendientes');
+    refs.lblFooterLeft = document.getElementById('lblFooterLeft');
+    refs.btnPrev = document.getElementById('btnPrev');
+    refs.btnNext = document.getElementById('btnNext');
+    refs.lblPagina = document.getElementById('lblPagina');
+    refs.btnRefrescar = document.getElementById('btnRefrescar');
+    refs.btnExportar = document.getElementById('btnExportar');
+    refs.btnVerPendientes = document.getElementById('btnVerPendientes');
+    refs.btnVerObservadas = document.getElementById('btnVerObservadas');
+    refs.btnVerAprobadas = document.getElementById('btnVerAprobadas');
+    refs.btnVerRechazadas = document.getElementById('btnVerRechazadas');
+
+    refs.modalEl = document.getElementById('modalRecarga');
+    refs.mUsuario = document.getElementById('mUsuario');
+    refs.mDni = document.getElementById('mDni');
+    refs.mResidencia = document.getElementById('mResidencia');
+    refs.mCondominio = document.getElementById('mCondominio');
+    refs.mMonto = document.getElementById('mMonto');
+    refs.mMetodo = document.getElementById('mMetodo');
+    refs.mOperacion = document.getElementById('mOperacion');
+    refs.mEstadoBadge = document.getElementById('mEstadoBadge');
+    refs.mComentario = document.getElementById('mComentario');
+    refs.mImagen = document.getElementById('mImagen');
+    refs.mNoImagen = document.getElementById('mNoImagen');
+    refs.btnAprobar = document.getElementById('btnAprobar');
+    refs.btnObservar = document.getElementById('btnObservar');
+    refs.btnRechazar = document.getElementById('btnRechazar');
+
+    if (refs.modalEl && window.bootstrap?.Modal) {
+      refs.modal = bootstrap.Modal.getOrCreateInstance(refs.modalEl);
     }
+
+    return !!refs.form && !!refs.tbody;
   }
 
-  function safeText(s) {
-    const div = document.createElement("div");
-    div.textContent = s ?? "";
-    return div.innerHTML;
+  function formatearMonto(monto) {
+    const n = Number(monto || 0);
+    return 'S/ ' + n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  async function apiGet(url) {
-    const res = await fetch(url, { credentials: "include" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
+  function escapeHtml(str) {
+    return String(str ?? '').replace(/[&<>"']/g, (m) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    }[m]));
   }
 
-  async function apiPost(url, payload) {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(payload || {})
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
+  function badgeEstado(estado) {
+    const e = (estado || '').toLowerCase();
+    const map = {
+      pendiente: 'ev-badge ev-badge-pendiente',
+      observada: 'ev-badge ev-badge-observada',
+      aprobada: 'ev-badge ev-badge-aprobada',
+      rechazada: 'ev-badge ev-badge-rechazada',
+    };
+    return map[e] || 'ev-badge ev-badge-pendiente';
   }
 
-  function notifyInfo(msg) {
-    Swal.fire({ icon: "info", title: "Entre Vecinos", text: msg });
+  function endpointListar() {
+    const estado = refs.fEstado?.value || 'pendiente';
+    const rango = refs.fRango?.value || '7';
+    const q = (refs.fTexto?.value || '').trim();
+
+    const params = new URLSearchParams();
+    params.set('estado', estado);
+    params.set('rango', rango);
+    if (q) params.set('q', q);
+    params.set('page', String(state.page));
+    params.set('size', String(state.size));
+
+    return `${BASE}/api/soporte/recargas?${params.toString()}`;
   }
 
-  function notifyOk(msg) {
-    Swal.fire({ icon: "success", title: "Listo", text: msg, timer: 1600, showConfirmButton: false });
+  async function leerRespuestaSeguro(resp) {
+    const ct = (resp.headers.get('content-type') || '').toLowerCase();
+    if (ct.includes('application/json')) return await resp.json().catch(() => ({}));
+    const txt = await resp.text().catch(() => '');
+    try { return JSON.parse(txt); } catch (_) {}
+    return { ok: false, mensaje: txt || 'Respuesta no válida del servidor.' };
   }
 
-  function notifyErr(msg) {
-    Swal.fire({ icon: "error", title: "Ocurrió un problema", text: msg });
+  function renderEmpty() {
+    refs.tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="text-center py-4 ev-empty">
+          <div class="ev-empty-wrap">
+            <i class="bi bi-inbox ev-empty-ico"></i>
+            <div class="ev-empty-text">
+              No hay solicitudes de recarga para los filtros seleccionados.
+            </div>
+          </div>
+        </td>
+      </tr>
+    `;
   }
 
-  // ----------------------------
-  // Endpoints (ajusta cuando tengas controller)
-  // ----------------------------
-  function endpointList() {
-    const base = window.BASE_URL || "/";
-    const qs = new URLSearchParams({
-      page: String(currentPage),
-      size: String(pageSize),
-      estado: currentFilters.estado,
-      rango: currentFilters.rango,
-      q: currentFilters.q || ""
-    });
-    return `${base}api/soporte/recargas?${qs.toString()}`;
-  }
-
-  function endpointUpdateEstado(id) {
-    const base = window.BASE_URL || "/";
-    return `${base}api/soporte/recargas/${id}/estado`;
-  }
-
-  function endpointExportCsv() {
-    const base = window.BASE_URL || "/";
-    const qs = new URLSearchParams({
-      estado: currentFilters.estado,
-      rango: currentFilters.rango,
-      q: currentFilters.q || ""
-    });
-    return `${base}api/soporte/recargas/export.csv?${qs.toString()}`;
-  }
-
-  // ----------------------------
-  // Render table
-  // ----------------------------
-  function renderRows(items) {
-    if (!items || items.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="7" class="text-center py-4 text-muted">
-            No hay solicitudes para los filtros seleccionados.
-          </td>
-        </tr>`;
+  function renderTabla(items) {
+    if (!items || !items.length) {
+      renderEmpty();
       return;
     }
 
-    tbody.innerHTML = items.map((r) => {
-      const avatarLetter = (r?.usuario_nombre || "U").trim().charAt(0).toUpperCase();
-      const residencia = `${safeText(r?.torre || "—")} - ${safeText(r?.departamento || "—")}`;
-      const fecha = safeText(r?.fecha ?? "—");
-      const metodo = safeText(r?.metodo ?? "—");
-      const oper = safeText(r?.id_operacion ?? "—");
-      const estado = safeText(r?.estado ?? "pendiente");
+    const filas = items.map((r) => {
+      const id = r.id;
+      const fecha = `${escapeHtml(r.fecha)} ${escapeHtml(r.hora)}`;
+      const usuario = escapeHtml(r.usuario_nombre || '—');
+      const monto = formatearMonto(r.monto);
+      const metodo = escapeHtml((r.metodo || '').toUpperCase());
+      const op = escapeHtml(r.id_operacion || '—');
+      const est = escapeHtml(r.estado || 'pendiente');
 
       return `
         <tr>
-          <td>
-            <div class="fw-semibold">${fecha}</div>
-            <div class="text-muted small">${safeText(r?.hora ?? "")}</div>
-          </td>
-
-          <td>
-            <div class="ev-usuario">
-              <div class="ev-avatar">${avatarLetter}</div>
-              <div>
-                <div class="fw-bold">${safeText(r?.usuario_nombre ?? "—")}</div>
-                <div class="ev-usuario-sub">${residencia}</div>
-              </div>
-            </div>
-          </td>
-
-          <td class="fw-bold">${money(r?.monto)}</td>
-
-          <td>
-            <span class="fw-semibold">${metodo}</span>
-          </td>
-
-          <td class="font-monospace">${oper}</td>
-
-          <td><span class="${badgeClass(estado)}">${estado}</span></td>
-
+          <td>${fecha}</td>
+          <td>${usuario}</td>
+          <td>${monto}</td>
+          <td>${metodo}</td>
+          <td><span class="ev-mono">${op}</span></td>
+          <td><span class="${badgeEstado(est)}">${est}</span></td>
           <td class="text-end">
-            <button class="btn ev-btn-light btn-sm btn-ver"
-              data-id="${safeText(r?.id)}"
-              type="button">
-              Ver
+            <button class="btn ev-btn-light btn-sm" data-ev-action="revisar" data-id="${id}">
+              <i class="bi bi-eye me-1"></i> Revisar
             </button>
           </td>
         </tr>
       `;
-    }).join("");
+    }).join('');
 
-    // Bind view buttons
-    tbody.querySelectorAll(".btn-ver").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-id");
-        const found = items.find(x => String(x.id) === String(id));
-        if (!found) return;
-        openModal(found);
-      });
-    });
+    refs.tbody.innerHTML = filas;
   }
 
-  function setPendingCount(n) {
-    lblPendientes.textContent = String(n ?? 0);
+  function renderMeta() {
+    const total = Number(state.total || 0);
+    const page = Number(state.page || 1);
+    const size = Number(state.size || 10);
+
+    const shown = state.items?.length || 0;
+    refs.lblMeta.textContent = `Mostrando ${shown} registros`;
+    refs.lblPendientes.textContent = String(state.pendientes || 0);
+
+    const from = total === 0 ? 0 : ((page - 1) * size + 1);
+    const to = total === 0 ? 0 : ((page - 1) * size + shown);
+
+    refs.lblFooterLeft.textContent = `Mostrando ${to} de ${total}`;
+    refs.lblPagina.textContent = String(page);
+
+    refs.btnPrev.disabled = (page <= 1);
+    refs.btnNext.disabled = (to >= total);
   }
 
-  function setMeta(total, from, to) {
-    const t = Number(total || 0);
-    lblMeta.textContent = t > 0 ? `Mostrando ${from}-${to} de ${t} registros` : `Mostrando 0 registros`;
-    $("#lblFooterLeft").textContent = t > 0 ? `Mostrando ${to - from + 1} de ${t}` : `Mostrando 0 de 0`;
-  }
-
-  function setPagination(hasPrev, hasNext, page) {
-    btnPrev.disabled = !hasPrev;
-    btnNext.disabled = !hasNext;
-    lblPagina.textContent = String(page);
-  }
-
-  // ----------------------------
-  // Modal
-  // ----------------------------
-  function openModal(recarga) {
-    currentModalRecarga = recarga;
-
-    mUsuario.textContent = recarga?.usuario_nombre ?? "—";
-    mDni.textContent = recarga?.dni ?? "—";
-    mResidencia.textContent = `${recarga?.torre ?? "—"} - ${recarga?.departamento ?? "—"}`;
-    mCondominio.textContent = recarga?.condominio ?? "—";
-    mMonto.textContent = money(recarga?.monto);
-    mMetodo.textContent = recarga?.metodo ?? "—";
-    mOperacion.textContent = recarga?.id_operacion ?? "—";
-
-    const estado = (recarga?.estado ?? "pendiente").toLowerCase();
-    mEstadoBadge.className = badgeClass(estado);
-    mEstadoBadge.textContent = estado;
-
-    mComentario.value = "";
-
-    const imgUrl = recarga?.comprobante_url || "";
-    if (imgUrl) {
-      mImagen.src = imgUrl;
-      mImagen.classList.remove("d-none");
-      mNoImagen.classList.add("d-none");
-    } else {
-      mImagen.src = "";
-      mImagen.classList.add("d-none");
-      mNoImagen.classList.remove("d-none");
-    }
-
-    modal?.show();
-  }
-
-  function requireCommentIfNeeded(action) {
-    // Aprobar: comentario opcional
-    // Observar / Rechazar: comentario obligatorio
-    if (action === "aprobada") return true;
-
-    const txt = (mComentario.value || "").trim();
-    if (!txt) {
-      notifyInfo("Por favor, ingresa un comentario para continuar.");
-      return false;
-    }
-    return true;
-  }
-
-  async function updateEstado(action) {
-    if (!currentModalRecarga?.id) return;
-
-    if (!requireCommentIfNeeded(action)) return;
-
-    const id = currentModalRecarga.id;
-    const payload = {
-      estado: action,
-      comentario: (mComentario.value || "").trim()
-    };
-
-    const confirm = await Swal.fire({
-      icon: "question",
-      title: "Confirmar acción",
-      text:
-        action === "aprobada"
-          ? "¿Confirmas aprobar esta recarga y acreditar el saldo?"
-          : action === "observada"
-            ? "¿Confirmas marcar como observada? Se notificará al usuario."
-            : "¿Confirmas rechazar esta recarga? Se notificará al usuario.",
-      showCancelButton: true,
-      confirmButtonText: "Sí, continuar",
-      cancelButtonText: "Cancelar"
-    });
-
-    if (!confirm.isConfirmed) return;
-
-    try {
-      const url = endpointUpdateEstado(id);
-      const resp = await apiPost(url, payload);
-
-      if (resp?.ok === false) {
-        notifyErr(resp?.mensaje || "No se pudo actualizar el estado.");
-        return;
-      }
-
-      notifyOk(resp?.mensaje || "Actualizado correctamente.");
-      modal?.hide();
-      await loadList(); // refresh
-    } catch (e) {
-      // Si aún no existe el endpoint, evitamos romper el flujo.
-      notifyErr("No se pudo conectar con el servicio. Verifica que el endpoint de Soporte esté implementado.");
-      console.error(e);
-    }
-  }
-
-  // ----------------------------
-  // Load list
-  // ----------------------------
   async function loadList() {
-    try {
-      const url = endpointList();
-      const data = await apiGet(url);
+    const url = endpointListar();
+    log('GET', url);
 
-      // Estructura esperada (recomendada):
-      // { ok:true, pendientes:5, total:20, page:1, size:10, items:[...] }
-      if (data?.ok === false) {
-        notifyErr(data?.mensaje || "No se pudo obtener la lista.");
+    try {
+      const resp = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' }, credentials: 'include' });
+      const json = await leerRespuestaSeguro(resp);
+
+      if (resp.status === 401) {
+        swalErr(json.mensaje || 'Tu sesión expiró. Vuelve a iniciar sesión.');
         return;
       }
 
-      const items = data?.items || [];
-      renderRows(items);
+      if (!resp.ok || !json.ok) {
+        renderEmpty();
+        refs.lblMeta.textContent = 'Mostrando 0 registros';
+        return;
+      }
 
-      setPendingCount(data?.pendientes ?? 0);
+      const data = json.data || {};
+      state.total = data.total || 0;
+      state.page = data.page || 1;
+      state.size = data.size || 10;
+      state.pendientes = data.pendientes || 0;
+      state.items = data.items || [];
 
-      const total = data?.total ?? items.length;
-      const page = data?.page ?? currentPage;
-      const size = data?.size ?? pageSize;
-
-      const from = total === 0 ? 0 : ((page - 1) * size + 1);
-      const to = total === 0 ? 0 : Math.min(page * size, total);
-
-      setMeta(total, from, to);
-
-      const hasPrev = page > 1;
-      const hasNext = to < total;
-
-      currentPage = page;
-      setPagination(hasPrev, hasNext, page);
+      renderTabla(state.items);
+      renderMeta();
 
     } catch (e) {
-      // Modo fallback (sin endpoint): renderiza demo, no rompe UI
-      console.warn("API no disponible, mostrando demo:", e);
-
-      const demo = [
-        {
-          id: 1,
-          fecha: "23/06/2025",
-          hora: "10:39 PM",
-          usuario_nombre: "Gerardo Salas",
-          dni: "12345678",
-          torre: "Torre B",
-          departamento: "Dpto. 304",
-          condominio: "Los Faisanes",
-          monto: 50.00,
-          metodo: "Yape",
-          id_operacion: "AJ5075653",
-          estado: currentFilters.estado,
-          comprobante_url: ""
-        }
-      ];
-
-      renderRows(demo);
-      setPendingCount(currentFilters.estado === "pendiente" ? 1 : 0);
-      setMeta(demo.length, 1, demo.length);
-      setPagination(false, false, 1);
-
-      notifyInfo("Aún no se detecta el endpoint de Soporte. La vista está lista; falta conectar la API.");
+      error(e);
+      renderEmpty();
+      swalErr('No se pudo cargar la lista de recargas.');
     }
   }
 
-  // ----------------------------
-  // Events
-  // ----------------------------
-  formFiltros?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    currentFilters.estado = fEstado.value;
-    currentFilters.rango = fRango.value;
-    currentFilters.q = (fTexto.value || "").trim();
-    currentPage = 1;
-    loadList();
-  });
+  function abrirModalById(id) {
+    const rec = (state.items || []).find(x => String(x.id) === String(id));
+    if (!rec) return;
 
-  btnPrev?.addEventListener("click", () => {
-    if (currentPage <= 1) return;
-    currentPage -= 1;
-    loadList();
-  });
+    state.seleccionado = rec;
 
-  btnNext?.addEventListener("click", () => {
-    currentPage += 1;
-    loadList();
-  });
+    refs.mUsuario.textContent = rec.usuario_nombre || '—';
+    refs.mDni.textContent = rec.dni || '—';
 
-  btnRefrescar?.addEventListener("click", () => loadList());
+    const residencia = `${rec.torre || '—'} · Dpto ${rec.departamento || '—'}`;
+    refs.mResidencia.textContent = residencia;
+    refs.mCondominio.textContent = rec.condominio || '—';
 
-  btnExportar?.addEventListener("click", () => {
-    try {
-      const url = endpointExportCsv();
-      window.open(url, "_blank");
-    } catch (e) {
-      notifyErr("No se pudo exportar.");
+    refs.mMonto.textContent = formatearMonto(rec.monto);
+    refs.mMetodo.textContent = (rec.metodo || '—').toUpperCase();
+    refs.mOperacion.textContent = rec.id_operacion || '—';
+
+    const est = (rec.estado || 'pendiente').toLowerCase();
+    refs.mEstadoBadge.className = badgeEstado(est);
+    refs.mEstadoBadge.textContent = est;
+
+    refs.mComentario.value = '';
+
+    // Imagen
+    const path = rec.comprobante_path ? `${BASE}/${String(rec.comprobante_path).replace(/^\/+/, '')}` : '';
+    if (path) {
+      refs.mImagen.src = path;
+      refs.mImagen.classList.remove('d-none');
+      refs.mNoImagen.classList.add('d-none');
+    } else {
+      refs.mImagen.src = '';
+      refs.mImagen.classList.add('d-none');
+      refs.mNoImagen.classList.remove('d-none');
     }
-  });
 
-  btnVerPendientes?.addEventListener("click", () => { fEstado.value = "pendiente"; formFiltros.dispatchEvent(new Event("submit")); });
-  btnVerObservadas?.addEventListener("click", () => { fEstado.value = "observada"; formFiltros.dispatchEvent(new Event("submit")); });
-  btnVerAprobadas?.addEventListener("click", () => { fEstado.value = "aprobada"; formFiltros.dispatchEvent(new Event("submit")); });
-  btnVerRechazadas?.addEventListener("click", () => { fEstado.value = "rechazada"; formFiltros.dispatchEvent(new Event("submit")); });
+    refs.modal?.show();
+  }
 
-  btnAprobar?.addEventListener("click", () => updateEstado("aprobada"));
-  btnObservar?.addEventListener("click", () => updateEstado("observada"));
-  btnRechazar?.addEventListener("click", () => updateEstado("rechazada"));
+  async function updateEstado(nuevoEstado) {
+    if (!state.seleccionado?.id) return;
 
-  // Init
-  document.addEventListener("DOMContentLoaded", () => {
-    // defaults
-    lblPendientes.textContent = "0";
+    const id = state.seleccionado.id;
+    const comentario = (refs.mComentario?.value || '').trim();
+
+    if ((nuevoEstado === 'observada' || nuevoEstado === 'rechazada') && comentario.length < 3) {
+      swalInfo('Debes ingresar un comentario para Observada o Rechazada.');
+      return;
+    }
+
+    const url = `${BASE}/api/soporte/recargas/${id}/estado`;
+    const fd = new FormData();
+    fd.set('estado', nuevoEstado);
+    fd.set('comentario', comentario);
+
+    try {
+      const resp = await fetch(url, { method: 'POST', body: fd, credentials: 'include' });
+      const json = await leerRespuestaSeguro(resp);
+
+      if (resp.status === 401) {
+        swalErr(json.mensaje || 'Tu sesión expiró. Vuelve a iniciar sesión.');
+        return;
+      }
+
+      if (!resp.ok || !json.ok) {
+        swalErr(json.mensaje || 'No se pudo actualizar el estado.');
+        return;
+      }
+
+      swalOk(json.mensaje || 'Estado actualizado.');
+      refs.modal?.hide();
+
+      // Recargar lista
+      loadList();
+
+    } catch (e) {
+      error(e);
+      swalErr('No se pudo conectar para actualizar estado.');
+    }
+  }
+
+  function bindEvents() {
+    refs.form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      state.page = 1;
+      loadList();
+    });
+
+    refs.btnPrev?.addEventListener('click', () => {
+      if (state.page > 1) { state.page -= 1; loadList(); }
+    });
+
+    refs.btnNext?.addEventListener('click', () => {
+      state.page += 1;
+      loadList();
+    });
+
+    refs.btnRefrescar?.addEventListener('click', () => loadList());
+
+    // Quick filters
+    refs.btnVerPendientes?.addEventListener('click', () => { refs.fEstado.value = 'pendiente'; state.page = 1; loadList(); });
+    refs.btnVerObservadas?.addEventListener('click', () => { refs.fEstado.value = 'observada'; state.page = 1; loadList(); });
+    refs.btnVerAprobadas?.addEventListener('click', () => { refs.fEstado.value = 'aprobada'; state.page = 1; loadList(); });
+    refs.btnVerRechazadas?.addEventListener('click', () => { refs.fEstado.value = 'rechazada'; state.page = 1; loadList(); });
+
+    // Delegación: revisar
+    refs.tbody.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-ev-action="revisar"]');
+      if (!btn) return;
+      abrirModalById(btn.getAttribute('data-id'));
+    });
+
+    refs.btnAprobar?.addEventListener('click', () => updateEstado('aprobada'));
+    refs.btnObservar?.addEventListener('click', () => updateEstado('observada'));
+    refs.btnRechazar?.addEventListener('click', () => updateEstado('rechazada'));
+  }
+
+  function init() {
+    if (!capturarRefs()) return;
+    bindEvents();
     loadList();
-  });
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
 
 })();

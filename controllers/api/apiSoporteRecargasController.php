@@ -2,181 +2,140 @@
 // controllers/api/apiSoporteRecargasController.php
 
 require_once __DIR__ . '/../../models/SesionJWT.php';
+require_once __DIR__ . '/../../models/User.php';
 require_once __DIR__ . '/../../models/RecargaSaldo.php';
-require_once __DIR__ . '/../../models/Billetera.php';
 
 class apiSoporteRecargasController
 {
-    private function obtenerUsuarioAuth(): int
-    {
-        $token = $_COOKIE['auth_token'] ?? null;
-        if (!$token) {
-            http_response_code(401);
-            echo json_encode(['ok' => false, 'mensaje' => 'Token no encontrado.']);
-            exit;
-        }
-
-        $usuario = SesionJWT::verificarToken($token);
-        if (!$usuario || empty($usuario['codigo_usuario'])) {
-            http_response_code(401);
-            echo json_encode(['ok' => false, 'mensaje' => 'Token inválido o usuario no encontrado.']);
-            exit;
-        }
-
-        // TODO: validar rol soporte (cuando me confirmes el codigo_rol de Soporte)
-        return (int)$usuario['codigo_usuario'];
-    }
-
-    // GET /api/soporte/recargas
     public function listar()
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-            http_response_code(405);
-            echo json_encode(['ok' => false, 'mensaje' => 'Método no permitido']);
-            return;
-        }
+        header('Content-Type: application/json; charset=utf-8');
 
         try {
-            $this->obtenerUsuarioAuth();
+            // (Opcional) Puedes validar rol soporte aquí si ya lo manejas por roles/menú
+            $usuarioAuth = $this->obtenerUsuarioAuth();
+            if (!$usuarioAuth || empty($usuarioAuth['codigo_usuario'])) {
+                http_response_code(401);
+                echo json_encode([
+                    'ok' => false,
+                    'error' => 'USUARIO_NO_ENCONTRADO',
+                    'mensaje' => 'No se pudo identificar al usuario. Vuelve a iniciar sesión.'
+                ]);
+                return;
+            }
 
             $filtros = [
-                'page' => $_GET['page'] ?? 1,
-                'size' => $_GET['size'] ?? 10,
                 'estado' => $_GET['estado'] ?? 'pendiente',
-                'rango' => $_GET['rango'] ?? '7',
-                'q' => $_GET['q'] ?? '',
+                'rango'  => $_GET['rango'] ?? '7',
+                'q'      => $_GET['q'] ?? '',
+                'page'   => $_GET['page'] ?? 1,
+                'size'   => $_GET['size'] ?? 10,
             ];
 
             $model = new RecargaSaldo();
             $data = $model->listarSoporte($filtros);
 
-            // URL pública: BASE_URL + resources/images/recargas/<archivo>
-            $base = rtrim(BASE_URL, '/');
-            $publicFolder = 'resources/images/recargas/';
-
-            foreach ($data['items'] as &$it) {
-                $path = $it['comprobante_path'] ?? '';
-
-                // Soportar si guardas solo filename o ruta completa
-                // 1) si ya viene con "resources/", úsalo tal cual
-                // 2) si es solo "archivo.jpg", prepéndele la carpeta
-                if ($path) {
-                    $path = str_replace('\\', '/', $path); // por si viene con backslashes
-                    if (stripos($path, 'resources/') === 0) {
-                        $it['comprobante_url'] = $base . '/' . ltrim($path, '/');
-                    } else {
-                        $it['comprobante_url'] = $base . '/' . $publicFolder . ltrim($path, '/');
-                    }
-                } else {
-                    $it['comprobante_url'] = '';
-                }
-            }
-
             echo json_encode([
                 'ok' => true,
-                'pendientes' => $data['pendientes'],
-                'total' => $data['total'],
-                'page' => $data['page'],
-                'size' => $data['size'],
-                'items' => $data['items'],
+                'data' => $data
             ]);
+            return;
 
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
+            error_log('[EV][apiSoporteRecargasController::listar] ' . $e->getMessage());
             http_response_code(500);
-            echo json_encode(['ok' => false, 'mensaje' => 'Error al listar recargas.', 'error' => $e->getMessage()]);
+            echo json_encode([
+                'ok' => false,
+                'error' => 'ERROR_SERVIDOR',
+                'mensaje' => 'No se pudo listar recargas.',
+            ]);
+            return;
         }
     }
 
-    // POST /api/soporte/recargas/{id}/estado
     public function actualizarEstado($id)
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            echo json_encode(['ok' => false, 'mensaje' => 'Método no permitido']);
-            return;
-        }
-
-        $codigoSoporte = $this->obtenerUsuarioAuth();
-        $codigoRecarga = (int)$id;
+        header('Content-Type: application/json; charset=utf-8');
 
         try {
-            $raw = file_get_contents('php://input');
-            $json = json_decode($raw, true) ?: [];
+            $usuarioAuth = $this->obtenerUsuarioAuth();
+            if (!$usuarioAuth || empty($usuarioAuth['codigo_usuario'])) {
+                http_response_code(401);
+                echo json_encode([
+                    'ok' => false,
+                    'error' => 'USUARIO_NO_ENCONTRADO',
+                    'mensaje' => 'No se pudo identificar al usuario. Vuelve a iniciar sesión.'
+                ]);
+                return;
+            }
 
-            $estado = strtolower(trim($json['estado'] ?? ''));
-            $comentario = trim($json['comentario'] ?? '');
+            $id = (int)$id;
+            $estado = strtolower(trim($_POST['estado'] ?? ''));
+            $comentario = trim($_POST['comentario'] ?? '');
 
-            $permitidos = ['pendiente','observada','aprobada','rechazada'];
-            if (!in_array($estado, $permitidos, true)) {
-                http_response_code(400);
+            if (!in_array($estado, ['observada', 'aprobada', 'rechazada'], true)) {
+                http_response_code(422);
                 echo json_encode(['ok' => false, 'mensaje' => 'Estado inválido.']);
                 return;
             }
 
-            if (in_array($estado, ['observada','rechazada'], true) && $comentario === '') {
-                http_response_code(400);
-                echo json_encode(['ok' => false, 'mensaje' => 'El comentario es obligatorio para Observada/Rechazada.']);
+            if (($estado === 'observada' || $estado === 'rechazada') && strlen($comentario) < 3) {
+                http_response_code(422);
+                echo json_encode(['ok' => false, 'mensaje' => 'El comentario es obligatorio para Observada o Rechazada.']);
                 return;
             }
 
-            $recargaModel = new RecargaSaldo();
-            $recarga = $recargaModel->obtenerPorId($codigoRecarga);
-
-            if (!$recarga) {
-                http_response_code(404);
-                echo json_encode(['ok' => false, 'mensaje' => 'Recarga no encontrada.']);
-                return;
-            }
-
-            if ($recarga['estado'] === 'aprobada') {
-                echo json_encode(['ok' => false, 'mensaje' => 'Esta recarga ya fue aprobada.']);
-                return;
-            }
-
-            // Si APRUEBA: acreditar billetera + registrar movimiento
-            if ($estado === 'aprobada') {
-                $codigoUsuario = (int)$recarga['codigo_usuario'];
-                $monto = (float)$recarga['monto'];
-                $metodo = strtoupper($recarga['metodo'] ?? 'YAPE');
-
-                $billetera = new Billetera();
-                $res = $billetera->acreditarPorRecargaManual(
-                    $codigoUsuario,
-                    $monto,
-                    $codigoRecarga,
-                    $metodo,
-                    false,
-                    null
-                );
-
-                if (!$res['ok']) {
-                    echo json_encode(['ok' => false, 'mensaje' => $res['mensaje'] ?? 'No se pudo acreditar saldo.']);
-                    return;
-                }
-            }
-
-            $ok = $recargaModel->actualizarEstado(
-                $codigoRecarga,
+            $model = new RecargaSaldo();
+            $ok = $model->actualizarEstado(
+                $id,
                 $estado,
-                $comentario !== '' ? $comentario : null,
-                $codigoSoporte
+                ($comentario !== '' ? $comentario : null),
+                (int)$usuarioAuth['codigo_usuario']
             );
 
             if (!$ok) {
-                echo json_encode(['ok' => false, 'mensaje' => 'No se pudo actualizar la recarga.']);
+                http_response_code(500);
+                echo json_encode(['ok' => false, 'mensaje' => 'No se pudo actualizar el estado.']);
                 return;
             }
 
-            $msg =
-                $estado === 'aprobada' ? 'Recarga aprobada y saldo acreditado.' :
-                ($estado === 'observada' ? 'Recarga marcada como observada.' :
-                ($estado === 'rechazada' ? 'Recarga rechazada.' : 'Estado actualizado.'));
+            echo json_encode([
+                'ok' => true,
+                'mensaje' => 'Estado actualizado correctamente.'
+            ]);
+            return;
 
-            echo json_encode(['ok' => true, 'mensaje' => $msg]);
-
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
+            error_log('[EV][apiSoporteRecargasController::actualizarEstado] ' . $e->getMessage());
             http_response_code(500);
-            echo json_encode(['ok' => false, 'mensaje' => 'Error al actualizar estado.', 'error' => $e->getMessage()]);
+            echo json_encode([
+                'ok' => false,
+                'mensaje' => 'Error interno al actualizar estado.'
+            ]);
+            return;
         }
+    }
+
+    private function obtenerUsuarioAuth(): ?array
+    {
+        $token = $_COOKIE['auth_token'] ?? null;
+        if (!$token) return null;
+
+        $payload = SesionJWT::verificarToken($token);
+        if (!$payload) return null;
+
+        $email = '';
+        if (!empty($payload['email'])) $email = (string)$payload['email'];
+        elseif (!empty($payload['sub'])) $email = (string)$payload['sub'];
+        elseif (!empty($payload['usuario']['email'])) $email = (string)$payload['usuario']['email'];
+
+        $email = trim($email);
+        if ($email === '') return null;
+
+        $u = new User();
+        $datos = $u->DatosUsuario($email);
+        if (!$datos) return null;
+
+        return $datos;
     }
 }
