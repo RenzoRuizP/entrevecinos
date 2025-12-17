@@ -2,23 +2,18 @@
 require_once __DIR__ . '/../Config/config.php';
 ?>
 <script>
-  // Exponer BASE_URL para los fetch del front
   window.BASE_URL = "<?= rtrim(BASE_URL, '/'); ?>";
 </script>
 
 <?php include_once __DIR__ . '/estilos/billeteraEstilo.php'; ?>
 
-<!-- IMPORTANTE: igual que Marketplace, aquí NO usamos .content-wrapper.
-     El main ya es .content-wrapper en MenuPrincipalView.php -->
 <div class="container-fluid py-4 ev-wallet-wrapper">
 
   <div class="card ev-wallet-card fade-in">
     <div class="card-body">
 
-      <!-- Encabezado: título + acciones + saldo -->
       <div class="ev-wallet-header d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
 
-        <!-- Título + subtítulo -->
         <div class="flex-grow-1 d-flex flex-column">
           <h2 class="ev-wallet-title mb-1 d-flex align-items-center gap-2">
             <span class="ev-wallet-title-icon">
@@ -31,12 +26,9 @@ require_once __DIR__ . '/../Config/config.php';
           </p>
         </div>
 
-        <!-- Columna derecha: barra de acciones + saldo -->
         <div class="d-flex flex-column align-items-end gap-2 w-100 w-md-auto">
 
-          <!-- Barra de acciones -->
           <div class="d-flex flex-column flex-sm-row gap-2 justify-content-end w-100">
-            <!-- Botón Recargar saldo -->
             <button 
               type="button"
               class="btn btn-ev-orange ev-btn-recargar"
@@ -45,7 +37,6 @@ require_once __DIR__ . '/../Config/config.php';
               <i class="bi bi-plus-circle"></i> Recargar saldo
             </button>
 
-            <!-- Botón Soporte técnico -->
             <button 
               type="button"
               class="btn btn-ev-outline ev-btn-soporte"
@@ -55,7 +46,6 @@ require_once __DIR__ . '/../Config/config.php';
             </button>
           </div>
 
-          <!-- Badge saldo disponible -->
           <div class="ev-wallet-badge mt-1">
             <span class="ev-wallet-badge-label">Saldo disponible</span>
             <span class="ev-wallet-badge-amount" id="ev_wallet_saldo">
@@ -69,7 +59,6 @@ require_once __DIR__ . '/../Config/config.php';
 
       <hr class="ev-wallet-divider my-3">
 
-      <!-- Estado vacío inicial -->
       <div id="ev_wallet_empty_state" class="ev-wallet-empty text-center">
         <div class="ev-wallet-empty-icon mb-2">
           <i class="bi bi-wallet2"></i>
@@ -80,15 +69,12 @@ require_once __DIR__ . '/../Config/config.php';
         </p>
       </div>
 
-      <!-- Contenedor para tabla/listado de movimientos -->
-      <div id="ev_wallet_movimientos" class="ev-wallet-movimientos d-none">
-        <!-- Luego el JS poblará este bloque con los movimientos -->
-      </div>
+      <div id="ev_wallet_movimientos" class="ev-wallet-movimientos d-none"></div>
 
     </div>
   </div>
 
-</div><!-- /.container-fluid -->
+</div>
 
 
 <!-- ===========================================================
@@ -98,7 +84,6 @@ require_once __DIR__ . '/../Config/config.php';
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content ev-modal-content">
 
-      <!-- Header CON botón X a la derecha -->
       <div class="ev-modal-header">
         <h5 class="ev-modal-title mb-0">
           <i class="bi bi-plus-circle"></i>
@@ -112,17 +97,14 @@ require_once __DIR__ . '/../Config/config.php';
         </button>
       </div>
 
-      <!-- Body -->
       <div class="ev-modal-body">
         <form id="formRecargaSaldo" enctype="multipart/form-data">
           
           <div class="row g-3 align-items-start">
             
-            <!-- Columna izquierda: formulario -->
             <div class="col-lg-7">
               <div class="row g-3">
 
-                <!-- Comprobante -->
                 <div class="col-12">
                   <label class="form-label">Comprobante o recibo</label>
                   <input 
@@ -136,7 +118,6 @@ require_once __DIR__ . '/../Config/config.php';
                   </div>
                 </div>
 
-                <!-- Monto -->
                 <div class="col-md-6">
                   <label class="form-label">Monto a recargar</label>
                   <input 
@@ -149,7 +130,6 @@ require_once __DIR__ . '/../Config/config.php';
                     placeholder="Ej. 10.00">
                 </div>
 
-                <!-- Medio de pago -->
                 <div class="col-md-6">
                   <label class="form-label">Tipo de billetera</label>
                   <select class="form-select" id="recarga_tipo" name="recarga_tipo">
@@ -159,21 +139,32 @@ require_once __DIR__ . '/../Config/config.php';
                   </select>
                 </div>
 
+                <!-- NUEVO: ID operación -->
+                <div class="col-12">
+                  <label class="form-label">ID de operación</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="recarga_operacion"
+                    name="recarga_operacion"
+                    placeholder="Ej. AJ5075653">
+                  <div class="form-text">
+                    Ingresa el código/ID que te da Yape o Plin. Debe ser exactamente el mismo del comprobante.
+                  </div>
+                </div>
+
               </div>
             </div>
 
-            <!-- Columna derecha: QR dinámico -->
             <div class="col-lg-5">
               <div class="ev-wallet-qr-card text-center d-none" id="ev_qr_card">
                 <img 
-                  src="<?= BASE_URL ?>resources/img/qr_plin_marco.png" 
+                  src="<?= BASE_URL ?>resources/images/plin.jpeg" 
                   alt="QR billetera" 
                   class="ev-wallet-qr-img"
                   id="ev_qr_img">
 
-                <p class="ev-wallet-qr-title mb-1" id="ev_qr_title">
-                  Paga tu recarga con Plin
-                </p>
+                <p class="ev-wallet-qr-title mb-1" id="ev_qr_title">Paga tu recarga con Plin</p>
                 <p class="ev-wallet-qr-text mb-0" id="ev_qr_text">
                   Escanea este código desde tu app bancaria, ingresa el monto que
                   deseas recargar y luego sube el comprobante en este formulario.
@@ -181,19 +172,11 @@ require_once __DIR__ . '/../Config/config.php';
               </div>
             </div>
 
-          </div><!-- /.row -->
-
-          <!-- DNI oculto -->
-          <input 
-            type="hidden" 
-            id="recarga_dni" 
-            name="recarga_dni" 
-            value="<?= $_SESSION['dni'] ?? '' ?>">
+          </div>
 
         </form>
       </div>
 
-      <!-- Footer -->
       <div class="ev-modal-footer">
         <button 
           type="button" 
@@ -220,7 +203,6 @@ require_once __DIR__ . '/../Config/config.php';
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content ev-modal-content">
 
-      <!-- Header CON botón X a la derecha -->
       <div class="ev-modal-header">
         <h5 class="ev-modal-title mb-0">
           <i class="bi bi-headset"></i>
@@ -234,7 +216,6 @@ require_once __DIR__ . '/../Config/config.php';
         </button>
       </div>
 
-      <!-- Body -->
       <div class="ev-modal-body text-center">
 
         <p class="mb-3">
@@ -264,7 +245,6 @@ require_once __DIR__ . '/../Config/config.php';
 
       </div>
 
-      <!-- Footer -->
       <div class="ev-modal-footer">
         <button 
           type="button" 

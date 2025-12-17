@@ -477,4 +477,95 @@
     background-color: rgba(255, 255, 255, 0.25);
     font-weight: bold;
   }
+
+  /* =====================================================
+     EV: CTA NARANJA (igual a Login: "Llamar ahora")
+  ====================================================== */
+  .btn-login,
+  .btn-ev-cta {
+    background: linear-gradient(135deg, var(--naranja-ev), #F59E0B);
+    border: none;
+    color: #ffffff !important;
+    border-radius: 999px;
+    padding: 0.6rem 1.8rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    box-shadow: 0 12px 26px rgba(241,108,32,0.35);
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .45rem;
+  }
+
+  .btn-login:hover,
+  .btn-ev-cta:hover {
+    background: linear-gradient(135deg, #D85E1C, #EA580C);
+    transform: translateY(-2px);
+    box-shadow: 0 14px 32px rgba(241,108,32,0.48);
+    color: #ffffff !important;
+  }
+
+  .btn-login:active,
+  .btn-ev-cta:active {
+    transform: translateY(0);
+    box-shadow: 0 6px 16px rgba(241,108,32,0.30);
+  }
+
+  /* =====================================================
+     EV: MODALES ESTÁNDAR (igual a "Recuperar cuenta")
+  ====================================================== */
+  .ev-modal .modal-content {
+    border-radius: 18px;
+    border: none;
+    overflow: hidden; /* evita bordes blancos en esquinas */
+    box-shadow: 0 18px 45px rgba(0,0,0,0.22), 0 6px 12px rgba(0,0,0,0.12);
+    background: #ffffff;
+  }
+
+  .ev-modal .modal-header {
+    background: linear-gradient(140deg, var(--verde-oscuro) 0%, var(--verde-principal) 55%, var(--verde-claro) 100%);
+    color: #ffffff;
+    border-bottom: 1px solid rgba(255,255,255,0.18);
+    padding: 14px 18px;
+  }
+
+  .ev-modal .modal-title {
+    font-weight: 700;
+    font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #ffffff;
+  }
+
+  .ev-modal .btn-close {
+    filter: invert(1);
+    opacity: .9;
+  }
+  .ev-modal .btn-close:hover { opacity: 1; }
+
+  .ev-modal .modal-body {
+    background: #ffffff;
+    padding: 18px;
+  }
+
+  .ev-modal .modal-footer {
+    background: #ffffff;
+    border-top: 1px solid #E5E7EB;
+    padding: 14px 18px;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  /* Pills para botones dentro de modales EV */
+  .ev-btn-pill {
+    border-radius: 999px !important;
+    padding: 0.55rem 1.6rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+  }
 </style>

@@ -12,7 +12,13 @@
     movimientos: null,
 
     // Refs para el modal de recarga
+    recargaForm: null,
     recargaTipo: null,
+    recargaMonto: null,
+    recargaOperacion: null,
+    recargaImagen: null,
+    btnEnviarRecarga: null,
+
     qrImg: null,
     qrTitle: null,
     qrText: null,
@@ -36,43 +42,33 @@
   // ------------------------------------
   // Helpers de log
   // ------------------------------------
-  function log() {
-    if (window.console && console.log) {
-      console.log(LOG_PREFIX, ...arguments);
-    }
-  }
-
-  function warn() {
-    if (window.console && console.warn) {
-      console.warn(LOG_PREFIX, ...arguments);
-    }
-  }
-
-  function error() {
-    if (window.console && console.error) {
-      console.error(LOG_PREFIX, ...arguments);
-    }
-  }
+  function log() { if (window.console && console.log) console.log(LOG_PREFIX, ...arguments); }
+  function warn() { if (window.console && console.warn) console.warn(LOG_PREFIX, ...arguments); }
+  function error() { if (window.console && console.error) console.error(LOG_PREFIX, ...arguments); }
 
   // ------------------------------------
   // Captura de referencias DOM de la vista
   // ------------------------------------
   function capturarRefs() {
-    refs.wrapper     = document.querySelector('.ev-wallet-wrapper');
-    if (!refs.wrapper) {
-      return false; // la vista aún no está montada
-    }
+    refs.wrapper = document.querySelector('.ev-wallet-wrapper');
+    if (!refs.wrapper) return false;
 
-    refs.saldo       = document.getElementById('ev_wallet_saldo');
-    refs.emptyState  = document.getElementById('ev_wallet_empty_state');
+    refs.saldo = document.getElementById('ev_wallet_saldo');
+    refs.emptyState = document.getElementById('ev_wallet_empty_state');
     refs.movimientos = document.getElementById('ev_wallet_movimientos');
 
-    // Refs del modal de recarga
+    // Modal recarga
+    refs.recargaForm = document.getElementById('formRecargaSaldo');
     refs.recargaTipo = document.getElementById('recarga_tipo');
-    refs.qrImg       = document.getElementById('ev_qr_img');
-    refs.qrTitle     = document.getElementById('ev_qr_title');
-    refs.qrText      = document.getElementById('ev_qr_text');
-    refs.qrCard      = document.getElementById('ev_qr_card');
+    refs.recargaMonto = document.getElementById('recarga_monto');
+    refs.recargaOperacion = document.getElementById('recarga_operacion');
+    refs.recargaImagen = document.getElementById('recarga_imagen');
+    refs.btnEnviarRecarga = document.getElementById('btnEnviarRecarga');
+
+    refs.qrImg = document.getElementById('ev_qr_img');
+    refs.qrTitle = document.getElementById('ev_qr_title');
+    refs.qrText = document.getElementById('ev_qr_text');
+    refs.qrCard = document.getElementById('ev_qr_card');
 
     return true;
   }
@@ -82,22 +78,32 @@
   // ------------------------------------
   function formatearMonto(monto) {
     const n = Number(monto || 0);
-    return 'S/ ' + n.toLocaleString('es-PE', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
+    return 'S/ ' + n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  function escapeHTML(str) {
-    return (str || '').replace(/[&<>"']/g, function (c) {
-      switch (c) {
-        case '&': return '&amp;';
-        case '<': return '&lt;';
-        case '>': return '&gt;';
-        case '"': return '&quot;';
-        default:  return c;
-      }
-    });
+  function swalInfo(msg) {
+    if (window.Swal?.fire) return Swal.fire({ icon: 'info', title: 'Entre Vecinos', text: msg });
+    alert(msg);
+  }
+  function swalOk(msg) {
+    if (window.Swal?.fire) return Swal.fire({ icon: 'success', title: 'Listo', text: msg, timer: 1700, showConfirmButton: false });
+    alert(msg);
+  }
+  function swalErr(msg) {
+    if (window.Swal?.fire) return Swal.fire({ icon: 'error', title: 'Ocurrió un problema', text: msg });
+    alert(msg);
+  }
+
+  // Parser seguro: JSON o texto
+  async function leerRespuestaSeguro(resp) {
+    const ct = (resp.headers.get('content-type') || '').toLowerCase();
+    if (ct.includes('application/json')) {
+      return await resp.json().catch(() => ({}));
+    }
+    const txt = await resp.text().catch(() => '');
+    // Intentar parsear si vino JSON con ct incorrecto
+    try { return JSON.parse(txt); } catch (_) {}
+    return { ok: false, mensaje: txt || 'Respuesta no válida del servidor.' };
   }
 
   // ------------------------------------
@@ -107,7 +113,6 @@
     if (!refs.recargaTipo) return;
     const tipo = (refs.recargaTipo.value || '').toLowerCase();
 
-    // Si no ha elegido nada ("-"), ocultamos la tarjeta
     if (!tipo) {
       if (refs.qrCard) refs.qrCard.classList.add('d-none');
       return;
@@ -115,18 +120,15 @@
 
     const cfg = QR_CONFIG[tipo] || QR_CONFIG['yape'];
 
-    if (refs.qrCard)  refs.qrCard.classList.remove('d-none');
-    if (refs.qrImg)   refs.qrImg.src = cfg.img;
+    if (refs.qrCard) refs.qrCard.classList.remove('d-none');
+    if (refs.qrImg) refs.qrImg.src = cfg.img;
     if (refs.qrTitle) refs.qrTitle.textContent = cfg.title;
-    if (refs.qrText)  refs.qrText.textContent = cfg.text;
+    if (refs.qrText) refs.qrText.textContent = cfg.text;
   }
 
   function inicializarQR() {
-    if (!refs.recargaTipo || !refs.qrImg || !refs.qrTitle || !refs.qrText || !refs.qrCard) {
-      return;
-    }
+    if (!refs.recargaTipo || !refs.qrImg || !refs.qrTitle || !refs.qrText || !refs.qrCard) return;
 
-    // Evitar enganchar el listener más de una vez
     if (refs.recargaTipo.dataset.evWalletQrHooked === '1') {
       actualizarQRDesdeSelect();
       return;
@@ -134,34 +136,20 @@
 
     refs.recargaTipo.dataset.evWalletQrHooked = '1';
     refs.recargaTipo.addEventListener('change', actualizarQRDesdeSelect);
-
-    // Estado inicial: opción "-" => sin QR
     actualizarQRDesdeSelect();
   }
 
   // ------------------------------------
-  // Llamar API para obtener saldo actual
+  // API: saldo y movimientos
   // ------------------------------------
   async function cargarSaldo() {
-    if (!refs.saldo) {
-      return;
-    }
+    if (!refs.saldo) return;
 
     const url = `${BASE}/api/billetera/saldo`;
 
     try {
-      const resp = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        },
-        credentials: 'include',
-      });
-
-      if (resp.status === 401) {
-        error('No autorizado al obtener saldo de billetera.');
-        return;
-      }
+      const resp = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' }, credentials: 'include' });
+      if (resp.status === 401) return;
 
       if (!resp.ok) {
         const txt = await resp.text().catch(() => '');
@@ -169,12 +157,8 @@
         return;
       }
 
-      const json = await resp.json();
-
-      if (!json.ok) {
-        error('Respuesta API saldo no OK:', json);
-        return;
-      }
+      const json = await resp.json().catch(() => ({}));
+      if (!json.ok) return;
 
       const saldo = (json.saldo_actual ?? json.saldo ?? 0);
       refs.saldo.textContent = formatearMonto(saldo);
@@ -184,9 +168,6 @@
     }
   }
 
-  // ------------------------------------
-  // Renderizar movimientos en tabla
-  // ------------------------------------
   function renderizarMovimientos(lista) {
     if (!refs.movimientos || !refs.emptyState) return;
 
@@ -202,23 +183,18 @@
 
     const filas = lista.map((m) => {
       const tipoRaw = (m.tipo_movimiento || m.tipo || '').toUpperCase();
-      const esDebito  = (tipoRaw === 'D' || tipoRaw === 'CARGO');
-      const esCredito = (tipoRaw === 'C' || tipoRaw === 'ABONO');
+      const esDebito = (tipoRaw === 'D' || tipoRaw === 'CARGO');
       const signo = esDebito ? '-' : '+';
 
-      const claseMonto = esDebito
-        ? 'ev-wallet-monto--debito'
-        : 'ev-wallet-monto--credito';
+      const claseMonto = esDebito ? 'ev-wallet-monto--debito' : 'ev-wallet-monto--credito';
 
       const iconClass = esDebito
         ? 'bi-arrow-down-right-circle-fill ev-wallet-mov-icon ev-wallet-mov-icon--debito'
         : 'bi-arrow-up-right-circle-fill ev-wallet-mov-icon ev-wallet-mov-icon--credito';
 
-      const desc = escapeHTML(m.descripcion || 'Movimiento en billetera');
-      const origen = escapeHTML(m.origen || '');
-      const ref = m.codigo_referencia
-        ? ` · Ref: ${escapeHTML(String(m.codigo_referencia))}`
-        : '';
+      const desc = (m.descripcion || 'Movimiento en billetera');
+      const origen = (m.origen || '');
+      const ref = m.codigo_referencia ? ` · Ref: ${String(m.codigo_referencia)}` : '';
 
       const monto = (typeof m.monto !== 'undefined') ? m.monto : 0;
 
@@ -253,7 +229,7 @@
       `;
     }).join('');
 
-    const html = `
+    refs.movimientos.innerHTML = `
       <div class="table-responsive ev-wallet-table-wrapper">
         <table class="table align-middle ev-wallet-table">
           <thead>
@@ -263,50 +239,32 @@
               <th class="text-end">Saldo después</th>
             </tr>
           </thead>
-          <tbody>
-            ${filas}
-          </tbody>
+          <tbody>${filas}</tbody>
         </table>
       </div>
     `;
-
-    refs.movimientos.innerHTML = html;
   }
 
-  // ------------------------------------
-  // Cargar movimientos desde API
-  // ------------------------------------
   async function cargarMovimientos() {
     if (!refs.movimientos) return;
 
     const url = `${BASE}/api/billetera/movimientos`;
 
     try {
-      const resp = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        },
-        credentials: 'include',
-      });
+      const resp = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' }, credentials: 'include' });
 
       if (resp.status === 401) {
-        error('No autorizado al obtener movimientos de billetera.');
         renderizarMovimientos([]);
         return;
       }
 
       if (!resp.ok) {
-        const txt = await resp.text().catch(() => '');
-        error('Error HTTP al obtener movimientos:', resp.status, txt);
         renderizarMovimientos([]);
         return;
       }
 
-      const json = await resp.json();
-
+      const json = await resp.json().catch(() => ({}));
       if (!json.ok) {
-        error('Respuesta API movimientos no OK:', json);
         renderizarMovimientos([]);
         return;
       }
@@ -321,33 +279,130 @@
   }
 
   // ------------------------------------
+  // NUEVO: Enviar recarga real (multipart)
+  // ------------------------------------
+  async function enviarRecarga() {
+    if (!refs.recargaForm || !refs.btnEnviarRecarga) return;
+
+    const tipo = (refs.recargaTipo?.value || '').toLowerCase();
+    const monto = Number(refs.recargaMonto?.value || 0);
+    const oper = (refs.recargaOperacion?.value || '').trim();
+    const file = refs.recargaImagen?.files?.[0];
+
+    if (!tipo) return swalInfo('Selecciona el tipo de billetera (Yape o Plin).');
+    if (!monto || monto <= 0) return swalInfo('Ingresa un monto válido mayor a 0.');
+    if (!oper || oper.length < 4) return swalInfo('Ingresa un ID de operación válido (mínimo 4 caracteres).');
+    if (!file) return swalInfo('Sube una imagen del comprobante.');
+
+    const fd = new FormData(refs.recargaForm);
+    fd.set('recarga_tipo', tipo);
+    fd.set('recarga_monto', String(monto));
+    fd.set('recarga_operacion', oper);
+
+    const url = `${BASE}/api/recargas/registrar`;
+
+    const confirmar = await (window.Swal?.fire
+      ? Swal.fire({
+          icon: 'question',
+          title: 'Confirmar recarga',
+          text: 'Se registrará tu recarga y quedará pendiente de validación por Soporte.',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, confirmar',
+          cancelButtonText: 'Cancelar'
+        })
+      : Promise.resolve({ isConfirmed: confirm('¿Confirmas registrar tu recarga?') })
+    );
+
+    if (!confirmar.isConfirmed) return;
+
+    // UI bloqueado
+    refs.btnEnviarRecarga.disabled = true;
+    refs.btnEnviarRecarga.classList.add('saving');
+
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        body: fd,
+        credentials: 'include'
+      });
+
+      const data = await leerRespuestaSeguro(resp);
+
+      if (resp.status === 401) {
+        swalErr(data.mensaje || 'Tu sesión expiró. Vuelve a iniciar sesión.');
+        return;
+      }
+
+
+      // Duplicidad
+      if (resp.status === 409) {
+        swalErr(data.mensaje || 'Ya registraste una recarga con ese ID de operación.');
+        return;
+      }
+
+      if (!resp.ok || !data.ok) {
+        swalErr(data.mensaje || data.error || 'No se pudo registrar la recarga.');
+        return;
+      }
+
+      swalOk(data.mensaje || 'Recarga registrada.');
+
+      // Limpiar form y ocultar QR
+      refs.recargaForm.reset();
+      if (refs.qrCard) refs.qrCard.classList.add('d-none');
+
+      // Cerrar modal
+      const modalEl = document.getElementById('modalRecargarSaldo');
+      if (modalEl && window.bootstrap?.Modal) {
+        const mi = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+        mi.hide();
+      }
+
+      // Nota: aquí NO actualizamos saldo porque aún es “pendiente”
+      cargarMovimientos();
+
+    } catch (e) {
+      error(e);
+      swalErr('No se pudo conectar con el servicio. Verifica el endpoint de recargas.');
+    } finally {
+      refs.btnEnviarRecarga.disabled = false;
+      refs.btnEnviarRecarga.classList.remove('saving');
+    }
+  }
+
+  function engancharEventosRecarga() {
+    if (!refs.btnEnviarRecarga) return;
+
+    if (refs.btnEnviarRecarga.dataset.evHooked === '1') return;
+    refs.btnEnviarRecarga.dataset.evHooked = '1';
+
+    refs.btnEnviarRecarga.addEventListener('click', (e) => {
+      e.preventDefault();
+      enviarRecarga();
+    });
+  }
+
+  // ------------------------------------
   // Inicializar la vista de billetera
   // ------------------------------------
   function inicializarVista() {
-    if (!capturarRefs()) {
-      return;
-    }
+    if (!capturarRefs()) return;
 
-    log('Vista Mi Billetera detectada en DOM. BASE_URL:', BASE || '(vacía)');
+    log('Vista Mi Billetera detectada. BASE_URL:', BASE || '(vacía)');
 
-    if (refs.saldo) {
-      refs.saldo.textContent = formatearMonto(0);
-    }
+    if (refs.saldo) refs.saldo.textContent = formatearMonto(0);
 
-    if (refs.emptyState) {
-      refs.emptyState.classList.remove('d-none');
-    }
+    if (refs.emptyState) refs.emptyState.classList.remove('d-none');
     if (refs.movimientos) {
       refs.movimientos.classList.add('d-none');
       refs.movimientos.innerHTML = '';
     }
 
-    // Cargar saldo real y movimientos
     cargarSaldo();
     cargarMovimientos();
 
-    // Inicializar comportamiento de QR dinámico
     inicializarQR();
+    engancharEventosRecarga();
   }
 
   // ------------------------------------
@@ -359,56 +414,33 @@
     try {
       const resp = await fetch(url, {
         method: 'GET',
-        headers: {
-          'X-Partial': '1',
-          'Accept': 'text/html',
-        },
+        headers: { 'X-Partial': '1', 'Accept': 'text/html' },
         credentials: 'include',
       });
 
       if (resp.status === 401) {
-        error('No autorizado al cargar billetera.');
         if (window.Swal?.fire) {
-          Swal.fire({
-            icon: 'error',
-            title: 'Sesión expirada',
-            text: 'Tu sesión ha expirado. Vuelve a iniciar sesión.',
-          }).then(() => {
-            window.location.href = `${BASE}/`;
-          });
+          Swal.fire({ icon: 'info', title: 'Sesión expirada', text: 'Tu sesión ha expirado. Vuelve a iniciar sesión.' })
+            .then(() => window.location.href = `${BASE}/login`);
         } else {
-          window.location.href = `${BASE}/`;
+          window.location.href = `${BASE}/login`;
         }
         return;
       }
 
       if (!resp.ok) {
-        const txt = await resp.text().catch(() => '');
-        error('Error HTTP al cargar billetera:', resp.status, txt);
-        if (window.Swal?.fire) {
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'No se pudo cargar tu billetera. Intenta nuevamente.',
-          });
-        }
+        if (window.Swal?.fire) Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo cargar tu billetera. Intenta nuevamente.' });
         return;
       }
 
       const html = await resp.text();
       contentWrapper.innerHTML = html;
-
-      // Una vez insertado el HTML, inicializamos la vista
       inicializarVista();
 
     } catch (err) {
       error('Excepción al cargar billetera:', err);
       if (window.Swal?.fire) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error de conexión',
-          text: 'No pudimos cargar tu billetera. Revisa tu conexión e inténtalo otra vez.',
-        });
+        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No pudimos cargar tu billetera. Revisa tu conexión.' });
       }
     }
   }
@@ -418,27 +450,15 @@
   // ------------------------------------
   function engancharMenuBilletera() {
     const contentWrapper = document.querySelector('.content-wrapper');
-    if (!contentWrapper) {
-      warn('No se encontró .content-wrapper, no se puede enganchar Mi billetera.');
-      return;
-    }
+    if (!contentWrapper) return;
 
     const enlaces = Array.from(document.querySelectorAll('a'));
-    const linkBilletera = enlaces.find((a) => {
-      const txt = (a.textContent || '').trim().toLowerCase();
-      return txt === 'mi billetera';
-    });
+    const linkBilletera = enlaces.find((a) => ((a.textContent || '').trim().toLowerCase() === 'mi billetera'));
 
-    if (!linkBilletera) {
-      warn('No se encontró un enlace de menú con texto "Mi billetera".');
-      return;
-    }
+    if (!linkBilletera) return;
+    if (linkBilletera.dataset.evWalletHooked === '1') return;
 
-    if (linkBilletera.dataset.evWalletHooked === '1') {
-      return;
-    }
     linkBilletera.dataset.evWalletHooked = '1';
-
     linkBilletera.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -446,33 +466,18 @@
     });
   }
 
-  // ------------------------------------
-  // Inicialización estándar
-  // ------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
     engancharMenuBilletera();
-    inicializarVista(); // por si la vista ya está montada
+    inicializarVista();
   });
 
-  // ------------------------------------
-  // Soporte para carga dinámica
-  // ------------------------------------
   const observer = new MutationObserver(() => {
     const wrapperActual = document.querySelector('.ev-wallet-wrapper');
-    if (wrapperActual && wrapperActual !== refs.wrapper) {
-      inicializarVista();
-    }
-
+    if (wrapperActual && wrapperActual !== refs.wrapper) inicializarVista();
     engancharMenuBilletera();
   });
 
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-  });
+  observer.observe(document.body, { childList: true, subtree: true });
 
-  // Exponer para llamadas manuales
-  window.EVWallet = {
-    init: inicializarVista,
-  };
+  window.EVWallet = { init: inicializarVista };
 })();

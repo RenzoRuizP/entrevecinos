@@ -1,4 +1,4 @@
-// ✅ views/js/menuPrincipal.js — versión mejorada con credenciales y sesión segura
+// ✅ views/js/menuPrincipal.js — estable (delegación + BASE_URL normalizado)
 const params = new URLSearchParams(window.location.search);
 
 // --- 🔹 Mensaje de bienvenida tras login exitoso ---
@@ -12,12 +12,14 @@ if (params.has('success')) {
       timer: 2000,
       showConfirmButton: false,
     });
-    // Limpiar el query string
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // =============================
+  // 1) OverlayScrollbars sidebar
+  // =============================
   const SELECTOR_SIDEBAR_WRAPPER = '.sidebar-wrapper';
   const Default = {
     scrollbarTheme: 'os-theme-light',
@@ -36,81 +38,127 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  const baseURL = window.BASE_URL || '/entrevecinos';
-  const enlaces = document.querySelectorAll('.submenu-link');
+  // =============================
+  // 2) BASE_URL robusto
+  // =============================
+  const rawBase = (window.BASE_URL ?? '/entrevecinos').toString().trim();
+  const BASE = rawBase.replace(/\/+$/, '') || '/entrevecinos'; // sin slash final
+
   const contenedor = document.getElementById('contenido-principal');
 
-  enlaces.forEach(link => {
-    link.addEventListener('click', async e => {
-      e.preventDefault();
+  function normalizarUrl(vistaRuta) {
+    if (!vistaRuta) return null;
 
-      let vistaRuta = link.dataset.vista || link.getAttribute('href');
-      if (!vistaRuta || vistaRuta === '#') return;
+    // si viene como '#'
+    if (vistaRuta === '#') return null;
 
-      if (!vistaRuta.startsWith(baseURL)) {
-        vistaRuta = `${baseURL}/${vistaRuta.replace(/^\/+/, '')}`;
+    // si viene como URL absoluta, la respetamos
+    if (/^https?:\/\//i.test(vistaRuta)) return vistaRuta;
+
+    // limpiar dobles slashes
+    const clean = vistaRuta.replace(/([^:]\/)\/+/g, '$1');
+
+    // Si ya empieza con BASE (/entrevecinos/...) => ok
+    if (clean.startsWith(BASE + '/')) return clean;
+
+    // Si empieza con '/' (ej: /publicacion o /views/x.php) => lo volvemos relativo a BASE
+    if (clean.startsWith('/')) {
+      return `${BASE}${clean}`.replace(/([^:]\/)\/+/g, '$1');
+    }
+
+    // Caso común: "views/publicacionView.php" o "publicacion"
+    return `${BASE}/${clean}`.replace(/([^:]\/)\/+/g, '$1');
+  }
+
+  async function cargarVista(vistaRuta, linkActivo = null) {
+    if (!contenedor) return;
+
+    const urlFinal = normalizarUrl(vistaRuta);
+    if (!urlFinal) return;
+
+    // Loader
+    contenedor.innerHTML = `
+      <div class="text-center p-5">
+        <div class="spinner-border text-success" role="status"></div>
+        <p class="mt-3">Cargando...</p>
+      </div>
+    `;
+
+    try {
+      const response = await fetch(urlFinal, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (response.status === 401) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Sesión expirada',
+          text: 'Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.',
+          confirmButtonText: 'Aceptar'
+        }).then(() => {
+          window.location.href = `${BASE}/views/login.php?error=token_expirado`;
+        });
+        return;
       }
-      vistaRuta = vistaRuta.replace(/([^:]\/)\/+/g, '$1');
 
+      if (!response.ok) {
+        throw new Error(`Error HTTP ${response.status} al cargar: ${urlFinal}`);
+      }
+
+      const html = await response.text();
+
+      // Fallback: si te devolvió login o layout, asumimos expiración
+      if (html.includes("formLogin") || html.includes("<title>Entre vecinos |")) {
+        Swal.fire({
+          icon: "warning",
+          title: "Sesión finalizada",
+          text: "Tu sesión ha caducado. Por favor vuelve a iniciar sesión.",
+          confirmButtonText: "Aceptar"
+        }).then(() => {
+          window.location.href = `${BASE}/`;
+        });
+        return;
+      }
+
+      contenedor.innerHTML = html;
+
+      // Marcar activo
+      document.querySelectorAll('.submenu-link').forEach(el => el.classList.remove('active'));
+      if (linkActivo) linkActivo.classList.add('active');
+
+    } catch (error) {
+      console.error('❌ Error al cargar vista:', error);
       contenedor.innerHTML = `
-        <div class="text-center p-5">
-          <div class="spinner-border text-success" role="status"></div>
-          <p class="mt-3">Cargando...</p>
+        <div class="alert alert-danger m-5 shadow-sm rounded-3">
+          <h5 class="mb-2"><i class="bi bi-exclamation-triangle-fill"></i> Error</h5>
+          <p>No se pudo cargar el contenido solicitado.</p>
+          <small class="text-muted">${error.message}</small>
         </div>
       `;
+    }
+  }
 
-      try {
-        const response = await fetch(vistaRuta, {
-          method: 'GET',
-          credentials: 'include' // ✅ Enviar cookie auth_token
-        });
+  // ==========================================================
+  // 3) Delegación de eventos (SOLUCIONA que no "enganche" click)
+  // ==========================================================
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('.submenu-link');
+    if (!link) return;
 
-        if (response.status === 401) {
-          Swal.fire({
-            icon: 'warning',
-            title: 'Sesión expirada',
-            text: 'Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.',
-            confirmButtonText: 'Aceptar'
-          }).then(() => {
-            window.location.href = `${baseURL}/views/login.php?error=token_expirado`;
-          });
-          return;
-        }
+    e.preventDefault();
 
-        if (!response.ok) throw new Error(`Error HTTP ${response.status}`);
+    // Prioridad: data-vista
+    let vistaRuta = link.dataset.vista || link.getAttribute('href');
 
-        const html = await response.text();
-
-        if (html.includes("<title>Entre vecinos |") || html.includes("formLogin")) {
-          Swal.fire({
-            icon: "warning",
-            title: "Sesión finalizada",
-            text: "Tu sesión ha caducado. Por favor vuelve a iniciar sesión.",
-            confirmButtonText: "Aceptar"
-          }).then(() => {
-            window.location.href = `${baseURL}/`;
-          });
-          return;
-        }
-
-        contenedor.innerHTML = html;
-
-        document.querySelectorAll('.submenu-link').forEach(el => el.classList.remove('active'));
-        link.classList.add('active');
-      } catch (error) {
-        console.error('❌ Error al cargar vista:', error);
-        contenedor.innerHTML = `
-          <div class="alert alert-danger m-5 shadow-sm rounded-3">
-            <h5 class="mb-2"><i class="bi bi-exclamation-triangle-fill"></i> Error</h5>
-            <p>No se pudo cargar el contenido solicitado.</p>
-            <small class="text-muted">${error.message}</small>
-          </div>
-        `;
-      }
-    });
+    // Importante: evitar que te lleve a "/publicacion" en la raíz
+    // Recomendación: usa data-vista="views/publicacionView.php"
+    cargarVista(vistaRuta, link);
   });
 
-  // --- 🔹 Sidebar Toggle ---
+  // =============================
+  // 4) Sidebar Toggle
+  // =============================
   const sidebar = document.getElementById("sidebar");
   const backdrop = document.getElementById("sidebar-backdrop");
   const toggleBtn = document.getElementById("btnToggleSidebar");
@@ -118,13 +166,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (toggleBtn && sidebar) {
     toggleBtn.addEventListener("click", () => {
       sidebar.classList.toggle("active");
-      backdrop.style.display = sidebar.classList.contains("active") ? "block" : "none";
+      if (backdrop) backdrop.style.display = sidebar.classList.contains("active") ? "block" : "none";
     });
   }
 
   if (backdrop) {
     backdrop.addEventListener("click", () => {
-      sidebar.classList.remove("active");
+      sidebar?.classList.remove("active");
       backdrop.style.display = "none";
     });
   }

@@ -11,21 +11,29 @@
   --ev-texto-suave:  var(--gris-texto, #6B7280);
   --ev-rojo:         #DC2626;
   --ev-naranja:      #FF7A1A;
+
+  --ev-shadow-card:  0 14px 40px rgba(15, 23, 42, 0.14);
+  --ev-shadow-soft:  0 10px 24px rgba(15, 23, 42, 0.06);
+  --ev-radius-card:  18px;
+  --ev-radius-modal: 22px;
 }
 
-/* Fondo suave alineado al dashboard / datos personales */
+/* ==========================================================
+   WRAPPER / LAYOUT
+========================================================== */
+
+/* Wrapper: solo layout. El fondo se mantiene uniforme con el dashboard */
 .ev-wallet-wrapper{
-  background-color: var(--ev-gris-fondo);
   max-width: 1100px;
   margin: 0 auto;
 }
 
 /* Card principal */
 .ev-wallet-card{
-  border-radius: 18px;
+  border-radius: var(--ev-radius-card);
   border: 1px solid var(--ev-gris-borde);
   background: #ffffff;
-  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.14);
+  box-shadow: var(--ev-shadow-card);
   margin: 24px auto 40px auto;
   overflow: hidden;
 }
@@ -39,11 +47,14 @@
   min-height: 56px;
 }
 
-/* Título */
+/* ==========================================================
+   TITULOS / SUBTITULOS
+========================================================== */
 .ev-wallet-title{
   font-size: 1.65rem;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--ev-verde-oscuro);
+  letter-spacing: -0.01em;
 }
 
 .ev-wallet-title-icon{
@@ -62,6 +73,7 @@
 .ev-wallet-subtitle{
   font-size: 0.92rem;
   color: var(--ev-texto-suave);
+  line-height: 1.35;
 }
 
 .ev-wallet-divider{
@@ -70,7 +82,9 @@
   margin-right: -32px;
 }
 
-/* Badge de saldo */
+/* ==========================================================
+   BADGE SALDO
+========================================================== */
 .ev-wallet-badge{
   padding: 10px 16px;
   border-radius: 16px;
@@ -85,15 +99,18 @@
   font-size: 0.68rem;
   text-transform: uppercase;
   color: var(--ev-texto-suave);
+  letter-spacing: 0.06em;
 }
 
 .ev-wallet-badge-amount{
   font-size: 1.4rem;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--ev-verde-oscuro);
 }
 
-/* Estado vacío */
+/* ==========================================================
+   EMPTY STATE
+========================================================== */
 .ev-wallet-empty{
   padding: 24px 12px;
   border-radius: 14px;
@@ -106,26 +123,80 @@
   color: var(--ev-verde);
 }
 
-/* Movimientos */
+/* ==========================================================
+   MOVIMIENTOS / TABLA
+========================================================== */
 .ev-wallet-movimientos{
   margin-top: 12px;
 }
 
+.ev-wallet-table-wrapper{
+  border: 1px solid rgba(229, 231, 235, 0.9);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+.ev-wallet-table{
+  margin: 0;
+}
+
 .ev-wallet-table thead th{
   border-bottom: 1px solid var(--ev-gris-borde);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--ev-texto-suave);
   text-transform: uppercase;
   font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  background: #F9FAFB;
+}
+
+.ev-wallet-table tbody td{
+  border-color: rgba(229, 231, 235, 0.9);
 }
 
 .ev-wallet-table tbody tr:hover{
   background-color: #F9FAFB;
 }
 
+/* Estructura usada por tu JS */
+.ev-wallet-mov-concepto{
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ev-wallet-mov-header{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ev-wallet-mov-icon{
+  font-size: 1.05rem;
+}
+
+.ev-wallet-mov-icon--credito{
+  color: var(--ev-verde);
+}
+
+.ev-wallet-mov-icon--debito{
+  color: var(--ev-rojo);
+}
+
 .ev-wallet-mov-titulo{
-  font-weight: 600;
+  font-weight: 700;
   color: var(--ev-texto);
+}
+
+.ev-wallet-mov-detalle{
+  font-size: 0.85rem;
+  color: var(--ev-texto-suave);
+}
+
+.ev-wallet-mov-monto{
+  font-weight: 800;
 }
 
 .ev-wallet-monto--credito{
@@ -136,16 +207,18 @@
   color: var(--ev-rojo);
 }
 
+.ev-wallet-mov-saldo{
+  font-size: 0.9rem;
+}
+
 /* ==========================================================
    BOTONES EV
 ========================================================== */
-
-/* CTA naranja tipo "Llamar ahora" */
 .btn-ev-orange{
   background-image: linear-gradient(180deg, #FF9B3A, #FF7A1A);
   border: none;
   color: #ffffff;
-  font-weight: 600;
+  font-weight: 700;
   border-radius: 999px;
   padding: 0.48rem 1.9rem;
   font-size: 0.96rem;
@@ -169,17 +242,19 @@
   border-radius: 999px;
   border: 1px solid var(--ev-gris-borde);
   color: var(--ev-texto);
-  font-weight: 500;
+  font-weight: 600;
   padding: 0.45rem 1.4rem;
   font-size: 0.93rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  transition: background-color 0.15s ease, transform 0.15s ease;
 }
 
 .btn-ev-outline:hover{
   background-color: #F9FAFB;
+  transform: translateY(-1px);
 }
 
 /* Botón Cerrar con X circular */
@@ -194,6 +269,44 @@
   font-size: 0.82rem;
 }
 
+/* Estado “saving” usado por JS */
+#btnEnviarRecarga.saving{
+  opacity: .85;
+  pointer-events: none;
+}
+
+/* ==========================================================
+   FORMS (modal recarga)
+========================================================== */
+.ev-modal-body .form-label{
+  font-weight: 700;
+  color: var(--ev-texto);
+}
+
+.ev-modal-body .form-control,
+.ev-modal-body .form-select{
+  border-radius: 14px;
+  border: 1px solid rgba(148,163,184,.35);
+  box-shadow: none;
+  padding: 0.62rem 0.85rem;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.ev-modal-body .form-control:focus,
+.ev-modal-body .form-select:focus{
+  border-color: rgba(25,135,84,.55);
+  box-shadow: 0 0 0 .2rem rgba(25,135,84,.15);
+}
+
+.ev-modal-body .form-text{
+  color: var(--ev-texto-suave);
+}
+
+/* ID operación (monoespaciado suave para lectura) */
+#recarga_operacion{
+  letter-spacing: .03em;
+}
+
 /* ==========================================================
    MODALES EV – UNIFICADOS CON "RECUPERAR CUENTA"
 ========================================================== */
@@ -202,7 +315,7 @@
 }
 
 .ev-modal-content{
-  border-radius: 22px;
+  border-radius: var(--ev-radius-modal);
   overflow: hidden;
   border: 0;
   box-shadow: 0 22px 60px rgba(15, 23, 42, 0.35);
@@ -214,14 +327,14 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
-  background-color: #0F592F;   /* mismo verde sólido que login */
+  background-color: #0F592F;
   color: #ffffff;
 }
 
 /* Título */
 .ev-modal-title{
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: 700;
   color: #ffffff !important;
   display: flex;
   align-items: center;
@@ -232,7 +345,7 @@
   color: #ffffff;
 }
 
-/* X del header (btn-close) pequeña y alineada */
+/* X del header (btn-close) */
 .ev-modal-close-icon{
   opacity: 1;
   transform: translateY(1px);
@@ -254,17 +367,20 @@
   gap: 0.75rem;
 }
 
-/* TARJETA DE SOPORTE */
+/* ==========================================================
+   TARJETA SOPORTE
+========================================================== */
 .ev-support-card{
   border-radius: 16px;
   border: 1px solid var(--ev-gris-borde);
   background-color: #F9FAFB;
   padding: 16px 20px;
   max-width: 360px;
+  box-shadow: var(--ev-shadow-soft);
 }
 
 .ev-support-title{
-  font-weight: 600;
+  font-weight: 800;
   color: var(--ev-texto);
 }
 
@@ -278,7 +394,7 @@
 }
 
 .ev-support-phone{
-  font-weight: 600;
+  font-weight: 800;
   color: var(--ev-verde-oscuro);
 }
 
@@ -290,20 +406,22 @@
   border: 1px solid var(--ev-gris-borde);
   background-color: #F9FAFB;
   padding: 16px 16px 18px 16px;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--ev-shadow-soft);
   margin-right: 4px;
 }
 
 .ev-wallet-qr-img{
-  max-width: 210px;
+  max-width: 220px;
   width: 100%;
+  height: auto;
   border-radius: 14px;
   display: block;
   margin: 0 auto 10px auto;
+  border: 1px solid rgba(148,163,184,.22);
 }
 
 .ev-wallet-qr-title{
-  font-weight: 600;
+  font-weight: 800;
   color: var(--ev-texto);
   font-size: 0.98rem;
   margin-top: 8px;
@@ -315,20 +433,46 @@
   line-height: 1.35;
 }
 
-/* RESPONSIVE */
+/* ==========================================================
+   RESPONSIVE
+========================================================== */
 @media (max-width: 575.98px){
   .ev-wallet-wrapper{
     padding-left: 12px !important;
     padding-right: 12px !important;
   }
 
+  .ev-wallet-card{
+    margin: 16px auto 28px auto;
+  }
+
   .ev-wallet-card .card-body{
     padding: 18px 14px;
+  }
+
+  .ev-wallet-divider{
+    margin-left: -14px;
+    margin-right: -14px;
   }
 
   .ev-modal .modal-dialog{
     max-width: 100%;
     margin: 0 12px;
+  }
+
+  .ev-modal-body{
+    padding: 18px 16px;
+  }
+
+  .ev-modal-footer{
+    padding: 12px 16px 16px 16px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ev-modal-footer .btn{
+    width: 100%;
+    justify-content: center;
   }
 }
 

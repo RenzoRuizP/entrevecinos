@@ -39,6 +39,7 @@ class User extends Conexion {
     public function DatosUsuario($email) {
         $sql = "
                     SELECT 
+                            u.codigo_usuario AS codigo_usuario,
 							u.nombre AS nombre_completo,
 							u.email,
 							u.documento,

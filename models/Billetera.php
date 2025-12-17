@@ -203,4 +203,96 @@ class Billetera extends Conexion
             throw $e;
         }
     }
+
+    /**
+     * Acredita saldo por recarga (crédito) de forma transaccional.
+     * - Bloquea billetera (FOR UPDATE)
+     * - Inserta movimiento con saldo_antes/saldo_despues
+     * - Actualiza saldo billetera
+     *
+     * $codigoReferencia: normalmente codigo_recarga
+    */
+    public function acreditarPorRecargaManual(
+        int $codigoUsuario,
+        float $monto,
+        int $codigoReferencia,
+        string $metodo = 'YAPE',
+        bool $esPromocional = false,
+        ?string $fechaExpira = null
+    ): array {
+        try {
+            if ($monto <= 0) {
+                return ['ok' => false, 'mensaje' => 'Monto inválido.'];
+            }
+
+            $this->dblink->beginTransaction();
+
+            // Bloquear billetera del usuario
+            $sql = "
+                SELECT b.codigo_billetera, b.saldo_actual
+                FROM billetera b
+                WHERE b.codigo_usuario = :codigo_usuario
+                FOR UPDATE
+            ";
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+            $stmt->execute();
+            $billetera = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$billetera) {
+                // Crear billetera si no existe
+                $sqlInsert = "INSERT INTO billetera (codigo_usuario, saldo_actual) VALUES (:codigo_usuario, 0.00)";
+                $stmtInsert = $this->dblink->prepare($sqlInsert);
+                $stmtInsert->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+                $stmtInsert->execute();
+                $codigoBilletera = (int)$this->dblink->lastInsertId();
+                $saldoAntes = 0.00;
+            } else {
+                $codigoBilletera = (int)$billetera['codigo_billetera'];
+                $saldoAntes = (float)$billetera['saldo_actual'];
+            }
+
+            $saldoDespues = $saldoAntes + $monto;
+
+            // Insert movimiento (crédito)
+            $sqlMov = "
+                INSERT INTO billetera_movimiento
+                    (codigo_billetera, tipo_movimiento, monto, saldo_antes, saldo_despues,
+                    descripcion, origen, codigo_referencia, es_promocional, fecha_expira)
+                VALUES
+                    (:codigo_billetera, 'C', :monto, :saldo_antes, :saldo_despues,
+                    :descripcion, :origen, :codigo_referencia, :es_promocional, :fecha_expira)
+            ";
+            $descripcion = "Recarga manual ({$metodo})";
+            $origen = "RECARGA_MANUAL";
+
+            $stmtMov = $this->dblink->prepare($sqlMov);
+            $stmtMov->bindParam(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
+            $stmtMov->bindParam(':monto', $monto);
+            $stmtMov->bindParam(':saldo_antes', $saldoAntes);
+            $stmtMov->bindParam(':saldo_despues', $saldoDespues);
+            $stmtMov->bindParam(':descripcion', $descripcion, PDO::PARAM_STR);
+            $stmtMov->bindParam(':origen', $origen, PDO::PARAM_STR);
+            $stmtMov->bindParam(':codigo_referencia', $codigoReferencia, PDO::PARAM_INT);
+            $stmtMov->bindValue(':es_promocional', $esPromocional ? 1 : 0, PDO::PARAM_INT);
+            $stmtMov->bindValue(':fecha_expira', $fechaExpira, PDO::PARAM_STR);
+            $stmtMov->execute();
+
+            // Actualizar saldo billetera
+            $sqlUpd = "UPDATE billetera SET saldo_actual = :saldo_actual WHERE codigo_billetera = :codigo_billetera";
+            $stmtUpd = $this->dblink->prepare($sqlUpd);
+            $stmtUpd->bindParam(':saldo_actual', $saldoDespues);
+            $stmtUpd->bindParam(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
+            $stmtUpd->execute();
+
+            $this->dblink->commit();
+
+            return ['ok' => true, 'saldo_actual' => $saldoDespues];
+
+        } catch (Exception $e) {
+            if ($this->dblink->inTransaction()) $this->dblink->rollBack();
+            throw $e;
+        }
+    }
+
 }
