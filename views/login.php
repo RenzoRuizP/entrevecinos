@@ -14,7 +14,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
   <script src="<?= BASE_URL ?>resources/util/bootstrap5/js/bootstrap.min.js"></script>
 
-  <!-- SweetAlert2 (para index.js / iniciarSesion.js) -->
+  <!-- SweetAlert2 -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <!-- Bootstrap Icons -->
@@ -22,61 +22,6 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 
   <!-- Estilos globales y del login -->
   <?php include_once VIEW_STYLE_PATH . 'login.estilo.php'; ?>
-
-  <!-- Ajustes UX/UI puntuales (no rompen tu CSS actual) -->
-  <style>
-    /* Lista de beneficios: mejor escaneo y aire */
-    .login-hero-list{
-      margin-top: 14px;
-      padding-left: 0;
-      list-style: none;
-      display: grid;
-      gap: 12px;
-    }
-    .login-hero-list li{
-      display: grid;
-      grid-template-columns: 28px 1fr;
-      column-gap: 12px;
-      align-items: start;
-      line-height: 1.35;
-    }
-    .login-hero-list li i{
-      font-size: 1.15rem; /* +10-15% */
-      line-height: 1.15;
-      opacity: .95;
-      margin-top: 1px;
-    }
-    .login-hero-list li strong{
-      font-weight: 700;
-    }
-
-    /* Badge de marca: que parezca badge, no botón clickeable */
-    .badge-pill{
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 14px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.28);
-      background: rgba(255,255,255,.10);
-      color: #fff;
-      backdrop-filter: blur(6px);
-      user-select: none;
-      cursor: default;
-    }
-
-    /* Equilibrio visual panel derecho (logo ligeramente más protagonista) */
-    .login-logo{
-      max-height: 56px;
-    }
-
-    /* Responsive: compactar beneficios para pantallas medianas sin perder legibilidad */
-    @media (max-width: 992px){
-      .login-hero-list{ gap: 10px; }
-      .login-hero-list li{ grid-template-columns: 26px 1fr; }
-      .login-hero-list li i{ font-size: 1.1rem; }
-    }
-  </style>
 </head>
 
 <body class="login-body">
@@ -89,8 +34,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
   <!-- Contenedor principal -->
   <div class="login-shell">
     <!-- HERO IZQUIERDO -->
-    <section class="login-hero">
-      <div class="login-hero-layer"></div>
+    <section class="login-hero" aria-label="Presentación de Entre Vecinos">
       <div class="login-hero-content">
         <h1 class="login-hero-title">
           Bienvenido a
@@ -98,45 +42,36 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
         </h1>
 
         <p class="login-hero-text">
-          El sistema web del condominio para comprar y vender <strong>productos</strong> o <strong>servicios</strong>
-          entre vecinos, de forma simple, segura y cercana.
+          El <strong>marketplace de tu condominio</strong> para comprar y vender entre vecinos,
+          de forma simple y segura.
         </p>
 
-        <!-- Beneficios: reducidos a 5 claves + 1 de refuerzo para evitar sobrecarga -->
+        <!-- Beneficios (compacto para login) -->
         <ul class="login-hero-list" aria-label="Beneficios de Entre Vecinos">
           <li>
             <i class="bi bi-building-check" aria-hidden="true"></i>
-            <span><strong>Exclusivo para tu condominio:</strong> participa solo con vecinos de tu residencia o urbanización.</span>
+            <strong>Solo con vecinos de tu condominio</strong>
           </li>
-
           <li>
             <i class="bi bi-shield-check" aria-hidden="true"></i>
-            <span><strong>Identidad verificada:</strong> usuarios registrados y validados para una experiencia más segura.</span>
+            <strong>Identidad verificada entre vecinos</strong>
           </li>
-
           <li>
             <i class="bi bi-bag-check" aria-hidden="true"></i>
-            <span><strong>Compra y vende fácilmente:</strong> publica lo que ya no usas, ofrece tus servicios o encuentra lo que necesitas cerca.</span>
+            <strong>Compra y vende fácilmente, sin complicaciones</strong>
           </li>
-
           <li>
-            <i class="bi bi-clock-history" aria-hidden="true"></i>
-            <span><strong>Ahorra tiempo:</strong> menos traslados y más practicidad, todo dentro de tu comunidad.</span>
+            <i class="bi bi-truck" aria-hidden="true"></i>
+            <strong>Pedidos entregados en tu domicilio</strong>
           </li>
-
-          <li>
-            <i class="bi bi-lightning-charge" aria-hidden="true"></i>
-            <span><strong>En tiempo real:</strong> publicaciones y pedidos se actualizan al instante para responder más rápido.</span>
-          </li>
-
           <li>
             <i class="bi bi-people" aria-hidden="true"></i>
-            <span><strong>Comunidad más conectada:</strong> apoya a tus vecinos y fortalece la convivencia.</span>
+            <strong>Conecta con tus vecinos</strong>
           </li>
         </ul>
 
         <div class="login-hero-badge">
-          <span class="badge-pill" role="note" aria-label="Lema de Entre Vecinos">
+          <span class="badge-pill" role="note" tabindex="0" aria-label="Lema de Entre Vecinos">
             <i class="bi bi-heart-fill" aria-hidden="true"></i>
             Si lo tengo, vecina
           </span>
@@ -330,34 +265,19 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
               <div class="row g-3 mb-4">
                 <div class="col-md-5">
                   <label for="comboCondominio" class="form-label">Condominio</label>
-                  <select
-                    class="form-select"
-                    id="comboCondominio"
-                    name="comboCondominio"
-                    required
-                  >
+                  <select class="form-select" id="comboCondominio" name="comboCondominio" required>
                     <option value="">Selecciona condominio</option>
                   </select>
                 </div>
                 <div class="col-md-5">
                   <label for="comboTorre" class="form-label">Torre</label>
-                  <select
-                    class="form-select"
-                    id="comboTorre"
-                    name="comboTorre"
-                    required
-                  >
+                  <select class="form-select" id="comboTorre" name="comboTorre" required>
                     <option value="">Selecciona torre</option>
                   </select>
                 </div>
                 <div class="col-md-5">
                   <label for="comboDepartamento" class="form-label">Departamento</label>
-                  <select
-                    class="form-select"
-                    id="comboDepartamento"
-                    name="comboDepartamento"
-                    required
-                  >
+                  <select class="form-select" id="comboDepartamento" name="comboDepartamento" required>
                     <option value="">Selecciona departamento</option>
                   </select>
                 </div>

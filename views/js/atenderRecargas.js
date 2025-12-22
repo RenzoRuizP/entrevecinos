@@ -5,6 +5,14 @@
   const BASE = (window.BASE_URL || '').replace(/\/$/, '');
   const LOG_PREFIX = '[ATENDER_RECARGAS]';
 
+  // =========================================================
+  // NUEVO: Config de íconos Yape/Plin (ajusta nombres si difieren)
+  // =========================================================
+  const METODO_ICON = {
+    yape: `${BASE}/resources/images/yape.png`,
+    plin: `${BASE}/resources/images/plin.png`,
+  };
+
   const refs = {
     form: null,
     fEstado: null,
@@ -132,6 +140,32 @@
     return map[e] || 'ev-badge ev-badge-pendiente';
   }
 
+  // =========================================================
+  // NUEVO: Render del método con ícono (usa tu CSS .ev-metodo...)
+  // - Si no carga imagen => fallback a texto
+  // =========================================================
+  function renderMetodo(metodoRaw) {
+    const m = String(metodoRaw || '').trim().toLowerCase();
+    const upper = escapeHtml(String(metodoRaw || '—').toUpperCase());
+
+    if (m === 'yape' || m === 'plin') {
+      const src = METODO_ICON[m];
+      const cls = m === 'yape' ? 'ev-metodo ev-metodo-yape' : 'ev-metodo ev-metodo-plin';
+      return `
+        <span class="${cls}" title="${upper}">
+          <img
+            src="${src}"
+            alt="${upper}"
+            onerror="this.style.display='none'; this.parentElement.classList.add('ev-metodo-fallback'); this.parentElement.textContent='${upper}';"
+          >
+        </span>
+      `;
+    }
+
+    // Desconocido => fallback texto
+    return `<span class="ev-metodo ev-metodo-fallback" title="${upper}">${upper}</span>`;
+  }
+
   function endpointListar() {
     const estado = refs.fEstado?.value || 'pendiente';
     const rango = refs.fRango?.value || '7';
@@ -181,7 +215,12 @@
       const fecha = `${escapeHtml(r.fecha)} ${escapeHtml(r.hora)}`;
       const usuario = escapeHtml(r.usuario_nombre || '—');
       const monto = formatearMonto(r.monto);
-      const metodo = escapeHtml((r.metodo || '').toUpperCase());
+
+      // ANTES: texto
+      // const metodo = escapeHtml((r.metodo || '').toUpperCase());
+      // AHORA: ícono
+      const metodoHtml = renderMetodo(r.metodo);
+
       const op = escapeHtml(r.id_operacion || '—');
       const est = escapeHtml(r.estado || 'pendiente');
 
@@ -190,7 +229,7 @@
           <td>${fecha}</td>
           <td>${usuario}</td>
           <td>${monto}</td>
-          <td>${metodo}</td>
+          <td>${metodoHtml}</td>
           <td><span class="ev-mono">${op}</span></td>
           <td><span class="${badgeEstado(est)}">${est}</span></td>
           <td class="text-end">

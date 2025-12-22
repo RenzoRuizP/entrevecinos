@@ -63,7 +63,8 @@ body.login-body {
     linear-gradient(145deg, #0F592F 0%, #0E7A43 45%, #16A34A 85%);
 }
 
-.login-hero-layer::before {
+/* Overlay suave */
+.login-hero::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -84,56 +85,84 @@ body.login-body {
   font-weight: 700;
   margin-bottom: 14px;
   letter-spacing: 0.01em;
+  line-height: 1.12;
   text-shadow: 0 1px 2px rgba(0,0,0,0.20);
 }
 
 .login-hero-title span {
-  display: block;
+  display: block; /* Mantener dos líneas: mejora jerarquía y lectura */
   color: #fefce8;
 }
 
 .login-hero-text {
   font-size: 0.98rem;
   color: #E5E7EB;
-  margin-bottom: 20px;
+  margin-bottom: 14px;   /* micro-ajuste */
   line-height: 1.6;
+  max-width: 40ch;       /* micro-ajuste */
   text-shadow: 0 1px 2px rgba(0,0,0,0.20);
 }
 
-.login-hero-list {
+/* Beneficios: versión “escaneable” */
+.login-hero-list{
+  margin-top: 10px;
+  margin-bottom: 22px;
+  padding-left: 0;
   list-style: none;
-  padding: 0;
-  margin: 0 0 22px 0;
+  display: grid;
+  gap: 12px;
 }
 
-.login-hero-list li {
-  display: flex;
+.login-hero-list li{
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  column-gap: 12px;
   align-items: center;
-  gap: 10px;
+  line-height: 1.25;
   font-size: 0.95rem;
-  margin-bottom: 8px;
   color: #F9FAFB;
   text-shadow: 0 1px 2px rgba(0,0,0,0.20);
 }
 
-.login-hero-list i {
+.login-hero-list li i{
   font-size: 1.1rem;
+  line-height: 1;
+  opacity: .95;
+  transform: translateY(-1px);
   color: #FEF3C7;
 }
 
-.login-hero-badge .badge-pill {
+.login-hero-list li strong{
+  font-weight: 700;
+}
+
+/* Badge de marca (no botón) */
+.badge-pill{
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 8px 18px;
+  gap: 8px;
+  padding: 10px 14px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.12);
-  border: 1px solid rgba(255,255,255,0.28);
-  color: #F9FAFB;
-  font-size: 0.86rem;
-  font-weight: 500;
-  backdrop-filter: blur(4px);
-  box-shadow: 0 8px 20px rgba(15,23,42,0.25);
+  border: 1px solid rgba(255,255,255,.28);
+  background: rgba(255,255,255,.10);
+  color: #fff;
+  backdrop-filter: blur(6px);
+  user-select: none;
+  cursor: default;
+  box-shadow: 0 10px 22px rgba(15,23,42,0.18);
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
+}
+
+.badge-pill:hover{
+  transform: translateY(-1px);
+  background: rgba(255,255,255,.12);
+  border-color: rgba(255,255,255,.34);
+  box-shadow: 0 14px 28px rgba(15,23,42,0.22);
+}
+
+.badge-pill:focus-visible{
+  outline: 3px solid rgba(187,247,208,.55);
+  outline-offset: 3px;
 }
 
 /* ============================
@@ -165,7 +194,7 @@ body.login-body {
 }
 
 .login-logo {
-  max-height: 80px;
+  max-height: 56px; /* micro-ajuste: balance visual en panel derecho */
 }
 
 .login-panel-title {
@@ -344,7 +373,6 @@ body.login-body {
   padding-bottom: 2rem;
 }
 
-/* Contenedor transparente para que el header pinte las esquinas */
 .modal-content {
   border-radius: 18px;
   border: none;
@@ -355,7 +383,6 @@ body.login-body {
     0 6px 12px rgba(0,0,0,0.12);
 }
 
-/* Header con degradado y borde redondeado */
 .modal-header.bg-success {
   background: linear-gradient(140deg, #0F592F 0%, #0E7A43 55%, #16A34A 100%);
   padding-top: 16px;
@@ -373,7 +400,6 @@ body.login-body {
   filter: invert(1);
 }
 
-/* Fondo blanco + sombra interna suave para separar barra de pasos */
 .modal-body {
   padding-left: 2rem;
   padding-right: 2rem;
@@ -391,7 +417,6 @@ body.login-body {
   background: #ffffff;
 }
 
-/* Wizard pasos */
 .modal .progress {
   height: 32px !important;
   border-radius: 999px;
@@ -421,7 +446,6 @@ body.login-body {
   color: #4B5563;
 }
 
-/* Título de sección del paso */
 .step h6 {
   display: flex;
   align-items: center;
@@ -432,7 +456,6 @@ body.login-body {
   margin-bottom: 0.8rem;
 }
 
-/* Inputs del modal */
 .modal-content .form-label {
   font-weight: 500;
   font-size: 0.9rem;
@@ -464,7 +487,6 @@ body.login-body {
   row-gap: 1.4rem;
 }
 
-/* Ajustes específicos para el PASO 2 (Residencia) */
 #formStep2 h6 {
   font-size: 1.15rem;
   font-weight: 700;
@@ -475,12 +497,10 @@ body.login-body {
   margin-right: 4px;
 }
 
-/* Más aire horizontal entre los combos */
 #formStep2 .row.g-3 {
   column-gap: 1rem;
 }
 
-/* Altura consistente y alineación vertical de los selects */
 #formStep2 .form-select {
   height: 45px;
   line-height: 45px;
@@ -488,13 +508,11 @@ body.login-body {
   padding-bottom: 0;
 }
 
-/* Botones footer modal */
 .modal-footer .btn {
   border-radius: 999px;
   font-size: 0.9rem;
 }
 
-/* Botón Anterior */
 .modal-footer .btn-outline-secondary {
   border-color: #D1D5DB;
   color: #4B5563;
@@ -506,7 +524,6 @@ body.login-body {
   color: #111827;
 }
 
-/* Botón Siguiente / Registrar */
 .modal-footer .btn-success {
   background: linear-gradient(135deg, #16A34A 0%, #22C55E 100%);
   border: none;
@@ -525,10 +542,11 @@ body.login-body {
 /* ============================
    RESPONSIVO
 ============================ */
-@media (max-width: 992px) {
-  .login-shell {
-    max-width: 880px;
-  }
+@media (max-width: 992px){
+  .login-hero-text{ max-width: 52ch; }
+  .login-hero-list{ gap: 10px; }
+  .login-hero-list li{ grid-template-columns: 24px 1fr; }
+  .login-hero-list li i{ font-size: 1.05rem; }
 }
 
 @media (max-width: 768px) {
@@ -569,7 +587,6 @@ body.login-body {
     border-radius: 20px;
   }
 
-  /* Ajustes específicos para el modal en móvil */
   .modal-body {
     padding-left: 1.25rem;
     padding-right: 1.25rem;
@@ -585,7 +602,6 @@ body.login-body {
     padding: 0 2px;
   }
 
-  /* Más ancho al paso 1 en móviles para que quepa el texto */
   #step1 { width: 40% !important; }
   #step2 { width: 30% !important; }
   #step3 { width: 30% !important; }
