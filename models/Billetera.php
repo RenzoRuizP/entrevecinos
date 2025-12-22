@@ -89,8 +89,6 @@ class Billetera extends Conexion
         return $rows ?: [];
     }
 
-
-
     /**
      * Debita un monto por destacar una publicación.
      * Retorna:
@@ -295,4 +293,28 @@ class Billetera extends Conexion
         }
     }
 
+    // =========================================================
+    // NUEVO: Blindaje anti doble acreditación (NO elimina nada)
+    // =========================================================
+    public function yaFueAcreditadaRecarga(int $codigoUsuario, int $codigoRecarga): bool
+    {
+        $b = $this->obtenerOBilleteraPorUsuario($codigoUsuario);
+        $codigoBilletera = (int)($b['codigo_billetera'] ?? 0);
+        if ($codigoBilletera <= 0) return false;
+
+        $sql = "
+            SELECT 1
+            FROM billetera_movimiento
+            WHERE codigo_billetera = :codigo_billetera
+              AND origen = 'RECARGA_MANUAL'
+              AND codigo_referencia = :codigo_recarga
+            LIMIT 1
+        ";
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindParam(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
+        $stmt->bindParam(':codigo_recarga', $codigoRecarga, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return (bool)$stmt->fetchColumn();
+    }
 }

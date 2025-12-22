@@ -4,15 +4,24 @@
 require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/User.php';
 require_once __DIR__ . '/../../models/RecargaSaldo.php';
+require_once __DIR__ . '/../../models/Billetera.php';
 
 class apiSoporteRecargasController
 {
+    private function obtenerUsuarioAuth(): ?array
+    {
+        $token = $_COOKIE['auth_token'] ?? null;
+        if (!$token) return null;
+
+        $usuario = SesionJWT::verificarToken($token);
+        return is_array($usuario) ? $usuario : null;
+    }
+
     public function listar()
     {
         header('Content-Type: application/json; charset=utf-8');
 
         try {
-            // (Opcional) Puedes validar rol soporte aquí si ya lo manejas por roles/menú
             $usuarioAuth = $this->obtenerUsuarioAuth();
             if (!$usuarioAuth || empty($usuarioAuth['codigo_usuario'])) {
                 http_response_code(401);
@@ -32,8 +41,8 @@ class apiSoporteRecargasController
                 'size'   => $_GET['size'] ?? 10,
             ];
 
-            $model = new RecargaSaldo();
-            $data = $model->listarSoporte($filtros);
+            $m = new RecargaSaldo();
+            $data = $m->listarSoporte($filtros);
 
             echo json_encode([
                 'ok' => true,
@@ -47,7 +56,8 @@ class apiSoporteRecargasController
             echo json_encode([
                 'ok' => false,
                 'error' => 'ERROR_SERVIDOR',
-                'mensaje' => 'No se pudo listar recargas.',
+                'mensaje' => 'Ocurrió un error al listar recargas.',
+                'detalle' => $e->getMessage()
             ]);
             return;
         }
@@ -63,40 +73,120 @@ class apiSoporteRecargasController
                 http_response_code(401);
                 echo json_encode([
                     'ok' => false,
-                    'error' => 'USUARIO_NO_ENCONTRADO',
-                    'mensaje' => 'No se pudo identificar al usuario. Vuelve a iniciar sesión.'
+                    'error' => 'NO_AUTORIZADO',
+                    'mensaje' => 'Tu sesión ha expirado. Vuelve a iniciar sesión.'
                 ]);
                 return;
             }
 
-            $id = (int)$id;
+            $codigoSoporte = (int)$usuarioAuth['codigo_usuario'];
+            $codigoRecarga = (int)$id;
+
             $estado = strtolower(trim($_POST['estado'] ?? ''));
             $comentario = trim($_POST['comentario'] ?? '');
 
-            if (!in_array($estado, ['observada', 'aprobada', 'rechazada'], true)) {
-                http_response_code(422);
-                echo json_encode(['ok' => false, 'mensaje' => 'Estado inválido.']);
+            $permitidos = ['pendiente', 'observada', 'aprobada', 'rechazada'];
+            if (!in_array($estado, $permitidos, true)) {
+                http_response_code(400);
+                echo json_encode([
+                    'ok' => false,
+                    'error' => 'ESTADO_INVALIDO',
+                    'mensaje' => 'Estado inválido.'
+                ]);
                 return;
             }
 
-            if (($estado === 'observada' || $estado === 'rechazada') && strlen($comentario) < 3) {
-                http_response_code(422);
-                echo json_encode(['ok' => false, 'mensaje' => 'El comentario es obligatorio para Observada o Rechazada.']);
+            if (($estado === 'observada' || $estado === 'rechazada') && mb_strlen($comentario) < 3) {
+                http_response_code(400);
+                echo json_encode([
+                    'ok' => false,
+                    'error' => 'COMENTARIO_REQUERIDO',
+                    'mensaje' => 'Debes ingresar un comentario para Observada o Rechazada.'
+                ]);
                 return;
             }
 
-            $model = new RecargaSaldo();
-            $ok = $model->actualizarEstado(
-                $id,
+            $recargaModel = new RecargaSaldo();
+            $rec = $recargaModel->obtenerPorId($codigoRecarga);
+
+            if (!$rec) {
+                http_response_code(404);
+                echo json_encode([
+                    'ok' => false,
+                    'error' => 'RECARGA_NO_ENCONTRADA',
+                    'mensaje' => 'No se encontró la recarga.'
+                ]);
+                return;
+            }
+
+            $estadoActual = strtolower($rec['estado'] ?? 'pendiente');
+
+            // Si ya está aprobada y vuelven a aprobar, no repetir acreditación.
+            if ($estado === 'aprobada' && $estadoActual === 'aprobada') {
+                echo json_encode([
+                    'ok' => true,
+                    'mensaje' => 'La recarga ya estaba aprobada. No se realizó ningún cambio.'
+                ]);
+                return;
+            }
+
+            // 1) Actualizar estado
+            $ok = $recargaModel->actualizarEstado(
+                $codigoRecarga,
                 $estado,
-                ($comentario !== '' ? $comentario : null),
-                (int)$usuarioAuth['codigo_usuario']
+                $comentario !== '' ? $comentario : null,
+                $codigoSoporte
             );
 
             if (!$ok) {
                 http_response_code(500);
-                echo json_encode(['ok' => false, 'mensaje' => 'No se pudo actualizar el estado.']);
+                echo json_encode([
+                    'ok' => false,
+                    'error' => 'NO_SE_PUDO_ACTUALIZAR',
+                    'mensaje' => 'No se pudo actualizar el estado.'
+                ]);
                 return;
+            }
+
+            // 2) Si APROBADA => acreditar billetera
+            if ($estado === 'aprobada') {
+                $codigoUsuario = (int)$rec['codigo_usuario'];
+                $monto = (float)$rec['monto'];
+                $metodo = strtoupper((string)($rec['metodo'] ?? 'YAPE')); // yape/plin => YAPE/PLIN
+
+                $billeteraModel = new Billetera();
+
+                // Blindaje: evitar doble acreditación por reintentos/aprobaciones repetidas
+                if (method_exists($billeteraModel, 'yaFueAcreditadaRecarga')) {
+                    if ($billeteraModel->yaFueAcreditadaRecarga($codigoUsuario, $codigoRecarga)) {
+                        echo json_encode([
+                            'ok' => true,
+                            'mensaje' => 'Estado aprobado. El saldo ya había sido acreditado previamente.'
+                        ]);
+                        return;
+                    }
+                }
+
+                $res = $billeteraModel->acreditarPorRecargaManual(
+                    $codigoUsuario,
+                    $monto,
+                    $codigoRecarga,
+                    $metodo,
+                    false,
+                    null
+                );
+
+                if (empty($res['ok'])) {
+                    // OJO: el estado ya quedó aprobado. Registramos el fallo para auditoría.
+                    error_log('[EV][RECARGA][APROBAR] Falló acreditación billetera. recarga=' . $codigoRecarga . ' usuario=' . $codigoUsuario . ' resp=' . json_encode($res));
+                    http_response_code(500);
+                    echo json_encode([
+                        'ok' => false,
+                        'error' => 'ACREDITACION_FALLIDA',
+                        'mensaje' => $res['mensaje'] ?? 'Se aprobó la recarga pero no se pudo acreditar el saldo. Revisa logs.'
+                    ]);
+                    return;
+                }
             }
 
             echo json_encode([
@@ -110,32 +200,11 @@ class apiSoporteRecargasController
             http_response_code(500);
             echo json_encode([
                 'ok' => false,
-                'mensaje' => 'Error interno al actualizar estado.'
+                'error' => 'ERROR_SERVIDOR',
+                'mensaje' => 'Ocurrió un error al actualizar el estado.',
+                'detalle' => $e->getMessage()
             ]);
             return;
         }
-    }
-
-    private function obtenerUsuarioAuth(): ?array
-    {
-        $token = $_COOKIE['auth_token'] ?? null;
-        if (!$token) return null;
-
-        $payload = SesionJWT::verificarToken($token);
-        if (!$payload) return null;
-
-        $email = '';
-        if (!empty($payload['email'])) $email = (string)$payload['email'];
-        elseif (!empty($payload['sub'])) $email = (string)$payload['sub'];
-        elseif (!empty($payload['usuario']['email'])) $email = (string)$payload['usuario']['email'];
-
-        $email = trim($email);
-        if ($email === '') return null;
-
-        $u = new User();
-        $datos = $u->DatosUsuario($email);
-        if (!$datos) return null;
-
-        return $datos;
     }
 }

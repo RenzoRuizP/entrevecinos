@@ -101,7 +101,6 @@
       return await resp.json().catch(() => ({}));
     }
     const txt = await resp.text().catch(() => '');
-    // Intentar parsear si vino JSON con ct incorrecto
     try { return JSON.parse(txt); } catch (_) {}
     return { ok: false, mensaje: txt || 'Respuesta no válida del servidor.' };
   }
@@ -278,6 +277,93 @@
     }
   }
 
+  // ==========================================================
+  // REFRESH GLOBAL (NUEVO, SIN DEPENDER DE INIT)
+  // ==========================================================
+  const KEY_PENDING = 'ev_wallet_pending_refresh';
+  const KEY_LAST_APPLIED = 'ev_wallet_last_applied_refresh';
+
+  async function refreshSaldoYMovimientos(origen) {
+    // Si la vista aún no está montada, marcar pendiente
+    const wrapper = document.querySelector('.ev-wallet-wrapper');
+    if (!wrapper) {
+      try { sessionStorage.setItem(KEY_PENDING, String(Date.now())); } catch (_) {}
+      log('Refresh recibido pero billetera no está activa. Se marcó como pendiente.', origen || '');
+      return;
+    }
+
+    // Asegurar refs actualizadas
+    if (!refs.wrapper || refs.wrapper !== wrapper) {
+      capturarRefs();
+    }
+
+    await cargarSaldo();
+    await cargarMovimientos();
+
+    try { sessionStorage.setItem(KEY_LAST_APPLIED, String(Date.now())); } catch (_) {}
+  }
+
+  function onRefreshEvent(ev, fuente) {
+    const detail = ev?.detail || {};
+    log(`Evento refresh billetera (${fuente})`, detail);
+
+    // guardar pendiente siempre (por si llega antes de montar vista)
+    try { sessionStorage.setItem(KEY_PENDING, String(Date.now())); } catch (_) {}
+
+    // intentar refrescar si ya está visible
+    refreshSaldoYMovimientos(detail.motivo || 'EVENT');
+  }
+
+  function engancharListenerRefreshBilleteraGlobal() {
+    if (window.__EV_WALLET_REFRESH_GLOBAL_HOOKED__ === true) return;
+    window.__EV_WALLET_REFRESH_GLOBAL_HOOKED__ = true;
+
+    // Escuchar en window y document (ambos)
+    window.addEventListener('ev:billetera:refresh', (ev) => onRefreshEvent(ev, 'window'));
+    document.addEventListener('ev:billetera:refresh', (ev) => onRefreshEvent(ev, 'document'));
+  }
+
+  function aplicarPendienteSiExiste() {
+    let pending = null;
+    let lastApplied = null;
+
+    try { pending = Number(sessionStorage.getItem(KEY_PENDING) || 0); } catch (_) { pending = 0; }
+    try { lastApplied = Number(sessionStorage.getItem(KEY_LAST_APPLIED) || 0); } catch (_) { lastApplied = 0; }
+
+    // Si hay refresh pendiente posterior al último aplicado, refrescar al montar la vista
+    if (pending && pending > lastApplied) {
+      log('Detecté refresh pendiente. Refrescando billetera al montar vista.');
+      refreshSaldoYMovimientos('PENDING');
+      try { sessionStorage.setItem(KEY_LAST_APPLIED, String(Date.now())); } catch (_) {}
+    }
+  }
+
+  // Exponer alias compatible con Soporte (sin quitar EVWallet)
+  function exponerAPIGlobal() {
+    // Mantener tu API pública tal cual
+    window.EVWallet = window.EVWallet || {};
+    window.EVWallet.init = inicializarVista;
+
+    // API que Soporte puede usar como fallback
+    window.EVBilletera = window.EVBilletera || {};
+    window.EVBilletera.refreshSaldo = function (payload) {
+      log('EVBilletera.refreshSaldo invocado:', payload || {});
+      try { sessionStorage.setItem(KEY_PENDING, String(Date.now())); } catch (_) {}
+      refreshSaldoYMovimientos((payload && payload.motivo) ? payload.motivo : 'API');
+    };
+
+    // Extra opcional (si quieres llamarlo manualmente)
+    window.EVWallet.refresh = function (payload) {
+      log('EVWallet.refresh invocado:', payload || {});
+      try { sessionStorage.setItem(KEY_PENDING, String(Date.now())); } catch (_) {}
+      refreshSaldoYMovimientos((payload && payload.motivo) ? payload.motivo : 'API');
+    };
+  }
+
+  // Enganchar listener global apenas carga el JS (CLAVE)
+  engancharListenerRefreshBilleteraGlobal();
+  exponerAPIGlobal();
+
   // ------------------------------------
   // NUEVO: Enviar recarga real (multipart)
   // ------------------------------------
@@ -332,7 +418,6 @@
         swalErr(data.mensaje || 'Tu sesión expiró. Vuelve a iniciar sesión.');
         return;
       }
-
 
       // Duplicidad
       if (resp.status === 409) {
@@ -403,6 +488,9 @@
 
     inicializarQR();
     engancharEventosRecarga();
+
+    // NUEVO: si hubo un refresh mientras no estabas en billetera, aplícalo ahora
+    aplicarPendienteSiExiste();
   }
 
   // ------------------------------------
@@ -433,9 +521,24 @@
         return;
       }
 
-      const html = await resp.text();
-      contentWrapper.innerHTML = html;
+    const html = await resp.text();
+    contentWrapper.innerHTML = html;
+
+    /* 🔴 ESTA LÍNEA ES LA QUE TE FALTA */
+    if (window.EVWallet?.init) {
+      window.EVWallet.init();
+    }
+
+      document.dispatchEvent(new Event('ev:content-loaded'));
+
       inicializarVista();
+
+      // Fallback: refresco forzado al entrar
+      setTimeout(() => {
+        cargarSaldo();
+        cargarMovimientos();
+      }, 150);
+
 
     } catch (err) {
       error('Excepción al cargar billetera:', err);
@@ -468,8 +571,13 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     engancharMenuBilletera();
+  });
+
+  // CUANDO SE CARGA POR AJAX / PARCIAL
+  document.addEventListener('ev:content-loaded', () => {
     inicializarVista();
   });
+
 
   const observer = new MutationObserver(() => {
     const wrapperActual = document.querySelector('.ev-wallet-wrapper');
@@ -479,5 +587,6 @@
 
   observer.observe(document.body, { childList: true, subtree: true });
 
+  // Mantener tu API pública tal cual
   window.EVWallet = { init: inicializarVista };
 })();

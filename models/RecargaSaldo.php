@@ -37,7 +37,6 @@ class RecargaSaldo extends Conexion
         return (bool)$stmt->fetchColumn();
     }
 
-
     // Tu método original (lo dejo intacto)
     public function registrarRecarga(
         int $codigoUsuario,
@@ -62,7 +61,6 @@ class RecargaSaldo extends Conexion
 
         return (int)$this->dblink->lastInsertId();
     }
-
 
     // NUEVO: alias para que calce con el controlador que te pasé
     public function registrarSolicitud(
