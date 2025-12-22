@@ -529,3 +529,46 @@ CREATE TABLE billetera_movimiento (
 );
 
 
+ALTER TABLE billetera_movimiento
+  ADD COLUMN saldo_antes DECIMAL(10,2) NOT NULL AFTER monto,
+  ADD COLUMN es_promocional TINYINT(1) NOT NULL DEFAULT 0 AFTER descripcion,
+  ADD COLUMN fecha_expira DATETIME NULL AFTER es_promocional;
+
+CREATE INDEX idx_mov_billetera_fecha
+  ON billetera_movimiento (codigo_billetera, fecha_movimiento);
+
+CREATE INDEX idx_mov_origen
+  ON billetera_movimiento (origen);
+
+CREATE INDEX idx_mov_referencia
+  ON billetera_movimiento (codigo_referencia);
+
+-- DROP TABLE recarga_saldo;
+
+CREATE TABLE recarga_saldo (
+  codigo_recarga      INT AUTO_INCREMENT PRIMARY KEY,
+  codigo_usuario      INT NOT NULL,
+  monto               DECIMAL(10,2) NOT NULL,
+  metodo              ENUM('yape','plin') NOT NULL,
+  id_operacion        VARCHAR(80) NOT NULL,
+  comprobante_path    VARCHAR(255) NULL,
+
+  estado              ENUM('pendiente','observada','aprobada','rechazada') NOT NULL DEFAULT 'pendiente',
+  comentario_soporte  VARCHAR(255) NULL,
+  codigo_soporte      INT NULL,
+  fecha_revision      DATETIME NULL,
+
+  fecha_creacion      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE KEY uq_recarga_operacion (metodo, id_operacion),
+  KEY idx_recarga_estado (estado),
+  KEY idx_recarga_usuario (codigo_usuario),
+
+  CONSTRAINT fk_recarga_usuario
+    FOREIGN KEY (codigo_usuario)
+    REFERENCES usuario(codigo_usuario)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+);
+
+

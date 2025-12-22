@@ -1,3 +1,4 @@
+<!-- views/estilos/atenderRecargasEstilo.php -->
 <style>
 /* =========================================================
    EV - ATENDER RECARGAS (Soporte) - ESTILO FINAL
@@ -287,6 +288,41 @@
 .ev-table tbody td{
   vertical-align: middle;
   border-color: var(--ev-gris-200);
+}
+
+/* =========================================================
+   NUEVO: Método (ícono Yape/Plin) - SOLO ICONO
+   - No rompe nada: si no cargan imágenes, cae a texto
+========================================================= */
+.ev-metodo{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width: 44px;
+  height: 32px;
+  border-radius: 12px;
+  border: 1px solid rgba(148,163,184,0.22);
+  background: #fff;
+  overflow:hidden;
+}
+.ev-metodo img{
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  display:block;
+}
+.ev-metodo-yape{
+  background: rgba(168, 85, 247, 0.10);
+  border-color: rgba(168, 85, 247, 0.25);
+}
+.ev-metodo-plin{
+  background: rgba(34, 197, 94, 0.10);
+  border-color: rgba(34, 197, 94, 0.25);
+}
+.ev-metodo-fallback{
+  font-weight: 900;
+  font-size: 0.78rem;
+  color: var(--ev-gris-600);
 }
 
 /* Empty state */

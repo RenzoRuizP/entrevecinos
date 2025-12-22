@@ -132,6 +132,37 @@
     return map[e] || 'ev-badge ev-badge-pendiente';
   }
 
+  // =========================================================
+  // NUEVO: Render de método (solo ícono: Yape/Plin)
+  // - No rompe nada: si no hay assets, cae a texto
+  // =========================================================
+  function renderMetodoIcon(metodoRaw) {
+    const m = String(metodoRaw || '').trim().toLowerCase();
+
+    // Rutas de assets (ajusta SOLO si tus imágenes están en otro lugar)
+    const iconYape = `${BASE}/resources/images/yape.png`;
+    const iconPlin = `${BASE}/resources/images/plin.png`;
+
+    if (m === 'yape') {
+      return `
+        <span class="ev-metodo ev-metodo-yape" title="Yape" aria-label="Yape">
+          <img src="${iconYape}" alt="Yape" onerror="this.outerHTML='<span class=&quot;ev-metodo-fallback&quot;>YAPE</span>';">
+        </span>
+      `;
+    }
+
+    if (m === 'plin') {
+      return `
+        <span class="ev-metodo ev-metodo-plin" title="Plin" aria-label="Plin">
+          <img src="${iconPlin}" alt="Plin" onerror="this.outerHTML='<span class=&quot;ev-metodo-fallback&quot;>PLIN</span>';">
+        </span>
+      `;
+    }
+
+    // fallback si viene otro valor
+    return `<span class="ev-metodo-fallback">${escapeHtml((metodoRaw || '').toUpperCase() || '—')}</span>`;
+  }
+
   function endpointListar() {
     const estado = refs.fEstado?.value || 'pendiente';
     const rango = refs.fRango?.value || '7';
@@ -181,7 +212,10 @@
       const fecha = `${escapeHtml(r.fecha)} ${escapeHtml(r.hora)}`;
       const usuario = escapeHtml(r.usuario_nombre || '—');
       const monto = formatearMonto(r.monto);
-      const metodo = escapeHtml((r.metodo || '').toUpperCase());
+
+      // CAMBIO: antes era texto. Ahora es ícono.
+      const metodoIcon = renderMetodoIcon(r.metodo);
+
       const op = escapeHtml(r.id_operacion || '—');
       const est = escapeHtml(r.estado || 'pendiente');
 
@@ -190,7 +224,7 @@
           <td>${fecha}</td>
           <td>${usuario}</td>
           <td>${monto}</td>
-          <td>${metodo}</td>
+          <td>${metodoIcon}</td>
           <td><span class="ev-mono">${op}</span></td>
           <td><span class="${badgeEstado(est)}">${est}</span></td>
           <td class="text-end">
@@ -214,7 +248,6 @@
     refs.lblMeta.textContent = `Mostrando ${shown} registros`;
     refs.lblPendientes.textContent = String(state.pendientes || 0);
 
-    const from = total === 0 ? 0 : ((page - 1) * size + 1);
     const to = total === 0 ? 0 : ((page - 1) * size + shown);
 
     refs.lblFooterLeft.textContent = `Mostrando ${to} de ${total}`;
@@ -237,7 +270,18 @@
         return;
       }
 
-      if (!resp.ok || !json.ok) {
+      // Mejora: si falla el backend, avisar en vez de “silenciar”
+      if (!resp.ok) {
+        error('HTTP', resp.status, json);
+        swalErr(json.mensaje || 'Error al consultar recargas (backend). Revisa logs.');
+        renderEmpty();
+        refs.lblMeta.textContent = 'Mostrando 0 registros';
+        return;
+      }
+
+      if (!json.ok) {
+        error('Respuesta ok=false', json);
+        swalErr(json.mensaje || 'No se pudo cargar la lista de recargas.');
         renderEmpty();
         refs.lblMeta.textContent = 'Mostrando 0 registros';
         return;
@@ -274,7 +318,10 @@
     refs.mCondominio.textContent = rec.condominio || '—';
 
     refs.mMonto.textContent = formatearMonto(rec.monto);
+
+    // Mantengo tu lógica del modal (texto). Si luego quieres ícono aquí también, lo adaptamos.
     refs.mMetodo.textContent = (rec.metodo || '—').toUpperCase();
+
     refs.mOperacion.textContent = rec.id_operacion || '—';
 
     const est = (rec.estado || 'pendiente').toLowerCase();
@@ -283,7 +330,6 @@
 
     refs.mComentario.value = '';
 
-    // Imagen
     const path = rec.comprobante_path ? `${BASE}/${String(rec.comprobante_path).replace(/^\/+/, '')}` : '';
     if (path) {
       refs.mImagen.src = path;
@@ -330,8 +376,6 @@
 
       swalOk(json.mensaje || 'Estado actualizado.');
       refs.modal?.hide();
-
-      // Recargar lista
       loadList();
 
     } catch (e) {
@@ -341,6 +385,10 @@
   }
 
   function bindEvents() {
+    // Evitar doble bind si re-init
+    if (refs.form.dataset.evHooked === '1') return;
+    refs.form.dataset.evHooked = '1';
+
     refs.form.addEventListener('submit', (e) => {
       e.preventDefault();
       state.page = 1;
@@ -358,13 +406,11 @@
 
     refs.btnRefrescar?.addEventListener('click', () => loadList());
 
-    // Quick filters
     refs.btnVerPendientes?.addEventListener('click', () => { refs.fEstado.value = 'pendiente'; state.page = 1; loadList(); });
     refs.btnVerObservadas?.addEventListener('click', () => { refs.fEstado.value = 'observada'; state.page = 1; loadList(); });
     refs.btnVerAprobadas?.addEventListener('click', () => { refs.fEstado.value = 'aprobada'; state.page = 1; loadList(); });
     refs.btnVerRechazadas?.addEventListener('click', () => { refs.fEstado.value = 'rechazada'; state.page = 1; loadList(); });
 
-    // Delegación: revisar
     refs.tbody.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-ev-action="revisar"]');
       if (!btn) return;
@@ -377,11 +423,30 @@
   }
 
   function init() {
+    // La vista tiene .ev-recargas-page: si no existe, no inicializar.
+    if (!document.querySelector('.ev-recargas-page')) return;
+
     if (!capturarRefs()) return;
+
     bindEvents();
     loadList();
   }
 
+  // 1) Inicialización normal
   document.addEventListener('DOMContentLoaded', init);
+
+  // 2) Inicialización cuando se carga como parcial (después del DOMContentLoaded)
+  const obs = new MutationObserver(() => {
+    // Si la vista apareció y aún no fue inicializada, init.
+    // Usamos el flag del form para prevenir re-binds.
+    const form = document.getElementById('formFiltros');
+    if (form && form.dataset.evHooked !== '1') {
+      init();
+    }
+  });
+  obs.observe(document.body, { childList: true, subtree: true });
+
+  // Exponer init por si quieres llamarlo manualmente desde tu loader
+  window.EVRecargas = { init };
 
 })();
