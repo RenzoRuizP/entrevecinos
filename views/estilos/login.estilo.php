@@ -63,15 +63,19 @@ body.login-body {
     linear-gradient(145deg, #0F592F 0%, #0E7A43 45%, #16A34A 85%);
 }
 
-/* Overlay */
+/* Overlay suave del hero */
 .login-hero::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 85% 85%, rgba(187,247,208,0.18) 0, transparent 60%);
+  background:
+    radial-gradient(circle at 85% 85%, rgba(187,247,208,0.18) 0, transparent 60%);
   opacity: 0.9;
   pointer-events: none;
 }
+
+/* (Se mantiene el DIV por compatibilidad con tu HTML actual) */
+.login-hero-layer{ display:none; }
 
 .login-hero-content {
   position: relative;
@@ -92,24 +96,25 @@ body.login-body {
   color: #fefce8;
 }
 
-/* Texto hero: menos “bloque” y mejor respiración */
-.login-hero-text{
+.login-hero-text {
   font-size: 0.98rem;
   color: #E5E7EB;
-  margin-bottom: 14px;
   line-height: 1.6;
   text-shadow: 0 1px 2px rgba(0,0,0,0.20);
+
+  /* Ajuste UX/UI (antes estaba en login.php) */
+  margin-bottom: 14px;
   max-width: 40ch;
 }
 
-/* Lista: alineación limpia y escaneo rápido (grid) */
+/* Lista compacta (antes estaba en login.php) */
 .login-hero-list{
   margin-top: 10px;
   padding-left: 0;
   list-style: none;
   display: grid;
   gap: 12px;
-  margin-bottom: 18px;
+  margin-bottom: 22px;
 }
 
 .login-hero-list li{
@@ -118,6 +123,7 @@ body.login-body {
   column-gap: 12px;
   align-items: center;
   line-height: 1.25;
+  font-size: 0.95rem;
   color: #F9FAFB;
   text-shadow: 0 1px 2px rgba(0,0,0,0.20);
 }
@@ -134,7 +140,7 @@ body.login-body {
   font-weight: 700;
 }
 
-/* Badge de marca: estilo “badge”, con feedback sutil (no botón) */
+/* Badge pill (antes estaba en login.php) */
 .badge-pill{
   display: inline-flex;
   align-items: center;
@@ -171,11 +177,13 @@ body.login-body {
   background: #ffffff;
   display: flex;
   flex-direction: column;
-  padding: 32px 40px 28px;
+
+  /* Micro-ajuste: menos aire arriba, sin perder elegancia */
+  padding: 26px 40px 24px;
 }
 
 .login-panel-header {
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   position: relative;
 }
 
@@ -184,20 +192,23 @@ body.login-body {
   position: absolute;
   width: 120px;
   height: 120px;
-  top: -20px;
+  top: -22px;
   left: 50%;
   transform: translateX(-50%);
   background: radial-gradient(circle, rgba(22,163,74,0.10), transparent 70%);
   z-index: -1;
 }
 
-.login-logo {
-  max-height: 56px;
+/* Logo más presente (tu observación) */
+.login-logo{
+  max-height: 76px;         /* antes: 80 en tu css, pero en tu vista lo bajaste a 56 */
+  width: auto;
+  margin-bottom: 8px !important;
 }
 
 .login-panel-title {
-  font-size: 1.45rem;
-  font-weight: 700;
+  font-size: 1.38rem;       /* micro: un poco menos que antes para jerarquía con logo */
+  font-weight: 650;         /* evita competir con marca */
   color: var(--ev-verde-oscuro);
   margin-bottom: 4px;
 }
@@ -206,10 +217,9 @@ body.login-body {
   font-size: 0.88rem;
   color: var(--ev-gris-500);
   margin-bottom: 0;
-  max-width: 34ch;
+  max-width: 44ch;
   margin-left: auto;
   margin-right: auto;
-  line-height: 1.5;
 }
 
 .login-panel-body {
@@ -231,20 +241,16 @@ body.login-body {
   font-size: 1rem;
 }
 
+/* Inputs: un poco más “activos”/cómodos */
 .login-form input.form-control {
-  height: 44px;
   padding-left: 38px;
+  padding-top: 11px;     /* +2px */
+  padding-bottom: 11px;  /* +2px */
   border-radius: 10px;
-  border: 1px solid rgba(22,163,74,0.28);
+  border: 1px solid var(--ev-verde-claro);
   font-size: 0.95rem;
   transition: all 0.18s ease-out;
   box-shadow: 0 0 0 0 rgba(22,163,74,0);
-}
-
-@media (hover:hover){
-  .login-form input.form-control:hover{
-    border-color: rgba(22,163,74,0.45);
-  }
 }
 
 .login-form input.form-control::placeholder {
@@ -254,26 +260,32 @@ body.login-body {
 
 .login-form input.form-control:focus {
   border-color: var(--ev-verde);
-  box-shadow: 0 0 0 3px rgba(22,163,74,0.22);
+  box-shadow: 0 0 0 3px rgba(22,163,74,0.24);
   outline: none;
 }
 
 .login-form .mb-3 {
-  margin-bottom: 1.15rem !important;
+  margin-bottom: 1.05rem !important; /* un poco más compacto */
 }
 
 .login-form .mb-2 {
-  margin-bottom: 1.05rem !important;
+  margin-bottom: 0.95rem !important;
 }
 
 /* Recordarme + link */
 .login-remember-row{
-  padding-top: 2px;
-  padding-bottom: 2px;
+  margin-top: 2px;
 }
 
 .login-remember-row .form-check-input {
   border-radius: 4px;
+  transform: scale(1.05);
+  transform-origin: left center;
+}
+
+.login-remember-row .form-check-label{
+  color: #374151;
+  font-size: 0.9rem;
 }
 
 .login-remember-row .form-check-input:checked {
@@ -283,7 +295,6 @@ body.login-body {
 
 .login-link-forgot {
   font-size: 0.88rem;
-  font-weight: 500;
   color: var(--ev-verde-oscuro);
   text-decoration: none;
 }
@@ -291,12 +302,6 @@ body.login-body {
 .login-link-forgot:hover {
   color: var(--ev-verde);
   text-decoration: underline;
-}
-
-.login-link-forgot:focus-visible{
-  outline: 3px solid rgba(22,163,74,0.25);
-  outline-offset: 3px;
-  border-radius: 8px;
 }
 
 /* Botón Iniciar sesión */
@@ -322,22 +327,9 @@ body.login-body {
   box-shadow: 0 6px 16px rgba(234,124,18,0.30);
 }
 
-.btn-login:focus-visible{
-  outline: 3px solid rgba(234,124,18,0.28);
-  outline-offset: 3px;
-}
-
-.btn-login:disabled,
-.btn-login.disabled{
-  opacity: 0.75;
-  transform: none !important;
-  cursor: not-allowed;
-  box-shadow: 0 10px 22px rgba(234,124,18,0.20);
-}
-
 /* Botón Crear cuenta */
 .login-actions {
-  margin-top: 12px;
+  margin-top: 10px; /* un poco más cerca del flujo */
 }
 
 .login-actions-text {
@@ -365,16 +357,10 @@ body.login-body {
   color: var(--ev-verde);
 }
 
-.btn-outline-register:focus-visible{
-  outline: 3px solid rgba(22,163,74,0.22);
-  outline-offset: 3px;
-}
-
 /* Footer */
 .login-panel-footer small {
   font-size: 0.78rem;
   color: #9ca3af;
-  opacity: 0.9;
 }
 
 /* ============================
@@ -592,57 +578,9 @@ body.login-body {
 }
 
 /* ============================
-   SWEETALERT2 - TEMA EV
-   (sin tocar tu JS)
-============================ */
-.swal2-popup{
-  border-radius: 18px !important;
-  padding: 22px 22px 18px !important;
-  box-shadow: 0 22px 60px rgba(0,0,0,0.22) !important;
-  font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, sans-serif !important;
-}
-
-.swal2-title{
-  color: #111827 !important;
-  font-weight: 700 !important;
-}
-
-.swal2-html-container{
-  color: #4B5563 !important;
-  line-height: 1.5 !important;
-}
-
-.swal2-confirm{
-  border-radius: 12px !important;
-  padding: 10px 18px !important;
-  font-weight: 600 !important;
-  background: linear-gradient(135deg, var(--ev-naranja), #F59E0B) !important;
-  box-shadow: 0 12px 26px rgba(234,124,18,0.30) !important;
-}
-
-.swal2-confirm:focus-visible{
-  outline: 3px solid rgba(234,124,18,0.28) !important;
-  outline-offset: 3px !important;
-}
-
-.swal2-confirm:hover{
-  background: linear-gradient(135deg, var(--ev-naranja-oscuro), #EA580C) !important;
-}
-
-/* Ajuste sutil al icono de error (mejor balance con el resto) */
-.swal2-icon.swal2-error{
-  border-color: rgba(239,68,68,0.35) !important;
-}
-
-.swal2-icon.swal2-error [class^="swal2-x-mark-line"]{
-  background-color: rgba(239,68,68,0.70) !important;
-}
-
-/* ============================
    RESPONSIVO
 ============================ */
-@media (max-width: 992px) {
-  .login-shell { max-width: 880px; }
+@media (max-width: 992px){
   .login-hero-text{ max-width: 52ch; }
   .login-hero-list{ gap: 10px; }
   .login-hero-list li{ grid-template-columns: 24px 1fr; }
@@ -661,16 +599,35 @@ body.login-body {
     min-height: 0;
   }
 
-  .login-hero { padding: 32px 24px 24px; }
-  .login-panel { padding: 24px 22px 20px; }
+  .login-hero {
+    padding: 32px 24px 24px;
+  }
+
+  .login-panel {
+    padding: 22px 22px 18px;
+  }
+
+  .login-logo{
+    max-height: 70px; /* se mantiene presente en móvil */
+  }
 }
 
 @media (max-width: 576px) {
-  .login-hero { padding: 26px 20px 18px; }
+  .login-hero {
+    padding: 26px 20px 18px;
+  }
 
-  .login-hero-title { font-size: 1.7rem; }
-  .login-panel-title { font-size: 1.25rem; }
-  .login-shell { border-radius: 20px; }
+  .login-hero-title {
+    font-size: 1.7rem;
+  }
+
+  .login-panel-title {
+    font-size: 1.25rem;
+  }
+
+  .login-shell {
+    border-radius: 20px;
+  }
 
   /* Ajustes específicos para el modal en móvil */
   .modal-body {
@@ -678,7 +635,9 @@ body.login-body {
     padding-right: 1.25rem;
   }
 
-  .modal .progress { height: 30px !important; }
+  .modal .progress {
+    height: 30px !important;
+  }
 
   .modal .progress-bar {
     font-size: 0.6rem;

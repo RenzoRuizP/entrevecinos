@@ -1,11 +1,7 @@
 <!-- views/estilos/atenderRecargasEstilo.php -->
 <style>
 /* =========================================================
-   EV - ATENDER RECARGAS (Soporte) - ESTILO FINAL (MEJORADO)
-   - Hero degradado más sutil
-   - Tabla alineada (monto, método, columnas)
-   - Hover de filas (affordance)
-   - Método con ícono (yape/plin)
+   EV - ATENDER RECARGAS (Soporte) - ESTILO FINAL
 ========================================================= */
 
 :root {
@@ -23,9 +19,7 @@
 }
 
 /* Página */
-.ev-recargas-page{
-  color: var(--ev-texto);
-}
+.ev-recargas-page{ color: var(--ev-texto); }
 
 /* Cards base */
 .ev-card{
@@ -33,38 +27,26 @@
   background: #ffffff;
   border: 1px solid rgba(148,163,184,0.22);
   box-shadow: 0 14px 40px rgba(15, 23, 42, 0.10);
-  overflow: hidden;
+  overflow: hidden; /* mantenemos, pero agregamos padding interno a tabla */
 }
 
-/* HERO CARD (degradado más sutil y limpio) */
+/* HERO CARD */
 .ev-hero{
   background:
-    radial-gradient(circle at 82% 18%, rgba(22,163,74,0.06), transparent 58%),
-    radial-gradient(circle at 18% 82%, rgba(234,124,18,0.05), transparent 58%),
-    linear-gradient(180deg, rgba(249,250,251,0.65), rgba(255,255,255,1));
+    radial-gradient(circle at 80% 20%, rgba(22,163,74,0.08), transparent 55%),
+    radial-gradient(circle at 15% 80%, rgba(234,124,18,0.07), transparent 55%),
+    #ffffff;
 }
-.ev-hero-body{
-  padding: 18px 18px 14px;
-}
+.ev-hero-body{ padding: 18px 18px 14px; }
 .ev-hero-top{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:16px;
-  flex-wrap: wrap;
+  display:flex; align-items:flex-start; justify-content:space-between;
+  gap:16px; flex-wrap: wrap;
 }
-.ev-hero-right{
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
+.ev-hero-right{ display:flex; align-items:center; gap:10px; }
 .ev-hero-bottom{
   margin-top: 14px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  flex-wrap: wrap;
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; flex-wrap: wrap;
 }
 
 /* Header texts */
@@ -75,10 +57,7 @@
   letter-spacing: 0.01em;
   margin: 0;
 }
-.ev-recargas-subtitle{
-  color: var(--ev-gris-500);
-  font-size: 0.95rem;
-}
+.ev-recargas-subtitle{ color: var(--ev-gris-500); font-size: 0.95rem; }
 
 /* Botones */
 .ev-btn-orange{
@@ -97,10 +76,7 @@
   transform: translateY(-1px);
   box-shadow: 0 14px 32px rgba(234,124,18,0.48);
 }
-.ev-btn-orange:active{
-  transform: translateY(0);
-  box-shadow: 0 6px 16px rgba(234,124,18,0.30);
-}
+.ev-btn-orange:active{ transform: translateY(0); box-shadow: 0 6px 16px rgba(234,124,18,0.30); }
 
 .ev-btn-light{
   border-radius: 999px;
@@ -110,10 +86,7 @@
   font-weight: 750;
   transition: all 0.18s ease;
 }
-.ev-btn-light:hover{
-  background: #ECFDF5;
-  border-color: rgba(22,163,74,0.35);
-}
+.ev-btn-light:hover{ background: #ECFDF5; border-color: rgba(22,163,74,0.35); }
 
 .ev-btn-outline{
   border-radius: 999px;
@@ -122,10 +95,7 @@
   color: #4B5563;
   font-weight: 750;
 }
-.ev-btn-outline:hover{
-  background: #F3F4F6;
-  color: #111827;
-}
+.ev-btn-outline:hover{ background: #F3F4F6; color: #111827; }
 
 .ev-btn-success{
   border-radius: 999px;
@@ -159,20 +129,15 @@
 
 /* Icon button */
 .ev-icon-btn{
-  width: 42px;
-  height: 42px;
+  width: 42px; height: 42px;
   border-radius: 14px;
   border: 1px solid var(--ev-gris-200);
   background: #fff;
-  display: grid;
-  place-items: center;
+  display: grid; place-items: center;
   color: var(--ev-verde-oscuro);
   transition: all 0.18s ease;
 }
-.ev-icon-btn:hover{
-  background: #ECFDF5;
-  border-color: rgba(22,163,74,0.35);
-}
+.ev-icon-btn:hover{ background: #ECFDF5; border-color: rgba(22,163,74,0.35); }
 
 /* Summary pill */
 .ev-summary-pill{
@@ -184,10 +149,7 @@
   background: linear-gradient(90deg, rgba(187,247,208,0.55), rgba(187,247,208,0.20));
   border: 1px solid rgba(22,163,74,0.20);
 }
-.ev-summary-label{
-  color: #14532D;
-  font-weight: 850;
-}
+.ev-summary-label{ color: #14532D; font-weight: 850; }
 .ev-summary-count{
   background: rgba(255,255,255,0.90);
   border: 1px solid rgba(22,163,74,0.18);
@@ -200,11 +162,7 @@
 }
 
 /* Quick actions */
-.ev-quick-actions{
-  display:flex;
-  gap:8px;
-  flex-wrap: wrap;
-}
+.ev-quick-actions{ display:flex; gap:8px; flex-wrap: wrap; }
 
 /* Section cards */
 .ev-card-header{
@@ -213,9 +171,7 @@
   background: #ffffff;
 }
 .ev-card-header-row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
+  display:flex; align-items:center; justify-content:space-between;
   gap:10px;
 }
 .ev-card-title{
@@ -224,17 +180,11 @@
   font-weight: 900;
   color: var(--ev-verde-oscuro);
 }
-.ev-table-meta{
-  color: var(--ev-gris-500);
-  font-size: 0.88rem;
-}
-.ev-card-body{
-  padding: 16px;
-}
+.ev-table-meta{ color: var(--ev-gris-500); font-size: 0.88rem; }
+
+.ev-card-body{ padding: 16px; }
 .ev-card-footer{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
+  display:flex; align-items:center; justify-content:space-between;
   padding: 12px 16px;
   border-top: 1px solid var(--ev-gris-200);
   background: #ffffff;
@@ -244,11 +194,7 @@
   font-weight: 650;
   font-size: 0.9rem;
 }
-.ev-footer-right{
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
+.ev-footer-right{ display:flex; align-items:center; gap:10px; }
 .ev-page-pill{
   display:inline-flex;
   min-width: 42px;
@@ -263,9 +209,7 @@
 
 /* Inputs */
 .ev-input-icon{
-  position:absolute;
-  top:50%;
-  left:14px;
+  position:absolute; top:50%; left:14px;
   transform: translateY(-50%);
   color:#9ca3af;
 }
@@ -281,7 +225,18 @@
   outline: none;
 }
 
+/* =========================================================
+   TABLA: evitar “corte” en los bordes y mejorar layout
+========================================================= */
+.ev-table-wrap{
+  padding: 0 14px 14px;
+  background: #fff;
+}
+
 /* Table */
+.ev-table{
+  width: 100%;
+}
 .ev-table thead th{
   background: var(--ev-gris-050);
   color: #374151;
@@ -296,52 +251,41 @@
   padding-bottom: 12px;
 }
 
-/* Hover/affordance (fila "se siente" interactiva) */
-.ev-table tbody tr:hover{
-  background: rgba(236,253,245,0.65);
-  box-shadow: inset 3px 0 0 rgba(22,163,74,0.55);
-}
+/* Column sizing / alignment */
+.ev-col-fecha{ width: 170px; }
+.ev-col-monto{ width: 140px; }
+.ev-col-metodo{ width: 90px; }
+.ev-col-operacion{ width: 140px; }
+.ev-col-estado{ width: 130px; }
+.ev-col-acciones{ width: 130px; }
 
-/* Texto monoespaciado y números tabulares */
-.ev-mono, .ev-money{
-  font-variant-numeric: tabular-nums;
-}
-
-/* ====== TABLA: ANCHOS Y ALINEACIÓN ====== */
-.ev-table th:nth-child(1), .ev-table td:nth-child(1){ width: 160px; } /* Fecha */
-.ev-table th:nth-child(3), .ev-table td:nth-child(3){ width: 120px; text-align:right; } /* Monto */
-.ev-table th:nth-child(4), .ev-table td:nth-child(4){ width: 90px;  text-align:center; } /* Método */
-.ev-table th:nth-child(5), .ev-table td:nth-child(5){ width: 130px; } /* ID */
-.ev-table th:nth-child(6), .ev-table td:nth-child(6){ width: 120px; } /* Estado */
-.ev-table th:nth-child(7), .ev-table td:nth-child(7){ width: 120px; text-align:right; } /* Acciones */
-
-/* Usuario: evita que empuje columnas */
-.ev-table td:nth-child(2){
-  max-width: 520px;
+/* Usuario: evita que “se coma” todo */
+.ev-col-usuario{ width: auto; min-width: 260px; max-width: 420px; }
+.ev-td-usuario{
+  max-width: 420px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Fecha en 2 líneas */
+/* Fecha en dos líneas */
 .ev-fecha{
   display:flex;
   flex-direction:column;
-  line-height:1.15;
+  line-height: 1.1;
 }
-.ev-fecha .ev-fecha-date{
-  font-weight:900;
-  color:#111827;
-}
-.ev-fecha .ev-fecha-time{
-  font-size:0.78rem;
-  color: var(--ev-gris-500);
-  margin-top: 2px;
+.ev-fecha .ev-fecha-dia{ font-weight: 900; color: #111827; }
+.ev-fecha .ev-fecha-hora{ font-size: 0.78rem; color: var(--ev-gris-500); margin-top: 4px; }
+
+/* Código monoespaciado */
+.ev-mono{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-weight: 800;
+  font-size: 0.92rem;
 }
 
 /* =========================================================
    Método (ícono Yape/Plin) - SOLO ICONO
-   - Si no cargan imágenes, cae a texto
 ========================================================= */
 .ev-metodo{
   display:inline-flex;
@@ -375,24 +319,16 @@
 }
 
 /* Empty state */
-.ev-empty{
-  color: var(--ev-gris-500);
-  font-weight: 700;
-}
+.ev-empty{ color: var(--ev-gris-500); font-weight: 700; }
 .ev-empty-wrap{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:8px;
+  display:flex; flex-direction:column;
+  align-items:center; gap:8px;
 }
 .ev-empty-ico{
   font-size: 1.6rem;
   color: rgba(15,89,47,0.35);
 }
-.ev-empty-text{
-  color: var(--ev-gris-600);
-  font-weight: 700;
-}
+.ev-empty-text{ color: var(--ev-gris-600); font-weight: 700; }
 
 /* Badges */
 .ev-badge{
@@ -403,6 +339,7 @@
   font-size: 0.82rem;
   font-weight: 900;
   border: 1px solid transparent;
+  text-transform: lowercase;
 }
 .ev-badge-pendiente{
   background: rgba(234,124,18,0.12);
@@ -509,9 +446,7 @@
   .ev-recargas-title{ font-size: 1.65rem; }
   .ev-quick-actions .btn{ width: 100%; }
   .ev-hero-body{ padding: 16px 14px 12px; }
-
-  .ev-table td:nth-child(2){
-    max-width: 220px;
-  }
+  .ev-col-fecha{ width: 150px; }
+  .ev-col-usuario{ min-width: 220px; max-width: 320px; }
 }
 </style>

@@ -97,7 +97,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
       <div class="login-panel-body">
         <form id="formLogin" class="login-form">
           <div class="mb-3 position-relative">
-            <i class="bi bi-envelope-fill input-icon"></i>
+            <i class="bi bi-envelope-fill input-icon" aria-hidden="true"></i>
             <input
               id="email"
               name="email"
@@ -110,7 +110,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
           </div>
 
           <div class="mb-3 position-relative">
-            <i class="bi bi-lock-fill input-icon"></i>
+            <i class="bi bi-lock-fill input-icon" aria-hidden="true"></i>
             <input
               id="clave"
               name="clave"

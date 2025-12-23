@@ -7,7 +7,7 @@ require_once __DIR__ . '/../Config/config.php';
 
 <div class="container-fluid px-3 px-md-4 py-3 ev-recargas-page">
 
-  <!-- HERO CARD (cabecera en card como Mi Billetera) -->
+  <!-- HERO CARD -->
   <div class="ev-card ev-hero mb-3">
     <div class="ev-hero-body">
       <div class="ev-hero-top">
@@ -124,18 +124,19 @@ require_once __DIR__ . '/../Config/config.php';
       <div class="ev-table-meta" id="lblMeta">Mostrando 0 registros</div>
     </div>
 
-    <div class="ev-card-body p-0">
+    <!-- IMPORTANTE: envolvemos tabla para que no se “corte” y tenga padding -->
+    <div class="ev-table-wrap">
       <div class="table-responsive">
         <table class="table ev-table mb-0">
           <thead>
             <tr>
-              <th>Fecha</th>
-              <th>Usuario</th>
-              <th>Monto</th>
-              <th>Método</th>
-              <th>ID Operación</th>
-              <th>Estado</th>
-              <th class="text-end">Acciones</th>
+              <th class="ev-col-fecha">Fecha</th>
+              <th class="ev-col-usuario">Usuario</th>
+              <th class="text-end ev-col-monto">Monto</th>
+              <th class="text-center ev-col-metodo">Método</th>
+              <th class="ev-col-operacion">ID Operación</th>
+              <th class="ev-col-estado">Estado</th>
+              <th class="text-end ev-col-acciones">Acciones</th>
             </tr>
           </thead>
           <tbody id="tbodyRecargas">

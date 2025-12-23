@@ -5,9 +5,10 @@
   const BASE = (window.BASE_URL || '').replace(/\/$/, '');
   const LOG_PREFIX = '[BILLETERA]';
 
-  // Canal cross-tab
-  const BC_NAME = 'EV_BILLETERA_CHANNEL';
-  const LS_KEY  = 'EV_BILLETERA_REFRESH';
+  // BroadcastChannel (cross-tab)
+  const BC_NAME = 'EV_CHANNEL';
+  let bc = null;
+  try { bc = ('BroadcastChannel' in window) ? new BroadcastChannel(BC_NAME) : null; } catch (_) { bc = null; }
 
   let refs = {
     wrapper: null,
@@ -43,16 +44,10 @@
     }
   };
 
-  // Estado interno
-  let walletActive = false;
-  let pendingRefresh = null; // guarda payload si llegó evento antes de estar activa
-
-  // Helpers de log
   function log() { if (window.console && console.log) console.log(LOG_PREFIX, ...arguments); }
   function warn() { if (window.console && console.warn) console.warn(LOG_PREFIX, ...arguments); }
   function error() { if (window.console && console.error) console.error(LOG_PREFIX, ...arguments); }
 
-  // Captura de referencias DOM de la vista
   function capturarRefs() {
     refs.wrapper = document.querySelector('.ev-wallet-wrapper');
     if (!refs.wrapper) return false;
@@ -77,7 +72,6 @@
     return true;
   }
 
-  // Utilitarios
   function formatearMonto(monto) {
     const n = Number(monto || 0);
     return 'S/ ' + n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -96,7 +90,6 @@
     alert(msg);
   }
 
-  // Parser seguro: JSON o texto
   async function leerRespuestaSeguro(resp) {
     const ct = (resp.headers.get('content-type') || '').toLowerCase();
     if (ct.includes('application/json')) {
@@ -107,7 +100,6 @@
     return { ok: false, mensaje: txt || 'Respuesta no válida del servidor.' };
   }
 
-  // Lógica QR dinámico Plin / Yape
   function actualizarQRDesdeSelect() {
     if (!refs.recargaTipo) return;
     const tipo = (refs.recargaTipo.value || '').toLowerCase();
@@ -138,7 +130,6 @@
     actualizarQRDesdeSelect();
   }
 
-  // API: saldo y movimientos
   async function cargarSaldo() {
     if (!refs.saldo) return;
 
@@ -275,59 +266,6 @@
     }
   }
 
-  // ---- Refresh público: saldo + movimientos
-  async function refreshSaldoYMovs(payload) {
-    log('EVBilletera.refreshSaldoYMovs invocado:', payload || {});
-    await cargarSaldo();
-    await cargarMovimientos();
-  }
-
-  // ---- Listener: misma pestaña + cross-tab
-  function onRefreshEvent(payload) {
-    if (!walletActive || !refs.wrapper) {
-      pendingRefresh = payload || { motivo: 'PENDIENTE', at: Date.now() };
-      warn('Refresh recibido pero billetera no está activa. Se dejó pendiente.', pendingRefresh);
-      return;
-    }
-    refreshSaldoYMovs(payload);
-  }
-
-  function montarListenersRefresh() {
-    // 1) Eventos en la misma pestaña
-    if (!window.__EV_WALLET_REFRESH_HOOKED__) {
-      window.__EV_WALLET_REFRESH_HOOKED__ = true;
-
-      window.addEventListener('EV_BILLETERA_REFRESH', (e) => {
-        try { onRefreshEvent(e.detail || {}); } catch (_) {}
-      });
-      document.addEventListener('EV_BILLETERA_REFRESH', (e) => {
-        try { onRefreshEvent(e.detail || {}); } catch (_) {}
-      });
-
-      // 2) BroadcastChannel cross-tab
-      try {
-        if ('BroadcastChannel' in window) {
-          const bc = new BroadcastChannel(BC_NAME);
-          bc.onmessage = (ev) => {
-            try { onRefreshEvent(ev.data || {}); } catch (_) {}
-          };
-          // guardarlo para no perder referencia
-          window.__EV_WALLET_BC__ = bc;
-        }
-      } catch (_) {}
-
-      // 3) Fallback cross-tab por storage
-      window.addEventListener('storage', (e) => {
-        if (e.key !== LS_KEY) return;
-        try {
-          const payload = e.newValue ? JSON.parse(e.newValue) : null;
-          if (payload) onRefreshEvent(payload);
-        } catch (_) {}
-      });
-    }
-  }
-
-  // ---- Enviar recarga real (multipart)
   async function enviarRecarga() {
     if (!refs.recargaForm || !refs.btnEnviarRecarga) return;
 
@@ -362,7 +300,6 @@
 
     if (!confirmar.isConfirmed) return;
 
-    // UI bloqueado
     refs.btnEnviarRecarga.disabled = true;
     refs.btnEnviarRecarga.classList.add('saving');
 
@@ -380,7 +317,6 @@
         return;
       }
 
-      // Duplicidad
       if (resp.status === 409) {
         swalErr(data.mensaje || 'Ya registraste una recarga con ese ID de operación.');
         return;
@@ -393,18 +329,16 @@
 
       swalOk(data.mensaje || 'Recarga registrada.');
 
-      // Limpiar form y ocultar QR
       refs.recargaForm.reset();
       if (refs.qrCard) refs.qrCard.classList.add('d-none');
 
-      // Cerrar modal
       const modalEl = document.getElementById('modalRecargarSaldo');
       if (modalEl && window.bootstrap?.Modal) {
         const mi = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
         mi.hide();
       }
 
-      // Nota: aquí NO actualizamos saldo porque aún es “pendiente”
+      // No actualizar saldo aquí (queda pendiente)
       cargarMovimientos();
 
     } catch (e) {
@@ -428,17 +362,55 @@
     });
   }
 
-  // Inicializar la vista de billetera
-  function inicializarVista() {
-    montarListenersRefresh();
+  // ===========================
+  // REFRESH AUTOMÁTICO (cross-tab)
+  // ===========================
+  function refrescarAhora(payload) {
+    // Si la billetera está renderizada en esta pestaña, refrescamos inmediatamente
+    if (!document.querySelector('.ev-wallet-wrapper')) return;
 
-    if (!capturarRefs()) {
-      walletActive = false;
-      return;
+    log('Refrescando billetera por evento:', payload?.motivo || '(sin motivo)');
+    cargarSaldo();
+    cargarMovimientos();
+  }
+
+  function escucharEventosRefresh() {
+    // 1) CustomEvent (misma pestaña)
+    window.addEventListener('EV_BILLETERA_REFRESH', (e) => {
+      refrescarAhora(e.detail || {});
+    });
+    document.addEventListener('EV_BILLETERA_REFRESH', (e) => {
+      refrescarAhora(e.detail || {});
+    });
+
+    // 2) BroadcastChannel (otra pestaña)
+    if (bc) {
+      bc.onmessage = (ev) => {
+        const msg = ev?.data || {};
+        if (msg.type === 'EV_BILLETERA_REFRESH') refrescarAhora(msg.detail || {});
+      };
     }
 
-    walletActive = true;
-    window.EVWalletActive = true;
+    // 3) localStorage event fallback (otra pestaña)
+    window.addEventListener('storage', (ev) => {
+      if (ev.key !== 'EV_BILLETERA_REFRESH') return;
+      try {
+        const payload = ev.newValue ? JSON.parse(ev.newValue) : null;
+        if (payload) refrescarAhora(payload);
+      } catch (_) {}
+    });
+
+    // Si el usuario vuelve a enfocar la pestaña, asegura consistencia
+    window.addEventListener('focus', () => {
+      if (document.querySelector('.ev-wallet-wrapper')) {
+        cargarSaldo();
+        cargarMovimientos();
+      }
+    });
+  }
+
+  function inicializarVista() {
+    if (!capturarRefs()) return;
 
     log('Vista Mi Billetera detectada. BASE_URL:', BASE || '(vacía)');
 
@@ -455,17 +427,9 @@
 
     inicializarQR();
     engancharEventosRecarga();
-
-    // Si llegó un refresh antes, lo aplicamos ahora
-    if (pendingRefresh) {
-      const p = pendingRefresh;
-      pendingRefresh = null;
-      log('Aplicando refresh pendiente:', p);
-      refreshSaldoYMovs(p);
-    }
+    escucharEventosRefresh();
   }
 
-  // Cargar parcial /billetera en .content-wrapper
   async function cargarVistaParcialBilletera(contentWrapper) {
     const url = `${BASE}/billetera?partial=1`;
 
@@ -503,7 +467,6 @@
     }
   }
 
-  // Hook al menú lateral "Mi billetera"
   function engancharMenuBilletera() {
     const contentWrapper = document.querySelector('.content-wrapper');
     if (!contentWrapper) return;
@@ -535,9 +498,5 @@
 
   observer.observe(document.body, { childList: true, subtree: true });
 
-  // API pública por si quieres forzar desde consola o desde otros módulos
-  window.EVWallet = {
-    init: inicializarVista,
-    refreshSaldoYMovs
-  };
+  window.EVWallet = { init: inicializarVista };
 })();

@@ -5,11 +5,16 @@
   const BASE = (window.BASE_URL || '').replace(/\/$/, '');
   const LOG_PREFIX = '[ATENDER_RECARGAS]';
 
-  // Ajusta estas rutas si tus imágenes están en otra ubicación/nombre
-  const ICONS = {
+  // Icons (ajusta nombres si tus archivos se llaman distinto)
+  const METODO_ICON = {
     yape: `${BASE}/resources/images/yape_logo.png`,
     plin: `${BASE}/resources/images/plin_logo.png`,
   };
+
+  // BroadcastChannel (cross-tab)
+  const BC_NAME = 'EV_CHANNEL';
+  let bc = null;
+  try { bc = ('BroadcastChannel' in window) ? new BroadcastChannel(BC_NAME) : null; } catch (_) { bc = null; }
 
   const refs = {
     form: null,
@@ -29,7 +34,6 @@
     btnVerObservadas: null,
     btnVerAprobadas: null,
     btnVerRechazadas: null,
-    btnBuscar: null,
 
     // Modal
     modalEl: null,
@@ -93,7 +97,6 @@
     refs.btnVerObservadas = document.getElementById('btnVerObservadas');
     refs.btnVerAprobadas = document.getElementById('btnVerAprobadas');
     refs.btnVerRechazadas = document.getElementById('btnVerRechazadas');
-    refs.btnBuscar = document.getElementById('btnBuscar');
 
     refs.modalEl = document.getElementById('modalRecarga');
     refs.mUsuario = document.getElementById('mUsuario');
@@ -178,27 +181,26 @@
     `;
   }
 
-  function renderMetodo(metodoRaw) {
+  function renderMetodoIcon(metodoRaw) {
     const m = String(metodoRaw || '').toLowerCase();
-    const esYape = m === 'yape';
-    const esPlin = m === 'plin';
+    const isYape = (m === 'yape');
+    const isPlin = (m === 'plin');
 
-    if (esYape || esPlin) {
-      const src = esYape ? ICONS.yape : ICONS.plin;
-      const cls = esYape ? 'ev-metodo ev-metodo-yape' : 'ev-metodo ev-metodo-plin';
-      const alt = esYape ? 'Yape' : 'Plin';
+    const src = isYape ? METODO_ICON.yape : (isPlin ? METODO_ICON.plin : '');
+    const cls = isYape ? 'ev-metodo ev-metodo-yape' : (isPlin ? 'ev-metodo ev-metodo-plin' : 'ev-metodo');
 
-      // onerror -> fallback al texto, sin romper render
-      return `
-        <span class="${cls}" title="${alt}">
-          <img src="${src}" alt="${alt}" onerror="this.style.display='none'; this.parentElement.innerHTML='<span class=\\'ev-metodo-fallback\\'>${alt.toUpperCase()}</span>';">
-        </span>
-      `;
+    // Si no hay src, fallback a texto
+    if (!src) {
+      return `<span class="ev-metodo ev-metodo-fallback">${escapeHtml(String(metodoRaw || '—').toUpperCase())}</span>`;
     }
 
-    // fallback por si backend envía otro valor
-    const safe = escapeHtml(String(metodoRaw || '—').toUpperCase());
-    return `<span class="ev-metodo"><span class="ev-metodo-fallback">${safe}</span></span>`;
+    // onerror -> fallback (sin romper)
+    const alt = escapeHtml(String(metodoRaw || '').toUpperCase());
+    return `
+      <span class="${cls}" title="${alt}">
+        <img src="${src}" alt="${alt}" onerror="this.onerror=null;this.parentElement.outerHTML='<span class=&quot;ev-metodo ev-metodo-fallback&quot;>${alt}</span>';">
+      </span>
+    `;
   }
 
   function renderTabla(items) {
@@ -210,27 +212,25 @@
     const filas = items.map((r) => {
       const id = r.id;
 
-      const fechaStr = escapeHtml(r.fecha || '—');
-      const horaStr  = escapeHtml(r.hora || '');
-      const fechaHtml = `
-        <div class="ev-fecha">
-          <span class="ev-fecha-date">${fechaStr}</span>
-          ${horaStr ? `<span class="ev-fecha-time">${horaStr}</span>` : ''}
-        </div>
-      `;
-
+      const fechaDia = escapeHtml(r.fecha || '—');
+      const fechaHora = escapeHtml(r.hora || '');
       const usuario = escapeHtml(r.usuario_nombre || '—');
       const monto = formatearMonto(r.monto);
-      const metodoHtml = renderMetodo(r.metodo);
+      const metodoIcon = renderMetodoIcon(r.metodo);
       const op = escapeHtml(r.id_operacion || '—');
       const est = escapeHtml(r.estado || 'pendiente');
 
       return `
         <tr>
-          <td>${fechaHtml}</td>
-          <td title="${usuario}">${usuario}</td>
-          <td><span class="ev-money">${escapeHtml(monto)}</span></td>
-          <td>${metodoHtml}</td>
+          <td>
+            <div class="ev-fecha">
+              <span class="ev-fecha-dia">${fechaDia}</span>
+              <span class="ev-fecha-hora">${fechaHora}</span>
+            </div>
+          </td>
+          <td class="ev-td-usuario" title="${usuario}">${usuario}</td>
+          <td class="text-end"><strong>${monto}</strong></td>
+          <td class="text-center">${metodoIcon}</td>
           <td><span class="ev-mono">${op}</span></td>
           <td><span class="${badgeEstado(est)}">${est}</span></td>
           <td class="text-end">
@@ -263,25 +263,9 @@
     refs.btnNext.disabled = (to >= total);
   }
 
-  function setLoading(isLoading) {
-    if (!refs.btnBuscar) return;
-    if (isLoading) {
-      refs.btnBuscar.disabled = true;
-      refs.btnBuscar.dataset.evText = refs.btnBuscar.innerHTML;
-      refs.btnBuscar.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Cargando...';
-    } else {
-      refs.btnBuscar.disabled = false;
-      if (refs.btnBuscar.dataset.evText) {
-        refs.btnBuscar.innerHTML = refs.btnBuscar.dataset.evText;
-      }
-    }
-  }
-
   async function loadList() {
     const url = endpointListar();
     log('GET', url);
-
-    setLoading(true);
 
     try {
       const resp = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' }, credentials: 'include' });
@@ -322,8 +306,6 @@
       error(e);
       renderEmpty();
       swalErr('No se pudo cargar la lista de recargas.');
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -364,33 +346,27 @@
     refs.modal?.show();
   }
 
-  // ---- Emisión refresh billetera: misma pestaña + otras pestañas
-  const BC_NAME = 'EV_BILLETERA_CHANNEL';
-  const LS_KEY  = 'EV_BILLETERA_REFRESH';
-
   function emitirEventoRefreshBilletera(detalle) {
     const payload = Object.assign({ at: Date.now() }, detalle || {});
 
-    // 1) misma pestaña
+    // 1) CustomEvent (misma pestaña)
     try {
       window.dispatchEvent(new CustomEvent('EV_BILLETERA_REFRESH', { detail: payload }));
       document.dispatchEvent(new CustomEvent('EV_BILLETERA_REFRESH', { detail: payload }));
     } catch (_) {}
 
-    // 2) otras pestañas (BroadcastChannel)
+    // 2) BroadcastChannel (otra pestaña/ventana)
     try {
-      if ('BroadcastChannel' in window) {
-        const bc = new BroadcastChannel(BC_NAME);
-        bc.postMessage(payload);
-        bc.close();
-      }
+      if (bc) bc.postMessage({ type: 'EV_BILLETERA_REFRESH', detail: payload });
     } catch (_) {}
 
-    // 3) fallback cross-tab (storage event)
+    // 3) Fallback localStorage event (otra pestaña/ventana)
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify(payload));
-      // opcional: limpiar para que el siguiente evento dispare igual
-      localStorage.removeItem(LS_KEY);
+      localStorage.setItem('EV_BILLETERA_REFRESH', JSON.stringify(payload));
+      // limpieza rápida para que dispare eventos sucesivos
+      setTimeout(() => {
+        try { localStorage.removeItem('EV_BILLETERA_REFRESH'); } catch (_) {}
+      }, 150);
     } catch (_) {}
   }
 
