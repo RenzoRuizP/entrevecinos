@@ -12,6 +12,7 @@ class User extends Conexion {
             $codigoCondominio = $data['codigo_condominio'] ?? null;
             $codigoUrbanizacion = $data['codigo_urbanizacion'] ?? null;
             $direccion = $data['direccion'];
+            $comprobante = $data['comprobante_domicilio'] ?? null;
 
             $sql = "CALL sp_registrar_usuario_v2(
                         :nombre,
@@ -24,7 +25,7 @@ class User extends Conexion {
                         :codigo_condominio,
                         :codigo_urbanizacion,
                         :direccion,
-                        :fecha_creacion
+                        :comprobante_domicilio
                     )";
 
             $stmt = $this->dblink->prepare($sql);
@@ -38,7 +39,6 @@ class User extends Conexion {
 
             $stmt->bindParam(':tipo_conjunto', $tipo, PDO::PARAM_STR);
 
-            // Condicionales nullable
             if ($codigoCondominio) {
                 $stmt->bindParam(':codigo_condominio', $codigoCondominio, PDO::PARAM_INT);
             } else {
@@ -52,7 +52,12 @@ class User extends Conexion {
             }
 
             $stmt->bindParam(':direccion', $direccion, PDO::PARAM_STR);
-            $stmt->bindParam(':fecha_creacion', $data['fecha_creacion'], PDO::PARAM_STR);
+
+            if ($comprobante) {
+                $stmt->bindParam(':comprobante_domicilio', $comprobante, PDO::PARAM_STR);
+            } else {
+                $stmt->bindValue(':comprobante_domicilio', null, PDO::PARAM_NULL);
+            }
 
             return $stmt->execute();
         } catch (Exception $e) {
@@ -71,6 +76,7 @@ class User extends Conexion {
 
                 ur.tipo_conjunto,
                 ur.direccion,
+                ur.comprobante_domicilio,
 
                 c.codigo_condominio,
                 c.nombre_condominio,

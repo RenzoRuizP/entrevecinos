@@ -46,28 +46,12 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
           de forma simple y segura.
         </p>
 
-        <!-- Beneficios -->
         <ul class="login-hero-list" aria-label="Beneficios de Entre Vecinos">
-          <li>
-            <i class="bi bi-building-check" aria-hidden="true"></i>
-            <strong>Solo con vecinos de tu condominio</strong>
-          </li>
-          <li>
-            <i class="bi bi-shield-check" aria-hidden="true"></i>
-            <strong>Identidad verificada entre vecinos</strong>
-          </li>
-          <li>
-            <i class="bi bi-bag-check" aria-hidden="true"></i>
-            <strong>Compra y vende fácilmente, sin complicaciones</strong>
-          </li>
-          <li>
-            <i class="bi bi-truck" aria-hidden="true"></i>
-            <strong>Pedidos entregados en tu domicilio</strong>
-          </li>
-          <li>
-            <i class="bi bi-people" aria-hidden="true"></i>
-            <strong>Conecta con tus vecinos</strong>
-          </li>
+          <li><i class="bi bi-building-check" aria-hidden="true"></i><strong>Solo con vecinos de tu condominio</strong></li>
+          <li><i class="bi bi-shield-check" aria-hidden="true"></i><strong>Identidad verificada entre vecinos</strong></li>
+          <li><i class="bi bi-bag-check" aria-hidden="true"></i><strong>Compra y vende fácilmente, sin complicaciones</strong></li>
+          <li><i class="bi bi-truck" aria-hidden="true"></i><strong>Pedidos entregados en tu domicilio</strong></li>
+          <li><i class="bi bi-people" aria-hidden="true"></i><strong>Conecta con tus vecinos</strong></li>
         </ul>
 
         <div class="login-hero-badge">
@@ -96,41 +80,20 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
         <form id="formLogin" class="login-form">
           <div class="mb-3 position-relative">
             <i class="bi bi-envelope-fill input-icon"></i>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              class="form-control"
-              placeholder="Correo electrónico"
-              autocomplete="email"
-              required
-            />
+            <input id="email" name="email" type="email" class="form-control" placeholder="Correo electrónico" autocomplete="email" required />
           </div>
 
           <div class="mb-3 position-relative">
             <i class="bi bi-lock-fill input-icon"></i>
-            <input
-              id="clave"
-              name="clave"
-              type="password"
-              class="form-control"
-              placeholder="Contraseña"
-              autocomplete="current-password"
-              required
-            />
+            <input id="clave" name="clave" type="password" class="form-control" placeholder="Contraseña" autocomplete="current-password" required />
           </div>
 
           <div class="d-flex justify-content-between align-items-center mb-2 login-remember-row">
             <div class="form-check mb-0">
               <input class="form-check-input" type="checkbox" id="recordarme">
-              <label class="form-check-label" for="recordarme">
-                Recordarme
-              </label>
+              <label class="form-check-label" for="recordarme">Recordarme</label>
             </div>
-            <a href="#"
-               data-bs-toggle="modal"
-               data-bs-target="#recuperar_cuenta"
-               class="login-link-forgot">
+            <a href="#" data-bs-toggle="modal" data-bs-target="#recuperar_cuenta" class="login-link-forgot">
               ¿Olvidaste tu contraseña?
             </a>
           </div>
@@ -144,14 +107,8 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
         </form>
 
         <div class="text-center mt-3 login-actions">
-          <p class="login-actions-text mb-2">
-            ¿Aún no tienes cuenta?
-          </p>
-          <button
-            type="button"
-            class="btn btn-outline-register"
-            data-bs-toggle="modal"
-            data-bs-target="#crear_usuario">
+          <p class="login-actions-text mb-2">¿Aún no tienes cuenta?</p>
+          <button type="button" class="btn btn-outline-register" data-bs-toggle="modal" data-bs-target="#crear_usuario">
             Crear una cuenta nueva
           </button>
         </div>
@@ -166,39 +123,26 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
   </div>
 
   <!-- MODAL RECUPERAR CUENTA -->
-  <div class="modal fade" id="recuperar_cuenta" tabindex="-1" aria-hidden="true"
-       data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal fade" id="recuperar_cuenta" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content shadow border-0 rounded-3">
         <div class="modal-header bg-success text-white">
-          <h5 class="modal-title">
-            <i class="bi bi-life-preserver me-2"></i> Recuperar cuenta
-          </h5>
+          <h5 class="modal-title"><i class="bi bi-life-preserver me-2"></i> Recuperar cuenta</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body text-center p-4">
-          <p class="mb-3 text-muted">
-            Si tienes problemas para acceder a tu cuenta, contáctanos:
-          </p>
+          <p class="mb-3 text-muted">Si tienes problemas para acceder a tu cuenta, contáctanos:</p>
           <div class="p-3 border rounded bg-light">
             <p class="fw-bold mb-1 text-dark">Soporte técnico</p>
-            <p class="mb-1">
-              Lunes a Viernes:
-              <strong>8:00 AM – 8:00 PM</strong>
-            </p>
-            <p class="fs-5 text-success mb-0">
-              <i class="bi bi-whatsapp me-1"></i> 956 969 182
-            </p>
-            <p class="fs-5 text-success mb-0">
-              <i class="bi bi-telephone-fill me-1"></i> 956 969 182
-            </p>
+            <p class="mb-1">Lunes a Viernes: <strong>8:00 AM – 8:00 PM</strong></p>
+            <p class="fs-5 text-success mb-0"><i class="bi bi-whatsapp me-1"></i> 956 969 182</p>
+            <p class="fs-5 text-success mb-0"><i class="bi bi-telephone-fill me-1"></i> 956 969 182</p>
           </div>
         </div>
         <div class="modal-footer justify-content-between">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
             <i class="bi bi-x-circle me-1"></i> Cerrar
           </button>
-
           <a href="tel:+51956969182" class="btn btn-login btn-modal-cta fw-semibold">
             <i class="bi bi-telephone me-1"></i> Llamar ahora
           </a>
@@ -208,39 +152,26 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
   </div>
 
   <!-- MODAL CREAR USUARIO -->
-  <div class="modal fade" id="crear_usuario" tabindex="-1" aria-hidden="true"
-       data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal fade" id="crear_usuario" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content shadow-lg border-0 rounded-3">
         <div class="modal-header bg-success text-white">
-          <h5 class="modal-title">
-            <i class="bi bi-person-plus me-2"></i> Crear mi usuario
-          </h5>
+          <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i> Crear mi usuario</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
 
         <form id="formCrearUsuario">
           <div class="modal-body">
 
-            <!-- Barra de pasos -->
             <div class="progress mb-4">
-              <div class="progress-bar bg-success fw-bold" id="step1" style="width: 33%;">
-                1. DATOS PERSONALES
-              </div>
-              <div class="progress-bar bg-secondary fw-bold" id="step2" style="width: 33%;">
-                2. RESIDENCIA
-              </div>
-              <div class="progress-bar bg-secondary fw-bold" id="step3" style="width: 34%;">
-                3. CUENTA
-              </div>
+              <div class="progress-bar bg-success fw-bold" id="step1" style="width: 33%;">1. DATOS PERSONALES</div>
+              <div class="progress-bar bg-secondary fw-bold" id="step2" style="width: 33%;">2. RESIDENCIA</div>
+              <div class="progress-bar bg-secondary fw-bold" id="step3" style="width: 34%;">3. CUENTA</div>
             </div>
 
             <!-- Paso 1 -->
             <div class="step" id="formStep1">
-              <h6 class="fw-bold text-success mb-3">
-                <i class="bi bi-person-circle"></i>
-                Datos personales
-              </h6>
+              <h6 class="fw-bold text-success mb-3"><i class="bi bi-person-circle"></i> Datos personales</h6>
               <div class="row g-3 mb-4">
                 <div class="col-md-6">
                   <label for="nombre" class="form-label">Nombre completo</label>
@@ -257,12 +188,9 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
               </div>
             </div>
 
-            <!-- Paso 2 (NUEVO) -->
+            <!-- Paso 2 -->
             <div class="step d-none" id="formStep2">
-              <h6 class="fw-bold text-success mb-3">
-                <i class="bi bi-building"></i>
-                Residencia
-              </h6>
+              <h6 class="fw-bold text-success mb-3"><i class="bi bi-building"></i> Residencia</h6>
 
               <div class="row g-3 mb-4">
 
@@ -289,17 +217,27 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
                   </select>
                 </div>
 
+                <!-- Dirección + Comprobante (aparecen juntos) -->
                 <div class="col-12 d-none" id="wrapDireccion">
                   <label for="direccion" class="form-label">Dirección</label>
+                  <input type="text" class="form-control" id="direccion" name="direccion" placeholder="Ej: Av. Los Álamos 123, Mz B Lt 5">
+
+                  <div class="form-text mb-3">
+                    Escribe la dirección exacta dentro del condominio/urbanización.
+                  </div>
+
+                  <label for="comprobante_domicilio" class="form-label">
+                    Comprobante de domicilio (recibo de servicio)
+                  </label>
                   <input
-                    type="text"
+                    type="file"
                     class="form-control"
-                    id="direccion"
-                    name="direccion"
-                    placeholder="Ej: Av. Los Álamos 123, Mz B Lt 5"
+                    id="comprobante_domicilio"
+                    name="comprobante_domicilio"
+                    accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
                   >
                   <div class="form-text">
-                    Escribe la dirección exacta dentro del condominio/urbanización.
+                    Formatos: JPG, PNG o PDF. Tamaño máximo: 2 MB.
                   </div>
                 </div>
 
@@ -308,10 +246,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 
             <!-- Paso 3 -->
             <div class="step d-none" id="formStep3">
-              <h6 class="fw-bold text-success mb-3">
-                <i class="bi bi-key-fill"></i>
-                Datos de la cuenta
-              </h6>
+              <h6 class="fw-bold text-success mb-3"><i class="bi bi-key-fill"></i> Datos de la cuenta</h6>
               <div class="row g-3 mb-4">
                 <div class="col-md-6">
                   <label for="rEmail" class="form-label">Correo electrónico</label>
@@ -320,9 +255,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
                 <div class="col-md-6">
                   <label for="rClave" class="form-label">Contraseña</label>
                   <input type="password" class="form-control" id="rClave" name="rClave" required>
-                  <div class="form-text">
-                    Mínimo 8 caracteres, con mayúscula, número y símbolo.
-                  </div>
+                  <div class="form-text">Mínimo 8 caracteres, con mayúscula, número y símbolo.</div>
                 </div>
                 <div class="col-md-6">
                   <label for="confirmar_clave" class="form-label">Confirmar contraseña</label>
@@ -330,6 +263,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
                 </div>
               </div>
             </div>
+
           </div>
 
           <div class="modal-footer justify-content-between">
@@ -351,18 +285,13 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
   <!-- Scripts de la vista -->
   <script>window.BASE_URL = '<?= BASE_URL ?>';</script>
   <script src="<?= BASE_URL ?>views/js/vistaRegistrarUser.js"></script>
-
-  <!-- NUEVO: Conjunto residencial (condominio/urbanización) -->
   <script src="<?= BASE_URL ?>views/js/combo_conjunto_residencial.js"></script>
-
   <script src="<?= BASE_URL ?>views/js/registrarUser.js"></script>
   <script src="<?= BASE_URL ?>views/js/iniciarSesion.js"></script>
 
   <script>
     window.addEventListener("pageshow", function (event) {
-      if (event.persisted) {
-        window.location.reload();
-      }
+      if (event.persisted) window.location.reload();
     });
 
     document.addEventListener("DOMContentLoaded", () => {

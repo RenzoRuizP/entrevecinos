@@ -3,6 +3,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const formCrearUsuario = document.getElementById("formCrearUsuario");
   if (!formCrearUsuario) return console.error("No se encontró formCrearUsuario en DOM");
 
+  const MAX_BYTES = 2 * 1024 * 1024; // 2MB
+  const ALLOWED_EXT = ["jpg", "jpeg", "png", "pdf"];
+
+  function getFileExt(name) {
+    const parts = (name || "").split(".");
+    return (parts.length > 1 ? parts.pop() : "").toLowerCase();
+  }
+
   formCrearUsuario.addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -10,51 +18,72 @@ document.addEventListener("DOMContentLoaded", () => {
     const codigoCondominio = document.getElementById("comboCondominio")?.value || "";
     const codigoUrbanizacion = document.getElementById("comboUrbanizacion")?.value || "";
     const direccion = (document.getElementById("direccion")?.value || "").trim();
+    const fileInput = document.getElementById("comprobante_domicilio");
+    const file = fileInput?.files?.[0] || null;
 
-    const data = {
-      nombre: document.getElementById("nombre").value.trim(),
-      documento: document.getElementById("documento").value.trim(),
-      telefono: document.getElementById("telefono").value.trim(),
-      email: document.getElementById("rEmail").value.trim(),
-      codigo_rol: 2, // vecino por defecto
-      clave: document.getElementById("rClave").value,
-      confirmar_clave: document.getElementById("confirmar_clave").value,
-      fecha_inicio: new Date().toISOString().split("T")[0],
+    const clave = document.getElementById("rClave").value;
+    const confirmar = document.getElementById("confirmar_clave").value;
 
-      // NUEVO
-      tipo_conjunto: tipo,
-      codigo_condominio: tipo === "condominio" ? Number(codigoCondominio || 0) : null,
-      codigo_urbanizacion: tipo === "urbanizacion" ? Number(codigoUrbanizacion || 0) : null,
-      direccion: direccion
-    };
-
-    // Validaciones cliente
-    if (data.clave !== data.confirmar_clave) {
+    // Validaciones base
+    if (clave !== confirmar) {
       Swal.fire("Error", "Las contraseñas no coinciden", "error");
       return;
     }
 
-    if (!data.tipo_conjunto) {
+    if (!tipo) {
       Swal.fire("Residencia", "Selecciona el tipo de conjunto residencial (Condominio o Urbanización).", "warning");
       return;
     }
 
-    if (data.tipo_conjunto === "condominio" && (!data.codigo_condominio || data.codigo_condominio <= 0)) {
+    if (tipo === "condominio" && (!codigoCondominio || Number(codigoCondominio) <= 0)) {
       Swal.fire("Residencia", "Selecciona un condominio.", "warning");
       return;
     }
 
-    if (data.tipo_conjunto === "urbanizacion" && (!data.codigo_urbanizacion || data.codigo_urbanizacion <= 0)) {
+    if (tipo === "urbanizacion" && (!codigoUrbanizacion || Number(codigoUrbanizacion) <= 0)) {
       Swal.fire("Residencia", "Selecciona una urbanización.", "warning");
       return;
     }
 
-    if (!data.direccion || data.direccion.length < 5) {
+    if (!direccion || direccion.length < 5) {
       Swal.fire("Residencia", "Ingresa una dirección válida.", "warning");
       return;
     }
 
-    // Endpoint robusto usando window.BASE_URL
+    // Archivo obligatorio
+    if (!file) {
+      Swal.fire("Residencia", "Debes subir el comprobante de domicilio (recibo de servicio).", "warning");
+      return;
+    }
+
+    // Validación cliente (rápida)
+    if (file.size > MAX_BYTES) {
+      Swal.fire("Archivo", "El comprobante supera el tamaño máximo permitido (2 MB).", "warning");
+      return;
+    }
+
+    const ext = getFileExt(file.name);
+    if (!ALLOWED_EXT.includes(ext)) {
+      Swal.fire("Archivo", "Formato no permitido. Sube JPG, PNG o PDF.", "warning");
+      return;
+    }
+
+    // Preparar FormData
+    const fd = new FormData();
+    fd.append("nombre", document.getElementById("nombre").value.trim());
+    fd.append("documento", document.getElementById("documento").value.trim());
+    fd.append("telefono", document.getElementById("telefono").value.trim());
+    fd.append("email", document.getElementById("rEmail").value.trim());
+    fd.append("codigo_rol", "2");
+    fd.append("clave", clave);
+
+    fd.append("tipo_conjunto", tipo);
+    fd.append("codigo_condominio", tipo === "condominio" ? String(Number(codigoCondominio)) : "");
+    fd.append("codigo_urbanizacion", tipo === "urbanizacion" ? String(Number(codigoUrbanizacion)) : "");
+    fd.append("direccion", direccion);
+
+    fd.append("comprobante_domicilio", file);
+
     const rawBase = window.BASE_URL || '';
     const base = rawBase.replace(/\/+$/,'');
     const endpoint = base + '/usuarios/registrar';
@@ -62,22 +91,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombre: data.nombre,
-          documento: data.documento,
-          telefono: data.telefono,
-          email: data.email,
-          codigo_rol: data.codigo_rol,
-          clave: data.clave,
-          fecha_inicio: data.fecha_inicio,
-
-          // NUEVO
-          tipo_conjunto: data.tipo_conjunto,
-          codigo_condominio: data.codigo_condominio,
-          codigo_urbanizacion: data.codigo_urbanizacion,
-          direccion: data.direccion
-        }),
+        body: fd
       });
 
       if (!response.ok) {

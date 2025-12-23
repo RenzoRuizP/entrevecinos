@@ -3,10 +3,7 @@
   'use strict';
 
   function buildURL(path) {
-    if (!window.BASE_URL) {
-      console.error("window.BASE_URL no está definido");
-      return path;
-    }
+    if (!window.BASE_URL) return path;
     return window.BASE_URL.replace(/\/+$/, "") + "/" + path.replace(/^\/+/, "");
   }
 
@@ -41,6 +38,11 @@
     inp.value = "";
   }
 
+  function resetFileInput(fileInp) {
+    if (!fileInp) return;
+    fileInp.value = "";
+  }
+
   function init() {
     const comboTipo = document.getElementById("comboConjuntoResidencial");
 
@@ -51,16 +53,15 @@
     const comboCondominio = document.getElementById("comboCondominio");
     const comboUrbanizacion = document.getElementById("comboUrbanizacion");
     const inputDireccion = document.getElementById("direccion");
+    const inputComprobante = document.getElementById("comprobante_domicilio");
 
-    if (!comboTipo || !wrapCondominio || !wrapUrbanizacion || !wrapDireccion || !comboCondominio || !comboUrbanizacion || !inputDireccion) {
-      return; // no estamos en el modal (o no existe)
+    if (!comboTipo || !wrapCondominio || !wrapUrbanizacion || !wrapDireccion || !comboCondominio || !comboUrbanizacion || !inputDireccion || !inputComprobante) {
+      return;
     }
 
-    // Evitar reenganchar listeners si el modal se reabre
     if (comboTipo.dataset.evInit === "1") return;
     comboTipo.dataset.evInit = "1";
 
-    // Estado inicial
     setHidden(wrapCondominio, true);
     setHidden(wrapUrbanizacion, true);
     setHidden(wrapDireccion, true);
@@ -68,6 +69,7 @@
     resetSelect(comboCondominio, "Selecciona condominio");
     resetSelect(comboUrbanizacion, "Selecciona urbanización");
     resetInput(inputDireccion);
+    resetFileInput(inputComprobante);
 
     let condominiosCargados = false;
     let urbanizacionesCargadas = false;
@@ -75,10 +77,10 @@
     async function onTipoChange() {
       const tipo = comboTipo.value;
 
-      // Limpieza
       resetSelect(comboCondominio, "Selecciona condominio");
       resetSelect(comboUrbanizacion, "Selecciona urbanización");
       resetInput(inputDireccion);
+      resetFileInput(inputComprobante);
       setHidden(wrapDireccion, true);
 
       if (tipo === "condominio") {
@@ -113,7 +115,6 @@
         return;
       }
 
-      // Si no eligió nada
       setHidden(wrapCondominio, true);
       setHidden(wrapUrbanizacion, true);
       setHidden(wrapDireccion, true);
@@ -124,22 +125,16 @@
       const selected = (tipo === "condominio") ? comboCondominio.value : comboUrbanizacion.value;
 
       resetInput(inputDireccion);
+      resetFileInput(inputComprobante);
+
       setHidden(wrapDireccion, !selected);
     }
 
-    comboTipo.addEventListener("change", () => {
-      onTipoChange().catch((e) => console.error("[EV][Residencia] error:", e));
-    });
-
+    comboTipo.addEventListener("change", () => onTipoChange().catch((e) => console.error("[EV][Residencia] error:", e)));
     comboCondominio.addEventListener("change", onDestinoChange);
     comboUrbanizacion.addEventListener("change", onDestinoChange);
-
-    // Si el modal se abre y ya hay un valor (caso raro), sincroniza
-    if (comboTipo.value) {
-      onTipoChange().catch(() => {});
-    }
   }
 
   document.addEventListener("DOMContentLoaded", init);
-  window.EV_initConjuntoResidencial = init; // por si reusas en vistas AJAX
+  window.EV_initConjuntoResidencial = init;
 })();
