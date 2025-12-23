@@ -5,6 +5,10 @@
   const BASE = (window.BASE_URL || '').replace(/\/$/, '');
   const LOG_PREFIX = '[BILLETERA]';
 
+  // Canal cross-tab
+  const BC_NAME = 'EV_BILLETERA_CHANNEL';
+  const LS_KEY  = 'EV_BILLETERA_REFRESH';
+
   let refs = {
     wrapper: null,
     saldo: null,
@@ -39,16 +43,16 @@
     }
   };
 
-  // ------------------------------------
+  // Estado interno
+  let walletActive = false;
+  let pendingRefresh = null; // guarda payload si llegó evento antes de estar activa
+
   // Helpers de log
-  // ------------------------------------
   function log() { if (window.console && console.log) console.log(LOG_PREFIX, ...arguments); }
   function warn() { if (window.console && console.warn) console.warn(LOG_PREFIX, ...arguments); }
   function error() { if (window.console && console.error) console.error(LOG_PREFIX, ...arguments); }
 
-  // ------------------------------------
   // Captura de referencias DOM de la vista
-  // ------------------------------------
   function capturarRefs() {
     refs.wrapper = document.querySelector('.ev-wallet-wrapper');
     if (!refs.wrapper) return false;
@@ -73,9 +77,7 @@
     return true;
   }
 
-  // ------------------------------------
   // Utilitarios
-  // ------------------------------------
   function formatearMonto(monto) {
     const n = Number(monto || 0);
     return 'S/ ' + n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -105,9 +107,7 @@
     return { ok: false, mensaje: txt || 'Respuesta no válida del servidor.' };
   }
 
-  // ------------------------------------
   // Lógica QR dinámico Plin / Yape
-  // ------------------------------------
   function actualizarQRDesdeSelect() {
     if (!refs.recargaTipo) return;
     const tipo = (refs.recargaTipo.value || '').toLowerCase();
@@ -138,9 +138,7 @@
     actualizarQRDesdeSelect();
   }
 
-  // ------------------------------------
   // API: saldo y movimientos
-  // ------------------------------------
   async function cargarSaldo() {
     if (!refs.saldo) return;
 
@@ -277,96 +275,59 @@
     }
   }
 
-  // ==========================================================
-  // REFRESH GLOBAL (NUEVO, SIN DEPENDER DE INIT)
-  // ==========================================================
-  const KEY_PENDING = 'ev_wallet_pending_refresh';
-  const KEY_LAST_APPLIED = 'ev_wallet_last_applied_refresh';
-
-  async function refreshSaldoYMovimientos(origen) {
-    // Si la vista aún no está montada, marcar pendiente
-    const wrapper = document.querySelector('.ev-wallet-wrapper');
-    if (!wrapper) {
-      try { sessionStorage.setItem(KEY_PENDING, String(Date.now())); } catch (_) {}
-      log('Refresh recibido pero billetera no está activa. Se marcó como pendiente.', origen || '');
-      return;
-    }
-
-    // Asegurar refs actualizadas
-    if (!refs.wrapper || refs.wrapper !== wrapper) {
-      capturarRefs();
-    }
-
+  // ---- Refresh público: saldo + movimientos
+  async function refreshSaldoYMovs(payload) {
+    log('EVBilletera.refreshSaldoYMovs invocado:', payload || {});
     await cargarSaldo();
     await cargarMovimientos();
-
-    try { sessionStorage.setItem(KEY_LAST_APPLIED, String(Date.now())); } catch (_) {}
   }
 
-  function onRefreshEvent(ev, fuente) {
-    const detail = ev?.detail || {};
-    log(`Evento refresh billetera (${fuente})`, detail);
-
-    // guardar pendiente siempre (por si llega antes de montar vista)
-    try { sessionStorage.setItem(KEY_PENDING, String(Date.now())); } catch (_) {}
-
-    // intentar refrescar si ya está visible
-    refreshSaldoYMovimientos(detail.motivo || 'EVENT');
+  // ---- Listener: misma pestaña + cross-tab
+  function onRefreshEvent(payload) {
+    if (!walletActive || !refs.wrapper) {
+      pendingRefresh = payload || { motivo: 'PENDIENTE', at: Date.now() };
+      warn('Refresh recibido pero billetera no está activa. Se dejó pendiente.', pendingRefresh);
+      return;
+    }
+    refreshSaldoYMovs(payload);
   }
 
-  function engancharListenerRefreshBilleteraGlobal() {
-    if (window.__EV_WALLET_REFRESH_GLOBAL_HOOKED__ === true) return;
-    window.__EV_WALLET_REFRESH_GLOBAL_HOOKED__ = true;
+  function montarListenersRefresh() {
+    // 1) Eventos en la misma pestaña
+    if (!window.__EV_WALLET_REFRESH_HOOKED__) {
+      window.__EV_WALLET_REFRESH_HOOKED__ = true;
 
-    // Escuchar en window y document (ambos)
-    window.addEventListener('ev:billetera:refresh', (ev) => onRefreshEvent(ev, 'window'));
-    document.addEventListener('ev:billetera:refresh', (ev) => onRefreshEvent(ev, 'document'));
-  }
+      window.addEventListener('EV_BILLETERA_REFRESH', (e) => {
+        try { onRefreshEvent(e.detail || {}); } catch (_) {}
+      });
+      document.addEventListener('EV_BILLETERA_REFRESH', (e) => {
+        try { onRefreshEvent(e.detail || {}); } catch (_) {}
+      });
 
-  function aplicarPendienteSiExiste() {
-    let pending = null;
-    let lastApplied = null;
+      // 2) BroadcastChannel cross-tab
+      try {
+        if ('BroadcastChannel' in window) {
+          const bc = new BroadcastChannel(BC_NAME);
+          bc.onmessage = (ev) => {
+            try { onRefreshEvent(ev.data || {}); } catch (_) {}
+          };
+          // guardarlo para no perder referencia
+          window.__EV_WALLET_BC__ = bc;
+        }
+      } catch (_) {}
 
-    try { pending = Number(sessionStorage.getItem(KEY_PENDING) || 0); } catch (_) { pending = 0; }
-    try { lastApplied = Number(sessionStorage.getItem(KEY_LAST_APPLIED) || 0); } catch (_) { lastApplied = 0; }
-
-    // Si hay refresh pendiente posterior al último aplicado, refrescar al montar la vista
-    if (pending && pending > lastApplied) {
-      log('Detecté refresh pendiente. Refrescando billetera al montar vista.');
-      refreshSaldoYMovimientos('PENDING');
-      try { sessionStorage.setItem(KEY_LAST_APPLIED, String(Date.now())); } catch (_) {}
+      // 3) Fallback cross-tab por storage
+      window.addEventListener('storage', (e) => {
+        if (e.key !== LS_KEY) return;
+        try {
+          const payload = e.newValue ? JSON.parse(e.newValue) : null;
+          if (payload) onRefreshEvent(payload);
+        } catch (_) {}
+      });
     }
   }
 
-  // Exponer alias compatible con Soporte (sin quitar EVWallet)
-  function exponerAPIGlobal() {
-    // Mantener tu API pública tal cual
-    window.EVWallet = window.EVWallet || {};
-    window.EVWallet.init = inicializarVista;
-
-    // API que Soporte puede usar como fallback
-    window.EVBilletera = window.EVBilletera || {};
-    window.EVBilletera.refreshSaldo = function (payload) {
-      log('EVBilletera.refreshSaldo invocado:', payload || {});
-      try { sessionStorage.setItem(KEY_PENDING, String(Date.now())); } catch (_) {}
-      refreshSaldoYMovimientos((payload && payload.motivo) ? payload.motivo : 'API');
-    };
-
-    // Extra opcional (si quieres llamarlo manualmente)
-    window.EVWallet.refresh = function (payload) {
-      log('EVWallet.refresh invocado:', payload || {});
-      try { sessionStorage.setItem(KEY_PENDING, String(Date.now())); } catch (_) {}
-      refreshSaldoYMovimientos((payload && payload.motivo) ? payload.motivo : 'API');
-    };
-  }
-
-  // Enganchar listener global apenas carga el JS (CLAVE)
-  engancharListenerRefreshBilleteraGlobal();
-  exponerAPIGlobal();
-
-  // ------------------------------------
-  // NUEVO: Enviar recarga real (multipart)
-  // ------------------------------------
+  // ---- Enviar recarga real (multipart)
   async function enviarRecarga() {
     if (!refs.recargaForm || !refs.btnEnviarRecarga) return;
 
@@ -467,11 +428,17 @@
     });
   }
 
-  // ------------------------------------
   // Inicializar la vista de billetera
-  // ------------------------------------
   function inicializarVista() {
-    if (!capturarRefs()) return;
+    montarListenersRefresh();
+
+    if (!capturarRefs()) {
+      walletActive = false;
+      return;
+    }
+
+    walletActive = true;
+    window.EVWalletActive = true;
 
     log('Vista Mi Billetera detectada. BASE_URL:', BASE || '(vacía)');
 
@@ -489,13 +456,16 @@
     inicializarQR();
     engancharEventosRecarga();
 
-    // NUEVO: si hubo un refresh mientras no estabas en billetera, aplícalo ahora
-    aplicarPendienteSiExiste();
+    // Si llegó un refresh antes, lo aplicamos ahora
+    if (pendingRefresh) {
+      const p = pendingRefresh;
+      pendingRefresh = null;
+      log('Aplicando refresh pendiente:', p);
+      refreshSaldoYMovs(p);
+    }
   }
 
-  // ------------------------------------
   // Cargar parcial /billetera en .content-wrapper
-  // ------------------------------------
   async function cargarVistaParcialBilletera(contentWrapper) {
     const url = `${BASE}/billetera?partial=1`;
 
@@ -521,24 +491,9 @@
         return;
       }
 
-    const html = await resp.text();
-    contentWrapper.innerHTML = html;
-
-    /* 🔴 ESTA LÍNEA ES LA QUE TE FALTA */
-    if (window.EVWallet?.init) {
-      window.EVWallet.init();
-    }
-
-      document.dispatchEvent(new Event('ev:content-loaded'));
-
+      const html = await resp.text();
+      contentWrapper.innerHTML = html;
       inicializarVista();
-
-      // Fallback: refresco forzado al entrar
-      setTimeout(() => {
-        cargarSaldo();
-        cargarMovimientos();
-      }, 150);
-
 
     } catch (err) {
       error('Excepción al cargar billetera:', err);
@@ -548,9 +503,7 @@
     }
   }
 
-  // ------------------------------------
   // Hook al menú lateral "Mi billetera"
-  // ------------------------------------
   function engancharMenuBilletera() {
     const contentWrapper = document.querySelector('.content-wrapper');
     if (!contentWrapper) return;
@@ -571,13 +524,8 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     engancharMenuBilletera();
-  });
-
-  // CUANDO SE CARGA POR AJAX / PARCIAL
-  document.addEventListener('ev:content-loaded', () => {
     inicializarVista();
   });
-
 
   const observer = new MutationObserver(() => {
     const wrapperActual = document.querySelector('.ev-wallet-wrapper');
@@ -587,6 +535,9 @@
 
   observer.observe(document.body, { childList: true, subtree: true });
 
-  // Mantener tu API pública tal cual
-  window.EVWallet = { init: inicializarVista };
+  // API pública por si quieres forzar desde consola o desde otros módulos
+  window.EVWallet = {
+    init: inicializarVista,
+    refreshSaldoYMovs
+  };
 })();

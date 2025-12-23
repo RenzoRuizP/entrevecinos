@@ -5,12 +5,10 @@
   const BASE = (window.BASE_URL || '').replace(/\/$/, '');
   const LOG_PREFIX = '[ATENDER_RECARGAS]';
 
-  // =========================================================
-  // NUEVO: Config de íconos Yape/Plin (ajusta nombres si difieren)
-  // =========================================================
-  const METODO_ICON = {
-    yape: `${BASE}/resources/images/yape.png`,
-    plin: `${BASE}/resources/images/plin.png`,
+  // Ajusta estas rutas si tus imágenes están en otra ubicación/nombre
+  const ICONS = {
+    yape: `${BASE}/resources/images/yape_logo.png`,
+    plin: `${BASE}/resources/images/plin_logo.png`,
   };
 
   const refs = {
@@ -31,6 +29,7 @@
     btnVerObservadas: null,
     btnVerAprobadas: null,
     btnVerRechazadas: null,
+    btnBuscar: null,
 
     // Modal
     modalEl: null,
@@ -94,6 +93,7 @@
     refs.btnVerObservadas = document.getElementById('btnVerObservadas');
     refs.btnVerAprobadas = document.getElementById('btnVerAprobadas');
     refs.btnVerRechazadas = document.getElementById('btnVerRechazadas');
+    refs.btnBuscar = document.getElementById('btnBuscar');
 
     refs.modalEl = document.getElementById('modalRecarga');
     refs.mUsuario = document.getElementById('mUsuario');
@@ -140,32 +140,6 @@
     return map[e] || 'ev-badge ev-badge-pendiente';
   }
 
-  // =========================================================
-  // NUEVO: Render del método con ícono (usa tu CSS .ev-metodo...)
-  // - Si no carga imagen => fallback a texto
-  // =========================================================
-  function renderMetodo(metodoRaw) {
-    const m = String(metodoRaw || '').trim().toLowerCase();
-    const upper = escapeHtml(String(metodoRaw || '—').toUpperCase());
-
-    if (m === 'yape' || m === 'plin') {
-      const src = METODO_ICON[m];
-      const cls = m === 'yape' ? 'ev-metodo ev-metodo-yape' : 'ev-metodo ev-metodo-plin';
-      return `
-        <span class="${cls}" title="${upper}">
-          <img
-            src="${src}"
-            alt="${upper}"
-            onerror="this.style.display='none'; this.parentElement.classList.add('ev-metodo-fallback'); this.parentElement.textContent='${upper}';"
-          >
-        </span>
-      `;
-    }
-
-    // Desconocido => fallback texto
-    return `<span class="ev-metodo ev-metodo-fallback" title="${upper}">${upper}</span>`;
-  }
-
   function endpointListar() {
     const estado = refs.fEstado?.value || 'pendiente';
     const rango = refs.fRango?.value || '7';
@@ -204,6 +178,29 @@
     `;
   }
 
+  function renderMetodo(metodoRaw) {
+    const m = String(metodoRaw || '').toLowerCase();
+    const esYape = m === 'yape';
+    const esPlin = m === 'plin';
+
+    if (esYape || esPlin) {
+      const src = esYape ? ICONS.yape : ICONS.plin;
+      const cls = esYape ? 'ev-metodo ev-metodo-yape' : 'ev-metodo ev-metodo-plin';
+      const alt = esYape ? 'Yape' : 'Plin';
+
+      // onerror -> fallback al texto, sin romper render
+      return `
+        <span class="${cls}" title="${alt}">
+          <img src="${src}" alt="${alt}" onerror="this.style.display='none'; this.parentElement.innerHTML='<span class=\\'ev-metodo-fallback\\'>${alt.toUpperCase()}</span>';">
+        </span>
+      `;
+    }
+
+    // fallback por si backend envía otro valor
+    const safe = escapeHtml(String(metodoRaw || '—').toUpperCase());
+    return `<span class="ev-metodo"><span class="ev-metodo-fallback">${safe}</span></span>`;
+  }
+
   function renderTabla(items) {
     if (!items || !items.length) {
       renderEmpty();
@@ -212,23 +209,27 @@
 
     const filas = items.map((r) => {
       const id = r.id;
-      const fecha = `${escapeHtml(r.fecha)} ${escapeHtml(r.hora)}`;
+
+      const fechaStr = escapeHtml(r.fecha || '—');
+      const horaStr  = escapeHtml(r.hora || '');
+      const fechaHtml = `
+        <div class="ev-fecha">
+          <span class="ev-fecha-date">${fechaStr}</span>
+          ${horaStr ? `<span class="ev-fecha-time">${horaStr}</span>` : ''}
+        </div>
+      `;
+
       const usuario = escapeHtml(r.usuario_nombre || '—');
       const monto = formatearMonto(r.monto);
-
-      // ANTES: texto
-      // const metodo = escapeHtml((r.metodo || '').toUpperCase());
-      // AHORA: ícono
       const metodoHtml = renderMetodo(r.metodo);
-
       const op = escapeHtml(r.id_operacion || '—');
       const est = escapeHtml(r.estado || 'pendiente');
 
       return `
         <tr>
-          <td>${fecha}</td>
-          <td>${usuario}</td>
-          <td>${monto}</td>
+          <td>${fechaHtml}</td>
+          <td title="${usuario}">${usuario}</td>
+          <td><span class="ev-money">${escapeHtml(monto)}</span></td>
           <td>${metodoHtml}</td>
           <td><span class="ev-mono">${op}</span></td>
           <td><span class="${badgeEstado(est)}">${est}</span></td>
@@ -262,9 +263,25 @@
     refs.btnNext.disabled = (to >= total);
   }
 
+  function setLoading(isLoading) {
+    if (!refs.btnBuscar) return;
+    if (isLoading) {
+      refs.btnBuscar.disabled = true;
+      refs.btnBuscar.dataset.evText = refs.btnBuscar.innerHTML;
+      refs.btnBuscar.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Cargando...';
+    } else {
+      refs.btnBuscar.disabled = false;
+      if (refs.btnBuscar.dataset.evText) {
+        refs.btnBuscar.innerHTML = refs.btnBuscar.dataset.evText;
+      }
+    }
+  }
+
   async function loadList() {
     const url = endpointListar();
     log('GET', url);
+
+    setLoading(true);
 
     try {
       const resp = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' }, credentials: 'include' });
@@ -305,6 +322,8 @@
       error(e);
       renderEmpty();
       swalErr('No se pudo cargar la lista de recargas.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -345,11 +364,33 @@
     refs.modal?.show();
   }
 
+  // ---- Emisión refresh billetera: misma pestaña + otras pestañas
+  const BC_NAME = 'EV_BILLETERA_CHANNEL';
+  const LS_KEY  = 'EV_BILLETERA_REFRESH';
+
   function emitirEventoRefreshBilletera(detalle) {
     const payload = Object.assign({ at: Date.now() }, detalle || {});
+
+    // 1) misma pestaña
     try {
       window.dispatchEvent(new CustomEvent('EV_BILLETERA_REFRESH', { detail: payload }));
       document.dispatchEvent(new CustomEvent('EV_BILLETERA_REFRESH', { detail: payload }));
+    } catch (_) {}
+
+    // 2) otras pestañas (BroadcastChannel)
+    try {
+      if ('BroadcastChannel' in window) {
+        const bc = new BroadcastChannel(BC_NAME);
+        bc.postMessage(payload);
+        bc.close();
+      }
+    } catch (_) {}
+
+    // 3) fallback cross-tab (storage event)
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(payload));
+      // opcional: limpiar para que el siguiente evento dispare igual
+      localStorage.removeItem(LS_KEY);
     } catch (_) {}
   }
 

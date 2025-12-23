@@ -34,7 +34,9 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
   <!-- Contenedor principal -->
   <div class="login-shell">
     <!-- HERO IZQUIERDO -->
-    <section class="login-hero" aria-label="Presentación de Entre Vecinos">
+    <section class="login-hero">
+      <div class="login-hero-layer"></div>
+
       <div class="login-hero-content">
         <h1 class="login-hero-title">
           Bienvenido a

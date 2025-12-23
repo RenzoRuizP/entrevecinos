@@ -1,8 +1,11 @@
 <!-- views/estilos/atenderRecargasEstilo.php -->
 <style>
 /* =========================================================
-   EV - ATENDER RECARGAS (Soporte) - ESTILO FINAL
-   Header dentro de Card (estilo "Mi billetera")
+   EV - ATENDER RECARGAS (Soporte) - ESTILO FINAL (MEJORADO)
+   - Hero degradado más sutil
+   - Tabla alineada (monto, método, columnas)
+   - Hover de filas (affordance)
+   - Método con ícono (yape/plin)
 ========================================================= */
 
 :root {
@@ -33,12 +36,12 @@
   overflow: hidden;
 }
 
-/* HERO CARD */
+/* HERO CARD (degradado más sutil y limpio) */
 .ev-hero{
   background:
-    radial-gradient(circle at 80% 20%, rgba(22,163,74,0.08), transparent 55%),
-    radial-gradient(circle at 15% 80%, rgba(234,124,18,0.07), transparent 55%),
-    #ffffff;
+    radial-gradient(circle at 82% 18%, rgba(22,163,74,0.06), transparent 58%),
+    radial-gradient(circle at 18% 82%, rgba(234,124,18,0.05), transparent 58%),
+    linear-gradient(180deg, rgba(249,250,251,0.65), rgba(255,255,255,1));
 }
 .ev-hero-body{
   padding: 18px 18px 14px;
@@ -284,15 +287,61 @@
   color: #374151;
   font-weight: 900;
   border-bottom: 1px solid var(--ev-gris-200) !important;
+  white-space: nowrap;
 }
 .ev-table tbody td{
   vertical-align: middle;
   border-color: var(--ev-gris-200);
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+/* Hover/affordance (fila "se siente" interactiva) */
+.ev-table tbody tr:hover{
+  background: rgba(236,253,245,0.65);
+  box-shadow: inset 3px 0 0 rgba(22,163,74,0.55);
+}
+
+/* Texto monoespaciado y números tabulares */
+.ev-mono, .ev-money{
+  font-variant-numeric: tabular-nums;
+}
+
+/* ====== TABLA: ANCHOS Y ALINEACIÓN ====== */
+.ev-table th:nth-child(1), .ev-table td:nth-child(1){ width: 160px; } /* Fecha */
+.ev-table th:nth-child(3), .ev-table td:nth-child(3){ width: 120px; text-align:right; } /* Monto */
+.ev-table th:nth-child(4), .ev-table td:nth-child(4){ width: 90px;  text-align:center; } /* Método */
+.ev-table th:nth-child(5), .ev-table td:nth-child(5){ width: 130px; } /* ID */
+.ev-table th:nth-child(6), .ev-table td:nth-child(6){ width: 120px; } /* Estado */
+.ev-table th:nth-child(7), .ev-table td:nth-child(7){ width: 120px; text-align:right; } /* Acciones */
+
+/* Usuario: evita que empuje columnas */
+.ev-table td:nth-child(2){
+  max-width: 520px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Fecha en 2 líneas */
+.ev-fecha{
+  display:flex;
+  flex-direction:column;
+  line-height:1.15;
+}
+.ev-fecha .ev-fecha-date{
+  font-weight:900;
+  color:#111827;
+}
+.ev-fecha .ev-fecha-time{
+  font-size:0.78rem;
+  color: var(--ev-gris-500);
+  margin-top: 2px;
 }
 
 /* =========================================================
-   NUEVO: Método (ícono Yape/Plin) - SOLO ICONO
-   - No rompe nada: si no cargan imágenes, cae a texto
+   Método (ícono Yape/Plin) - SOLO ICONO
+   - Si no cargan imágenes, cae a texto
 ========================================================= */
 .ev-metodo{
   display:inline-flex;
@@ -460,5 +509,9 @@
   .ev-recargas-title{ font-size: 1.65rem; }
   .ev-quick-actions .btn{ width: 100%; }
   .ev-hero-body{ padding: 16px 14px 12px; }
+
+  .ev-table td:nth-child(2){
+    max-width: 220px;
+  }
 }
 </style>
