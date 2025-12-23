@@ -63,7 +63,7 @@ body.login-body {
     linear-gradient(145deg, #0F592F 0%, #0E7A43 45%, #16A34A 85%);
 }
 
-/* Overlay suave del hero */
+/* FIX overlay (antes estaba apuntando a un elemento que no existía) */
 .login-hero::before {
   content: "";
   position: absolute;
@@ -73,9 +73,6 @@ body.login-body {
   opacity: 0.9;
   pointer-events: none;
 }
-
-/* (Se mantiene el DIV por compatibilidad con tu HTML actual) */
-.login-hero-layer{ display:none; }
 
 .login-hero-content {
   position: relative;
@@ -96,18 +93,17 @@ body.login-body {
   color: #fefce8;
 }
 
-.login-hero-text {
+/* Texto hero: menos “bloque” y mejor respiración */
+.login-hero-text{
   font-size: 0.98rem;
   color: #E5E7EB;
+  margin-bottom: 14px;
   line-height: 1.6;
   text-shadow: 0 1px 2px rgba(0,0,0,0.20);
-
-  /* Ajuste UX/UI (antes estaba en login.php) */
-  margin-bottom: 14px;
   max-width: 40ch;
 }
 
-/* Lista compacta (antes estaba en login.php) */
+/* Lista: alineación limpia y escaneo rápido */
 .login-hero-list{
   margin-top: 10px;
   padding-left: 0;
@@ -123,9 +119,9 @@ body.login-body {
   column-gap: 12px;
   align-items: center;
   line-height: 1.25;
-  font-size: 0.95rem;
   color: #F9FAFB;
   text-shadow: 0 1px 2px rgba(0,0,0,0.20);
+  font-size: 0.95rem;
 }
 
 .login-hero-list li i{
@@ -140,7 +136,7 @@ body.login-body {
   font-weight: 700;
 }
 
-/* Badge pill (antes estaba en login.php) */
+/* Badge de marca: estilo “badge”, con feedback sutil (no botón) */
 .badge-pill{
   display: inline-flex;
   align-items: center;
@@ -177,13 +173,11 @@ body.login-body {
   background: #ffffff;
   display: flex;
   flex-direction: column;
-
-  /* Micro-ajuste: menos aire arriba, sin perder elegancia */
-  padding: 26px 40px 24px;
+  padding: 32px 40px 28px;
 }
 
 .login-panel-header {
-  margin-bottom: 14px;
+  margin-bottom: 16px;
   position: relative;
 }
 
@@ -192,23 +186,23 @@ body.login-body {
   position: absolute;
   width: 120px;
   height: 120px;
-  top: -22px;
+  top: -20px;
   left: 50%;
   transform: translateX(-50%);
   background: radial-gradient(circle, rgba(22,163,74,0.10), transparent 70%);
   z-index: -1;
 }
 
-/* Logo más presente (tu observación) */
-.login-logo{
-  max-height: 76px;         /* antes: 80 en tu css, pero en tu vista lo bajaste a 56 */
-  width: auto;
-  margin-bottom: 8px !important;
+.login-logo {
+  max-height: 80px;
 }
 
+/* (Ajuste leve que vienes usando) */
+.login-logo{ max-height: 120px; }
+
 .login-panel-title {
-  font-size: 1.38rem;       /* micro: un poco menos que antes para jerarquía con logo */
-  font-weight: 650;         /* evita competir con marca */
+  font-size: 1.45rem;
+  font-weight: 700;
   color: var(--ev-verde-oscuro);
   margin-bottom: 4px;
 }
@@ -217,9 +211,6 @@ body.login-body {
   font-size: 0.88rem;
   color: var(--ev-gris-500);
   margin-bottom: 0;
-  max-width: 44ch;
-  margin-left: auto;
-  margin-right: auto;
 }
 
 .login-panel-body {
@@ -227,8 +218,8 @@ body.login-body {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding-top: 6px;
-  padding-bottom: 10px;
+  padding-top: 8px;
+  padding-bottom: 12px;
 }
 
 /* Inputs login */
@@ -241,11 +232,8 @@ body.login-body {
   font-size: 1rem;
 }
 
-/* Inputs: un poco más “activos”/cómodos */
 .login-form input.form-control {
   padding-left: 38px;
-  padding-top: 11px;     /* +2px */
-  padding-bottom: 11px;  /* +2px */
   border-radius: 10px;
   border: 1px solid var(--ev-verde-claro);
   font-size: 0.95rem;
@@ -265,27 +253,16 @@ body.login-body {
 }
 
 .login-form .mb-3 {
-  margin-bottom: 1.05rem !important; /* un poco más compacto */
+  margin-bottom: 1.15rem !important;
 }
 
 .login-form .mb-2 {
-  margin-bottom: 0.95rem !important;
+  margin-bottom: 1.05rem !important;
 }
 
 /* Recordarme + link */
-.login-remember-row{
-  margin-top: 2px;
-}
-
 .login-remember-row .form-check-input {
   border-radius: 4px;
-  transform: scale(1.05);
-  transform-origin: left center;
-}
-
-.login-remember-row .form-check-label{
-  color: #374151;
-  font-size: 0.9rem;
 }
 
 .login-remember-row .form-check-input:checked {
@@ -329,7 +306,7 @@ body.login-body {
 
 /* Botón Crear cuenta */
 .login-actions {
-  margin-top: 10px; /* un poco más cerca del flujo */
+  margin-top: 12px;
 }
 
 .login-actions-text {
@@ -428,7 +405,7 @@ body.login-body {
   filter: invert(1);
 }
 
-/* Fondo blanco + sombra interna suave para separar barra de pasos */
+/* Fondo blanco + sombra interna suave */
 .modal-body {
   padding-left: 2rem;
   padding-right: 2rem;
@@ -577,6 +554,32 @@ body.login-body {
   box-shadow: 0 10px 22px rgba(22,163,74,0.45);
 }
 
+/* ===================================================
+   CTA compacta para modales (Recuperar cuenta)
+   FIX: centrado perfecto del icono + texto
+=================================================== */
+.modal-footer .btn-login.btn-modal-cta{
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  line-height: 1;
+
+  box-shadow: 0 10px 22px rgba(234,124,18,0.22);
+}
+
+.modal-footer .btn-login.btn-modal-cta i{
+  font-size: 0.95rem;
+  line-height: 1;
+  display: inline-block;
+  transform: translateY(0.5px);
+}
+
 /* ============================
    RESPONSIVO
 ============================ */
@@ -585,6 +588,12 @@ body.login-body {
   .login-hero-list{ gap: 10px; }
   .login-hero-list li{ grid-template-columns: 24px 1fr; }
   .login-hero-list li i{ font-size: 1.05rem; }
+}
+
+@media (max-width: 992px) {
+  .login-shell {
+    max-width: 880px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -604,11 +613,7 @@ body.login-body {
   }
 
   .login-panel {
-    padding: 22px 22px 18px;
-  }
-
-  .login-logo{
-    max-height: 70px; /* se mantiene presente en móvil */
+    padding: 24px 22px 20px;
   }
 }
 
@@ -649,5 +654,13 @@ body.login-body {
   #step1 { width: 40% !important; }
   #step2 { width: 30% !important; }
   #step3 { width: 30% !important; }
+
+  /* CTA modal compacta en móvil */
+  .modal-footer .btn-login.btn-modal-cta{
+    height: 36px;
+    padding: 0 14px;
+    font-size: 0.88rem;
+    line-height: 1;
+  }
 }
 </style>

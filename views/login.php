@@ -35,8 +35,6 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
   <div class="login-shell">
     <!-- HERO IZQUIERDO -->
     <section class="login-hero">
-      <div class="login-hero-layer"></div>
-
       <div class="login-hero-content">
         <h1 class="login-hero-title">
           Bienvenido a
@@ -48,7 +46,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
           de forma simple y segura.
         </p>
 
-        <!-- Beneficios (compacto para login) -->
+        <!-- Beneficios -->
         <ul class="login-hero-list" aria-label="Beneficios de Entre Vecinos">
           <li>
             <i class="bi bi-building-check" aria-hidden="true"></i>
@@ -87,7 +85,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
         <img
           src="<?= BASE_URL ?>resources/images/logo/logo8.png"
           alt="Logo Entre Vecinos"
-          class="img-fluid login-logo mb-2">
+          class="img-fluid login-logo">
         <h2 class="login-panel-title">Inicia sesión</h2>
         <p class="login-panel-subtitle">
           Accede con tu correo y contraseña para empezar a conectarte con tus vecinos.
@@ -97,7 +95,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
       <div class="login-panel-body">
         <form id="formLogin" class="login-form">
           <div class="mb-3 position-relative">
-            <i class="bi bi-envelope-fill input-icon" aria-hidden="true"></i>
+            <i class="bi bi-envelope-fill input-icon"></i>
             <input
               id="email"
               name="email"
@@ -110,7 +108,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
           </div>
 
           <div class="mb-3 position-relative">
-            <i class="bi bi-lock-fill input-icon" aria-hidden="true"></i>
+            <i class="bi bi-lock-fill input-icon"></i>
             <input
               id="clave"
               name="clave"
@@ -200,7 +198,9 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
             <i class="bi bi-x-circle me-1"></i> Cerrar
           </button>
-          <a href="tel:+51956969182" class="btn btn-login btn-xs fw-semibold">
+
+          <!-- CTA compacta para modal -->
+          <a href="tel:+51956969182" class="btn btn-login btn-modal-cta fw-semibold">
             <i class="bi bi-telephone me-1"></i> Llamar ahora
           </a>
         </div>

@@ -78,26 +78,25 @@ require_once __DIR__ . '/../Config/config.php';
 
 
 <!-- ===========================================================
-     MODAL: RECARGAR SALDO
+     MODAL: RECARGAR SALDO (armonizado con "Recuperar cuenta")
 =========================================================== -->
-<div class="modal fade ev-modal" id="modalRecargarSaldo" tabindex="-1" aria-hidden="true">
+<div class="modal fade ev-modal ev-modal-login" id="modalRecargarSaldo" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content ev-modal-content">
 
-      <div class="ev-modal-header">
-        <h5 class="ev-modal-title mb-0">
-          <i class="bi bi-plus-circle"></i>
-          <span>Recargar saldo</span>
+      <div class="modal-header ev-login-modal-header">
+        <h5 class="modal-title mb-0">
+          <i class="bi bi-plus-circle me-2"></i> Recargar saldo
         </h5>
         <button 
           type="button" 
-          class="btn-close btn-close-white ev-modal-close-icon" 
+          class="btn-close btn-close-white" 
           data-bs-dismiss="modal" 
           aria-label="Cerrar">
         </button>
       </div>
 
-      <div class="ev-modal-body">
+      <div class="modal-body ev-login-modal-body">
         <form id="formRecargaSaldo" enctype="multipart/form-data">
           
           <div class="row g-3 align-items-start">
@@ -139,7 +138,7 @@ require_once __DIR__ . '/../Config/config.php';
                   </select>
                 </div>
 
-                <!-- NUEVO: ID operación -->
+                <!-- ID operación -->
                 <div class="col-12">
                   <label class="form-label">ID de operación</label>
                   <input
@@ -177,17 +176,16 @@ require_once __DIR__ . '/../Config/config.php';
         </form>
       </div>
 
-      <div class="ev-modal-footer">
+      <div class="modal-footer ev-login-modal-footer justify-content-between">
         <button 
           type="button" 
-          class="btn btn-ev-outline ev-btn-cerrar" 
+          class="btn ev-btn-modal-outline"
           data-bs-dismiss="modal">
-          <i class="bi bi-x"></i>
-          <span>Cerrar</span>
+          <i class="bi bi-x-circle me-1"></i> Cerrar
         </button>
-        <button type="button" class="btn btn-ev-orange" id="btnEnviarRecarga">
-          <i class="bi bi-check-circle-fill"></i>
-          <span>Confirmar recarga</span>
+
+        <button type="button" class="btn ev-btn-modal-primary" id="btnEnviarRecarga">
+          <i class="bi bi-check-circle-fill me-1"></i> Confirmar recarga
         </button>
       </div>
 
@@ -197,65 +195,61 @@ require_once __DIR__ . '/../Config/config.php';
 
 
 <!-- ===========================================================
-     MODAL: SOPORTE TÉCNICO
+     MODAL: SOPORTE TÉCNICO (armonizado con "Recuperar cuenta")
 =========================================================== -->
-<div class="modal fade ev-modal" id="modalSoporteBilletera" tabindex="-1" aria-hidden="true">
+<div class="modal fade ev-modal ev-modal-login" id="modalSoporteBilletera" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content ev-modal-content">
 
-      <div class="ev-modal-header">
-        <h5 class="ev-modal-title mb-0">
-          <i class="bi bi-headset"></i>
-          <span>Soporte técnico</span>
+      <div class="modal-header ev-login-modal-header">
+        <h5 class="modal-title mb-0">
+          <i class="bi bi-headset me-2"></i> Soporte técnico
         </h5>
         <button 
           type="button" 
-          class="btn-close btn-close-white ev-modal-close-icon" 
+          class="btn-close btn-close-white" 
           data-bs-dismiss="modal" 
           aria-label="Cerrar">
         </button>
       </div>
 
-      <div class="ev-modal-body text-center">
+      <div class="modal-body ev-login-modal-body text-center">
 
-        <p class="mb-3">
+        <p class="mb-3 text-muted">
           Si tienes dudas sobre tus recargas o movimientos en tu billetera,<br>
           contáctanos:
         </p>
 
-        <div class="ev-support-card mx-auto mb-3">
-          <p class="mb-1 ev-support-title">Soporte técnico</p>
-          <p class="mb-3 ev-support-subtitle">
+        <div class="p-3 border rounded bg-light mx-auto" style="max-width: 360px;">
+          <p class="fw-bold mb-1 text-dark">Soporte técnico</p>
+          <p class="mb-2">
             Lunes a Viernes: <strong>8:00 AM – 8:00 PM</strong>
           </p>
 
-          <p class="mb-1">
-            <i class="bi bi-whatsapp ev-support-icon"></i>
-            <span class="ev-support-phone">956 969 182</span>
+          <p class="fs-5 text-success mb-0">
+            <i class="bi bi-whatsapp me-1"></i> 956 969 182
           </p>
-          <p class="mb-0">
-            <i class="bi bi-telephone-fill ev-support-icon"></i>
-            <span class="ev-support-phone">956 969 182</span>
+          <p class="fs-5 text-success mb-0">
+            <i class="bi bi-telephone-fill me-1"></i> 956 969 182
           </p>
         </div>
 
-        <p class="text-muted small mb-0">
+        <p class="text-muted small mb-0 mt-3">
           Nuestro equipo te ayudará a resolver cualquier problema con tu cuenta o billetera.
         </p>
 
       </div>
 
-      <div class="ev-modal-footer">
+      <div class="modal-footer ev-login-modal-footer justify-content-between">
         <button 
           type="button" 
-          class="btn btn-ev-outline ev-btn-cerrar" 
+          class="btn ev-btn-modal-outline"
           data-bs-dismiss="modal">
-          <i class="bi bi-x"></i>
-          <span>Cerrar</span>
+          <i class="bi bi-x-circle me-1"></i> Cerrar
         </button>
-        <a href="tel:956969182" class="btn btn-ev-orange ev-btn-cta-soporte">
-          <i class="bi bi-telephone-fill"></i>
-          <span>Llamar ahora</span>
+
+        <a href="tel:956969182" class="btn ev-btn-modal-primary ev-btn-modal-cta">
+          <i class="bi bi-telephone me-1"></i> Llamar ahora
         </a>
       </div>
 

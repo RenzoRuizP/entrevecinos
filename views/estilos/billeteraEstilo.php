@@ -14,21 +14,25 @@
 
   --ev-shadow-card:  0 14px 40px rgba(15, 23, 42, 0.14);
   --ev-shadow-soft:  0 10px 24px rgba(15, 23, 42, 0.06);
+
+  /* Radios */
   --ev-radius-card:  18px;
-  --ev-radius-modal: 22px;
+  --ev-radius-modal: 18px; /* alineado con login */
+
+  /* Paleta modal (login) */
+  --ev-modal-grad-1: #0F592F;
+  --ev-modal-grad-2: #0E7A43;
+  --ev-modal-grad-3: #16A34A;
 }
 
 /* ==========================================================
    WRAPPER / LAYOUT
 ========================================================== */
-
-/* Wrapper: solo layout. El fondo se mantiene uniforme con el dashboard */
 .ev-wallet-wrapper{
   max-width: 1100px;
   margin: 0 auto;
 }
 
-/* Card principal */
 .ev-wallet-card{
   border-radius: var(--ev-radius-card);
   border: 1px solid var(--ev-gris-borde);
@@ -42,10 +46,7 @@
   padding: 24px 32px;
 }
 
-/* Header billetera */
-.ev-wallet-header{
-  min-height: 56px;
-}
+.ev-wallet-header{ min-height: 56px; }
 
 /* ==========================================================
    TITULOS / SUBTITULOS
@@ -126,9 +127,7 @@
 /* ==========================================================
    MOVIMIENTOS / TABLA
 ========================================================== */
-.ev-wallet-movimientos{
-  margin-top: 12px;
-}
+.ev-wallet-movimientos{ margin-top: 12px; }
 
 .ev-wallet-table-wrapper{
   border: 1px solid rgba(229, 231, 235, 0.9);
@@ -138,9 +137,7 @@
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
 }
 
-.ev-wallet-table{
-  margin: 0;
-}
+.ev-wallet-table{ margin: 0; }
 
 .ev-wallet-table thead th{
   border-bottom: 1px solid var(--ev-gris-borde);
@@ -173,17 +170,9 @@
   gap: 10px;
 }
 
-.ev-wallet-mov-icon{
-  font-size: 1.05rem;
-}
-
-.ev-wallet-mov-icon--credito{
-  color: var(--ev-verde);
-}
-
-.ev-wallet-mov-icon--debito{
-  color: var(--ev-rojo);
-}
+.ev-wallet-mov-icon{ font-size: 1.05rem; }
+.ev-wallet-mov-icon--credito{ color: var(--ev-verde); }
+.ev-wallet-mov-icon--debito{ color: var(--ev-rojo); }
 
 .ev-wallet-mov-titulo{
   font-weight: 700;
@@ -195,24 +184,13 @@
   color: var(--ev-texto-suave);
 }
 
-.ev-wallet-mov-monto{
-  font-weight: 800;
-}
-
-.ev-wallet-monto--credito{
-  color: var(--ev-verde);
-}
-
-.ev-wallet-monto--debito{
-  color: var(--ev-rojo);
-}
-
-.ev-wallet-mov-saldo{
-  font-size: 0.9rem;
-}
+.ev-wallet-mov-monto{ font-weight: 800; }
+.ev-wallet-monto--credito{ color: var(--ev-verde); }
+.ev-wallet-monto--debito{ color: var(--ev-rojo); }
+.ev-wallet-mov-saldo{ font-size: 0.9rem; }
 
 /* ==========================================================
-   BOTONES EV
+   BOTONES EV (generales billetera)
 ========================================================== */
 .btn-ev-orange{
   background-image: linear-gradient(180deg, #FF9B3A, #FF7A1A);
@@ -257,18 +235,6 @@
   transform: translateY(-1px);
 }
 
-/* Botón Cerrar con X circular */
-.ev-btn-cerrar i{
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  border: 1px solid #D1D5DB;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.82rem;
-}
-
 /* Estado “saving” usado por JS */
 #btnEnviarRecarga.saving{
   opacity: .85;
@@ -276,126 +242,144 @@
 }
 
 /* ==========================================================
-   FORMS (modal recarga)
+   MODALES (ESTILO LOGIN / RECUPERAR CUENTA)
+   - Solo aplica a modales con clase: .ev-modal-login
 ========================================================== */
-.ev-modal-body .form-label{
-  font-weight: 700;
-  color: var(--ev-texto);
-}
-
-.ev-modal-body .form-control,
-.ev-modal-body .form-select{
-  border-radius: 14px;
-  border: 1px solid rgba(148,163,184,.35);
-  box-shadow: none;
-  padding: 0.62rem 0.85rem;
-  transition: border-color .15s ease, box-shadow .15s ease;
-}
-
-.ev-modal-body .form-control:focus,
-.ev-modal-body .form-select:focus{
-  border-color: rgba(25,135,84,.55);
-  box-shadow: 0 0 0 .2rem rgba(25,135,84,.15);
-}
-
-.ev-modal-body .form-text{
-  color: var(--ev-texto-suave);
-}
-
-/* ID operación (monoespaciado suave para lectura) */
-#recarga_operacion{
-  letter-spacing: .03em;
-}
-
-/* ==========================================================
-   MODALES EV – UNIFICADOS CON "RECUPERAR CUENTA"
-========================================================== */
-.ev-modal .modal-dialog{
-  max-width: 720px;
-}
-
-.ev-modal-content{
+.ev-modal-login .ev-modal-content{
   border-radius: var(--ev-radius-modal);
+  border: none;
   overflow: hidden;
-  border: 0;
-  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.35);
+  background: transparent; /* como login */
+  box-shadow:
+    0 18px 45px rgba(0,0,0,0.22),
+    0 6px 12px rgba(0,0,0,0.12);
 }
 
-/* HEADER del modal */
-.ev-modal-header{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+/* Header degradado como login */
+.ev-modal-login .ev-login-modal-header{
+  background: linear-gradient(140deg, var(--ev-modal-grad-1) 0%, var(--ev-modal-grad-2) 55%, var(--ev-modal-grad-3) 100%);
   padding: 16px 24px;
-  background-color: #0F592F;
-  color: #ffffff;
+  border-bottom: 1px solid rgba(255,255,255,0.20);
+  border-radius: var(--ev-radius-modal) var(--ev-radius-modal) 0 0;
+  color: #fff;
 }
 
-/* Título */
-.ev-modal-title{
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #ffffff !important;
-  display: flex;
+.ev-modal-login .ev-login-modal-header .modal-title{
+  font-weight: 600;
+  font-size: 1rem;
+  color: #fff;
+  display: inline-flex;
   align-items: center;
+}
+
+.ev-modal-login .ev-login-modal-header .btn-close{
+  filter: invert(1);
+  opacity: 1;
+}
+
+/* Body y footer igual que login */
+.ev-modal-login .ev-login-modal-body{
+  padding-left: 2rem;
+  padding-right: 2rem;
+  padding-top: 1.8rem;
+  padding-bottom: 1.4rem;
+  background: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(0,0,0,0.06);
+}
+
+.ev-modal-login .ev-login-modal-footer{
+  border-top: 1px solid #E5E7EB;
+  border-radius: 0 0 var(--ev-radius-modal) var(--ev-radius-modal);
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  background: #ffffff;
+}
+
+/* Inputs dentro del modal (matching login) */
+.ev-modal-login .ev-modal-content .form-label{
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.ev-modal-login .ev-modal-content .form-control,
+.ev-modal-login .ev-modal-content .form-select{
+  border-radius: 10px;
+  border: 1px solid #D1FAE5;
+  font-size: 0.95rem;
+  transition: all 0.18s ease-out;
+  padding-left: 14px;
+  padding-right: 14px;
+  box-shadow: none;
+}
+
+.ev-modal-login .ev-modal-content .form-control::placeholder{
+  color: #A3A3A3;
+}
+
+.ev-modal-login .ev-modal-content .form-control:focus,
+.ev-modal-login .ev-modal-content .form-select:focus{
+  border-color: #16A34A;
+  box-shadow: 0 0 0 3px rgba(22,163,74,0.20);
+  outline: none;
+}
+
+/* ID operación: lectura más clara */
+#recarga_operacion{ letter-spacing: .03em; }
+
+/* Botones modal (matching login) */
+.ev-btn-modal-outline{
+  border-radius: 999px;
+  font-size: 0.9rem;
+  border-color: #D1D5DB;
+  color: #4B5563;
+  background-color: #FFFFFF;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
 }
 
-.ev-modal-title i{
+.ev-btn-modal-outline:hover{
+  background-color: #F3F4F6;
+  color: #111827;
+}
+
+.ev-btn-modal-primary{
+  background: linear-gradient(135deg, #EA7C12, #F59E0B);
+  border: none;
   color: #ffffff;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  box-shadow: 0 12px 26px rgba(234,124,18,0.35);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  transition: all 0.2s ease;
 }
 
-/* X del header (btn-close) */
-.ev-modal-close-icon{
-  opacity: 1;
-  transform: translateY(1px);
+.ev-btn-modal-primary:hover{
+  background: linear-gradient(135deg, #C46B05, #EA580C);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(234,124,18,0.48);
 }
 
-/* BODY */
-.ev-modal-body{
-  padding: 22px 26px;
-  background-color: #ffffff;
+.ev-btn-modal-primary:active{
+  transform: translateY(0);
+  box-shadow: 0 6px 16px rgba(234,124,18,0.30);
 }
 
-/* FOOTER */
-.ev-modal-footer{
-  padding: 14px 26px 20px 26px;
-  background-color: #ffffff;
-  border-top: 1px solid rgba(229, 231, 235, 0.9);
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-}
-
-/* ==========================================================
-   TARJETA SOPORTE
-========================================================== */
-.ev-support-card{
-  border-radius: 16px;
-  border: 1px solid var(--ev-gris-borde);
-  background-color: #F9FAFB;
-  padding: 16px 20px;
-  max-width: 360px;
-  box-shadow: var(--ev-shadow-soft);
-}
-
-.ev-support-title{
-  font-weight: 800;
-  color: var(--ev-texto);
-}
-
-.ev-support-subtitle{
-  color: var(--ev-texto-suave);
-}
-
-.ev-support-icon{
-  color: var(--ev-verde);
-  margin-right: 4px;
-}
-
-.ev-support-phone{
-  font-weight: 800;
-  color: var(--ev-verde-oscuro);
+/* CTA compacta (Llamar ahora) similar a btn-modal-cta del login */
+.ev-btn-modal-cta{
+  height: 38px;
+  padding: 0 16px;
+  line-height: 1;
 }
 
 /* ==========================================================
@@ -434,6 +418,82 @@
 }
 
 /* ==========================================================
+   SWEETALERT2 – THEME EV (billetera)
+   - Para que “Entendido/OK” mantenga el estilo EV
+   - No afecta otros componentes
+========================================================== */
+.ev-swal-popup{
+  border-radius: 18px !important;
+  padding: 18px 18px 16px 18px !important;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.25) !important;
+}
+
+.ev-swal-title{
+  font-weight: 800 !important;
+  color: var(--ev-verde-oscuro) !important;
+  letter-spacing: -0.01em !important;
+}
+
+.ev-swal-html{
+  color: var(--ev-texto-suave) !important;
+  font-size: 0.98rem !important;
+  line-height: 1.45 !important;
+}
+
+.ev-swal-icon{
+  transform: translateY(-2px);
+}
+
+/* Botón principal (Entendido / Sí, confirmar) */
+.ev-swal-confirm{
+  background-image: linear-gradient(180deg, #FF9B3A, #FF7A1A) !important;
+  border: none !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  border-radius: 999px !important;
+  padding: 10px 18px !important;
+  min-width: 140px;
+  box-shadow: 0 14px 28px rgba(255, 122, 26, 0.35) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease !important;
+}
+
+.ev-swal-confirm:hover{
+  filter: brightness(1.04) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 18px 32px rgba(255, 122, 26, 0.45) !important;
+}
+
+.ev-swal-confirm:active{
+  transform: translateY(0) !important;
+  box-shadow: 0 10px 22px rgba(255, 122, 26, 0.28) !important;
+}
+
+/* Botón cancelar (solo cuando tú lo uses en confirmaciones) */
+.ev-swal-cancel{
+  background: #ffffff !important;
+  border-radius: 999px !important;
+  border: 1px solid var(--ev-gris-borde) !important;
+  color: var(--ev-texto) !important;
+  font-weight: 700 !important;
+  padding: 10px 16px !important;
+  min-width: 120px;
+}
+
+.ev-swal-cancel:hover{
+  background: #F9FAFB !important;
+  transform: translateY(-1px) !important;
+}
+
+/* FIX: ocultar Cancel SOLO cuando tú agregues la clase "ev-swal-nocancel" */
+.ev-swal-nocancel .swal2-cancel{
+  display: none !important;
+}
+
+/* ==========================================================
    RESPONSIVE
 ========================================================== */
 @media (max-width: 575.98px){
@@ -460,25 +520,29 @@
     margin: 0 12px;
   }
 
-  .ev-modal-body{
-    padding: 18px 16px;
+  /* Body/footer modal como login (móvil) */
+  .ev-modal-login .ev-login-modal-body{
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    padding-top: 1.25rem;
+    padding-bottom: 1rem;
   }
 
-  .ev-modal-footer{
-    padding: 12px 16px 16px 16px;
+  .ev-modal-login .ev-login-modal-footer{
+    display: flex;
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
   }
 
-  .ev-modal-footer .btn{
+  .ev-modal-login .ev-login-modal-footer .btn,
+  .ev-modal-login .ev-login-modal-footer a.btn{
     width: 100%;
     justify-content: center;
   }
 }
 
 @media (max-width: 991.98px){
-  .ev-wallet-qr-card{
-    margin-top: 8px;
-  }
+  .ev-wallet-qr-card{ margin-top: 8px; }
 }
 </style>

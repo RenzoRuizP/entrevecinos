@@ -77,16 +77,81 @@
     return 'S/ ' + n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  // ==========================================================
+  // SWEETALERT2 – WRAPPER TEMA EV (FIX: botón Entendido con estilo)
+  // ==========================================================
+  function swalFireEV(opts) {
+    if (!window.Swal?.fire) return null;
+
+    // Clase base: aseguramos que SIEMPRE tenga el estilo EV,
+    // incluso si por algún motivo no toma "customClass.confirmButton".
+    const baseCustomClass = {
+      popup: 'ev-swal-popup',
+      title: 'ev-swal-title',
+      htmlContainer: 'ev-swal-html',
+      icon: 'ev-swal-icon',
+      // IMPORTANTE: le metemos clases EV completas al botón
+      confirmButton: 'ev-swal-confirm btn-ev-orange',
+      cancelButton: 'ev-swal-cancel btn-ev-outline'
+    };
+
+    // Merge seguro de customClass
+    const userCC = (opts && opts.customClass) ? opts.customClass : {};
+    const mergedCustomClass = Object.assign({}, baseCustomClass, userCC);
+
+    const base = {
+      title: 'Entre Vecinos',
+      customClass: mergedCustomClass,
+      buttonsStyling: false,
+      focusConfirm: true,
+      // Por defecto NO mostramos cancel
+      showCancelButton: false,
+      // Mantiene el look consistente
+      heightAuto: false
+    };
+
+    return Swal.fire(Object.assign({}, base, opts || {}));
+  }
+
   function swalInfo(msg) {
-    if (window.Swal?.fire) return Swal.fire({ icon: 'info', title: 'Entre Vecinos', text: msg });
+    if (window.Swal?.fire) {
+      return swalFireEV({
+        icon: 'info',
+        text: msg,
+        confirmButtonText: 'Entendido',
+        showCancelButton: false,
+        customClass: { popup: 'ev-swal-popup ev-swal-nocancel' }
+      });
+    }
     alert(msg);
   }
+
   function swalOk(msg) {
-    if (window.Swal?.fire) return Swal.fire({ icon: 'success', title: 'Listo', text: msg, timer: 1700, showConfirmButton: false });
+    if (window.Swal?.fire) {
+      return swalFireEV({
+        icon: 'success',
+        title: 'Listo',
+        text: msg,
+        timer: 1700,
+        showConfirmButton: false,
+        showCancelButton: false,
+        customClass: { popup: 'ev-swal-popup ev-swal-nocancel' }
+      });
+    }
     alert(msg);
   }
+
   function swalErr(msg) {
-    if (window.Swal?.fire) return Swal.fire({ icon: 'error', title: 'Ocurrió un problema', text: msg });
+    if (window.Swal?.fire) {
+      return swalFireEV({
+        icon: 'error',
+        title: 'Ocurrió un problema',
+        text: msg,
+        confirmButtonText: 'Entendido',
+        showCancelButton: false,
+        customClass: { popup: 'ev-swal-popup ev-swal-nocancel' }
+      });
+    }
     alert(msg);
   }
 
@@ -287,7 +352,7 @@
     const url = `${BASE}/api/recargas/registrar`;
 
     const confirmar = await (window.Swal?.fire
-      ? Swal.fire({
+      ? swalFireEV({
           icon: 'question',
           title: 'Confirmar recarga',
           text: 'Se registrará tu recarga y quedará pendiente de validación por Soporte.',
@@ -298,7 +363,7 @@
       : Promise.resolve({ isConfirmed: confirm('¿Confirmas registrar tu recarga?') })
     );
 
-    if (!confirmar.isConfirmed) return;
+    if (!confirmar || !confirmar.isConfirmed) return;
 
     refs.btnEnviarRecarga.disabled = true;
     refs.btnEnviarRecarga.classList.add('saving');
@@ -366,16 +431,13 @@
   // REFRESH AUTOMÁTICO (cross-tab)
   // ===========================
   function refrescarAhora(payload) {
-    // Si la billetera está renderizada en esta pestaña, refrescamos inmediatamente
     if (!document.querySelector('.ev-wallet-wrapper')) return;
-
     log('Refrescando billetera por evento:', payload?.motivo || '(sin motivo)');
     cargarSaldo();
     cargarMovimientos();
   }
 
   function escucharEventosRefresh() {
-    // 1) CustomEvent (misma pestaña)
     window.addEventListener('EV_BILLETERA_REFRESH', (e) => {
       refrescarAhora(e.detail || {});
     });
@@ -383,7 +445,6 @@
       refrescarAhora(e.detail || {});
     });
 
-    // 2) BroadcastChannel (otra pestaña)
     if (bc) {
       bc.onmessage = (ev) => {
         const msg = ev?.data || {};
@@ -391,7 +452,6 @@
       };
     }
 
-    // 3) localStorage event fallback (otra pestaña)
     window.addEventListener('storage', (ev) => {
       if (ev.key !== 'EV_BILLETERA_REFRESH') return;
       try {
@@ -400,7 +460,6 @@
       } catch (_) {}
     });
 
-    // Si el usuario vuelve a enfocar la pestaña, asegura consistencia
     window.addEventListener('focus', () => {
       if (document.querySelector('.ev-wallet-wrapper')) {
         cargarSaldo();
@@ -442,7 +501,7 @@
 
       if (resp.status === 401) {
         if (window.Swal?.fire) {
-          Swal.fire({ icon: 'info', title: 'Sesión expirada', text: 'Tu sesión ha expirado. Vuelve a iniciar sesión.' })
+          swalFireEV({ icon: 'info', title: 'Sesión expirada', text: 'Tu sesión ha expirado. Vuelve a iniciar sesión.' })
             .then(() => window.location.href = `${BASE}/login`);
         } else {
           window.location.href = `${BASE}/login`;
@@ -451,7 +510,7 @@
       }
 
       if (!resp.ok) {
-        if (window.Swal?.fire) Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo cargar tu billetera. Intenta nuevamente.' });
+        if (window.Swal?.fire) swalFireEV({ icon: 'error', title: 'Error', text: 'No se pudo cargar tu billetera. Intenta nuevamente.' });
         return;
       }
 
@@ -462,7 +521,7 @@
     } catch (err) {
       error('Excepción al cargar billetera:', err);
       if (window.Swal?.fire) {
-        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No pudimos cargar tu billetera. Revisa tu conexión.' });
+        swalFireEV({ icon: 'error', title: 'Error de conexión', text: 'No pudimos cargar tu billetera. Revisa tu conexión.' });
       }
     }
   }
