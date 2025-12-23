@@ -55,6 +55,7 @@ safeRequire(__DIR__ . '/models/SesionJWT.php', true);
 safeRequire(__DIR__ . '/controllers/AuthController.php');
 safeRequire(__DIR__ . '/controllers/MenuPrincipalController.php');
 safeRequire(__DIR__ . '/controllers/CondominioController.php');
+safeRequire(__DIR__ . '/controllers/UrbanizacionController.php'); // <-- NUEVO
 safeRequire(__DIR__ . '/controllers/UserController.php');
 safeRequire(__DIR__ . '/controllers/miPerfilController.php');
 safeRequire(__DIR__ . '/controllers/publicacionController.php');
@@ -100,6 +101,7 @@ $publicRoutes = [
     '#^/login$#',
     '#^/usuarios/registrar$#',
     '#^/condominios$#',
+    '#^/urbanizaciones$#', // <-- NUEVO
     '#^/condominios/(\d+)/torres$#',
     '#^/torres/(\d+)/departamentos$#',
     '#^/tipos$#',
@@ -121,6 +123,9 @@ $routes = [
     ['GET',  '#^/condominios$#',                 [CondominioController::class, 'listar'],             'json'],
     ['GET',  '#^/condominios/(\d+)/torres$#',    [CondominioController::class, 'listarTorres'],       'json'],
     ['GET',  '#^/torres/(\d+)/departamentos$#',  [CondominioController::class, 'listarDepartamentos'],'json'],
+
+    // --- API REST Urbanizaciones ---
+    ['GET',  '#^/urbanizaciones$#',              [UrbanizacionController::class, 'listar'],           'json'], // <-- NUEVO
 
     // --- Tipos / Categorías ---
     ['GET',  '#^/tipos$#',                        [tipoController::class, 'listar'],                'json'],
@@ -202,7 +207,6 @@ foreach ($routes as [$httpMethod, $pattern, $handler, $type]) {
                 }
             } catch (Exception $e) {
 
-                // IMPORTANTE:
                 // Si es parcial (AJAX/fetch), SIEMPRE responder JSON 401
                 if (esPeticionParcial() || $type === 'json') {
                     header('Content-Type: application/json; charset=utf-8');
@@ -293,7 +297,6 @@ foreach ($routes as [$httpMethod, $pattern, $handler, $type]) {
 if (!$matched) {
     http_response_code(404);
 
-    // Si es parcial o API, devuelve JSON limpio
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
         'ok'       => false,

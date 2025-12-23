@@ -663,4 +663,21 @@ body.login-body {
     line-height: 1;
   }
 }
+
+
+  /* ============================
+    PASO 2 (Residencia) - NUEVO
+  ============================ */
+  #formStep2 #wrapDireccion .form-text{
+    color: #6B7280;
+    margin-top: 6px;
+    font-size: .82rem;
+  }
+
+  #formStep2 .d-none{
+    display: none !important;
+  }
+
+
+
 </style>

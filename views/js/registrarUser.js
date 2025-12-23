@@ -1,4 +1,4 @@
-// views/js/user.js
+// views/js/registrarUser.js
 document.addEventListener("DOMContentLoaded", () => {
   const formCrearUsuario = document.getElementById("formCrearUsuario");
   if (!formCrearUsuario) return console.error("No se encontró formCrearUsuario en DOM");
@@ -6,33 +6,60 @@ document.addEventListener("DOMContentLoaded", () => {
   formCrearUsuario.addEventListener("submit", async (e) => {
     e.preventDefault();
 
+    const tipo = (document.getElementById("comboConjuntoResidencial")?.value || "").trim();
+    const codigoCondominio = document.getElementById("comboCondominio")?.value || "";
+    const codigoUrbanizacion = document.getElementById("comboUrbanizacion")?.value || "";
+    const direccion = (document.getElementById("direccion")?.value || "").trim();
+
     const data = {
       nombre: document.getElementById("nombre").value.trim(),
       documento: document.getElementById("documento").value.trim(),
       telefono: document.getElementById("telefono").value.trim(),
       email: document.getElementById("rEmail").value.trim(),
-      codigo_condominio: document.getElementById("comboCondominio").value,
-      codigo_torre: document.getElementById("comboTorre").value,
-      codigo_departamento: document.getElementById("comboDepartamento").value,
       codigo_rol: 2, // vecino por defecto
       clave: document.getElementById("rClave").value,
       confirmar_clave: document.getElementById("confirmar_clave").value,
-      fecha_inicio: new Date().toISOString().split("T")[0]
+      fecha_inicio: new Date().toISOString().split("T")[0],
+
+      // NUEVO
+      tipo_conjunto: tipo,
+      codigo_condominio: tipo === "condominio" ? Number(codigoCondominio || 0) : null,
+      codigo_urbanizacion: tipo === "urbanizacion" ? Number(codigoUrbanizacion || 0) : null,
+      direccion: direccion
     };
 
-    // validaciones cliente
+    // Validaciones cliente
     if (data.clave !== data.confirmar_clave) {
       Swal.fire("Error", "Las contraseñas no coinciden", "error");
       return;
     }
 
-    // Crear endpoint robusto usando window.BASE_URL (quita slash final si existe)
+    if (!data.tipo_conjunto) {
+      Swal.fire("Residencia", "Selecciona el tipo de conjunto residencial (Condominio o Urbanización).", "warning");
+      return;
+    }
+
+    if (data.tipo_conjunto === "condominio" && (!data.codigo_condominio || data.codigo_condominio <= 0)) {
+      Swal.fire("Residencia", "Selecciona un condominio.", "warning");
+      return;
+    }
+
+    if (data.tipo_conjunto === "urbanizacion" && (!data.codigo_urbanizacion || data.codigo_urbanizacion <= 0)) {
+      Swal.fire("Residencia", "Selecciona una urbanización.", "warning");
+      return;
+    }
+
+    if (!data.direccion || data.direccion.length < 5) {
+      Swal.fire("Residencia", "Ingresa una dirección válida.", "warning");
+      return;
+    }
+
+    // Endpoint robusto usando window.BASE_URL
     const rawBase = window.BASE_URL || '';
-    const base = rawBase.replace(/\/+$/,''); // '/entrevecinos' o ''
-    const endpoint = base + '/usuarios/registrar'; // '/entrevecinos/usuarios/registrar'
+    const base = rawBase.replace(/\/+$/,'');
+    const endpoint = base + '/usuarios/registrar';
 
     try {
-      // Enviar JSON
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -42,13 +69,17 @@ document.addEventListener("DOMContentLoaded", () => {
           telefono: data.telefono,
           email: data.email,
           codigo_rol: data.codigo_rol,
-          codigo_departamento: Number(data.codigo_departamento),
+          clave: data.clave,
           fecha_inicio: data.fecha_inicio,
-          clave: data.clave
+
+          // NUEVO
+          tipo_conjunto: data.tipo_conjunto,
+          codigo_condominio: data.codigo_condominio,
+          codigo_urbanizacion: data.codigo_urbanizacion,
+          direccion: data.direccion
         }),
       });
 
-      // DEBUG: ver estado y cuerpo crudo cuando algo falla
       if (!response.ok) {
         const text = await response.text();
         console.error("HTTP error", response.status, text);
@@ -56,7 +87,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // Intentar parsear JSON (protegido)
       const text = await response.text();
       let result;
       try {
@@ -69,7 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (result && result.success) {
         Swal.fire("Éxito", result.message || "Usuario registrado", "success")
-          .then(() => window.location.href = base + '/'); // ir a login
+          .then(() => window.location.href = base + '/');
       } else {
         Swal.fire("Error", result.message || "No se pudo registrar", "error");
       }
