@@ -5,21 +5,26 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
 <style>
+/* ===================================================
+   TOKENS EV
+=================================================== */
 :root {
   --ev-verde-oscuro: #0F592F;
   --ev-verde: #16A34A;
   --ev-verde-claro: #bbf7d0;
+
   --ev-naranja: #EA7C12;
   --ev-naranja-oscuro: #C46B05;
+
   --ev-gris-050: #F9FAFB;
   --ev-gris-100: #F3F4F6;
   --ev-gris-500: #6B7280;
   --ev-gris-600: #4B5563;
 }
 
-/* ============================
+/* ===================================================
    FONDO / LAYOUT LOGIN
-============================ */
+=================================================== */
 body.login-body {
   min-height: 100vh;
   margin: 0;
@@ -30,8 +35,7 @@ body.login-body {
   font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   color: #111827;
   background-color: var(--ev-gris-100);
-  background-image:
-    radial-gradient(circle at 50% 20%, rgba(22,163,74,0.10), transparent 60%);
+  background-image: radial-gradient(circle at 50% 20%, rgba(22,163,74,0.10), transparent 60%);
 }
 
 .login-shell {
@@ -48,9 +52,9 @@ body.login-body {
     0 4px 12px rgba(0,0,0,0.06);
 }
 
-/* ============================
+/* ===================================================
    HERO IZQUIERDO
-============================ */
+=================================================== */
 .login-hero {
   flex: 1.1;
   position: relative;
@@ -63,13 +67,11 @@ body.login-body {
     linear-gradient(145deg, #0F592F 0%, #0E7A43 45%, #16A34A 85%);
 }
 
-/* FIX overlay (antes estaba apuntando a un elemento que no existía) */
 .login-hero::before {
   content: "";
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(circle at 85% 85%, rgba(187,247,208,0.18) 0, transparent 60%);
+  background: radial-gradient(circle at 85% 85%, rgba(187,247,208,0.18) 0, transparent 60%);
   opacity: 0.9;
   pointer-events: none;
 }
@@ -93,7 +95,6 @@ body.login-body {
   color: #fefce8;
 }
 
-/* Texto hero: menos “bloque” y mejor respiración */
 .login-hero-text{
   font-size: 0.98rem;
   color: #E5E7EB;
@@ -103,7 +104,6 @@ body.login-body {
   max-width: 40ch;
 }
 
-/* Lista: alineación limpia y escaneo rápido */
 .login-hero-list{
   margin-top: 10px;
   padding-left: 0;
@@ -136,7 +136,6 @@ body.login-body {
   font-weight: 700;
 }
 
-/* Badge de marca: estilo “badge”, con feedback sutil (no botón) */
 .badge-pill{
   display: inline-flex;
   align-items: center;
@@ -165,9 +164,9 @@ body.login-body {
   outline-offset: 3px;
 }
 
-/* ============================
+/* ===================================================
    PANEL DERECHO LOGIN
-============================ */
+=================================================== */
 .login-panel {
   flex: 0.9;
   background: #ffffff;
@@ -194,11 +193,8 @@ body.login-body {
 }
 
 .login-logo {
-  max-height: 80px;
+  max-height: 120px;
 }
-
-/* (Ajuste leve que vienes usando) */
-.login-logo{ max-height: 120px; }
 
 .login-panel-title {
   font-size: 1.45rem;
@@ -252,19 +248,10 @@ body.login-body {
   outline: none;
 }
 
-.login-form .mb-3 {
-  margin-bottom: 1.15rem !important;
-}
+.login-form .mb-3 { margin-bottom: 1.15rem !important; }
+.login-form .mb-2 { margin-bottom: 1.05rem !important; }
 
-.login-form .mb-2 {
-  margin-bottom: 1.05rem !important;
-}
-
-/* Recordarme + link */
-.login-remember-row .form-check-input {
-  border-radius: 4px;
-}
-
+.login-remember-row .form-check-input { border-radius: 4px; }
 .login-remember-row .form-check-input:checked {
   background-color: var(--ev-verde);
   border-color: var(--ev-verde);
@@ -275,13 +262,12 @@ body.login-body {
   color: var(--ev-verde-oscuro);
   text-decoration: none;
 }
-
 .login-link-forgot:hover {
   color: var(--ev-verde);
   text-decoration: underline;
 }
 
-/* Botón Iniciar sesión */
+/* Botón naranja EV (login + CTA recuperar) */
 .btn-login {
   background: linear-gradient(135deg, var(--ev-naranja), #F59E0B);
   border: none;
@@ -291,28 +277,19 @@ body.login-body {
   box-shadow: 0 12px 26px rgba(234,124,18,0.35);
   transition: all 0.2s ease;
 }
-
 .btn-login:hover {
   background: linear-gradient(135deg, var(--ev-naranja-oscuro), #EA580C);
   color: #ffffff;
   transform: translateY(-1px);
   box-shadow: 0 14px 32px rgba(234,124,18,0.48);
 }
-
 .btn-login:active {
   transform: translateY(0);
   box-shadow: 0 6px 16px rgba(234,124,18,0.30);
 }
 
-/* Botón Crear cuenta */
-.login-actions {
-  margin-top: 12px;
-}
-
-.login-actions-text {
-  font-size: 0.9rem;
-  color: var(--ev-gris-600);
-}
+.login-actions { margin-top: 12px; }
+.login-actions-text { font-size: 0.9rem; color: var(--ev-gris-600); }
 
 .btn-outline-register {
   display: inline-flex;
@@ -328,21 +305,19 @@ body.login-body {
   transition: all 0.18s ease;
   backdrop-filter: blur(6px);
 }
-
 .btn-outline-register:hover {
   background-color: #ECFDF5;
   color: var(--ev-verde);
 }
 
-/* Footer */
 .login-panel-footer small {
   font-size: 0.78rem;
   color: #9ca3af;
 }
 
-/* ============================
+/* ===================================================
    SPINNER
-============================ */
+=================================================== */
 .spinner-overlay {
   position: fixed;
   top: 0; left: 0;
@@ -354,7 +329,6 @@ body.login-body {
   z-index: 9999;
   display: none;
 }
-
 .spinner {
   border: 4px solid #D1FAE5;
   border-top: 4px solid var(--ev-verde-oscuro);
@@ -363,20 +337,16 @@ body.login-body {
   height: 40px;
   animation: spin 0.8s linear infinite;
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* ============================
-   MODALES ENTRE VECINOS
-============================ */
+/* ===================================================
+   MODALES EV (base)
+=================================================== */
 .modal.show .modal-dialog {
   padding-top: 3rem;
   padding-bottom: 2rem;
 }
 
-/* Contenedor transparente para que el header pinte las esquinas */
 .modal-content {
   border-radius: 18px;
   border: none;
@@ -387,30 +357,26 @@ body.login-body {
     0 6px 12px rgba(0,0,0,0.12);
 }
 
-/* Header con degradado y borde redondeado */
 .modal-header.bg-success {
   background: linear-gradient(140deg, #0F592F 0%, #0E7A43 55%, #16A34A 100%);
-  padding-top: 16px;
-  padding-bottom: 16px;
+  padding: 16px 18px;
   border-bottom: 1px solid rgba(255,255,255,0.20);
   border-radius: 18px 18px 0 0;
 }
 
 .modal-header .modal-title {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: 0.01em;
 }
 
-.modal-header .btn-close {
-  filter: invert(1);
-}
+.modal-header .btn-close { filter: invert(1); }
 
-/* Fondo blanco + sombra interna suave */
 .modal-body {
-  padding-left: 2rem;
-  padding-right: 2rem;
-  padding-top: 1.8rem;
-  padding-bottom: 1.4rem;
+  padding: 1.8rem 2rem 1.4rem;
   background: #ffffff;
   box-shadow: inset 0 1px 0 rgba(0,0,0,0.06);
 }
@@ -418,12 +384,11 @@ body.login-body {
 .modal-footer {
   border-top: 1px solid #E5E7EB;
   border-radius: 0 0 18px 18px;
-  padding-top: 0.75rem;
-  padding-bottom: 0.75rem;
+  padding: 0.75rem 2rem;
   background: #ffffff;
 }
 
-/* Wizard pasos */
+/* Wizard pasos (base) */
 .modal .progress {
   height: 32px !important;
   border-radius: 999px;
@@ -443,7 +408,7 @@ body.login-body {
 
 .modal .progress-bar.bg-success {
   background: linear-gradient(135deg, #0F592F 0%, #16A34A 100%);
-  font-weight: 600;
+  font-weight: 700;
   color: #ffffff;
   letter-spacing: 0.03em;
 }
@@ -453,126 +418,84 @@ body.login-body {
   color: #4B5563;
 }
 
-/* Título de sección del paso */
 .step h6 {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-weight: 650;
+  font-weight: 750;
   color: #0F592F;
   font-size: 1.05rem;
   margin-bottom: 0.8rem;
 }
 
-/* Inputs del modal */
+/* Inputs de modales */
 .modal-content .form-label {
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.9rem;
   color: #374151;
 }
 
 .modal-content .form-control,
 .modal-content .form-select {
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid #D1FAE5;
   font-size: 0.95rem;
   transition: all 0.18s ease-out;
   padding-left: 14px;
   padding-right: 14px;
+  height: 46px;
+  background: #FFFFFF;
 }
 
-.modal-content .form-control::placeholder {
-  color: #A3A3A3;
-}
+.modal-content .form-control::placeholder { color: #A3A3A3; }
 
 .modal-content .form-control:focus,
 .modal-content .form-select:focus {
   border-color: #16A34A;
-  box-shadow: 0 0 0 3px rgba(22,163,74,0.20);
+  box-shadow: 0 0 0 4px rgba(22,163,74,0.18);
   outline: none;
 }
 
-.modal-content .row.g-3 {
-  row-gap: 1.4rem;
+.modal-content .row.g-3 { row-gap: 1.4rem; }
+
+/* File input (evita look “crudo”) */
+.modal-content input[type="file"].form-control{
+  height: auto;
+  padding: 10px 12px;
 }
 
-/* Ajustes específicos para el PASO 2 (Residencia) */
-#formStep2 h6 {
-  font-size: 1.15rem;
-  font-weight: 700;
-}
-
-#formStep2 h6 i {
-  font-size: 1.25rem;
-  margin-right: 4px;
-}
-
-/* Más aire horizontal entre los combos */
-#formStep2 .row.g-3 {
-  column-gap: 1rem;
-}
-
-/* Altura consistente y alineación vertical de los selects */
-#formStep2 .form-select {
-  height: 45px;
-  line-height: 45px;
-  padding-top: 0;
-  padding-bottom: 0;
-}
-
-/* Botones footer modal */
+/* Botones footer (base) */
 .modal-footer .btn {
   border-radius: 999px;
   font-size: 0.9rem;
 }
 
-/* Botón Anterior */
+/* Botón secundario */
 .modal-footer .btn-outline-secondary {
   border-color: #D1D5DB;
   color: #4B5563;
   background-color: #FFFFFF;
 }
-
 .modal-footer .btn-outline-secondary:hover {
   background-color: #F3F4F6;
   color: #111827;
 }
 
-/* Botón Siguiente / Registrar */
-.modal-footer .btn-success {
-  background: linear-gradient(135deg, #16A34A 0%, #22C55E 100%);
-  border: none;
-  box-shadow: 0 8px 18px rgba(22,163,74,0.35);
-  border-radius: 30px !important;
-  padding: 10px 26px;
-  font-size: 0.95rem;
-  margin-right: 4px;
-}
-
-.modal-footer .btn-success:hover {
-  background: linear-gradient(135deg, #15803D 0%, #16A34A 100%);
-  box-shadow: 0 10px 22px rgba(22,163,74,0.45);
-}
-
 /* ===================================================
    CTA compacta para modales (Recuperar cuenta)
-   FIX: centrado perfecto del icono + texto
 =================================================== */
 .modal-footer .btn-login.btn-modal-cta{
   height: 38px;
   padding: 0 16px;
   border-radius: 999px;
   font-size: 0.9rem;
-
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   line-height: 1;
-
   box-shadow: 0 10px 22px rgba(234,124,18,0.22);
 }
-
 .modal-footer .btn-login.btn-modal-cta i{
   font-size: 0.95rem;
   line-height: 1;
@@ -580,9 +503,88 @@ body.login-body {
   transform: translateY(0.5px);
 }
 
-/* ============================
+/* ===================================================
+   PASO 2 (Residencia) - base
+=================================================== */
+#formStep2 h6 { font-size: 1.15rem; }
+#formStep2 h6 i { font-size: 1.25rem; margin-right: 4px; }
+#formStep2 .row.g-3 { column-gap: 1rem; }
+#formStep2 .form-select { height: 46px; line-height: 46px; padding-top: 0; padding-bottom: 0; }
+
+/* ===================================================
+   MODAL "CREAR MI USUARIO" (armonización + CTA naranja)
+   - Card interno en pasos
+   - Wizard premium
+   - Botones Siguiente/Registrar en naranja EV (como "Llamar ahora")
+=================================================== */
+#crear_usuario .modal-dialog{ max-width: 980px; }
+
+#crear_usuario .modal-body{
+  background: linear-gradient(180deg, #FFFFFF 0%, #FAFBFC 100%);
+}
+
+/* Wizard más premium */
+#crear_usuario .progress{
+  height: 34px !important;
+  background: rgba(15, 89, 47, 0.06);
+  box-shadow:
+    inset 0 0 0 1px rgba(148,163,184,0.32),
+    0 10px 22px rgba(15,23,42,0.06);
+}
+
+/* Card interno por step (inputs agrupados) */
+#crear_usuario .step .row.g-3{
+  background: #FFFFFF;
+  border: 1px solid rgba(229,231,235,0.95);
+  border-radius: 16px;
+  padding: 18px 16px;
+  box-shadow:
+    0 14px 30px rgba(15,23,42,0.06),
+    0 2px 8px rgba(15,23,42,0.04);
+}
+
+/* Footer con aire */
+#crear_usuario .modal-footer{
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
+/* Anterior más “pro” */
+#crear_usuario #btnAnterior{
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(209,213,219,0.95);
+  box-shadow: 0 10px 22px rgba(15,23,42,0.05);
+}
+#crear_usuario #btnAnterior:disabled{
+  opacity: .55;
+  box-shadow: none;
+}
+
+/* CTA naranja EV: Siguiente / Registrar */
+#crear_usuario #btnSiguiente,
+#crear_usuario #btnRegistrar{
+  background: linear-gradient(135deg, var(--ev-naranja), #F59E0B) !important;
+  border: none !important;
+  color: #ffffff !important;
+  box-shadow: 0 12px 26px rgba(234,124,18,0.35) !important;
+  padding: 10px 22px;
+}
+#crear_usuario #btnSiguiente:hover,
+#crear_usuario #btnRegistrar:hover{
+  background: linear-gradient(135deg, var(--ev-naranja-oscuro), #EA580C) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(234,124,18,0.48) !important;
+}
+#crear_usuario #btnSiguiente:active,
+#crear_usuario #btnRegistrar:active{
+  transform: translateY(0);
+  box-shadow: 0 6px 16px rgba(234,124,18,0.30) !important;
+}
+
+/* ===================================================
    RESPONSIVO
-============================ */
+=================================================== */
 @media (max-width: 992px){
   .login-hero-text{ max-width: 52ch; }
   .login-hero-list{ gap: 10px; }
@@ -590,17 +592,8 @@ body.login-body {
   .login-hero-list li i{ font-size: 1.05rem; }
 }
 
-@media (max-width: 992px) {
-  .login-shell {
-    max-width: 880px;
-  }
-}
-
 @media (max-width: 768px) {
-  body.login-body {
-    padding: 16px;
-    background-image: none;
-  }
+  body.login-body { padding: 16px; background-image: none; }
 
   .login-shell {
     flex-direction: column;
@@ -608,76 +601,32 @@ body.login-body {
     min-height: 0;
   }
 
-  .login-hero {
-    padding: 32px 24px 24px;
-  }
-
-  .login-panel {
-    padding: 24px 22px 20px;
-  }
+  .login-hero { padding: 32px 24px 24px; }
+  .login-panel { padding: 24px 22px 20px; }
 }
 
 @media (max-width: 576px) {
-  .login-hero {
-    padding: 26px 20px 18px;
-  }
+  .login-hero { padding: 26px 20px 18px; }
+  .login-hero-title { font-size: 1.7rem; }
+  .login-panel-title { font-size: 1.25rem; }
+  .login-shell { border-radius: 20px; }
 
-  .login-hero-title {
-    font-size: 1.7rem;
-  }
+  .modal-body { padding-left: 1.25rem; padding-right: 1.25rem; }
 
-  .login-panel-title {
-    font-size: 1.25rem;
-  }
+  .modal .progress { height: 30px !important; }
+  .modal .progress-bar { font-size: 0.6rem; letter-spacing: 0.01em; padding: 0 2px; }
 
-  .login-shell {
-    border-radius: 20px;
-  }
-
-  /* Ajustes específicos para el modal en móvil */
-  .modal-body {
-    padding-left: 1.25rem;
-    padding-right: 1.25rem;
-  }
-
-  .modal .progress {
-    height: 30px !important;
-  }
-
-  .modal .progress-bar {
-    font-size: 0.6rem;
-    letter-spacing: 0.01em;
-    padding: 0 2px;
-  }
-
-  /* Más ancho al paso 1 en móviles para que quepa el texto */
   #step1 { width: 40% !important; }
   #step2 { width: 30% !important; }
   #step3 { width: 30% !important; }
 
-  /* CTA modal compacta en móvil */
   .modal-footer .btn-login.btn-modal-cta{
     height: 36px;
     padding: 0 14px;
     font-size: 0.88rem;
     line-height: 1;
   }
+
+  #crear_usuario .step .row.g-3{ padding: 14px 12px; }
 }
-
-
-  /* ============================
-    PASO 2 (Residencia) - NUEVO
-  ============================ */
-  #formStep2 #wrapDireccion .form-text{
-    color: #6B7280;
-    margin-top: 6px;
-    font-size: .82rem;
-  }
-
-  #formStep2 .d-none{
-    display: none !important;
-  }
-
-
-
 </style>

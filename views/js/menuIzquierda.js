@@ -1,13 +1,10 @@
-// ✅ views/js/menuIzquierda.js — versión final segura con JWT y UX/UI Entre Vecinos
+// views/js/menuIzquierda.js — navegación AJAX ÚNICA y estable (EV)
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("✅ menuIzquierda.js cargado");
-
-  const baseURL = (window.BASE_URL || "/entrevecinos").replace(/\/$/, "");
+  const baseURL = (window.BASE_URL || "/entrevecinos").toString().replace(/\/+$/, "");
   const contenedor = document.getElementById("contenido-principal");
   const sidebar = document.getElementById("sidebar");
-  const toggleButtons = document.querySelectorAll("[data-lte-toggle='sidebar'], .sidebar-toggle");
 
-  // 🔹 Crear backdrop si no existe
+  // Backdrop
   let backdrop = document.getElementById("sidebar-backdrop");
   if (!backdrop) {
     backdrop = document.createElement("div");
@@ -15,135 +12,144 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(backdrop);
   }
 
-  // 🔹 Función para construir URLs seguras
-  const buildPathUrl = (ruta) => {
+  const buildUrl = (ruta) => {
     if (!ruta) return null;
-    ruta = ruta.toString().trim();
-    if (/^https?:\/\//i.test(ruta)) return ruta;
-    if (ruta.startsWith(baseURL)) return ruta;
-    if (ruta.startsWith("/")) return `${baseURL}${ruta}`;
-    return `${baseURL}/${ruta}`;
+    const r = ruta.toString().trim();
+    if (!r || r === "#" || r.startsWith("#menu")) return null;
+
+    if (/^https?:\/\//i.test(r)) return r;
+    if (r.startsWith(baseURL)) return r;
+    if (r.startsWith("/")) return `${baseURL}${r}`;
+    return `${baseURL}/${r}`;
   };
 
-  // ==========================================
-  // 🔹 CARGA DINÁMICA DE VISTAS CON TOKEN JWT
-  // ==========================================
-  const attachListeners = () => {
-    document.querySelectorAll(".submenu-link").forEach(link => {
-      if (link.dataset.listenerAttached) return;
-      link.dataset.listenerAttached = "1";
+  const showLoader = () => {
+    if (!contenedor) return;
+    contenedor.innerHTML = `
+      <div class="text-center p-5">
+        <div class="spinner-border text-success" role="status"></div>
+        <p class="mt-3">Cargando...</p>
+      </div>
+    `;
+  };
 
-      link.addEventListener("click", async (e) => {
-        e.preventDefault();
+  const gotoLogin = () => {
+    window.location.href = `${baseURL}/views/login.php?error=token_expirado`;
+  };
 
-        const href = link.getAttribute("href") || link.dataset.vista || "";
-        if (!href || href === "#" || href.startsWith("#menu")) return;
+  // Delegación: un solo listener para todos los submenu links
+  document.addEventListener("click", async (e) => {
+    const link = e.target.closest(".submenu-link");
+    if (!link) return;
 
-        let url = buildPathUrl(href);
-        if (!url) return;
+    e.preventDefault();
 
-        // 🔹 Forzar modo parcial también por querystring
-        url += (url.includes('?') ? '&' : '?') + 'partial=1';
+    const href = link.getAttribute("href") || link.dataset.vista || "";
+    let url = buildUrl(href);
+    if (!url) return;
 
-        // 🔹 Spinner UX mientras carga
-        if (contenedor) {
-          contenedor.innerHTML = `
-            <div class="text-center p-5">
-              <div class="spinner-border text-success" role="status"></div>
-              <p class="mt-3">Cargando...</p>
-            </div>
-          `;
-        }
+    // Forzar modo parcial para que el backend NO devuelva layout completo
+    url += (url.includes("?") ? "&" : "?") + "partial=1";
 
-        try {
-          const response = await fetch(url, {
-            method: "GET",
-            headers: {
-              "X-Requested-With": "XMLHttpRequest",
-              "X-Partial": "1"
-            },
-            credentials: "include" // ✅ Envía cookie auth_token
-          });
+    showLoader();
 
-          // 🔹 Detectar sesión expirada o sin token
-          if (response.status === 401) {
-            Swal.fire({
-              icon: "warning",
-              title: "Sesión expirada",
-              text: "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
-              confirmButtonText: "Ir al login",
-              confirmButtonColor: "#0F592F"
-            }).then(() => {
-              window.location.href = `${baseURL}/views/login.php?error=token_expirado`;
-            });
-            return;
-          }
-
-          if (!response.ok) throw new Error(`Error HTTP ${response.status}`);
-
-          const html = await response.text();
-
-          // 🔹 Evitar que el login o el panel completo se incrusten
-          if (
-            html.includes("<title>Entre vecinos |") ||
-            html.includes("formLogin") ||
-            html.includes("<html") || // por si devolviera documento completo
-            html.includes("<main class=\"content-wrapper") // por si devolviera el panel entero
-          ) {
-            Swal.fire({
-              icon: "warning",
-              title: "Sesión finalizada",
-              text: "Tu sesión ha caducado o la vista devolvió la plantilla completa.",
-              confirmButtonText: "Aceptar"
-            }).then(() => {
-              window.location.href = `${baseURL}/`;
-            });
-            return;
-          }
-
-          // 🔹 Inyectar contenido en el contenedor principal
-          if (contenedor) contenedor.innerHTML = html;
-
-          // 🔹 Marcar enlace activo visualmente
-          document.querySelectorAll(".submenu-link").forEach(el => el.classList.remove("active"));
-          link.classList.add("active");
-
-          // 🔹 Cerrar menú lateral en móvil
-          sidebar.classList.remove("active");
-          backdrop.classList.remove("show");
-          document.body.style.overflow = "";
-
-        } catch (err) {
-          console.error("❌ Error al cargar vista:", err);
-          if (contenedor) {
-            contenedor.innerHTML = `
-              <div class="alert alert-danger m-5 shadow-sm rounded-3">
-                <h5 class="mb-2"><i class="bi bi-exclamation-triangle-fill"></i> Error</h5>
-                <p>No se pudo cargar el contenido solicitado.</p>
-                <small class="text-muted">${err.message}</small>
-              </div>
-            `;
-          }
-        }
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          "X-Partial": "1"
+        },
+        credentials: "include"
       });
-    });
-  };
 
-  attachListeners();
+      // 401 real => sesión/token inválido
+      if (response.status === 401) {
+        Swal.fire({
+          icon: "warning",
+          title: "Sesión expirada",
+          text: "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
+          confirmButtonText: "Ir al login",
+          confirmButtonColor: "#0F592F"
+        }).then(gotoLogin);
+        return;
+      }
 
-  // 🔹 Observar cambios en el menú (si se genera dinámicamente)
-  const nav = document.getElementById("navigation");
-  if (nav) {
-    const observer = new MutationObserver(() => attachListeners());
-    observer.observe(nav, { childList: true, subtree: true });
-  }
+      const contentType = (response.headers.get("content-type") || "").toLowerCase();
 
-  // ==========================================
-  // 🔹 RESPONSIVIDAD DEL SIDEBAR
-  // ==========================================
+      // Si vino JSON, validar si backend envió UNAUTHORIZED como payload
+      if (contentType.includes("application/json")) {
+        const json = await response.json().catch(() => null);
+
+        if (json && (json.error === "UNAUTHORIZED" || json.ok === false && json.error === "UNAUTHORIZED")) {
+          Swal.fire({
+            icon: "warning",
+            title: "Acceso no autorizado",
+            text: "No se pudo cargar la vista solicitada.",
+            confirmButtonText: "Aceptar",
+            confirmButtonColor: "#0F592F"
+          }).then(gotoLogin);
+          return;
+        }
+
+        // JSON no esperado: mostrar error genérico
+        throw new Error("La vista devolvió JSON en lugar de HTML.");
+      }
+
+      if (!response.ok) {
+        throw new Error(`Error HTTP ${response.status}`);
+      }
+
+      const html = await response.text();
+
+      // Evitar inyectar documento completo o login
+      if (
+        html.includes("formLogin") ||
+        html.includes("<title>Entre vecinos") ||
+        html.includes("<html") ||
+        html.includes("<!doctype html")
+      ) {
+        Swal.fire({
+          icon: "warning",
+          title: "Sesión finalizada",
+          text: "Tu sesión ha caducado o la vista devolvió la plantilla completa.",
+          confirmButtonText: "Aceptar",
+          confirmButtonColor: "#0F592F"
+        }).then(() => (window.location.href = `${baseURL}/`));
+        return;
+      }
+
+      if (contenedor) contenedor.innerHTML = html;
+
+      // Activo visual
+      document.querySelectorAll(".submenu-link").forEach(el => el.classList.remove("active"));
+      link.classList.add("active");
+
+      // Cerrar sidebar móvil
+      if (sidebar) sidebar.classList.remove("active");
+      backdrop.classList.remove("show");
+      document.body.style.overflow = "";
+
+    } catch (err) {
+      console.error("[EV][NAV] Error:", err);
+      if (contenedor) {
+        contenedor.innerHTML = `
+          <div class="alert alert-danger m-4 shadow-sm rounded-3">
+            <h5 class="mb-2"><i class="bi bi-exclamation-triangle-fill"></i> Error</h5>
+            <p>No se pudo cargar el contenido solicitado.</p>
+            <small class="text-muted">${(err && err.message) ? err.message : "Error desconocido"}</small>
+          </div>
+        `;
+      }
+    }
+  });
+
+  // Toggle sidebar (móvil)
+  const toggleButtons = document.querySelectorAll("[data-lte-toggle='sidebar'], .sidebar-toggle, #btnToggleSidebar");
   toggleButtons.forEach(btn => {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
+      if (!sidebar) return;
       sidebar.classList.toggle("active");
       backdrop.classList.toggle("show", sidebar.classList.contains("active"));
       document.body.style.overflow = sidebar.classList.contains("active") ? "hidden" : "";
@@ -151,22 +157,20 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   backdrop.addEventListener("click", () => {
-    sidebar.classList.remove("active");
+    if (sidebar) sidebar.classList.remove("active");
     backdrop.classList.remove("show");
     document.body.style.overflow = "";
   });
 
   window.addEventListener("resize", () => {
     if (window.innerWidth > 992) {
-      sidebar.classList.remove("active");
+      if (sidebar) sidebar.classList.remove("active");
       backdrop.classList.remove("show");
       document.body.style.overflow = "";
     }
   });
 
-  // ==========================================
-  // 🔹 SUBMENÚS ACORDEÓN
-  // ==========================================
+  // Submenús acordeón
   document.querySelectorAll("#sidebar .nav-link[data-bs-toggle='collapse']").forEach(link => {
     link.addEventListener("click", function () {
       const parent = this.closest("li");

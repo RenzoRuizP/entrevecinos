@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../models/SesionJWT.php';
+require_once __DIR__ . '/../Config/config.php';
 
 class AuthController
 {
@@ -8,9 +9,35 @@ class AuthController
         require __DIR__ . '/../views/login.php';
     }
 
+    private function isHttps(): bool
+    {
+        return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443);
+    }
+
+    private function cookiePath(): string
+    {
+        // Asegura path consistente. BASE_URL en tu config.php es '/entrevecinos/'
+        $path = defined('BASE_URL') ? BASE_URL : '/';
+        // Por seguridad, garantizar que termine en '/'
+        return rtrim($path, '/') . '/';
+    }
+
+    private function cookieOptions(int $expiresAt): array
+    {
+        $isHttps = $this->isHttps();
+
+        return [
+            'expires'  => $expiresAt,
+            'path'     => $this->cookiePath(),
+            'secure'   => $isHttps,                 // true solo si HTTPS real
+            'httponly' => true,
+            'samesite' => $isHttps ? 'None' : 'Lax' // en HTTP local: Lax
+        ];
+    }
+
     public function login()
     {
-        // IMPORTANTE: Evitar que warnings/notices contaminen la salida JSON
         ini_set('display_errors', '0');
         ini_set('html_errors', '0');
         error_reporting(E_ALL);
@@ -18,7 +45,6 @@ class AuthController
         header('Content-Type: application/json; charset=utf-8');
 
         try {
-            // Sanitizado mínimo (sin cambiar tu flujo)
             $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL) ?: '';
             $clave = trim($_POST['clave'] ?? '');
 
@@ -37,43 +63,43 @@ class AuthController
 
             $resultado = $sesion->iniciarSesionJWT();
 
-            // Blindaje para evitar Undefined index / estructuras inesperadas
             if (!is_array($resultado)) {
                 $resultado = ['status' => 'ERROR'];
             }
 
             $status  = (string)($resultado['status'] ?? 'ERROR');
-            $message = (string)($resultado['message'] ?? ''); // <- FIX: ya no revienta si no existe
+            $message = (string)($resultado['message'] ?? '');
 
             switch ($status) {
                 case 'SI':
                     $token = (string)($resultado['token'] ?? '');
 
-                    // Detectar HTTPS de forma segura
-                    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-                        || (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443);
+                    if ($token === '') {
+                        http_response_code(500);
+                        echo json_encode([
+                            'status'  => 'ERROR',
+                            'message' => 'No se pudo generar el token de sesión. Intenta nuevamente.'
+                        ]);
+                        return;
+                    }
 
-                    // Cookie coherente con tu app /entrevecinos
-                    // Nota: para localhost normalmente no necesitas SameSite=None.
-                    setcookie('auth_token', $token, [
-                        'expires'  => time() + 3600,          // 1 hora (igual que tu versión)
-                        'path'     => '/entrevecinos',        // <- recomendado para tu app
-                        'secure'   => $isHttps,               // true solo si HTTPS real
-                        'httponly' => true,
-                        'samesite' => $isHttps ? 'None' : 'Lax' // si algún día usas HTTPS + cross-site
-                    ]);
+                    // Fuente de verdad: .env
+                    $expiraEn = (int)($_ENV['JWT_EXPIRATION_SECONDS'] ?? 3600);
+                    if ($expiraEn <= 0) $expiraEn = 3600;
+
+                    // Cookie con PATH consistente y expiración coherente
+                    setcookie('auth_token', $token, $this->cookieOptions(time() + $expiraEn));
 
                     http_response_code(200);
                     echo json_encode([
                         'status'   => 'SI',
                         'message'  => 'Login exitoso',
-                        'redirect' => '/entrevecinos/MenuPrincipal'
+                        'redirect' => rtrim(BASE_URL, '/') . '/MenuPrincipal'
                     ]);
                     return;
 
-                case 'NE': // No existe
-                case 'CI': // Clave incorrecta
-                    // Buenas prácticas: mismo mensaje para NE/CI (evita enumeración de usuarios)
+                case 'NE':
+                case 'CI':
                     http_response_code(401);
                     echo json_encode([
                         'status'  => $status,
@@ -81,7 +107,7 @@ class AuthController
                     ]);
                     return;
 
-                case 'IN': // Inactivo
+                case 'IN':
                     http_response_code(403);
                     echo json_encode([
                         'status'  => $status,
@@ -115,19 +141,9 @@ class AuthController
             session_start();
         }
 
-        // Detectar HTTPS igual que en login
-        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443);
-
-        // Eliminar cookie JWT (mismo path usado al crearla)
+        // Borrar cookie con EXACTAMENTE los mismos parámetros (path/secure/samesite)
         if (isset($_COOKIE['auth_token'])) {
-            setcookie('auth_token', '', [
-                'expires'  => time() - 3600,
-                'path'     => '/entrevecinos',       // <- debe coincidir con login()
-                'secure'   => $isHttps,
-                'httponly' => true,
-                'samesite' => $isHttps ? 'None' : 'Lax'
-            ]);
+            setcookie('auth_token', '', $this->cookieOptions(time() - 3600));
             unset($_COOKIE['auth_token']);
         }
 
@@ -147,7 +163,7 @@ class AuthController
             exit;
         }
 
-        header('Location: /entrevecinos/');
+        header('Location: ' . rtrim(BASE_URL, '/') . '/');
         exit;
     }
 }

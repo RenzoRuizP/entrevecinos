@@ -1,8 +1,6 @@
 <?php
-// views/marketplaceView.php
 require_once __DIR__ . '/../Config/config.php';
 
-// Nombre de condominio para el resumen (ajusta si lo obtienes de otro lado)
 $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
 ?>
 
@@ -16,9 +14,6 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
 <div class="ev-mp-wrapper fade-in">
   <div class="container-fluid px-2 px-lg-3 py-2 py-lg-3">
 
-    <!-- ===========================
-         HEADER PRINCIPAL
-    ============================ -->
     <div class="card ev-mp-header mb-3">
       <div class="card-body">
 
@@ -43,9 +38,7 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
           </div>
         </div>
 
-        <!-- Buscador + ordenar -->
         <div class="ev-mp-search-row mt-3">
-          <!-- Buscador -->
           <div class="ev-mp-search-input-wrapper">
             <i class="bi bi-search"></i>
             <input
@@ -57,7 +50,6 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
             >
           </div>
 
-          <!-- Orden -->
           <div class="ev-mp-search-actions">
             <div class="ev-mp-sort-wrapper">
               <span class="ev-mp-sort-label">Ordenar por:</span>
@@ -71,23 +63,13 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
           </div>
         </div>
 
-        <!-- Chips categorías -->
         <div class="ev-mp-chips">
-          <button type="button" class="ev-mp-chip active" data-filtro="todos">
-            Todos
-          </button>
-          <button type="button" class="ev-mp-chip" data-filtro="recomendados">
-            Recomendados
-          </button>
-          <button type="button" class="ev-mp-chip" data-filtro="productos">
-            Productos
-          </button>
-          <button type="button" class="ev-mp-chip" data-filtro="servicios">
-            Servicios
-          </button>
+          <button type="button" class="ev-mp-chip active" data-filtro="todos">Todos</button>
+          <button type="button" class="ev-mp-chip" data-filtro="recomendados">Recomendados</button>
+          <button type="button" class="ev-mp-chip" data-filtro="productos">Productos</button>
+          <button type="button" class="ev-mp-chip" data-filtro="servicios">Servicios</button>
         </div>
 
-        <!-- Resumen resultados -->
         <div id="mp_resumen_resultados" class="ev-mp-resumen">
           Mostrando 0 resultados en <?= htmlspecialchars($condominioNombre, ENT_QUOTES, 'UTF-8'); ?>
         </div>
@@ -95,23 +77,15 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
       </div>
     </div>
 
-    <!-- ===========================
-         GRID PUBLICACIONES
-    ============================ -->
     <div id="mp_empty_state">
       No encontramos publicaciones con los filtros actuales.
     </div>
 
-    <div id="mp_grid_publicaciones" class="ev-mp-grid">
-      <!-- Cards generadas por marketplace.js -->
-    </div>
+    <div id="mp_grid_publicaciones" class="ev-mp-grid"></div>
 
   </div>
 </div>
 
-<!-- ===========================
-     MODAL DETALLE PUBLICACIÓN
-=========================== -->
 <div class="modal fade" id="mp_modal_detalle" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog ev-mp-modal-dialog modal-dialog-centered">
     <div class="modal-content ev-mp-modal-content">
@@ -126,30 +100,19 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
 
       <div class="modal-body ev-mp-modal-body">
         <div class="ev-mp-preview-card">
-
-          <!-- Imagen principal con relación de aspecto estándar -->
           <div class="ev-mp-modal-media">
             <div class="ev-mp-modal-media-inner">
-              <img
-                id="mp_modal_img_principal"
-                src=""
-                alt="Imagen principal de la publicación"
-              >
+              <img id="mp_modal_img_principal" src="" alt="Imagen principal de la publicación">
             </div>
           </div>
 
-          <!-- Thumbnails -->
           <div id="mp_modal_thumbs" class="ev-mp-modal-thumbs"></div>
 
-          <!-- Badges tipo / categoría -->
           <div class="d-flex flex-wrap gap-2 mb-2">
-            <span id="mp_modal_tipo"
-                  class="badge rounded-pill bg-success-subtle text-success fw-semibold"></span>
-            <span id="mp_modal_categoria"
-                  class="badge rounded-pill bg-secondary-subtle text-secondary fw-semibold"></span>
+            <span id="mp_modal_tipo" class="badge rounded-pill bg-success-subtle text-success fw-semibold"></span>
+            <span id="mp_modal_categoria" class="badge rounded-pill bg-secondary-subtle text-secondary fw-semibold"></span>
           </div>
 
-          <!-- Título / precio / descripción -->
           <h5 id="mp_modal_titulo_txt" class="ev-mp-modal-title mt-2 mb-1"></h5>
           <div id="mp_modal_precio" class="ev-mp-modal-price mb-2"></div>
           <p id="mp_modal_descripcion" class="ev-mp-modal-desc mb-0"></p>
@@ -157,17 +120,10 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
       </div>
 
       <div class="modal-footer ev-mp-modal-footer d-flex justify-content-end gap-2 flex-wrap">
-        <button type="button" class="btn-ev-neutral" data-bs-dismiss="modal">
-          Cerrar
-        </button>
-        <button type="button" id="btnPedirAhoraDetalle" class="btn-ev-primary">
-          Pedir ahora
-        </button>
+        <button type="button" class="btn-ev-neutral" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" id="btnPedirAhoraDetalle" class="btn-ev-primary">Pedir ahora</button>
       </div>
 
     </div>
   </div>
 </div>
-
-<!-- JS específico del marketplace -->
-<!--<script src="<?= BASE_URL ?>views/js/marketplace.js"></script> -->

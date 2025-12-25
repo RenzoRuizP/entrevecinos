@@ -112,8 +112,18 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (result && result.success) {
-        Swal.fire("Éxito", result.message || "Usuario registrado", "success")
-          .then(() => window.location.href = base + '/');
+        Swal.fire({
+        title: "Éxito",
+        text: result.message || "Usuario registrado con éxito",
+        icon: "success",
+        iconColor: "#16A34A",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#16A34A",
+        background: "#FFFFFF",
+        allowOutsideClick: false,
+        allowEscapeKey: false
+      }).then(() => window.location.href = base + '/');
+
       } else {
         Swal.fire("Error", result.message || "No se pudo registrar", "error");
       }

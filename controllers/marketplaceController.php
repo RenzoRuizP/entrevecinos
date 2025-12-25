@@ -1,6 +1,7 @@
 <?php
-// controllers/miPerfilController.php
+// controllers/marketplaceController.php
 
+require_once __DIR__ . '/../Config/config.php';
 require_once __DIR__ . '/../models/SesionJWT.php';
 require_once __DIR__ . '/../models/User.php';
 
@@ -9,80 +10,83 @@ class marketplaceController
     public function index()
     {
         try {
-            // 1) Validación de token (el router ya valida, esto es refuerzo)
+            // El router ya validó token, pero blindamos sin romper flujo
             $token = $_COOKIE['auth_token'] ?? null;
-            if (!$token) {
-                return $this->resolverNoAutorizado('sin_token');
-            }
+            $datosToken = $token ? SesionJWT::verificarToken($token) : null;
 
-            // SesionJWT::verificarToken() debe devolver ARRAY
-            $datosToken = SesionJWT::verificarToken($token);
-            if (!$datosToken || empty($datosToken['email'])) {
+            $email = (string)($datosToken['email'] ?? '');
+            if ($email === '') {
                 return $this->resolverNoAutorizado('token_invalido');
             }
 
-            // 2) Obtener datos completos del usuario
-            $email = $datosToken['email'];
+            // Intentar cargar datos extendidos (puede fallar para admin si no tiene residencia)
             $objUsuario = new User();
             $datosUsuario = $objUsuario->DatosUsuario($email);
 
-            if (!$datosUsuario) {
-                return $this->resolverNoAutorizado('usuario_no_encontrado');
+            // ✅ SOLUCIÓN DE RAÍZ:
+            // Si no hay datos extendidos, NO es “sesión expirada”.
+            // Construimos fallback con datos del token.
+            if (!$datosUsuario || !is_array($datosUsuario)) {
+                $datosUsuario = [
+                    'nombre'       => $datosToken['nombre'] ?? 'Usuario',
+                    'email'        => $email,
+                    // Tu vista usa $datosUsuario['condominio'] (y luego fallback a "tu condominio")
+                    'condominio'   => $datosToken['condominio_nombre'] ?? null,
+                    'torre'        => $datosToken['torre_nombre'] ?? null,
+                    'departamento' => $datosToken['departamento_numero'] ?? null,
+                    'rol'          => $datosToken['rol'] ?? null,
+                    '_fallback'    => 1
+                ];
             }
 
-            // 3) SIEMPRE devolver el parcial (evitamos redirecciones al panel)
-            //    La vista usa $datosUsuario y BASE_URL para renderizar el formulario
             header('X-Partial-Ok: 1');
             require __DIR__ . '/../views/marketplaceView.php';
             return;
 
         } catch (Throwable $e) {
-            error_log("Error en publicacionController::index -> " . $e->getMessage());
+            error_log("Error en marketplaceController::index -> " . $e->getMessage());
 
-            // Si es parcial/AJAX, responde JSON de error
             if ($this->esPeticionParcial()) {
                 http_response_code(500);
                 header('Content-Type: application/json; charset=utf-8');
                 echo json_encode([
-                    'error'   => 'Error del servidor',
-                    'detalle' => $e->getMessage()
+                    'ok'      => false,
+                    'error'   => 'SERVER_ERROR',
+                    'mensaje' => 'Error del servidor al cargar Marketplace.'
                 ]);
                 return;
             }
 
-            // Acceso directo: redirigir al login
-            header("Location: /entrevecinos/?error=token_error");
+            header('Location: ' . rtrim(BASE_URL, '/') . '/login');
             return;
         }
     }
+
     private function resolverNoAutorizado(string $motivo = 'no_autorizado')
     {
         if ($this->esPeticionParcial()) {
             http_response_code(401);
             header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(['error' => 'No autorizado', 'motivo' => $motivo]);
+            echo json_encode(['ok' => false, 'error' => 'UNAUTHORIZED', 'motivo' => $motivo]);
             return;
         }
-        header("Location: /entrevecinos/?error={$motivo}");
+
+        header('Location: ' . rtrim(BASE_URL, '/') . '/login');
         return;
     }
 
     private function esPeticionParcial(): bool
     {
-        // fetch/ajax clásico
         if (isset($_SERVER['HTTP_X_REQUESTED_WITH'])
             && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
             return true;
         }
-        // header explícito
         if (isset($_SERVER['HTTP_X_PARTIAL']) && $_SERVER['HTTP_X_PARTIAL'] === '1') {
             return true;
         }
-        // querystring ?partial=1
         if (isset($_GET['partial']) && $_GET['partial'] === '1') {
             return true;
         }
         return false;
     }
-
 }

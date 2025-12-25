@@ -5,6 +5,23 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 <!-- Vista: DatosPersonalesView.php -->
 <?php include_once __DIR__ . '/estilos/DatosPersonalesEstilo.php'; ?>
 
+<?php
+  // Nuevo modelo: usuario_residencia.tipo_conjunto + codigos + direccion
+  $tipoConjunto        = $datosUsuario['tipo_conjunto'] ?? ''; // 'condominio' | 'urbanizacion'
+  $codigoCondominio    = $datosUsuario['codigo_condominio'] ?? '';
+  $codigoUrbanizacion  = $datosUsuario['codigo_urbanizacion'] ?? '';
+  $direccionResidencia = $datosUsuario['direccion'] ?? '';
+?>
+
+<!-- Estado de residencia para JS (no visible) -->
+<div
+  id="dp-residencia"
+  data-tipo="<?= htmlspecialchars($tipoConjunto, ENT_QUOTES, 'UTF-8'); ?>"
+  data-codigo-condominio="<?= htmlspecialchars($codigoCondominio, ENT_QUOTES, 'UTF-8'); ?>"
+  data-codigo-urbanizacion="<?= htmlspecialchars($codigoUrbanizacion, ENT_QUOTES, 'UTF-8'); ?>"
+  data-direccion="<?= htmlspecialchars($direccionResidencia, ENT_QUOTES, 'UTF-8'); ?>"
+></div>
+
 <div class="container-datos-personales fade-in">
   <div class="card shadow-lg border-0 rounded-4 ev-datos-card">
 
@@ -35,7 +52,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
               type="text" 
               id="nombre_completo" 
               class="form-control ev-input-rounded" 
-              value="<?= htmlspecialchars($datosUsuario['nombre_completo'] ?? '') ?>"
+              value="<?= htmlspecialchars($datosUsuario['nombre_completo'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
             >
           </div>
         </div>
@@ -48,16 +65,13 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
               type="email" 
               id="email" 
               class="form-control ev-input-rounded" 
-              value="<?= htmlspecialchars($datosUsuario['email'] ?? '') ?>" 
+              value="<?= htmlspecialchars($datosUsuario['email'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" 
               disabled
             >
           </div>
-          <div class="ev-form-help mt-1">
-            Este correo está asociado a tu cuenta y no puede modificarse.
-          </div>
         </div>
 
-        <!-- Documento -->
+        <!-- Documento (ahora DISABLED por requerimiento) -->
         <div class="col-md-6">
           <label for="documento" class="form-label ev-form-label">Documento de identidad</label>
           <div class="position-relative">
@@ -65,7 +79,8 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
               type="text" 
               id="documento" 
               class="form-control ev-input-rounded" 
-              value="<?= htmlspecialchars($datosUsuario['documento'] ?? '') ?>"
+              value="<?= htmlspecialchars($datosUsuario['documento'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+              disabled
             >
           </div>
         </div>
@@ -78,61 +93,90 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
               type="text" 
               id="telefono" 
               class="form-control ev-input-rounded" 
-              value="<?= htmlspecialchars($datosUsuario['telefono'] ?? '') ?>"
+              value="<?= htmlspecialchars($datosUsuario['telefono'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
             >
           </div>
-          <div class="ev-form-help mt-1">
-            Tus vecinos solo verán este número cuando concreten una compra o servicio.
+        </div>
+
+        <!-- ==========================
+             RESIDENCIA (nuevo)
+             - Mantiene IDs existentes
+        =========================== -->
+
+        <!-- Wrapper: Condominio (incluye Torre/Departamento como ya tienes) -->
+        <div id="wrapCondominio" class="row g-3">
+          <!-- Condominio -->
+          <div class="col-md-4">
+            <label for="comboCondominio" class="form-label ev-form-label">Condominio</label>
+            <select 
+              id="comboCondominio" 
+              name="comboCondominio" 
+              class="form-select ev-input-rounded"
+              data-valor-registrado="<?= htmlspecialchars($codigoCondominio, ENT_QUOTES, 'UTF-8'); ?>"
+            >
+              <option value="">-- Seleccione condominio --</option>
+            </select>
+          </div>
+
+          <!-- Torre -->
+          <div class="col-md-4">
+            <label for="comboTorre" class="form-label ev-form-label">Torre</label>
+            <select 
+              id="comboTorre" 
+              class="form-select ev-input-rounded"
+              data-valor-registrado="<?= htmlspecialchars($datosUsuario['codigo_torre'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+            >
+              <option value="">-- Seleccione torre --</option>
+            </select>
+          </div>
+
+          <!-- Departamento -->
+          <div class="col-md-4">
+            <label for="comboDepartamento" class="form-label ev-form-label">Departamento</label>
+            <select 
+              id="comboDepartamento" 
+              class="form-select ev-input-rounded"
+              data-valor-registrado="<?= htmlspecialchars($datosUsuario['codigo_departamento'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+            >
+              <option value="">-- Seleccione departamento --</option>
+            </select>
           </div>
         </div>
 
-        <!-- Condominio -->
-        <div class="col-md-4">
-          <label for="comboCondominio" class="form-label ev-form-label">Condominio</label>
-          <select 
-            id="comboCondominio" 
-            name="comboCondominio" 
-            class="form-select ev-input-rounded"
-            data-valor-registrado="<?= htmlspecialchars($datosUsuario['codigo_condominio'] ?? '') ?>"
-          >
-            <option value="">-- Seleccione condominio --</option>
-          </select>
+        <!-- Wrapper: Urbanización (nuevo) -->
+        <div id="wrapUrbanizacion" class="row g-3 d-none">
+          <div class="col-md-6">
+            <label for="comboUrbanizacion" class="form-label ev-form-label">Urbanización</label>
+            <select 
+              id="comboUrbanizacion" 
+              name="comboUrbanizacion" 
+              class="form-select ev-input-rounded"
+              data-valor-registrado="<?= htmlspecialchars($codigoUrbanizacion, ENT_QUOTES, 'UTF-8'); ?>"
+            >
+              <option value="">-- Seleccione urbanización --</option>
+            </select>
+          </div>
         </div>
 
-        <!-- Torre -->
-        <div class="col-md-4">
-          <label for="comboTorre" class="form-label ev-form-label">Torre</label>
-          <select 
-            id="comboTorre" 
-            class="form-select ev-input-rounded"
-            data-valor-registrado="<?= htmlspecialchars($datosUsuario['codigo_torre'] ?? '') ?>"
-          >
-            <option value="">-- Seleccione torre --</option>
-          </select>
-        </div>
-
-        <!-- Departamento -->
-        <div class="col-md-4">
-          <label for="comboDepartamento" class="form-label ev-form-label">Departamento</label>
-          <select 
-            id="comboDepartamento" 
-            class="form-select ev-input-rounded"
-            data-valor-registrado="<?= htmlspecialchars($datosUsuario['codigo_departamento'] ?? '') ?>"
-          >
-            <option value="">-- Seleccione departamento --</option>
-          </select>
-        </div>
-
-        <!-- Línea divisoria suave -->
-        <div class="col-12">
-          <hr class="ev-datos-divider">
+        <!-- Wrapper: Dirección (nuevo) -->
+        <div id="wrapDireccion" class="row g-3 d-none">
+          <div class="col-12">
+            <label for="direccion" class="form-label ev-form-label">Dirección</label>
+            <input 
+              type="text" 
+              id="direccion" 
+              class="form-control ev-input-rounded" 
+              value="<?= htmlspecialchars($direccionResidencia, ENT_QUOTES, 'UTF-8'); ?>"
+              placeholder="Ej.: Torre A, Dpto 1203 / Calle - Mz - Lt..."
+            >
+          </div>
         </div>
 
         <!-- Footer de acciones -->
         <div class="col-12 ev-datos-footer">
           <div class="d-flex flex-wrap gap-2 justify-content-end">
             <button type="button" id="btnGuardar" class="btn btn-ev-primary btn-guardar">
-              <i class="fas fa-save me-1"></i> Guardar cambios
+              <i class="fas fa-save me-1"></i> Guardar
             </button>
 
             <button type="button" id="btnCancelar" class="btn btn-ev-neutral btn-cancelar" style="display:none;">
@@ -146,6 +190,3 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
   </div>
 </div>
 
-<!-- JS específico -->
-<script>window.BASE_URL = "<?= BASE_URL ?>";</script>
-<script src="<?= BASE_URL ?>js/combo_condominio.js"></script>

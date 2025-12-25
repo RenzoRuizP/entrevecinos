@@ -1,8 +1,6 @@
 <?php
 /*
-    imprime un json: echo json_encode($usuario);            
-    compara e imprime, si sale false no son iguales: var_dump(password_verify($this->clave, $usuario['clave'])); 
-    encripta: $nuevoHash = password_hash('123456', PASSWORD_BCRYPT);
+    SesionJWT.php
 */
 
 require_once __DIR__ . '/../Config/EnvConfig.php';
@@ -37,19 +35,19 @@ class SesionJWT extends Conexion {
 
             $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if (!$usuario) 
+            if (!$usuario)
                 return ['status' => 'NE']; // No existe
-            
-            if (!password_verify($this->clave, $usuario['clave'])) 
+
+            if (!password_verify($this->clave, $usuario['clave']))
                 return ['status' => 'CI']; // Contraseña incorrecta
-            
-            if ($usuario['estado'] == '0') 
+
+            if ($usuario['estado'] == '0')
                 return ['status' => 'IN']; // Usuario inactivo
 
             // 2) Obtener rol
             $sqlRoles = "
                 SELECT r.nombre AS nombre_rol
-                FROM usuario u  
+                FROM usuario u
                 INNER JOIN rol r ON u.codigo_rol = r.codigo_rol
                 WHERE u.codigo_usuario = :codigo_usuario
             ";
@@ -58,22 +56,20 @@ class SesionJWT extends Conexion {
             $stmtRoles->execute();
             $rol = $stmtRoles->fetch(PDO::FETCH_COLUMN);
 
-            // ============================================================
-            // 3) Obtener datos de condominio + torre + departamento
-            // ============================================================
+            // 3) Residencia
             $sqlResidencia = "
-                SELECT 
+                SELECT
                     c.nombre_condominio,
                     t.nombre_torre,
                     d.numero_departamento
                 FROM usuario_departamento ud
-                INNER JOIN departamento d 
+                INNER JOIN departamento d
                     ON d.codigo_departamento = ud.codigo_departamento
-                INNER JOIN torre t 
+                INNER JOIN torre t
                     ON t.codigo_torre = d.codigo_torre
-                INNER JOIN condominio c 
+                INNER JOIN condominio c
                     ON c.codigo_condominio = t.codigo_condominio
-                WHERE 
+                WHERE
                     ud.codigo_usuario = :codigo_usuario
                     AND (ud.fecha_fin IS NULL OR ud.fecha_fin >= CURRENT_DATE())
                 ORDER BY ud.fecha_inicio DESC
@@ -85,27 +81,22 @@ class SesionJWT extends Conexion {
             $stmtRes->execute();
             $residencia = $stmtRes->fetch(PDO::FETCH_ASSOC);
 
-            // Sanitizar valores
             $condominioNombre = $residencia['nombre_condominio'] ?? null;
             $torreNombre      = $residencia['nombre_torre'] ?? null;
             $depaNumero       = $residencia['numero_departamento'] ?? null;
 
-            // ============================================================
-            // 4) Generar datos del token
-            // ============================================================
+            // 4) Datos del token
             $datosToken = [
                 'codigo_usuario'       => $usuario['codigo_usuario'],
                 'nombre'               => $usuario['nombre'],
                 'email'                => $usuario['email'],
                 'rol'                  => $rol,
-
-                // Nuevos datos del condominio
                 'condominio_nombre'    => $condominioNombre,
                 'torre_nombre'         => $torreNombre,
                 'departamento_numero'  => $depaNumero
             ];
 
-            // 5) Generar token
+            // 5) Token
             $token = JwtConfig::generarToken($datosToken);
 
             return [
@@ -121,9 +112,13 @@ class SesionJWT extends Conexion {
     }
 
     // ============================================================
-    // VERIFICAR TOKEN
+    // VERIFICAR TOKEN (DETALLADO)
     // ============================================================
-    public static function verificarToken(string $token) {
+    public static function verificarTokenDetallado(?string $token): array {
+        if (!$token || trim($token) === '') {
+            return ['ok' => false, 'error' => 'TOKEN_AUSENTE', 'data' => null];
+        }
+
         $claveSecreta = $_ENV['JWT_SECRET_KEY'];
 
         try {
@@ -133,13 +128,51 @@ class SesionJWT extends Conexion {
                 ? json_decode(json_encode($decoded->data), true)
                 : [];
 
-            return $data;
+            return ['ok' => true, 'error' => null, 'data' => $data];
 
         } catch (ExpiredException $e) {
-            return null;
+            return ['ok' => false, 'error' => 'TOKEN_EXPIRADO', 'data' => null];
         } catch (Exception $e) {
-            return null;
+            return ['ok' => false, 'error' => 'TOKEN_INVALIDO', 'data' => null];
         }
+    }
+
+    // Mantengo tu método original por compatibilidad, pero ahora es “wrapper”
+    public static function verificarToken(string $token) {
+        $r = self::verificarTokenDetallado($token);
+        return $r['ok'] ? $r['data'] : null;
+    }
+
+    // ============================================================
+    // COOKIE HELPERS (CONSISTENTE EN LOCAL/PROD)
+    // ============================================================
+    public static function cookieSecure(): bool {
+        // true solo si realmente estás en HTTPS
+        return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (isset($_SERVER['SERVER_PORT']) && intval($_SERVER['SERVER_PORT']) === 443);
+    }
+
+    public static function cookiePath(): string {
+        // Si tu app vive en /entrevecinos/
+        // usa BASE_URL si está definida, si no, '/'
+        return defined('BASE_URL') ? BASE_URL : '/';
+    }
+
+    public static function eliminarToken(): bool {
+        if (!isset($_COOKIE['auth_token'])) return false;
+
+        // Importante: borrar con los mismos parámetros (path/secure/samesite)
+        $params = [
+            'expires'  => time() - 3600,
+            'path'     => self::cookiePath(),
+            'secure'   => self::cookieSecure(),
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ];
+
+        setcookie('auth_token', '', $params);
+        unset($_COOKIE['auth_token']);
+        return true;
     }
 
     // ============================================================
@@ -148,11 +181,11 @@ class SesionJWT extends Conexion {
     public function obtenerOpcionesMenu($nombre_rol) {
         try {
             $sql = "
-                SELECT DISTINCT 
+                SELECT DISTINCT
                     m.codigo_menu, m.nombre, m.icono
-                FROM rol r 
-                INNER JOIN menu_item_accesos m_i_a ON r.codigo_rol = m_i_a.codigo_rol 
-                INNER JOIN menu_item m_i          ON m_i.codigo_menu_item = m_i_a.codigo_menu_item 
+                FROM rol r
+                INNER JOIN menu_item_accesos m_i_a ON r.codigo_rol = m_i_a.codigo_rol
+                INNER JOIN menu_item m_i          ON m_i.codigo_menu_item = m_i_a.codigo_menu_item
                 INNER JOIN menu m                 ON m.codigo_menu = m_i.codigo_menu
                 WHERE r.nombre LIKE :p_nombre_rol;
             ";
@@ -168,13 +201,13 @@ class SesionJWT extends Conexion {
     public function obtenerOpcionesMenuItem($nombreRol, $codigo_menu) {
         try {
             $sql = "
-                SELECT 
+                SELECT
                     m_i.codigo_menu_item, m_i.nombre, m_i.icono, m_i.ruta
-                FROM rol r 
-                INNER JOIN menu_item_accesos m_i_a ON r.codigo_rol = m_i_a.codigo_rol 
-                INNER JOIN menu_item m_i          ON m_i.codigo_menu_item = m_i_a.codigo_menu_item 
+                FROM rol r
+                INNER JOIN menu_item_accesos m_i_a ON r.codigo_rol = m_i_a.codigo_rol
+                INNER JOIN menu_item m_i          ON m_i.codigo_menu_item = m_i_a.codigo_menu_item
                 INNER JOIN menu m                 ON m.codigo_menu = m_i.codigo_menu
-                WHERE r.nombre LIKE :p_nombreRol 
+                WHERE r.nombre LIKE :p_nombreRol
                   AND m.codigo_menu = :p_codigo_menu;
             ";
             $sentencia = $this->dblink->prepare($sql);
@@ -185,13 +218,5 @@ class SesionJWT extends Conexion {
         } catch (Exception $exc) {
             throw $exc;
         }
-    }
-
-    public function eliminarToken() {
-        if (isset($_COOKIE['auth_token'])) {
-            setcookie('auth_token', '', time() - 3600, '/', '', true, true);
-            return true;
-        }
-        return false;
     }
 }

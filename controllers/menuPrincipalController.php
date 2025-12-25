@@ -1,25 +1,30 @@
 <?php
+// controllers/menuPrincipalController.php
+
 require_once __DIR__ . '/../Config/config.php';
 require_once __DIR__ . '/../models/SesionJWT.php';
-require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 
-class MenuPrincipalController {
-    public function index() {
-        session_start();
+class MenuPrincipalController
+{
+    public function index()
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
 
         header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
         header("Cache-Control: post-check=0, pre-check=0", false);
         header("Pragma: no-cache");
 
-        $usuario = AuthMiddleware::validarToken();
+        $token = $_COOKIE['auth_token'] ?? null;
+        $usuario = $token ? SesionJWT::verificarToken($token) : null;
 
-        if (!$usuario) {
-            error_log("⚠️ Token no válido o no encontrado. Redirigiendo al login...");
-            header("Location: /entrevecinos/views/login.php");
+        if (!$usuario || empty($usuario['rol'])) {
+            header('Location: ' . rtrim(BASE_URL, '/') . '/login');
             exit;
         }
 
-        $rolUsuario = $usuario['rol'] ?? null;
+        $rolUsuario = $usuario['rol'];
 
         $objSesion = new SesionJWT();
         $menusBase = $objSesion->obtenerOpcionesMenu($rolUsuario);
@@ -34,5 +39,6 @@ class MenuPrincipalController {
 
         $menusParaMenuIzquierda = $menus;
         require_once __DIR__ . '/../views/MenuPrincipalView.php';
+        exit;
     }
 }
