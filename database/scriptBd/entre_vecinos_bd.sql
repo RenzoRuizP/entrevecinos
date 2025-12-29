@@ -296,14 +296,15 @@ INSERT INTO `menu_item_accesos` (`codigo_menu_item_accesos`, `codigo_menu_item`,
 /*!40000 ALTER TABLE `menu_item_accesos` ENABLE KEYS */;
 
 -- Volcando estructura para tabla entre_vecinos_bd.publicacion
-CREATE TABLE IF NOT EXISTS `publicacion` (
-  `codigo_publicacion` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE IF NOT EXISTS `producto` (
+  `codigo_producto` int(11) NOT NULL AUTO_INCREMENT,
   `titulo` varchar(100) NOT NULL,
   `imagen_portada` varchar(255) DEFAULT NULL,
   `descripcion` text DEFAULT NULL,
   `estado` enum('Nuevo','Usado','NoAplica') DEFAULT 'NoAplica',
   `precio` decimal(10,2) NOT NULL,
-  `visible` tinyint(1) NOT NULL DEFAULT 1,
+  `visible` tinyint(1) NOT NULL DEFAULT 0, -- 0: NO; 1: SI
+  `destacado` tinyint(1) NOT NULL, -- 0: NO; 1: SI
   `codigo_usuario` int(11) DEFAULT NULL,
   `codigo_tipo` int(11) DEFAULT NULL,
   `codigo_categoria` int(11) DEFAULT NULL,
@@ -338,6 +339,7 @@ ADD INDEX idx_fecha_destacado (fecha_destacado);
 INSERT INTO `publicacion` (`codigo_publicacion`, `titulo`, `imagen_portada`, `descripcion`, `estado`, `precio`, `visible`, `codigo_usuario`, `codigo_tipo`, `codigo_categoria`, `created_at`, `updated_at`) VALUES
 	(8, 'INKA CHIP', NULL, '90 gr', 'Nuevo', 10.00, 1, 2, 1, 1, '2025-11-19 00:02:51', '2025-11-19 00:02:51');
 /*!40000 ALTER TABLE `publicacion` ENABLE KEYS */;
+
 
 -- Volcando estructura para tabla entre_vecinos_bd.publicacion_imagen
 CREATE TABLE IF NOT EXISTS `publicacion_imagen` (
@@ -570,5 +572,41 @@ CREATE TABLE recarga_saldo (
     ON UPDATE CASCADE
     ON DELETE CASCADE
 );
+
+
+
+-- 1) Tabla urbanizacion
+CREATE TABLE IF NOT EXISTS urbanizacion (
+  codigo_urbanizacion INT AUTO_INCREMENT PRIMARY KEY,
+  nombre_urbanizacion VARCHAR(150) NOT NULL,
+  estado TINYINT NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- 2) Relación de residencia por usuario (unificada)
+CREATE TABLE IF NOT EXISTS usuario_residencia (
+  codigo_usuario_residencia INT AUTO_INCREMENT PRIMARY KEY,
+  codigo_usuario INT NOT NULL,
+  tipo_conjunto ENUM('condominio','urbanizacion') NOT NULL,
+  codigo_condominio INT NULL,
+  codigo_urbanizacion INT NULL,
+  direccion VARCHAR(250) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_ur_usuario
+    FOREIGN KEY (codigo_usuario) REFERENCES usuario(codigo_usuario),
+
+  CONSTRAINT fk_ur_condominio
+    FOREIGN KEY (codigo_condominio) REFERENCES condominio(codigo_condominio),
+
+  CONSTRAINT fk_ur_urbanizacion
+    FOREIGN KEY (codigo_urbanizacion) REFERENCES urbanizacion(codigo_urbanizacion)
+) ENGINE=InnoDB;
+
+-- Reglas de integridad “lógica” (no todas las BD aplican CHECK de forma estricta):
+-- Si tu MySQL/MariaDB no respeta CHECK, valida en SP.
+
+ALTER TABLE usuario_residencia
+  ADD COLUMN comprobante_domicilio VARCHAR(255) NULL AFTER direccion;
 
 

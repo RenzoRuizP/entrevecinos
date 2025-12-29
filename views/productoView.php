@@ -1,12 +1,46 @@
 <?php
-// views/PublicacionesView.php
+// views/productoView.php
 require_once __DIR__ . '/../Config/config.php';
 ?>
 <script>
   window.BASE_URL = "<?= rtrim(BASE_URL, '/'); ?>";
 </script>
 
-<?php include_once __DIR__ . '/estilos/publicacionesEstilo.php'; ?>
+<?php include_once __DIR__ . '/estilos/productoEstilo.php'; ?>
+
+<!-- ✅ Override local (solo esta vista): más ancho + ligeramente a la izquierda en escritorio -->
+<style>
+  /* Importante: SOLO aplicamos en escritorio para no romper móvil */
+  @media (min-width: 992px){
+    /*
+      Ajustes solicitados:
+      - +15% de ancho (width: 115%)
+      - mover a la izquierda (translateX negativo)
+
+      Nota:
+      - Si lo quieres aún más a la izquierda, cambia -10% a -15%
+      - Si lo quieres menos, usa -7% u -8%
+    */
+    .ev-pubs-wrapper{
+      /* Evita que un contenedor “centrado” se vea muy a la derecha por el sidebar */
+      overflow: visible;
+    }
+
+    .ev-pubs-card{
+      width: 115%;
+      max-width: none;
+      transform: translateX(-10%);
+    }
+  }
+
+  /* En pantallas muy grandes, evitamos que se “dispare” demasiado */
+  @media (min-width: 1400px){
+    .ev-pubs-card{
+      width: 110%;
+      transform: translateX(-8%);
+    }
+  }
+</style>
 
 <div class="ev-pubs-wrapper fade-in">
   <div class="card ev-pubs-card">
@@ -17,8 +51,8 @@ require_once __DIR__ . '/../Config/config.php';
         <div class="d-flex align-items-start gap-3">
           <div class="ev-pubs-title-icon"><i class="bi bi-journal-text"></i></div>
           <div>
-            <div class="ev-pubs-title">Publicaciones</div>
-            <div class="ev-pubs-subtitle">Gestiona tus publicaciones y controla cuáles se muestran en el marketplace.</div>
+            <div class="ev-pubs-title">Mis Productos</div>
+            <div class="ev-pubs-subtitle">Gestiona tus productos y controla cuáles se muestran en el marketplace.</div>
           </div>
         </div>
 
@@ -41,23 +75,25 @@ require_once __DIR__ . '/../Config/config.php';
             <thead>
               <tr>
                 <th style="width:130px;">Código</th>
-                <th>Título</th>
+                <th style="min-width:220px;">Título</th>
                 <th style="width:160px;">Precio (S/)</th>
                 <th style="width:140px;">Estado</th>
-                <th style="width:160px;">Fecha</th>
+                <th style="width:190px;">Tipo</th>
+                <th style="width:200px;">Categoría</th>
+                <th style="min-width:280px;">Descripción</th>
                 <th class="text-center" style="width:260px;">Opciones</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td colspan="6" class="text-center py-4 text-muted">Cargando publicaciones…</td>
+                <td colspan="8" class="text-center py-4 text-muted">Cargando publicaciones…</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- Paginación (si ya la manejas con tu plugin, puedes dejarlo así) -->
+      <!-- Footer -->
       <div class="ev-pubs-footer mt-3">
         <div class="ev-pubs-per-page">
           <label class="form-label mb-1">Registros por página:</label>
@@ -83,7 +119,7 @@ require_once __DIR__ . '/../Config/config.php';
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content ev-modal-content">
       <div class="ev-modal-header">
-        <div class="ev-modal-title"><i class="bi bi-search"></i> Buscar publicación</div>
+        <div class="ev-modal-title"><i class="bi bi-search"></i> Buscar producto</div>
         <button type="button" class="btn-close btn-close-white ev-modal-close-icon" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
 
@@ -113,7 +149,7 @@ require_once __DIR__ . '/../Config/config.php';
   <div class="modal-dialog modal-dialog-centered ev-modal-xl">
     <div class="modal-content ev-modal-content ev-modal-flex">
       <div class="ev-modal-header">
-        <div class="ev-modal-title"><i class="bi bi-plus-circle"></i> Nueva publicación</div>
+        <div class="ev-modal-title"><i class="bi bi-plus-circle"></i> Nuevo producto</div>
         <button type="button" class="btn-close btn-close-white ev-modal-close-icon" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
 
@@ -224,7 +260,7 @@ require_once __DIR__ . '/../Config/config.php';
   <div class="modal-dialog modal-dialog-centered ev-modal-xl">
     <div class="modal-content ev-modal-content ev-modal-flex">
       <div class="ev-modal-header">
-        <div class="ev-modal-title"><i class="bi bi-pencil-square"></i> Editar publicación</div>
+        <div class="ev-modal-title"><i class="bi bi-pencil-square"></i> Editar producto</div>
         <button type="button" class="btn-close btn-close-white ev-modal-close-icon" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
 

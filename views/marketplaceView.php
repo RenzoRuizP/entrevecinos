@@ -14,74 +14,79 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
 <div class="ev-mp-wrapper fade-in">
   <div class="container-fluid px-2 px-lg-3 py-2 py-lg-3">
 
-    <div class="card ev-mp-header mb-3">
-      <div class="card-body">
+    <!-- ✅ NUEVO: contenedor propio para controlar el “gutter” izquierdo -->
+    <div class="ev-mp-content">
 
-        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-          <div>
-            <h1 class="ev-mp-title mb-1">Marketplace</h1>
-            <p class="ev-mp-subtitle mb-0">
-              Compra y vende productos entre vecinos de tu condominio.
-            </p>
-          </div>
+      <div class="card ev-mp-header mb-3">
+        <div class="card-body">
 
-          <div class="ev-mp-condominio">
-            <div class="ev-mp-condominio-icon">
-              <i class="bi bi-buildings"></i>
+          <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+              <h1 class="ev-mp-title mb-1">Marketplace</h1>
+              <p class="ev-mp-subtitle mb-0">
+                Compra y vende productos entre vecinos de tu condominio.
+              </p>
             </div>
-            <div class="ev-mp-condominio-text">
-              <span class="ev-mp-condominio-label">Condominio actual</span>
-              <span class="ev-mp-condominio-name">
-                <?= htmlspecialchars($condominioNombre, ENT_QUOTES, 'UTF-8'); ?>
-              </span>
-            </div>
-          </div>
-        </div>
 
-        <div class="ev-mp-search-row mt-3">
-          <div class="ev-mp-search-input-wrapper">
-            <i class="bi bi-search"></i>
-            <input
-              type="text"
-              id="mp_busqueda"
-              class="form-control ev-mp-search-input"
-              placeholder="Busca por título o descripción..."
-              autocomplete="off"
-            >
-          </div>
-
-          <div class="ev-mp-search-actions">
-            <div class="ev-mp-sort-wrapper">
-              <span class="ev-mp-sort-label">Ordenar por:</span>
-              <select id="mp_orden" class="form-select ev-mp-sort-select">
-                <option value="recientes">Más recientes</option>
-                <option value="precio_menor">Precio: menor a mayor</option>
-                <option value="precio_mayor">Precio: mayor a menor</option>
-                <option value="mejor_valorados">Mejor valorados</option>
-              </select>
+            <div class="ev-mp-condominio">
+              <div class="ev-mp-condominio-icon">
+                <i class="bi bi-buildings"></i>
+              </div>
+              <div class="ev-mp-condominio-text">
+                <span class="ev-mp-condominio-label">Condominio actual</span>
+                <span class="ev-mp-condominio-name">
+                  <?= htmlspecialchars($condominioNombre, ENT_QUOTES, 'UTF-8'); ?>
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="ev-mp-chips">
-          <button type="button" class="ev-mp-chip active" data-filtro="todos">Todos</button>
-          <button type="button" class="ev-mp-chip" data-filtro="recomendados">Recomendados</button>
-          <button type="button" class="ev-mp-chip" data-filtro="productos">Productos</button>
-          <button type="button" class="ev-mp-chip" data-filtro="servicios">Servicios</button>
-        </div>
+          <div class="ev-mp-search-row mt-3">
+            <div class="ev-mp-search-input-wrapper">
+              <i class="bi bi-search"></i>
+              <input
+                type="text"
+                id="mp_busqueda"
+                class="form-control ev-mp-search-input"
+                placeholder="Busca por título o descripción..."
+                autocomplete="off"
+              >
+            </div>
 
-        <div id="mp_resumen_resultados" class="ev-mp-resumen">
-          Mostrando 0 resultados en <?= htmlspecialchars($condominioNombre, ENT_QUOTES, 'UTF-8'); ?>
-        </div>
+            <div class="ev-mp-search-actions">
+              <div class="ev-mp-sort-wrapper">
+                <span class="ev-mp-sort-label">Ordenar por:</span>
+                <select id="mp_orden" class="form-select ev-mp-sort-select">
+                  <option value="recientes">Más recientes</option>
+                  <option value="precio_menor">Precio: menor a mayor</option>
+                  <option value="precio_mayor">Precio: mayor a menor</option>
+                  <option value="mejor_valorados">Mejor valorados</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
+          <div class="ev-mp-chips">
+            <button type="button" class="ev-mp-chip active" data-filtro="todos">Todos</button>
+            <button type="button" class="ev-mp-chip" data-filtro="recomendados">Recomendados</button>
+            <button type="button" class="ev-mp-chip" data-filtro="productos">Productos</button>
+            <button type="button" class="ev-mp-chip" data-filtro="servicios">Servicios</button>
+          </div>
+
+          <div id="mp_resumen_resultados" class="ev-mp-resumen">
+            Mostrando 0 resultados en <?= htmlspecialchars($condominioNombre, ENT_QUOTES, 'UTF-8'); ?>
+          </div>
+
+        </div>
       </div>
-    </div>
 
-    <div id="mp_empty_state">
-      No encontramos publicaciones con los filtros actuales.
-    </div>
+      <div id="mp_empty_state">
+        No encontramos publicaciones con los filtros actuales.
+      </div>
 
-    <div id="mp_grid_publicaciones" class="ev-mp-grid"></div>
+      <div id="mp_grid_publicaciones" class="ev-mp-grid"></div>
+
+    </div><!-- /ev-mp-content -->
 
   </div>
 </div>

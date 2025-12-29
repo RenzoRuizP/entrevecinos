@@ -32,13 +32,14 @@ $menusParaMenuIzquierda = $menusParaMenuIzquierda ?? ($menus ?? []);
 
     <?php include __DIR__ . '/menuIzquierdaView.php'; ?>
 
-    <div class="main-container flex-grow-1 d-flex flex-column" style="min-height: 100vh; overflow: hidden;">
+    <div class="main-container flex-grow-1 d-flex flex-column">
       <?php include __DIR__ . '/menuArribaView.php'; ?>
 
       <main class="content-wrapper fade-in" id="contenido-principal">
         <?php include __DIR__ . '/menuPrincipalContenido.php'; ?>
       </main>
     </div>
+
   </div>
 
   <div id="sidebar-backdrop"></div>

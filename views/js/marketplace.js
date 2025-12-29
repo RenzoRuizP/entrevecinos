@@ -5,8 +5,12 @@
    - Filtros por categoría
    - Búsqueda por título / descripción
    - Ordenamiento
-   - Soporte para "Recomendados" (publicaciones potenciadas)
-   - VER DETALLE: abre modal con previsualización estilo publicación
+   - Recomendados (potenciadas)
+   - VER DETALLE: modal
+   ✅ FIX de raíz:
+     - fetch con credentials para enviar cookie auth_token
+     - parsing robusto (API puede devolver HTML o diferente shape)
+     - logs claros + resumen de error visible
 */
 
 (function () {
@@ -15,7 +19,6 @@
   const BASE = (window.BASE_URL || '').replace(/\/$/, '');
   const LOG_PREFIX = '[MARKETPLACE]';
 
-  // Nombre del condominio para el resumen (viene de marketplaceView.php)
   const CONDO_NOMBRE_RESUMEN = (typeof window !== 'undefined' && window.EV_CONDOMINIO_NOMBRE)
     ? window.EV_CONDOMINIO_NOMBRE
     : 'tu condominio';
@@ -40,11 +43,9 @@
   function log() {
     if (window.console && console.log) console.log(LOG_PREFIX, ...arguments);
   }
-
   function warn() {
     if (window.console && console.warn) console.warn(LOG_PREFIX, ...arguments);
   }
-
   function error() {
     if (window.console && console.error) console.error(LOG_PREFIX, ...arguments);
   }
@@ -90,13 +91,57 @@
   }
 
   function buildImgUrl(relPath) {
-    if (!relPath) {
-      return BASE + '/public/img/placeholder-ev.png';
-    }
-    if (/^https?:\/\//i.test(relPath)) {
-      return relPath;
-    }
+    if (!relPath) return BASE + '/public/img/placeholder-ev.png';
+    if (/^https?:\/\//i.test(relPath)) return relPath;
     return BASE + '/' + String(relPath).replace(/^\/+/, '');
+  }
+
+  async function fetchJsonRobusto(url, opts) {
+    const resp = await fetch(url, opts);
+
+    const text = await resp.text();
+    let json = null;
+
+    try {
+      json = text ? JSON.parse(text) : {};
+    } catch (_) {
+      json = null;
+    }
+
+    return { resp, text, json };
+  }
+
+  function normalizarListaDesdeAPI(payload) {
+    // Esperado: { ok:true, data:[...] }
+    if (!payload || typeof payload !== 'object') return [];
+
+    const d = payload.data;
+
+    if (Array.isArray(d)) return d;
+
+    // Variantes comunes
+    if (Array.isArray(payload.publicaciones)) return payload.publicaciones;
+    if (Array.isArray(payload.items)) return payload.items;
+    if (d && Array.isArray(d.items)) return d.items;
+    if (d && Array.isArray(d.publicaciones)) return d.publicaciones;
+
+    return [];
+  }
+
+  function setResumen(txt) {
+    if (refs.resumenResultados) refs.resumenResultados.textContent = txt;
+  }
+
+  function showEmpty(msg) {
+    if (refs.grid) refs.grid.innerHTML = '';
+    if (refs.emptyState) {
+      refs.emptyState.style.display = '';
+      refs.emptyState.textContent = msg || 'No encontramos publicaciones con los filtros actuales.';
+    }
+  }
+
+  function hideEmpty() {
+    if (refs.emptyState) refs.emptyState.style.display = 'none';
   }
 
   // ------------------------------------
@@ -115,7 +160,7 @@
   }
 
   // ------------------------------------
-  // Modal: cargar detalle de publicación
+  // Modal detalle
   // ------------------------------------
   async function abrirModalDetalle(codigoPublicacion) {
     if (!codigoPublicacion) {
@@ -124,12 +169,13 @@
     }
 
     try {
-      const resp = await fetch(`${BASE}/api/publicacion/detalle/${codigoPublicacion}`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
-      });
+      const url = `${BASE}/api/publicacion/detalle/${encodeURIComponent(codigoPublicacion)}`;
 
-      const data = await resp.json().catch(() => ({}));
+      const { resp, text, json } = await fetchJsonRobusto(url, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin' // ✅ CRÍTICO: manda cookie auth_token
+      });
 
       if (resp.status === 401) {
         notify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
@@ -137,16 +183,21 @@
         return;
       }
 
-      if (!resp.ok || !data.ok) {
-        const msg = data.mensaje || data.error || 'No se pudo obtener el detalle de la publicación.';
-        error('ERROR API DETALLE', data);
+      if (!json) {
+        error('DETALLE no devolvió JSON. Body:', text?.slice(0, 300));
+        notify('error', 'Error', 'La API devolvió una respuesta no válida (no JSON). Revisa consola.');
+        return;
+      }
+
+      if (!resp.ok || !json.ok) {
+        const msg = json.mensaje || json.error || 'No se pudo obtener el detalle de la publicación.';
+        error('ERROR API DETALLE', json);
         notify('error', 'Error', msg);
         return;
       }
 
-      const pub = data.data || {};
+      const pub = json.data || {};
 
-      // Referencias al modal
       const modalEl        = document.getElementById('mp_modal_detalle');
       const imgPrincipalEl = document.getElementById('mp_modal_img_principal');
       const thumbsWrapper  = document.getElementById('mp_modal_thumbs');
@@ -169,15 +220,13 @@
       const desc     = pub.descripcion || '';
 
       const imagenes = Array.isArray(pub.imagenes) ? pub.imagenes : [];
-      let   portada  = pub.imagen_portada || '';
+      let portada  = pub.imagen_portada || '';
 
-      // Si por algún motivo no llega imagen_portada, usamos la primera de la lista
       if (!portada && imagenes.length > 0) {
         const first = imagenes[0];
         portada = first.url || buildImgUrl(first.ruta);
       }
 
-      // Llenar datos
       tituloTxtEl.textContent = titulo;
       precioEl.textContent    = formatPrecio(precio);
       catEl.textContent       = catName;
@@ -187,9 +236,7 @@
       imgPrincipalEl.src = portada || (BASE + '/public/img/placeholder-ev.png');
       imgPrincipalEl.alt = titulo || 'Imagen de publicación';
 
-      // Thumbnails
       thumbsWrapper.innerHTML = '';
-
       imagenes.forEach((imgObj, index) => {
         const url = imgObj.url || buildImgUrl(imgObj.ruta);
 
@@ -204,7 +251,6 @@
 
         thumbWrapper.addEventListener('click', () => {
           imgPrincipalEl.src = url;
-          // marcar activo
           document
             .querySelectorAll('.ev-mp-modal-thumb')
             .forEach(el => el.classList.remove('active'));
@@ -214,16 +260,14 @@
         thumbsWrapper.appendChild(thumbWrapper);
       });
 
-      // marcar primera miniatura como activa
       const firstThumb = thumbsWrapper.querySelector('.ev-mp-modal-thumb');
       if (firstThumb) firstThumb.classList.add('active');
 
-      // Abrir modal (Bootstrap 5)
       if (window.bootstrap && typeof window.bootstrap.Modal === 'function') {
         const modalInstance = window.bootstrap.Modal.getOrCreateInstance(modalEl);
         modalInstance.show();
       } else if (typeof $ === 'function' && typeof $(modalEl).modal === 'function') {
-        $(modalEl).modal('show'); // fallback Bootstrap 4
+        $(modalEl).modal('show');
       } else {
         warn('Bootstrap Modal no disponible; no se puede mostrar el modal de detalle.');
       }
@@ -245,36 +289,32 @@
 
     let lista = Array.isArray(publicaciones) ? [...publicaciones] : [];
 
-    // Filtro por categoría / tipo especial
     if (filtroCategoria && filtroCategoria !== 'todos') {
       if (filtroCategoria === 'recomendados') {
         lista = lista.filter((pub) => Number(pub.es_potenciado || 0) === 1);
-      } else {
+      } else if (filtroCategoria === 'productos') {
         lista = lista.filter((pub) => {
-          const catSlug = String(
-            pub.categoria_slug ||
-            pub.tipo_slug ||
-            pub.categoria_nombre ||
-            pub.tipo_nombre ||
-            ''
-          ).toLowerCase();
-          return catSlug.includes(filtroCategoria.slice(0, 4));
+          const t = normalizar(pub.tipo_nombre || pub.tipo_slug || '');
+          const c = normalizar(pub.categoria_nombre || pub.categoria_slug || '');
+          return t.includes('producto') || c.includes('producto');
+        });
+      } else if (filtroCategoria === 'servicios') {
+        lista = lista.filter((pub) => {
+          const t = normalizar(pub.tipo_nombre || pub.tipo_slug || '');
+          const c = normalizar(pub.categoria_nombre || pub.categoria_slug || '');
+          return t.includes('servicio') || c.includes('servicio');
         });
       }
     }
 
-    // Búsqueda
     if (textoBusqueda.trim() !== '') {
       const needle = normalizar(textoBusqueda);
       lista = lista.filter((pub) => {
-        const haystack = normalizar(
-          (pub.titulo || '') + ' ' + (pub.descripcion || '')
-        );
+        const haystack = normalizar((pub.titulo || '') + ' ' + (pub.descripcion || ''));
         return haystack.includes(needle);
       });
     }
 
-    // Ordenamiento
     lista.sort((a, b) => {
       const precioA  = Number(a.precio || 0);
       const precioB  = Number(b.precio || 0);
@@ -284,11 +324,11 @@
       const recB     = b.orden_reciente || b.codigo_publicacion || 0;
 
       switch (criterioOrden) {
-        case 'precio_menor':   return precioA - precioB;
-        case 'precio_mayor':   return precioB - precioA;
-        case 'mejor_valorados':return ratingB - ratingA;
+        case 'precio_menor':    return precioA - precioB;
+        case 'precio_mayor':    return precioB - precioA;
+        case 'mejor_valorados': return ratingB - ratingA;
         case 'recientes':
-        default:               return recB - recA;
+        default:                return recB - recA;
       }
     });
 
@@ -299,16 +339,12 @@
     if (!refs.grid) return;
 
     if (!Array.isArray(lista) || lista.length === 0) {
-      refs.grid.innerHTML = '';
-      if (refs.emptyState) refs.emptyState.style.display = '';
-      if (refs.resumenResultados) {
-        refs.resumenResultados.textContent =
-          `Mostrando 0 resultados en ${CONDO_NOMBRE_RESUMEN}`;
-      }
+      showEmpty(`No encontramos publicaciones con los filtros actuales.`);
+      setResumen(`Mostrando 0 resultados en ${CONDO_NOMBRE_RESUMEN}`);
       return;
     }
 
-    if (refs.emptyState) refs.emptyState.style.display = 'none';
+    hideEmpty();
 
     const cardsHtml = lista.map((pub, idx) => {
       const titulo = escapeHtml(pub.titulo || '');
@@ -372,9 +408,7 @@
                 </div>
                 <div>
                   <div class="ev-mp-vecino-nombre">Vecino</div>
-                  <div class="ev-mp-vecino-condominio">
-                    Tu condominio
-                  </div>
+                  <div class="ev-mp-vecino-condominio">Tu condominio</div>
                 </div>
               </div>
               <div class="ev-mp-card-rating">
@@ -398,22 +432,16 @@
 
     refs.grid.innerHTML = cardsHtml;
 
-    if (refs.resumenResultados) {
-      const n = lista.length;
-      refs.resumenResultados.textContent =
-        `Mostrando ${n} resultado${n === 1 ? '' : 's'} en ${CONDO_NOMBRE_RESUMEN}`;
-    }
+    const n = lista.length;
+    setResumen(`Mostrando ${n} resultado${n === 1 ? '' : 's'} en ${CONDO_NOMBRE_RESUMEN}`);
 
-    // Eventos de "Ver detalle"
     const cards = Array.from(refs.grid.querySelectorAll('.ev-mp-card'));
     cards.forEach((card) => {
       const pubId = card.getAttribute('data-id');
       const btnDetalle = card.querySelector('.ev-mp-btn-detalle');
 
       if (btnDetalle && pubId) {
-        btnDetalle.addEventListener('click', () => {
-          abrirModalDetalle(pubId);
-        });
+        btnDetalle.addEventListener('click', () => abrirModalDetalle(pubId));
       }
     });
   }
@@ -428,18 +456,29 @@
     }
 
     refs.grid.innerHTML = '';
-    if (refs.emptyState) refs.emptyState.style.display = 'none';
-    if (refs.resumenResultados) {
-      refs.resumenResultados.textContent = 'Cargando publicaciones…';
-    }
+    hideEmpty();
+    setResumen('Cargando publicaciones…');
+
+    const url = `${BASE}/api/publicacion/listar-publicadas`;
 
     try {
-      const resp = await fetch(`${BASE}/api/publicacion/listar-publicadas`, {
+      const { resp, text, json } = await fetchJsonRobusto(url, {
         method: 'GET',
-        headers: { 'Accept': 'application/json' }
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin' // ✅ CRÍTICO: manda cookie auth_token
       });
 
-      const data = await resp.json().catch(() => ({}));
+      // Caso: backend devolvió HTML (login/redirect) u otro contenido
+      if (!json) {
+        error('API no devolvió JSON. URL:', url);
+        error('Status:', resp.status);
+        error('Body (primeros 400 chars):', (text || '').slice(0, 400));
+
+        publicaciones = [];
+        showEmpty('No se pudo cargar el Marketplace (respuesta no válida). Revisa consola.');
+        setResumen(`Mostrando 0 resultados en ${CONDO_NOMBRE_RESUMEN}`);
+        return;
+      }
 
       if (resp.status === 401) {
         notify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
@@ -447,24 +486,33 @@
         return;
       }
 
-      if (!resp.ok || !data.ok) {
-        const msg = data.mensaje || data.error || 'No se pudo cargar el Marketplace.';
-        error('ERROR API', data);
-        notify('error', 'Error', msg);
+      if (!resp.ok || !json.ok) {
+        const msg = json.mensaje || json.error || 'No se pudo cargar el Marketplace.';
+        error('ERROR API listar-publicadas', json);
         publicaciones = [];
-        aplicarFiltrosYRedibujar();
+        showEmpty(msg);
+        setResumen(`Mostrando 0 resultados en ${CONDO_NOMBRE_RESUMEN}`);
         return;
       }
 
-      publicaciones = Array.isArray(data.data) ? data.data : [];
+      publicaciones = normalizarListaDesdeAPI(json);
       log('publicaciones recibidas:', publicaciones);
+
+      if (!Array.isArray(publicaciones) || publicaciones.length === 0) {
+        // ✅ Esto ya es “negocio”: o no está PUBLICADO, o no coincide condominio, o el API filtra.
+        warn('API OK pero lista vacía. Posibles causas: publicación no está en estado PUBLICADO o filtro por condominio.');
+        showEmpty(`No hay publicaciones publicadas en ${CONDO_NOMBRE_RESUMEN} todavía.`);
+        setResumen(`Mostrando 0 resultados en ${CONDO_NOMBRE_RESUMEN}`);
+        return;
+      }
+
       aplicarFiltrosYRedibujar();
 
     } catch (err) {
-      error('EXCEPTION', err);
-      notify('error', 'Error inesperado', 'Ocurrió un problema al cargar el Marketplace.');
+      error('EXCEPTION cargarPublicaciones', err);
       publicaciones = [];
-      aplicarFiltrosYRedibujar();
+      showEmpty('Ocurrió un problema al cargar el Marketplace.');
+      setResumen(`Mostrando 0 resultados en ${CONDO_NOMBRE_RESUMEN}`);
     }
   }
 
@@ -522,10 +570,7 @@
     }
   });
 
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
-  });
+  observer.observe(document.body, { childList: true, subtree: true });
 
   window.EVMarketplace = { init: initMarketplace };
 

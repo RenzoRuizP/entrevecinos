@@ -1,13 +1,16 @@
-<?php 
+<?php
+require_once __DIR__ . '/../Config/config.php';
+
 // ✅ Seguridad ante datos no definidos
 $nombreUsuario = $nombreUsuario ?? 'Vecino';
-$rolUsuario = $rolUsuario ?? 'vecino';
-$fotoUsuario = "/entrevecinos/views/fotos/00000000.png";
-$iconEntreVecinos = "/entrevecinos/resources/images/logo/icon_logo.png";
+$rolUsuario    = $rolUsuario ?? 'vecino';
+
+$fotoUsuario = rtrim(BASE_URL, '/') . "/views/fotos/00000000.png";
+$iconEntreVecinos = rtrim(BASE_URL, '/') . "/resources/images/logo/icon_logo.png";
 ?>
 
 <!-- 🔹 Barra superior -->
-<nav class="app-header navbar navbar-expand-lg navbar-dark shadow-sm px-3" style="background-color: #0F592F; position: relative; z-index: 1050; overflow: visible !important;">
+<nav class="app-header navbar navbar-expand-lg navbar-dark shadow-sm px-3">
   <div class="container-fluid">
 
     <!-- 🔹 Botón hamburguesa lateral -->
@@ -18,7 +21,7 @@ $iconEntreVecinos = "/entrevecinos/resources/images/logo/icon_logo.png";
     <!-- 🔹 Marca -->
     <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-white shadow-sm me-2"
           style="width: 38px; height: 38px;">
-      <img src="<?= $iconEntreVecinos ?>"
+      <img src="<?= htmlspecialchars($iconEntreVecinos, ENT_QUOTES, 'UTF-8') ?>"
            alt="Logo Entre Vecinos"
            class="img-fluid"
            style="max-height: 40px;">
@@ -35,12 +38,12 @@ $iconEntreVecinos = "/entrevecinos/resources/images/logo/icon_logo.png";
            aria-expanded="false">
 
           <img
-            src="<?= $fotoUsuario ?>"
+            src="<?= htmlspecialchars($fotoUsuario, ENT_QUOTES, 'UTF-8') ?>"
             alt="Usuario"
             class="rounded-circle me-2 border border-white"
             style="width:38px; height:38px; object-fit:cover;"
           />
-          <span class="fw-semibold d-none d-lg-inline"><?= htmlspecialchars($nombreUsuario) ?></span>
+          <span class="fw-semibold d-none d-lg-inline"><?= htmlspecialchars($nombreUsuario, ENT_QUOTES, 'UTF-8') ?></span>
         </a>
 
         <!-- 🔹 Dropdown del usuario -->
@@ -48,18 +51,18 @@ $iconEntreVecinos = "/entrevecinos/resources/images/logo/icon_logo.png";
 
           <li class="text-center p-3 bg-success text-white">
             <img
-              src="<?= $fotoUsuario ?>"
+              src="<?= htmlspecialchars($fotoUsuario, ENT_QUOTES, 'UTF-8') ?>"
               class="rounded-circle shadow-sm mb-2 border border-white"
               style="width:70px; height:70px; object-fit:cover;"
               alt="Usuario"
             />
-            <p class="mb-0 fw-semibold"><?= htmlspecialchars($nombreUsuario) ?></p>
-            <small><?= ucfirst(htmlspecialchars($rolUsuario)) ?></small>
+            <p class="mb-0 fw-semibold"><?= htmlspecialchars($nombreUsuario, ENT_QUOTES, 'UTF-8') ?></p>
+            <small><?= ucfirst(htmlspecialchars($rolUsuario, ENT_QUOTES, 'UTF-8')) ?></small>
           </li>
 
           <li class="bg-white">
             <div class="d-flex justify-content-between px-3 py-3">
-              <!-- 🔹 Mis datos: usa la misma ruta que el menú "Datos personales" -->
+              <!-- 🔹 Mis datos -->
               <a href="<?= rtrim(BASE_URL, '/') ?>/mi-perfil"
                  id="btnPerfil"
                  class="btn btn-outline-success btn-sm submenu-link">

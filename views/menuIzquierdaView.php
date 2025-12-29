@@ -4,13 +4,6 @@ require_once __DIR__ . '/../Config/config.php';
 $menus = $menusParaMenuIzquierda ?? [];
 $iconEntreVecinos = rtrim(BASE_URL, '/') . "/resources/images/logo/icon_logo.png";
 
-/**
- * Normaliza una ruta del menú:
- * - Acepta: "marketplace", "/marketplace", "/entrevecinos/marketplace", "views/x.php", "/entrevecinos/views/x.php"
- * - Retorna:
- *   - dataVista: ruta relativa a la app (siempre empieza con "/")
- *   - href:      BASE_URL + dataVista (fallback)
- */
 function ev_normalizar_ruta_menu(string $rutaRaw): array {
     $rutaRaw = trim($rutaRaw);
 
@@ -18,14 +11,11 @@ function ev_normalizar_ruta_menu(string $rutaRaw): array {
         return ['dataVista' => '#', 'href' => '#'];
     }
 
-    // Quitar querystring
     $rutaRaw = explode('?', $rutaRaw, 2)[0];
 
-    // Asegurar que empiece con "/"
     if ($rutaRaw[0] !== '/') $rutaRaw = '/' . $rutaRaw;
 
-    // Remover prefijo basePath si viene pegado (ej: /entrevecinos/marketplace)
-    $basePath = rtrim(parse_url(BASE_URL, PHP_URL_PATH) ?? '', '/'); // "/entrevecinos"
+    $basePath = rtrim(parse_url(BASE_URL, PHP_URL_PATH) ?? '', '/');
     if ($basePath !== '' && $basePath !== '/') {
         if (stripos($rutaRaw, $basePath . '/') === 0) {
             $rutaRaw = substr($rutaRaw, strlen($basePath));
@@ -33,7 +23,7 @@ function ev_normalizar_ruta_menu(string $rutaRaw): array {
         }
     }
 
-    $dataVista = $rutaRaw; // siempre empieza con "/"
+    $dataVista = $rutaRaw;
     $href      = rtrim(BASE_URL, '/') . $dataVista;
 
     return ['dataVista' => $dataVista, 'href' => $href];
@@ -42,8 +32,8 @@ function ev_normalizar_ruta_menu(string $rutaRaw): array {
 
 <?php include_once __DIR__ . '/estilos/menuIzquierdaEstilo.php'; ?>
 
-<aside id="sidebar" class="app-sidebar shadow" style="background-color:#115C41;">
-  <div class="sidebar-brand d-flex align-items-center justify-content-center p-3 border-bottom">
+<aside id="sidebar" class="app-sidebar shadow">
+  <div class="sidebar-brand d-flex align-items-center justify-content-center p-3">
     <a href="<?= rtrim(BASE_URL, '/') . '/MenuPrincipal' ?>" class="d-flex align-items-center text-decoration-none">
       <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-white shadow-sm me-2"
             style="width: 50px; height: 50px;">
@@ -56,7 +46,7 @@ function ev_normalizar_ruta_menu(string $rutaRaw): array {
   </div>
 
   <div class="sidebar-wrapper overflow-hidden">
-    <nav class="mt-3">
+    <nav class="mt-2">
       <ul class="nav flex-column" id="navigation">
         <?php foreach ($menus as $menu):
           $codigoMenu = (int)($menu['codigo_menu'] ?? 0);
@@ -66,11 +56,10 @@ function ev_normalizar_ruta_menu(string $rutaRaw): array {
         ?>
           <li class="nav-item mb-1">
             <a href="#menu<?= $codigoMenu ?>"
-               class="nav-link d-flex align-items-center px-3 py-2 text-white fw-semibold"
+               class="nav-link d-flex align-items-center px-3 py-2 fw-semibold"
                data-bs-toggle="collapse"
                aria-expanded="false"
-               aria-controls="menu<?= $codigoMenu ?>"
-               style="border-radius:10px; transition:background-color .3s;">
+               aria-controls="menu<?= $codigoMenu ?>">
               <i class="nav-icon <?= htmlspecialchars($iconoMenu, ENT_QUOTES, 'UTF-8') ?> me-2"></i>
               <span><?= strtoupper(htmlspecialchars($nombreMenu, ENT_QUOTES, 'UTF-8')) ?></span>
               <?php if (!empty($submenus)): ?>
@@ -87,9 +76,10 @@ function ev_normalizar_ruta_menu(string $rutaRaw): array {
                   <li class="nav-item">
                     <a href="<?= htmlspecialchars($r['href'], ENT_QUOTES, 'UTF-8') ?>"
                        data-vista="<?= htmlspecialchars($r['dataVista'], ENT_QUOTES, 'UTF-8') ?>"
-                       class="nav-link submenu-link d-flex align-items-center px-3 py-2 text-light"
+                       class="nav-link submenu-link d-flex align-items-center px-3 py-2"
                        style="font-size:0.95rem;">
-                      <i class="<?= htmlspecialchars($submenu['icono'] ?? 'fas fa-circle', ENT_QUOTES, 'UTF-8') ?> me-2 text-secondary"></i>
+                      <i class="<?= htmlspecialchars($submenu['icono'] ?? 'fas fa-circle', ENT_QUOTES, 'UTF-8') ?> me-2"
+                         style="opacity:.9;"></i>
                       <span><?= htmlspecialchars($submenu['nombre'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
                     </a>
                   </li>

@@ -183,7 +183,120 @@ class Billetera extends Conexion
                 WHERE codigo_billetera = :codigo_billetera
             ";
             $stmtUpd = $this->dblink->prepare($sqlUpd);
-            $stmtUpd->bindParam(':saldo_actual',    $nuevoSaldo);
+            $stmtUpd->bindParam(':saldo_actual',     $nuevoSaldo);
+            $stmtUpd->bindParam(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
+            $stmtUpd->execute();
+
+            $this->dblink->commit();
+
+            return [
+                'ok'           => true,
+                'saldo_actual' => $nuevoSaldo
+            ];
+
+        } catch (Exception $e) {
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * NUEVO: Debita un monto por destacar un PRODUCTO.
+     * Retorna:
+     *  - ['ok' => true, 'saldo_actual' => float]  si todo OK
+     *  - ['ok' => false, 'codigo' => 'SALDO_INSUFICIENTE', 'mensaje' => ...]
+     */
+    public function debitarPorProductoDestacado(
+        int $codigoUsuario,
+        int $codigoProducto,
+        float $monto = 1.00
+    ): array {
+        try {
+            $this->dblink->beginTransaction();
+
+            // Bloquear billetera del usuario
+            $sql = "
+                SELECT
+                    b.codigo_billetera,
+                    b.saldo_actual
+                FROM billetera b
+                WHERE b.codigo_usuario = :codigo_usuario
+                FOR UPDATE
+            ";
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+            $stmt->execute();
+            $billetera = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$billetera) {
+                // Crear billetera en cero si no existe
+                $sqlInsert = "
+                    INSERT INTO billetera (codigo_usuario, saldo_actual)
+                    VALUES (:codigo_usuario, 0.00)
+                ";
+                $stmtInsert = $this->dblink->prepare($sqlInsert);
+                $stmtInsert->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+                $stmtInsert->execute();
+
+                $codigoBilletera = (int)$this->dblink->lastInsertId();
+                $saldoActual = 0.00;
+            } else {
+                $codigoBilletera = (int)$billetera['codigo_billetera'];
+                $saldoActual     = (float)$billetera['saldo_actual'];
+            }
+
+            if ($saldoActual < $monto) {
+                $this->dblink->rollBack();
+                return [
+                    'ok'      => false,
+                    'codigo'  => 'SALDO_INSUFICIENTE',
+                    'mensaje' => 'Tu billetera no tiene saldo suficiente.'
+                ];
+            }
+
+            $nuevoSaldo = $saldoActual - $monto;
+
+            // Insertar movimiento (débito)
+            $sqlMov = "
+                INSERT INTO billetera_movimiento
+                    (codigo_billetera,
+                     tipo_movimiento,
+                     monto,
+                     saldo_despues,
+                     descripcion,
+                     origen,
+                     codigo_referencia)
+                VALUES
+                    (:codigo_billetera,
+                     'D',
+                     :monto,
+                     :saldo_despues,
+                     :descripcion,
+                     :origen,
+                     :codigo_referencia)
+            ";
+            $desc   = 'Destacar producto';
+            $origen = 'PRODUCTO_DESTACADO';
+
+            $stmtMov = $this->dblink->prepare($sqlMov);
+            $stmtMov->bindParam(':codigo_billetera',  $codigoBilletera, PDO::PARAM_INT);
+            $stmtMov->bindParam(':monto',             $monto);
+            $stmtMov->bindParam(':saldo_despues',     $nuevoSaldo);
+            $stmtMov->bindParam(':descripcion',       $desc, PDO::PARAM_STR);
+            $stmtMov->bindParam(':origen',            $origen, PDO::PARAM_STR);
+            $stmtMov->bindParam(':codigo_referencia', $codigoProducto, PDO::PARAM_INT);
+            $stmtMov->execute();
+
+            // Actualizar saldo de billetera
+            $sqlUpd = "
+                UPDATE billetera
+                SET saldo_actual = :saldo_actual
+                WHERE codigo_billetera = :codigo_billetera
+            ";
+            $stmtUpd = $this->dblink->prepare($sqlUpd);
+            $stmtUpd->bindParam(':saldo_actual',     $nuevoSaldo);
             $stmtUpd->bindParam(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
             $stmtUpd->execute();
 

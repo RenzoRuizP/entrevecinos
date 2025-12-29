@@ -12,14 +12,42 @@
   --ev-texto-suave:#6B7280;
 }
 
-/* Fondo suave sólo para el área del marketplace */
+/* ============================================================
+   LAYOUT / GUTTER: SOLO MARKETPLACE
+============================================================ */
 .ev-mp-wrapper{
   background-color:var(--ev-gris-fondo);
   padding-bottom:40px;
+  width:100%;
+}
+
+/* Neutraliza gutters del layout solo dentro del marketplace */
+.ev-mp-wrapper .container-fluid{
+  padding-left:0 !important;
+  padding-right:0 !important;
+}
+
+/* Contenedor ancla */
+.ev-mp-content{
+  margin:0 !important;
+  padding-left:6px !important;
+  padding-right:12px !important;
+  max-width:1320px;
+}
+
+@media (min-width:992px){
+  .ev-mp-content{
+    padding-left:4px !important;
+    padding-right:14px !important;
+  }
+}
+
+@media (min-width:1400px){
+  .ev-mp-content{ max-width:1400px; }
 }
 
 /* =======================================
-   HEADER – CARD PRINCIPAL
+   HEADER
 ======================================= */
 .ev-mp-header{
   border-radius:18px;
@@ -44,7 +72,7 @@
 }
 
 /* =======================================
-   CONDOMINIO ACTUAL – CHIP
+   CONDOMINIO CHIP
 ======================================= */
 .ev-mp-condominio{
   display:flex;
@@ -122,9 +150,7 @@
   width:100%;
 }
 
-.ev-mp-search-input:focus{
-  outline:none;
-}
+.ev-mp-search-input:focus{ outline:none; }
 
 .ev-mp-search-actions{
   display:flex;
@@ -151,7 +177,7 @@
 }
 
 /* =======================================
-   CHIPS DE CATEGORÍAS
+   CHIPS
 ======================================= */
 .ev-mp-chips{
   margin-top:12px;
@@ -182,7 +208,6 @@
   border-color:var(--ev-verde-oscuro);
 }
 
-/* Resumen resultados */
 .ev-mp-resumen{
   font-size:13px;
   color:var(--ev-texto-suave);
@@ -190,17 +215,16 @@
 }
 
 /* =======================================
-   GRID DE PUBLICACIONES
+   GRID
 ======================================= */
 .ev-mp-grid{
   margin-top:10px;
   display:grid;
-  grid-template-columns:repeat(auto-fit, minmax(280px, 340px));
+  grid-template-columns:repeat(auto-fill, 340px);
   column-gap:22px;
   row-gap:18px;
   justify-content:start;
-  margin-left:auto;
-  margin-right:auto;
+  width:100%;
 }
 
 /* =======================================
@@ -215,6 +239,8 @@
   flex-direction:column;
   transition:all .22s ease;
   box-shadow:0 8px 24px rgba(15,23,42,0.08);
+  width:340px;
+  max-width:340px;
 }
 
 .ev-mp-card:hover{
@@ -223,7 +249,6 @@
   border-color:var(--ev-verde);
 }
 
-/* Imagen de la card – portada completa */
 .ev-mp-card-media{
   position:relative;
   width:100%;
@@ -242,7 +267,6 @@
   border-top-right-radius:18px;
 }
 
-/* Badges de la card */
 .ev-mp-card-badges{
   position:absolute;
   top:10px;
@@ -259,21 +283,10 @@
   color:#fff;
 }
 
-.ev-mp-badge-potenciado{
-  background:#FF7A1Acc;
-}
+.ev-mp-badge-potenciado{ background:#FF7A1Acc; }
+.ev-mp-badge-nuevo{ background:#22c55ecc; display:none !important; }
+.ev-mp-badge-category{ background:rgba(0,0,0,0.6); }
 
-/* Badge verde "Publicado" oculto (sólo usamos Recomendado) */
-.ev-mp-badge-nuevo{
-  background:#22c55ecc;
-  display:none !important;
-}
-
-.ev-mp-badge-category{
-  background:rgba(0,0,0,0.6);
-}
-
-/* Body de la card */
 .ev-mp-card-body{
   padding:10px 14px 10px 14px;
   display:flex;
@@ -322,15 +335,8 @@
   justify-content:center;
 }
 
-.ev-mp-vecino-nombre{
-  font-size:13px;
-  font-weight:600;
-}
-
-.ev-mp-vecino-condominio{
-  font-size:12px;
-  color:var(--ev-texto-suave);
-}
+.ev-mp-vecino-nombre{ font-size:13px; font-weight:600; }
+.ev-mp-vecino-condominio{ font-size:12px; color:var(--ev-texto-suave); }
 
 .ev-mp-card-rating{
   font-size:12px;
@@ -339,12 +345,8 @@
   align-items:center;
   gap:4px;
 }
+.ev-mp-card-rating i{ color:#f59e0b; }
 
-.ev-mp-card-rating i{
-  color:#f59e0b;
-}
-
-/* Acciones */
 .ev-mp-card-actions{
   margin-top:8px;
   display:flex;
@@ -363,7 +365,6 @@
   box-shadow:0 4px 12px rgba(0,0,0,0.12);
 }
 
-/* Botón "Ver detalle" (secundario) */
 .ev-mp-card-actions .ev-mp-btn-detalle{
   border:1px solid var(--ev-gris-borde);
   background:#ffffff;
@@ -376,7 +377,6 @@
   color:var(--ev-texto);
 }
 
-/* Botón "Pedir ahora" (CTA principal, alineado al login) */
 .ev-mp-card-actions .ev-mp-btn-pedir{
   border:none;
   background:linear-gradient(135deg, #D97706, #EA7C12);
@@ -391,7 +391,6 @@
   box-shadow:0 10px 24px rgba(217,119,6,0.45);
 }
 
-/* Estado vacío */
 #mp_empty_state{
   display:none;
   margin-top:24px;
@@ -400,10 +399,29 @@
 }
 
 /* ============================================================
-   MODAL DETALLE PUBLICACIÓN
+   ✅ FIX MODAL DETALLE (LO QUE SE TE MALOGRÓ)
+   - Asegura ancho del modal
+   - Evita overflow
+   - Fuerza imagen a “contain” (no se desborda)
 ============================================================ */
 
-/* Header del modal */
+/* Tamaño del diálogo */
+.ev-mp-modal-dialog{
+  width: min(980px, calc(100% - 24px));
+  max-width: 980px !important;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Encapsulado del modal */
+.ev-mp-modal-content{
+  border-radius:18px;
+  overflow:hidden; /* ✅ clave: corta cualquier desborde */
+  border:1px solid var(--ev-gris-borde);
+  box-shadow:0 18px 60px rgba(15,23,42,0.25);
+}
+
+/* Header */
 .ev-mp-modal-header{
   border-bottom:1px solid var(--ev-gris-borde);
   background:#ffffff;
@@ -415,28 +433,26 @@
   font-size:1rem;
 }
 
-.ev-mp-modal-header i{
-  color:var(--ev-verde-oscuro);
-}
+.ev-mp-modal-header i{ color:var(--ev-verde-oscuro); }
 
-/* Cuerpo del modal con fondo suave */
+/* Body */
 .ev-mp-modal-body{
-  padding:20px 26px;
+  padding:18px 22px;
   background:#F3F4F6;
 }
 
-/* Card interna del modal */
+/* Card interna */
 .ev-mp-preview-card{
   background:#ffffff;
   border-radius:18px;
   border:1px solid var(--ev-gris-borde);
   padding:16px;
   box-shadow:0 8px 24px rgba(15,23,42,0.06);
-  max-width:860px;
-  margin:0 auto;
+  max-width: 900px;
+  margin: 0 auto;
 }
 
-/* IMAGEN PRINCIPAL – MISMA CAJA, SIN RECORTAR */
+/* Caja de imagen principal */
 .ev-mp-modal-media{
   width:100%;
   max-height:520px;
@@ -446,7 +462,7 @@
   display:flex;
   justify-content:center;
   align-items:center;
-  overflow:hidden;
+  overflow:hidden;      /* ✅ clave */
   padding:8px;
   margin-bottom:14px;
 }
@@ -457,24 +473,27 @@
   display:flex;
   align-items:center;
   justify-content:center;
+  overflow:hidden;      /* ✅ doble seguro */
 }
 
+/* ✅ Anti-estilos globales: forzamos contain y medidas seguras */
 .ev-mp-modal-media img{
-  width:auto;
-  height:auto;
-  max-width:100%;
-  max-height:500px;
-  object-fit:contain;
+  width:auto !important;
+  height:auto !important;
+  max-width:100% !important;
+  max-height:500px !important;
+  object-fit:contain !important;
   border-radius:12px;
   display:block;
 }
 
-/* Thumbnails inferiores */
+/* Thumbs */
 .ev-mp-modal-thumbs{
   display:flex;
   gap:10px;
-  margin:15px 0 25px;
+  margin:15px 0 20px;
   padding-left:4px;
+  overflow:auto;
 }
 
 .ev-mp-modal-thumb{
@@ -497,15 +516,10 @@
   transition:transform 0.2s ease;
 }
 
-.ev-mp-modal-thumb:hover img{
-  transform:scale(1.06);
-}
+.ev-mp-modal-thumb:hover img{ transform:scale(1.06); }
+.ev-mp-modal-thumb.active{ border-color:var(--ev-verde); }
 
-.ev-mp-modal-thumb.active{
-  border-color:var(--ev-verde);
-}
-
-/* Texto del modal */
+/* Textos modal */
 .ev-mp-modal-title{
   font-size:20px;
   font-weight:700;
@@ -526,13 +540,13 @@
   line-height:1.5;
 }
 
-/* Footer del modal */
+/* Footer */
 .ev-mp-modal-footer{
   border-top:none;
   padding:16px 24px 20px 24px;
+  background:#fff;
 }
 
-/* Botón neutral: Cerrar */
 .ev-mp-modal-footer .btn-ev-neutral{
   min-width:150px;
   background:#ffffff;
@@ -547,7 +561,6 @@
   color:var(--ev-texto);
 }
 
-/* Botón principal: Pedir ahora (mismo CTA que login) */
 .ev-mp-modal-footer .btn-ev-primary{
   min-width:150px;
   border:none;
@@ -564,49 +577,37 @@
   box-shadow:0 10px 24px rgba(217,119,6,0.45);
 }
 
-/* Ajuste de tamaño general del modal en escritorio */
-@media (min-width:768px){
-  .modal-dialog.modal-xl{
-    max-width:980px;
-  }
-}
-
 /* Responsive modal */
 @media(max-width:575.98px){
-  .ev-mp-modal-body{
-    padding-inline:14px;
-  }
-  .ev-mp-preview-card{
-    border-radius:16px;
-  }
-  .ev-mp-modal-media{
-    max-height:360px;
-  }
+  .ev-mp-modal-body{ padding:14px; }
+  .ev-mp-preview-card{ border-radius:16px; }
+  .ev-mp-modal-media{ max-height:360px; }
+  .ev-mp-modal-media img{ max-height:340px !important; }
 }
 
 /* =======================================
    RESPONSIVE GENERAL
 ======================================= */
 @media (max-width:991.98px){
-  .ev-mp-header .card-body{
-    padding:14px 16px 10px 16px;
-  }
-  .ev-mp-title{
-    font-size:24px;
+  .ev-mp-header .card-body{ padding:14px 16px 10px 16px; }
+  .ev-mp-title{ font-size:24px; }
+  .ev-mp-content{
+    padding-left:6px !important;
+    padding-right:8px !important;
   }
 }
 
 @media (max-width:575.98px){
-  .ev-mp-search-row{
-    flex-direction:column;
-  }
-  .ev-mp-search-input-wrapper{
-    width:100%;
-  }
+  .ev-mp-search-row{ flex-direction:column; }
+  .ev-mp-search-input-wrapper{ width:100%; }
   .ev-mp-grid{
-    grid-template-columns:minmax(0, 1fr);
+    grid-template-columns:1fr;
     column-gap:0;
     row-gap:16px;
+  }
+  .ev-mp-card{
+    width:100%;
+    max-width:100%;
   }
 }
 </style>

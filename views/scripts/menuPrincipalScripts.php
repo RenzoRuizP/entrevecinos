@@ -11,10 +11,8 @@
 <script src="<?= BASE_URL ?>views/js/menuPrincipal.js"></script>
 
 <script src="<?= BASE_URL ?>views/js/combo_condominio.js"></script>
-<!-- NUEVO: Inicializador residencia para Datos Personales -->
-<script src="<?= BASE_URL ?>js/datosPersonalesResidencia.js"></script>
 <script src="<?= BASE_URL ?>views/js/datosPersonales.js"></script>
-<script src="<?= BASE_URL ?>views/js/publicacion.js"></script>
+<script src="<?= BASE_URL ?>views/js/producto.js"></script>
 <script src="<?= BASE_URL ?>views/js/combo_tipo.js"></script>
 <script src="<?= BASE_URL ?>views/js/marketplace.js"></script>
 <script src="<?= BASE_URL ?>views/js/billetera.js"></script>
