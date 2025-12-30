@@ -8,40 +8,6 @@ require_once __DIR__ . '/../Config/config.php';
 
 <?php include_once __DIR__ . '/estilos/productoEstilo.php'; ?>
 
-<!-- ✅ Override local (solo esta vista): más ancho + ligeramente a la izquierda en escritorio -->
-<style>
-  /* Importante: SOLO aplicamos en escritorio para no romper móvil */
-  @media (min-width: 992px){
-    /*
-      Ajustes solicitados:
-      - +15% de ancho (width: 115%)
-      - mover a la izquierda (translateX negativo)
-
-      Nota:
-      - Si lo quieres aún más a la izquierda, cambia -10% a -15%
-      - Si lo quieres menos, usa -7% u -8%
-    */
-    .ev-pubs-wrapper{
-      /* Evita que un contenedor “centrado” se vea muy a la derecha por el sidebar */
-      overflow: visible;
-    }
-
-    .ev-pubs-card{
-      width: 115%;
-      max-width: none;
-      transform: translateX(-10%);
-    }
-  }
-
-  /* En pantallas muy grandes, evitamos que se “dispare” demasiado */
-  @media (min-width: 1400px){
-    .ev-pubs-card{
-      width: 110%;
-      transform: translateX(-8%);
-    }
-  }
-</style>
-
 <div class="ev-pubs-wrapper fade-in">
   <div class="card ev-pubs-card">
     <div class="card-body">
@@ -74,14 +40,14 @@ require_once __DIR__ . '/../Config/config.php';
           <table id="tablaPublicaciones" class="table ev-pubs-table align-middle">
             <thead>
               <tr>
-                <th style="width:130px;">Código</th>
-                <th style="min-width:220px;">Título</th>
-                <th style="width:160px;">Precio (S/)</th>
-                <th style="width:140px;">Estado</th>
-                <th style="width:190px;">Tipo</th>
-                <th style="width:200px;">Categoría</th>
-                <th style="min-width:280px;">Descripción</th>
-                <th class="text-center" style="width:260px;">Opciones</th>
+                <th>Código</th>
+                <th>Título</th>
+                <th>Precio (S/)</th>
+                <th>Estado</th>
+                <th>Tipo</th>
+                <th>Categoría</th>
+                <th>Descripción</th>
+                <th class="text-center">Opciones</th>
               </tr>
             </thead>
             <tbody>

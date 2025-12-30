@@ -56,6 +56,25 @@
   window.addEventListener('orientationchange', setEvVh);
   document.addEventListener('shown.bs.modal', setEvVh);
 
+  /* =========================================================
+     FIX RAÍZ: Modales SIEMPRE en <body>
+     - Evita que "transform" de contenedores (fade-in / wrappers)
+       rompa el centrado de Bootstrap modal.
+  ========================================================= */
+  function evMountModalToBody(modalId) {
+    const el = document.getElementById(modalId);
+    if (!el) return;
+    if (el.parentElement !== document.body) {
+      document.body.appendChild(el);
+    }
+  }
+
+  function evMountAllModalsToBody() {
+    evMountModalToBody('modalBuscarPublicacion');
+    evMountModalToBody('modalAgregarPublicacion');
+    evMountModalToBody('modalEditarPublicacion');
+  }
+
   /* ==============================
      Helpers fotos
   ============================== */
@@ -713,6 +732,7 @@
 
       const modalEl = document.getElementById("modalEditarPublicacion");
       if (modalEl) {
+        evMountAllModalsToBody(); // ✅ aseguramos que esté en body antes de mostrar
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
         requestAnimationFrame(() => {
           modal.show();
@@ -880,7 +900,6 @@
         return;
       }
 
-      // ✅ Copy UX: deja claro que queda en BORRADOR y que debe publicarse
       evNotify('success', 'Producto registrado', data.mensaje || 'Producto registrado como borrador. Presiona "Publicar" para enviarlo a revisión.');
 
       const modalEl = document.getElementById('modalAgregarPublicacion');
@@ -997,7 +1016,6 @@
   }
 
   function uiAccionPublicar(visibleNum) {
-    // ✅ Solo se muestra como acción cuando está en borrador
     if (visibleNum === 0) {
       return { show: true, text: 'Publicar', cls: 'ev-chip ev-chip-orange', disabled: false };
     }
@@ -1005,7 +1023,7 @@
   }
 
   async function cargarProductos() {
-    const table = document.getElementById('tablaPublicaciones'); // lo mantengo para no romper tu vista
+    const table = document.getElementById('tablaPublicaciones');
     const tbody = table?.querySelector('tbody');
     if (!table || !tbody) return;
 
@@ -1063,9 +1081,8 @@
         const visUI = uiEstadoVisible(visible);
         const pubUI = uiAccionPublicar(visible);
 
-        // ✅ Reglas de habilitación
         const disableEditar = (visible === 1 || visible === 2 || visible === 3) ? 'disabled' : '';
-        const disableAnular = (visible === 2 || visible === 3) ? 'disabled' : ''; // puedes ajustar: permitir anular pendiente si quieres
+        const disableAnular = (visible === 2 || visible === 3) ? 'disabled' : '';
 
         return `
           <tr>
@@ -1113,12 +1130,14 @@
 
     document.addEventListener('click', (e) => {
       if (e.target.closest('#btnBuscarPublicacion')) {
+        evMountAllModalsToBody(); // ✅
         const el = document.getElementById('modalBuscarPublicacion');
         if (el) bootstrap.Modal.getOrCreateInstance(el).show();
         return;
       }
 
       if (e.target.closest('#btnAgregarPublicacion')) {
+        evMountAllModalsToBody(); // ✅
         const modalEl = document.getElementById('modalAgregarPublicacion');
         if (!modalEl) return;
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
@@ -1137,8 +1156,6 @@
 
       const btnPublicar = e.target.closest('[data-action="publicar"][data-id]');
       if (btnPublicar && !btnPublicar.disabled) { confirmarYPublicar(btnPublicar.getAttribute('data-id')); return; }
-
-      // ✅ destacar NO aplica aquí (Opción A)
     });
 
     document.addEventListener('submit', (e) => {
@@ -1165,6 +1182,10 @@
 
   function initIfNeeded() {
     bindOnceGlobalEvents();
+
+    // ✅ clave: cada vez que la vista está presente, montamos modales al body
+    evMountAllModalsToBody();
+
     const tabla = document.getElementById('tablaPublicaciones');
     if (isProductosViewPresent() && tabla && !tabla.dataset.evLoaded) {
       tabla.dataset.evLoaded = '1';

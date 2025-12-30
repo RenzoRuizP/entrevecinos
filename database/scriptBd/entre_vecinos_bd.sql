@@ -310,19 +310,19 @@ CREATE TABLE IF NOT EXISTS `producto` (
   `codigo_categoria` int(11) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`codigo_publicacion`),
+  PRIMARY KEY (`codigo_producto`),
   KEY `codigo_usuario` (`codigo_usuario`),
-  KEY `fk_publicacion_tipo` (`codigo_tipo`),
-  KEY `fk_publicacion_categoria` (`codigo_categoria`),
-  CONSTRAINT `fk_publicacion_categoria` FOREIGN KEY (`codigo_categoria`) REFERENCES `categoria` (`codigo_categoria`),
-  CONSTRAINT `fk_publicacion_tipo` FOREIGN KEY (`codigo_tipo`) REFERENCES `tipo` (`codigo_tipo`),
-  CONSTRAINT `publicacion_ibfk_1` FOREIGN KEY (`codigo_usuario`) REFERENCES `usuario` (`codigo_usuario`)
+  KEY `fk_producto_tipo` (`codigo_tipo`),
+  KEY `fk_producto_categoria` (`codigo_categoria`),
+  CONSTRAINT `fk_producto_categoria` FOREIGN KEY (`codigo_categoria`) REFERENCES `categoria` (`codigo_categoria`),
+  CONSTRAINT `fk_producto_tipo` FOREIGN KEY (`codigo_tipo`) REFERENCES `tipo` (`codigo_tipo`),
+  CONSTRAINT `producto_ibfk_1` FOREIGN KEY (`codigo_usuario`) REFERENCES `usuario` (`codigo_usuario`)
 ) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=UTF8MB4_GENERAL_CI;
 
 -- ============================================
 -- AGREGAR CAMPO PARA FECHA DE DESTACADO
 -- ============================================
-ALTER TABLE publicacion
+ALTER TABLE producto
 ADD COLUMN fecha_destacado DATETIME NULL
 AFTER visible;
 
@@ -330,21 +330,21 @@ AFTER visible;
 -- OPCIONAL: ÍNDICE PARA CONSULTAS MÁS RÁPIDAS
 -- (especialmente para expiración)
 -- ============================================
-ALTER TABLE publicacion
+ALTER TABLE producto
 ADD INDEX idx_fecha_destacado (fecha_destacado);
 
 
 -- Volcando datos para la tabla entre_vecinos_bd.publicacion: ~2 rows (aproximadamente)
 /*!40000 ALTER TABLE `publicacion` DISABLE KEYS */;
-INSERT INTO `publicacion` (`codigo_publicacion`, `titulo`, `imagen_portada`, `descripcion`, `estado`, `precio`, `visible`, `codigo_usuario`, `codigo_tipo`, `codigo_categoria`, `created_at`, `updated_at`) VALUES
+INSERT INTO `producto` (`codigo_publicacion`, `titulo`, `imagen_portada`, `descripcion`, `estado`, `precio`, `visible`, `codigo_usuario`, `codigo_tipo`, `codigo_categoria`, `created_at`, `updated_at`) VALUES
 	(8, 'INKA CHIP', NULL, '90 gr', 'Nuevo', 10.00, 1, 2, 1, 1, '2025-11-19 00:02:51', '2025-11-19 00:02:51');
 /*!40000 ALTER TABLE `publicacion` ENABLE KEYS */;
 
 
 -- Volcando estructura para tabla entre_vecinos_bd.publicacion_imagen
-CREATE TABLE IF NOT EXISTS `publicacion_imagen` (
-  `codigo_publicacion_imagen` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `codigo_publicacion` int(11) NOT NULL,
+CREATE TABLE IF NOT EXISTS `producto_imagen` (
+  `codigo_producto_imagen` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `codigo_producto` int(11) NOT NULL,
   `ruta` varchar(255) NOT NULL,
   `es_portada` tinyint(1) NOT NULL DEFAULT 0,
   `orden` smallint(5) unsigned NOT NULL DEFAULT 1,
@@ -354,10 +354,10 @@ CREATE TABLE IF NOT EXISTS `publicacion_imagen` (
   `mime` varchar(50) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`codigo_publicacion_imagen`),
-  UNIQUE KEY `uq_pubimg_pub_orden` (`codigo_publicacion`,`orden`),
-  KEY `ix_pubimg_pub` (`codigo_publicacion`,`es_portada`),
-  CONSTRAINT `publicacion_imagen_ibfk_1` FOREIGN KEY (`codigo_publicacion`) REFERENCES `publicacion` (`codigo_publicacion`)
+  PRIMARY KEY (`codigo_producto_imagen`),
+  UNIQUE KEY `uq_prodimg_pub_orden` (`codigo_producto`,`orden`),
+  KEY `ix_prodimg_prod` (`codigo_producto`,`es_portada`),
+  CONSTRAINT `producto_imagen_ibfk_1` FOREIGN KEY (`codigo_producto`) REFERENCES `producto` (`codigo_producto`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Volcando datos para la tabla entre_vecinos_bd.publicacion_imagen: ~0 rows (aproximadamente)

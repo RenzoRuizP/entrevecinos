@@ -36,12 +36,21 @@ body{
   min-height: 100vh;
 }
 
-/* contenedor principal: en desktop deja espacio a sidebar */
+/* =========================================================
+   FIX DE RAÍZ:
+   Tu DOM ya usa wrapper d-flex (sidebar + main-container).
+   Por lo tanto, NO se debe sumar margin-left en .main-container,
+   porque eso duplica el espacio del sidebar.
+========================================================= */
 .main-container{
-  margin-left: var(--ev-sidebar-w);
+  /* ❌ antes: margin-left: var(--ev-sidebar-w); */
+  margin-left: 0;                 /* ✅ no duplicar espacio */
   padding-top: var(--ev-topbar-h);
   min-height: 100vh;
   overflow-x: hidden;
+
+  /* ✅ importante en layouts flex: permite que el contenido no “empuje” */
+  min-width: 0;
 }
 
 /* en móvil el contenido ocupa todo y sidebar es offcanvas */
@@ -49,6 +58,7 @@ body{
   .main-container{
     margin-left: 0;
     padding-top: var(--ev-topbar-h);
+    min-width: 0;
   }
 }
 
