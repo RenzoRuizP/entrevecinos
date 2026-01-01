@@ -792,15 +792,16 @@
 
   /* ==============================
      Acciones: publicar (0 -> 1)
+     Opción A: botón sigue "Publicar", pero UX dice "Enviar a revisión"
   ============================== */
   async function confirmarYPublicar(id) {
     if (!id) return;
 
     const ok = await evConfirm({
       icon: 'question',
-      title: 'Publicar producto',
-      text: 'Al publicar, el producto pasará a revisión y quedará en estado Pendiente hasta que el administrador lo apruebe.',
-      confirmText: 'Sí, publicar',
+      title: 'Enviar a revisión',
+      text: 'Al enviar a revisión, tu producto quedará en estado Pendiente hasta que el administrador lo apruebe. Aún no se mostrará en el marketplace.',
+      confirmText: 'Sí, enviar',
       cancelText: 'Cancelar',
       confirmBtnClass: 'btn btn-success me-2'
     });
@@ -817,16 +818,16 @@
       }
 
       if (!resp.ok || !data.ok) {
-        evNotify('error', 'Error', data.mensaje || data.error || 'No se pudo publicar el producto.');
+        evNotify('error', 'Error', data.mensaje || data.error || 'No se pudo enviar el producto a revisión.');
         return;
       }
 
-      evNotify('success', 'Publicado', data.mensaje || 'Producto enviado a revisión (Pendiente).');
+      evNotify('success', 'Enviado a revisión', data.mensaje || 'Solicitud enviada. El producto quedó Pendiente de aprobación.');
       window.evCargarProductos?.();
 
     } catch (err) {
       console.error(err);
-      evNotify('error', 'Error inesperado', 'Ocurrió un problema al publicar el producto.');
+      evNotify('error', 'Error inesperado', 'Ocurrió un problema al enviar el producto a revisión.');
     }
   }
 

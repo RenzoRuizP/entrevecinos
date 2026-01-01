@@ -191,7 +191,6 @@ class apiProductoController
                 $prod->actualizarImagenPortada($codigoProducto, $primeraRuta);
             }
 
-            // ✅ Mensaje alineado a tu matriz
             return $this->json(201, [
                 'ok'               => true,
                 'mensaje'          => 'Producto registrado como borrador. Presiona "Publicar" para enviarlo a revisión.',
@@ -237,7 +236,6 @@ class apiProductoController
 
             $visibleActual = (int)($detalle['visible'] ?? -1);
 
-            // Solo permitir publicar si está en borrador (0)
             if ($visibleActual !== 0) {
                 $msg = match ($visibleActual) {
                     1 => 'El producto ya está en estado Pendiente de aprobación.',
@@ -253,7 +251,6 @@ class apiProductoController
                 ]);
             }
 
-            // Requiere método en modelo: publicarProducto($codigoProducto, $codigoUsuario)
             if (!method_exists($model, 'publicarProducto')) {
                 return $this->json(500, [
                     'ok' => false,
@@ -336,7 +333,6 @@ class apiProductoController
                 $ruta = $img['ruta'] ?? '';
                 $img['url'] = $ruta !== '' ? $baseUrl . '/' . ltrim($ruta, '/') : '';
 
-                // normalización de ids para tu frontend
                 $img['codigo_imagen'] = $img['codigo_producto_imagen'] ?? null;
                 $img['id_imagen']     = $img['codigo_producto_imagen'] ?? null;
             }
@@ -404,7 +400,6 @@ class apiProductoController
 
             $model->actualizarProductoBase($codigoProducto, $codigoUsuario);
 
-            // Eliminar imágenes (ids)
             $eliminadasRaw = $_POST['imagenes_eliminadas'] ?? '[]';
             $idsEliminar   = json_decode($eliminadasRaw, true);
             if (!is_array($idsEliminar)) $idsEliminar = [];
@@ -418,7 +413,6 @@ class apiProductoController
                 $model->eliminarImagenes($codigoProducto, $idsEliminar);
             }
 
-            // Subir nuevas imágenes
             $imagenesIntentadas = 0;
             $imagenesSubidas    = 0;
             $erroresUpload      = [];
@@ -504,7 +498,6 @@ class apiProductoController
                 }
             }
 
-            // Recalcular portada
             $model->recalcularPortada($codigoProducto);
 
             return $this->json(200, ['ok' => true, 'mensaje' => 'Producto actualizado correctamente.']);
@@ -559,6 +552,7 @@ class apiProductoController
        MARKETPLACE: LISTAR APROBADOS
        GET /api/producto/marketplace
        MATRIZ: visible=2 (APROBADO)
+       ✅ FIX: normaliza URL de imagen_portada para que el front no descarte cards.
     ====================================================================================== */
     public function listarMarketplace()
     {
@@ -567,13 +561,29 @@ class apiProductoController
         }
 
         try {
-            // Si quieres que solo usuarios logueados vean marketplace, descomenta:
-            // $this->obtenerUsuarioAuth();
-
             $model = new Producto();
             $lista = $model->listarAprobadosMarketplace();
 
-            return $this->json(200, ['ok' => true, 'data' => $lista]);
+            $baseUrl = rtrim(BASE_URL, '/');
+
+            // ✅ Normalización defensiva (evita “no aparece” por rutas relativas o null)
+            foreach ($lista as &$p) {
+                $ruta = (string)($p['imagen_portada'] ?? '');
+                $url  = ($ruta !== '') ? ($baseUrl . '/' . ltrim($ruta, '/')) : '';
+
+                // Campo nuevo seguro
+                $p['imagen_portada_url'] = $url;
+
+                // Campo legacy (muchos fronts usan imagen_portada directo)
+                if ($ruta !== '') $p['imagen_portada'] = $url;
+            }
+            unset($p);
+
+            return $this->json(200, [
+                'ok'    => true,
+                'total' => count($lista),
+                'data'  => $lista
+            ]);
 
         } catch (Exception $e) {
             return $this->json(500, ['ok' => false, 'error' => $e->getMessage()]);
