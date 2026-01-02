@@ -23,4 +23,5 @@
 <script src="<?= BASE_URL ?>views/js/recibirPedidos.js"></script>
 <script src="<?= BASE_URL ?>views/js/pedidosEntrantes.js"></script>
 <script src="<?= BASE_URL ?>views/js/atenderRecargas.js"></script>
+<script src="<?= BASE_URL ?>views/js/atenderPublicacion.js.js"></script>
 

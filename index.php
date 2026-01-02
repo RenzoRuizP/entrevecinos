@@ -1,6 +1,6 @@
 <?php
 // ============================================================
-// index.php — Enrutamiento centralizado (EV) | Opción A (rápida)
+// index.php — Enrutamiento centralizado (EV)
 // ============================================================
 
 declare(strict_types=1);
@@ -27,10 +27,6 @@ function safeRequire(string $path, bool $critical = false): void
 
 /**
  * Detecta si la petición es parcial/AJAX.
- * - fetch/ajax clásico
- * - header X-Partial: 1
- * - querystring ?partial=1
- * - Accept: application/json
  */
 function esPeticionParcial(): bool
 {
@@ -41,9 +37,6 @@ function esPeticionParcial(): bool
 
     $xp = $_SERVER['HTTP_X_PARTIAL'] ?? '';
     if ($xp === '1') return true;
-
-    $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
-    if ($accept && stripos($accept, 'application/json') !== false) return true;
 
     return false;
 }
@@ -79,54 +72,7 @@ function evRenderSesionFinalizada(string $loginUrl): void
         <meta charset="utf-8" />
         <title>Sesión finalizada | Entre Vecinos</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/poppins@5.0.3/index.min.css">
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-        <style>
-            :root{
-                --ev-verde-oscuro:#0F592F;
-                --ev-verde:#16A34A;
-                --ev-naranja:#EA7C12;
-                --ev-naranja-oscuro:#C46B05;
-                --ev-gris-100:#F3F4F6;
-                --ev-gris-500:#6B7280;
-            }
-            body{
-                margin:0;
-                min-height:100vh;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                font-family:'Poppins',system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
-                background: radial-gradient(circle at 50% 20%, rgba(22,163,74,0.10), transparent 60%), var(--ev-gris-100);
-                padding: 18px;
-            }
-            .ev-swal-popup{
-                border-radius: 18px !important;
-                padding: 22px 22px 18px !important;
-                box-shadow: 0 18px 45px rgba(0,0,0,0.18), 0 6px 12px rgba(0,0,0,0.10) !important;
-            }
-            .ev-swal-title{
-                color:#0F172A !important;
-                font-weight:800 !important;
-                letter-spacing:0.01em !important;
-                margin-bottom: 6px !important;
-            }
-            .ev-swal-html{
-                color: var(--ev-gris-500) !important;
-                font-size: 0.95rem !important;
-                line-height: 1.55 !important;
-            }
-            .ev-swal-confirm{
-                border-radius: 999px !important;
-                padding: 10px 18px !important;
-                font-weight: 700 !important;
-                background: linear-gradient(135deg, var(--ev-naranja), #F59E0B) !important;
-                box-shadow: 0 12px 26px rgba(234,124,18,0.35) !important;
-            }
-            .ev-swal-confirm:hover{
-                background: linear-gradient(135deg, var(--ev-naranja-oscuro), #EA580C) !important;
-            }
-        </style>
     </head>
     <body>
     <script>
@@ -134,19 +80,11 @@ function evRenderSesionFinalizada(string $loginUrl): void
             Swal.fire({
                 icon: 'info',
                 title: 'Tu sesión ha finalizado',
-                html: 'Por tu seguridad, tu sesión en <b>Entre Vecinos</b> ha expirado.<br>Vuelve a iniciar sesión para continuar.',
-                iconColor: '#16A34A',
-                confirmButtonText: 'Ir al inicio de sesión',
+                text: 'Por tu seguridad, la sesión expiró. Vuelve a iniciar sesión.',
+                confirmButtonText: 'Ir al login',
                 confirmButtonColor: '#EA7C12',
-                background: '#FFFFFF',
                 allowOutsideClick: false,
-                allowEscapeKey: false,
-                customClass: {
-                    popup: 'ev-swal-popup',
-                    title: 'ev-swal-title',
-                    htmlContainer: 'ev-swal-html',
-                    confirmButton: 'ev-swal-confirm'
-                }
+                allowEscapeKey: false
             }).then(function () {
                 window.location.href = <?php echo json_encode($loginUrl); ?>;
             });
@@ -164,6 +102,11 @@ function evRenderSesionFinalizada(string $loginUrl): void
 safeRequire(__DIR__ . '/Config/config.php', true);
 safeRequire(__DIR__ . '/models/SesionJWT.php', true);
 
+// ✅ rol admin por defecto (si no lo definiste en config)
+if (!defined('EV_ADMIN_ROLE_ID')) {
+    define('EV_ADMIN_ROLE_ID', 1);
+}
+
 // Controllers (Vistas)
 safeRequire(__DIR__ . '/controllers/AuthController.php');
 safeRequire(__DIR__ . '/controllers/MenuPrincipalController.php');
@@ -171,10 +114,7 @@ safeRequire(__DIR__ . '/controllers/CondominioController.php');
 safeRequire(__DIR__ . '/controllers/UrbanizacionController.php');
 safeRequire(__DIR__ . '/controllers/UserController.php');
 safeRequire(__DIR__ . '/controllers/miPerfilController.php');
-
-// ✅ IMPORTANTE: Producto controller (antes publicacion)
 safeRequire(__DIR__ . '/controllers/productoController.php');
-
 safeRequire(__DIR__ . '/controllers/tipoController.php');
 safeRequire(__DIR__ . '/controllers/marketplaceController.php');
 safeRequire(__DIR__ . '/controllers/billeteraController.php');
@@ -182,15 +122,19 @@ safeRequire(__DIR__ . '/controllers/credencialController.php');
 safeRequire(__DIR__ . '/controllers/recibirPedidosController.php');
 safeRequire(__DIR__ . '/controllers/atenderRecargasController.php');
 
+// ✅ NUEVO: atender publicación (vista)
+safeRequire(__DIR__ . '/controllers/atenderPublicacionController.php');
+
 // API Controllers
 safeRequire(__DIR__ . '/controllers/api/usuarioDatosController.php');
 safeRequire(__DIR__ . '/controllers/api/apiBilleteraController.php');
 safeRequire(__DIR__ . '/controllers/api/apiPedidoController.php');
 safeRequire(__DIR__ . '/controllers/api/apiSoporteRecargasController.php');
 safeRequire(__DIR__ . '/controllers/api/apiRecargaSaldoController.php');
-
-// ✅ API Producto
 safeRequire(__DIR__ . '/controllers/api/apiProductoController.php');
+
+// ✅ NUEVO: API soporte productos
+safeRequire(__DIR__ . '/controllers/api/apiSoporteProductosController.php');
 
 // ------------------------------
 // 2) Normalización BASE_URL / basePath
@@ -230,10 +174,6 @@ $publicRoutes = [
     '#^/torres/(\d+)/departamentos$#',
     '#^/tipos$#',
     '#^/tipos/(\d+)/categoria_grupo$#',
-
-    // Si decides que marketplace sea público:
-    // '#^/marketplace$#',
-    // '#^/api/producto/marketplace$#',
 ];
 
 // ------------------------------
@@ -268,48 +208,47 @@ $routes = [
 
     // --- Vistas ---
     ['GET', '#^/mi-perfil$#',        [miPerfilController::class, 'index'],        'html'],
-
-    // ✅ Alias legacy (mantener mientras migras front/menu)
-    ['GET', '#^/publicacion$#',      [productoController::class, 'index'],        'html'],
-    // ✅ Ruta nueva (canónica)
+    ['GET', '#^/publicacion$#',      [productoController::class, 'index'],        'html'], // legacy
     ['GET', '#^/producto$#',         [productoController::class, 'index'],        'html'],
-
     ['GET', '#^/marketplace$#',      [marketplaceController::class, 'index'],     'html'],
     ['GET', '#^/billetera$#',        [billeteraController::class, 'index'],       'html'],
     ['GET', '#^/credencial$#',       [credencialController::class, 'index'],      'html'],
     ['GET', '#^/recibir$#',          [recibirPedidosController::class, 'index'],  'html'],
     ['GET', '#^/atender-recargas$#', [atenderRecargasController::class, 'index'], 'html'],
 
+    // ✅ NUEVO: Atender publicación (vista soporte)
+    ['GET', '#^/atender-publicacion$#', [atenderPublicacionController::class, 'index'], 'html'],
+
     // --- API Usuario ---
     ['GET',  '#^/api/usuario/datos$#',       [usuarioDatosController::class, 'obtenerDatos'],     'json'],
     ['POST', '#^/api/usuario/actualizar$#',  [usuarioDatosController::class, 'actualizarDatos'],  'json'],
 
-    // --- API Producto (renombrado desde publicacion → producto) ---
+    // --- API Producto ---
     ['POST', '#^/api/producto/registrar$#',        [apiProductoController::class, 'registrarProducto'],  'json'],
     ['GET',  '#^/api/producto/listar$#',           [apiProductoController::class, 'listarProductos'],    'json'],
     ['GET',  '#^/api/producto/(\d+)$#',            [apiProductoController::class, 'obtenerProducto'],    'json'],
     ['POST', '#^/api/producto/(\d+)/actualizar$#', [apiProductoController::class, 'actualizarProducto'], 'json'],
     ['POST', '#^/api/producto/(\d+)/anular$#',     [apiProductoController::class, 'anularProducto'],     'json'],
-
-    // ✅ NUEVO: BORRADOR (0) -> PENDIENTE (1)
     ['POST', '#^/api/producto/(\d+)/publicar$#',   [apiProductoController::class, 'publicarProducto'],   'json'],
-
     ['GET',  '#^/api/producto/marketplace$#',      [apiProductoController::class, 'listarMarketplace'],  'json'],
 
     // --- API Billetera ---
     ['GET',  '#^/api/billetera/saldo$#',               [apiBilleteraController::class, 'obtenerSaldo'],        'json'],
     ['GET',  '#^/api/billetera/movimientos$#',         [apiBilleteraController::class, 'obtenerMovimientos'],  'json'],
     ['POST', '#^/api/billetera/debitar-publicacion$#', [apiBilleteraController::class, 'debitarPublicacion'],  'json'],
-
-    // ✅ Alias rápido para cerrar loop con tu JS “destacar producto”
     ['POST', '#^/api/billetera/debitar-producto-destacado$#', [apiBilleteraController::class, 'debitarPublicacion'], 'json'],
 
     // --- API Pedidos ---
     ['GET',  '#^/api/pedidos/recibir$#',               [apiPedidoController::class, 'listarPedidos'],           'json'],
 
     // --- API Soporte Recargas ---
-    ['GET',  '#^/api/soporte/recargas$#',              [apiSoporteRecargasController::class, 'listar'],          'json'],
-    ['POST', '#^/api/soporte/recargas/(\d+)/estado$#', [apiSoporteRecargasController::class, 'actualizarEstado'],'json'],
+    ['GET',  '#^/api/soporte/recargas$#',              [apiSoporteRecargasController::class, 'listar'],           'json'],
+    ['POST', '#^/api/soporte/recargas/(\d+)/estado$#', [apiSoporteRecargasController::class, 'actualizarEstado'], 'json'],
+
+    // ✅ NUEVO: API Soporte Productos (Atender publicación)
+    ['GET',  '#^/api/soporte/productos$#',              [apiSoporteProductosController::class, 'listar'], 'json'],
+    ['GET',  '#^/api/soporte/productos/(\d+)$#',        [apiSoporteProductosController::class, 'detalle'], 'json'],
+    ['POST', '#^/api/soporte/productos/(\d+)/estado$#', [apiSoporteProductosController::class, 'actualizarEstado'], 'json'],
 
     // --- API Recargas ---
     ['POST', '#^/api/recargas/registrar$#',            [apiRecargaSaldoController::class, 'registrar'],         'json'],
@@ -342,46 +281,23 @@ foreach ($routes as $r) {
         $token = $_COOKIE['auth_token'] ?? null;
         $loginUrl = rtrim($baseUrl, '/') . '/login';
 
-        if (method_exists('SesionJWT', 'verificarTokenDetallado')) {
-            $rTok = SesionJWT::verificarTokenDetallado($token);
+        $rTok = SesionJWT::verificarTokenDetallado($token);
 
-            if (!$rTok['ok']) {
-                $motivo = ($rTok['error'] ?? '') === 'TOKEN_EXPIRADO' ? 'token_expirado' : 'token_invalido';
+        if (!$rTok['ok']) {
+            $motivo = ($rTok['error'] ?? '') === 'TOKEN_EXPIRADO' ? 'token_expirado' : 'token_invalido';
 
-                if (esPeticionParcial() || $type === 'json' || str_starts_with($uri, '/api/')) {
-                    header('Content-Type: application/json; charset=utf-8');
-                    http_response_code(401);
-                    echo json_encode(['ok' => false, 'error' => 'UNAUTHORIZED', 'motivo' => $motivo]);
-                    exit;
-                }
-
-                evRenderSesionFinalizada($loginUrl);
-            }
-
-        } else {
-            if (!$token) {
-                if (esPeticionParcial() || $type === 'json' || str_starts_with($uri, '/api/')) {
-                    header('Content-Type: application/json; charset=utf-8');
-                    http_response_code(401);
-                    echo json_encode(['ok' => false, 'error' => 'UNAUTHORIZED', 'motivo' => 'sin_token']);
-                    exit;
-                }
-                header('Location: ' . $loginUrl);
+            if (esPeticionParcial() || $type === 'json' || str_starts_with($uri, '/api/')) {
+                header('Content-Type: application/json; charset=utf-8');
+                http_response_code(401);
+                echo json_encode(['ok' => false, 'error' => 'UNAUTHORIZED', 'motivo' => $motivo]);
                 exit;
             }
 
-            $usuario = SesionJWT::verificarToken($token);
-            if (!$usuario) {
-                if (esPeticionParcial() || $type === 'json' || str_starts_with($uri, '/api/')) {
-                    header('Content-Type: application/json; charset=utf-8');
-                    http_response_code(401);
-                    echo json_encode(['ok' => false, 'error' => 'UNAUTHORIZED', 'motivo' => 'token_invalido']);
-                    exit;
-                }
-                header('Location: ' . $loginUrl);
-                exit;
-            }
+            evRenderSesionFinalizada($loginUrl);
         }
+
+        // Guardar usuario auth en variable global “segura” para controllers (opcional)
+        $GLOBALS['EV_AUTH'] = $rTok['data'] ?? [];
     }
 
     // Ejecutar controlador

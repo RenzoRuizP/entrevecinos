@@ -44,19 +44,21 @@ class SesionJWT extends Conexion {
             if ($usuario['estado'] == '0')
                 return ['status' => 'IN']; // Usuario inactivo
 
-            // 2) Obtener rol
+            // ✅ 2) Obtener rol (NOMBRE) + (opcional) validar codigo_rol
+            // Nota: usuario ya tiene codigo_rol, lo usamos directo.
             $sqlRoles = "
                 SELECT r.nombre AS nombre_rol
                 FROM usuario u
                 INNER JOIN rol r ON u.codigo_rol = r.codigo_rol
                 WHERE u.codigo_usuario = :codigo_usuario
+                LIMIT 1
             ";
             $stmtRoles = $this->dblink->prepare($sqlRoles);
             $stmtRoles->bindParam(':codigo_usuario', $usuario['codigo_usuario']);
             $stmtRoles->execute();
-            $rol = $stmtRoles->fetch(PDO::FETCH_COLUMN);
+            $rolNombre = $stmtRoles->fetch(PDO::FETCH_COLUMN);
 
-            // 3) Residencia
+            // ✅ 3) Residencia
             $sqlResidencia = "
                 SELECT
                     c.nombre_condominio,
@@ -85,12 +87,18 @@ class SesionJWT extends Conexion {
             $torreNombre      = $residencia['nombre_torre'] ?? null;
             $depaNumero       = $residencia['numero_departamento'] ?? null;
 
-            // 4) Datos del token
+            // ✅ 4) Datos del token (AQUÍ estaba el bug: faltaba codigo_rol)
             $datosToken = [
-                'codigo_usuario'       => $usuario['codigo_usuario'],
-                'nombre'               => $usuario['nombre'],
-                'email'                => $usuario['email'],
-                'rol'                  => $rol,
+                'codigo_usuario'       => (int)$usuario['codigo_usuario'],
+                'nombre'               => (string)$usuario['nombre'],
+                'email'                => (string)$usuario['email'],
+
+                // ✅ CLAVE: roles para autorización
+                'codigo_rol'           => (int)$usuario['codigo_rol'],     // <- ADMIN=1
+                'rol'                  => (string)($rolNombre ?: ''),      // compatibilidad (string)
+                'nombre_rol'           => (string)($rolNombre ?: ''),      // alias explícito
+
+                // residencia (si existe)
                 'condominio_nombre'    => $condominioNombre,
                 'torre_nombre'         => $torreNombre,
                 'departamento_numero'  => $depaNumero
@@ -102,7 +110,7 @@ class SesionJWT extends Conexion {
             return [
                 'status' => 'SI',
                 'token'  => $token,
-                'rol'    => $rol
+                'rol'    => $rolNombre
             ];
 
         } catch (Exception $e) {
@@ -137,7 +145,7 @@ class SesionJWT extends Conexion {
         }
     }
 
-    // Mantengo tu método original por compatibilidad, pero ahora es “wrapper”
+    // Wrapper compatible
     public static function verificarToken(string $token) {
         $r = self::verificarTokenDetallado($token);
         return $r['ok'] ? $r['data'] : null;
@@ -147,21 +155,23 @@ class SesionJWT extends Conexion {
     // COOKIE HELPERS (CONSISTENTE EN LOCAL/PROD)
     // ============================================================
     public static function cookieSecure(): bool {
-        // true solo si realmente estás en HTTPS
         return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
             || (isset($_SERVER['SERVER_PORT']) && intval($_SERVER['SERVER_PORT']) === 443);
     }
 
     public static function cookiePath(): string {
-        // Si tu app vive en /entrevecinos/
-        // usa BASE_URL si está definida, si no, '/'
-        return defined('BASE_URL') ? BASE_URL : '/';
+        // BASE_URL suele venir como "/entrevecinos" o "/entrevecinos/"
+        $p = defined('BASE_URL') ? (string)BASE_URL : '/';
+        $p = trim($p);
+        if ($p === '') $p = '/';
+        if ($p[0] !== '/') $p = '/' . $p;
+        $p = rtrim($p, '/');
+        return ($p === '') ? '/' : ($p . '/'); // cookie path debe terminar en /
     }
 
     public static function eliminarToken(): bool {
         if (!isset($_COOKIE['auth_token'])) return false;
 
-        // Importante: borrar con los mismos parámetros (path/secure/samesite)
         $params = [
             'expires'  => time() - 3600,
             'path'     => self::cookiePath(),

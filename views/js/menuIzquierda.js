@@ -19,7 +19,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const isMobile = () => window.matchMedia("(max-width: 991.98px)").matches;
 
   const lockBody = (lock) => {
-    // Solo bloquear en móvil (desktop no debe bloquear)
     if (!isMobile()) {
       document.body.style.overflow = "";
       return;
@@ -53,17 +52,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!ruta) return null;
     const r = ruta.toString().trim();
     if (!r || r === "#") return null;
-    if (r.startsWith("#menu")) return null; // acordeón
+    if (r.startsWith("#menu")) return null;
 
-    // absoluto externo
     if (/^https?:\/\//i.test(r)) return r;
-
-    // ya trae baseURL completo
     if (r.startsWith(baseURL)) return r;
-
-    // relativo app
     if (r.startsWith("/")) return `${baseURL}${r}`;
-
     return `${baseURL}/${r}`;
   };
 
@@ -78,28 +71,74 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const gotoLogin = () => {
-    window.location.href = `${baseURL}/views/login.php?error=token_expirado`;
+    window.location.href = `${baseURL}/login`;
+  };
+
+  /**
+   * ✅ IMPORTANTE:
+   * Cuando inyectas HTML con innerHTML, los <script> NO se ejecutan.
+   * Esta función re-carga scripts externos e inline presentes en el HTML inyectado.
+   * - Ejecuta en orden (secuencial) los scripts con src
+   * - Ejecuta scripts inline recreándolos
+   */
+  const runInjectedScripts = async (rootEl) => {
+    if (!rootEl) return;
+
+    const scripts = Array.from(rootEl.querySelectorAll("script"));
+    if (!scripts.length) return;
+
+    for (const oldScript of scripts) {
+      const newScript = document.createElement("script");
+
+      // Copiar atributos
+      for (const attr of oldScript.attributes) {
+        newScript.setAttribute(attr.name, attr.value);
+      }
+
+      // Si es externo
+      const src = oldScript.getAttribute("src");
+      if (src) {
+        // Evitar duplicar el mismo script muchas veces (opcional pero recomendado)
+        // Si quieres permitir recarga siempre, comenta este bloque.
+        const already = document.querySelector(`script[data-ev-loaded="1"][src="${src}"]`);
+        if (already) {
+          oldScript.remove();
+          continue;
+        }
+
+        newScript.setAttribute("data-ev-loaded", "1");
+
+        // Cargar secuencial para respetar dependencias
+        await new Promise((resolve, reject) => {
+          newScript.onload = resolve;
+          newScript.onerror = () => reject(new Error(`No se pudo cargar script: ${src}`));
+          document.body.appendChild(newScript);
+        });
+
+      } else {
+        // Inline
+        newScript.text = oldScript.textContent || "";
+        document.body.appendChild(newScript);
+      }
+
+      oldScript.remove();
+    }
   };
 
   // ========= 1) NAVEGACIÓN AJAX (delegación única) =========
-  // Nota: mantenemos tu selector ".submenu-link" para NO romper lo que ya funciona
   document.addEventListener("click", async (e) => {
     const link = e.target.closest(".submenu-link");
     if (!link) return;
 
-    // Si el link pertenece a un dropdown de bootstrap u otro comportamiento, respetamos
-    // (tu selector está pensado para menú lateral; igual lo dejamos seguro)
     e.preventDefault();
 
-    // Prioridad: data-vista (tu arquitectura), luego href
-    const dataVista = link.dataset && link.dataset.vista ? link.dataset.vista : "";
+    const dataVista = (link.dataset && link.dataset.vista) ? link.dataset.vista : "";
     const hrefAttr = link.getAttribute("href") || "";
     const destino = dataVista || hrefAttr;
 
     let url = buildUrl(destino);
     if (!url) return;
 
-    // Forzar modo parcial
     url += (url.includes("?") ? "&" : "?") + "partial=1";
 
     showLoader();
@@ -109,12 +148,13 @@ document.addEventListener("DOMContentLoaded", () => {
         method: "GET",
         headers: {
           "X-Requested-With": "XMLHttpRequest",
-          "X-Partial": "1"
+          "X-Partial": "1",
+          "Accept": "text/html,application/json"
         },
         credentials: "include"
       });
 
-      // 401 real => sesión/token inválido
+      // 401 => sesión/token inválido
       if (response.status === 401) {
         Swal.fire({
           icon: "warning",
@@ -126,18 +166,62 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      // 403 => autenticado pero sin permisos
+      if (response.status === 403) {
+        let msg = "No tienes permisos para acceder a esta opción.";
+        const ct = (response.headers.get("content-type") || "").toLowerCase();
+
+        if (ct.includes("application/json")) {
+          const j = await response.json().catch(() => null);
+          if (j && (j.mensaje || j.message)) msg = j.mensaje || j.message;
+        } else {
+          await response.text().catch(() => "");
+        }
+
+        Swal.fire({
+          icon: "error",
+          title: "Acceso denegado",
+          text: msg,
+          confirmButtonText: "Entendido",
+          confirmButtonColor: "#0F592F"
+        });
+
+        if (contenedor) {
+          contenedor.innerHTML = `
+            <div class="alert alert-warning m-4 shadow-sm rounded-3">
+              <h5 class="mb-2"><i class="bi bi-shield-lock-fill"></i> Acceso denegado</h5>
+              <p class="mb-0">${msg}</p>
+            </div>
+          `;
+        }
+        return;
+      }
+
       const contentType = (response.headers.get("content-type") || "").toLowerCase();
 
-      // Si vino JSON, validar payload UNAUTHORIZED
+      // Si vino JSON, puede ser error
       if (contentType.includes("application/json")) {
         const json = await response.json().catch(() => null);
 
-        if (json && (json.error === "UNAUTHORIZED" || (json.ok === false && json.error === "UNAUTHORIZED"))) {
+        if (json && json.error === "UNAUTHORIZED") {
+          // Si backend manda motivo=solo_admin con UNAUTHORIZED
+          if ((json.motivo || "").toLowerCase() === "solo_admin") {
+            Swal.fire({
+              icon: "error",
+              title: "Acceso denegado",
+              text: json.mensaje || "Solo el administrador puede acceder a esta opción.",
+              confirmButtonText: "Entendido",
+              confirmButtonColor: "#0F592F"
+            });
+            if (contenedor) contenedor.innerHTML = "";
+            return;
+          }
+
           Swal.fire({
             icon: "warning",
-            title: "Acceso no autorizado",
-            text: "No se pudo cargar la vista solicitada.",
-            confirmButtonText: "Aceptar",
+            title: "Sesión expirada",
+            text: "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
+            confirmButtonText: "Ir al login",
             confirmButtonColor: "#0F592F"
           }).then(gotoLogin);
           return;
@@ -153,12 +237,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const html = await response.text();
 
       // Evitar inyectar documento completo o login
-      if (
-        html.includes("formLogin") ||
-        html.includes("<title>Entre vecinos") ||
-        html.includes("<html") ||
-        html.includes("<!doctype html")
-      ) {
+      if (html.includes("formLogin") || html.includes("<html") || html.includes("<!doctype html")) {
         Swal.fire({
           icon: "warning",
           title: "Sesión finalizada",
@@ -169,21 +248,24 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      // Inyectar HTML
       if (contenedor) contenedor.innerHTML = html;
 
-      // Activo visual (solo en submenús)
+      // ✅ Ejecutar scripts dentro del HTML inyectado
+      await runInjectedScripts(contenedor);
+
+      // Activo del menú
       document.querySelectorAll(".submenu-link").forEach((el) => el.classList.remove("active"));
       link.classList.add("active");
 
-      // Cerrar sidebar móvil (solo si estamos en móvil)
+      // Sidebar móvil
       if (isMobile()) closeSidebar();
       else {
-        // en desktop, por seguridad, solo limpiar backdrop/scroll
         backdrop.classList.remove("show");
         lockBody(false);
       }
 
-      // Hook: permitir que otros scripts re-inicialicen
+      // Evento global de "vista cargada"
       document.dispatchEvent(new CustomEvent("ev:vistaCargada", { detail: { url } }));
 
     } catch (err) {
@@ -201,7 +283,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ========= 2) TOGGLE SIDEBAR (móvil) =========
-  // Unificamos el toggle para evitar dobles listeners.
   const toggleButtons = document.querySelectorAll(
     "[data-lte-toggle='sidebar'], .sidebar-toggle, #btnToggleSidebar"
   );
@@ -213,18 +294,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Click fuera (backdrop) cierra
   backdrop.addEventListener("click", () => closeSidebar());
 
-  // ESC cierra
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeSidebar();
   });
 
-  // Resize: cuando pasas a desktop, limpiar estado móvil
   window.addEventListener("resize", () => {
     if (!isMobile()) {
-      // En desktop no debe quedar activo/backdrop
       if (sidebar) sidebar.classList.remove("active");
       backdrop.classList.remove("show");
       lockBody(false);
@@ -232,23 +309,16 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ========= 3) SUBMENÚS (acordeón) =========
-  // IMPORTANTE: No forzamos toggle manual de ".collapse" con show/hide si ya está Bootstrap,
-  // pero sí cerramos otros submenús abiertos para el efecto acordeón.
   document.querySelectorAll("#sidebar .nav-link[data-bs-toggle='collapse']").forEach((link) => {
     link.addEventListener("click", function () {
       const parent = this.closest("li");
       const submenu = parent ? parent.querySelector(".collapse") : null;
       if (!submenu) return;
 
-      // Cerrar otros submenús abiertos
       document.querySelectorAll("#sidebar .collapse.show").forEach((openMenu) => {
-        if (openMenu !== submenu) {
-          openMenu.classList.remove("show");
-        }
+        if (openMenu !== submenu) openMenu.classList.remove("show");
       });
 
-      // Toggle del submenu actual:
-      // Si Bootstrap lo maneja, esto no lo rompe, porque la clase se sincroniza.
       submenu.classList.toggle("show");
     });
   });
