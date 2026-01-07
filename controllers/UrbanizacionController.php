@@ -10,7 +10,14 @@ class UrbanizacionController
 
         try {
             $model = new Urbanizacion();
-            $lista = $model->listarActivas();
+
+            $dist = isset($_GET['distrito']) ? (int)$_GET['distrito'] : 0;
+
+            if ($dist > 0) {
+                $lista = $model->listarPorDistrito($dist);
+            } else {
+                $lista = $model->listarActivas();
+            }
 
             echo json_encode($lista ?: []);
         } catch (Exception $e) {

@@ -14,10 +14,15 @@ document.addEventListener("DOMContentLoaded", () => {
   formCrearUsuario.addEventListener("submit", async (e) => {
     e.preventDefault();
 
+    const dep = document.getElementById("comboDepartamento")?.value || "";
+    const prov = document.getElementById("comboProvincia")?.value || "";
+    const dist = document.getElementById("comboDistrito")?.value || "";
+
     const tipo = (document.getElementById("comboConjuntoResidencial")?.value || "").trim();
     const codigoCondominio = document.getElementById("comboCondominio")?.value || "";
     const codigoUrbanizacion = document.getElementById("comboUrbanizacion")?.value || "";
     const direccion = (document.getElementById("direccion")?.value || "").trim();
+
     const fileInput = document.getElementById("comprobante_domicilio");
     const file = fileInput?.files?.[0] || null;
 
@@ -27,6 +32,20 @@ document.addEventListener("DOMContentLoaded", () => {
     // Validaciones base
     if (clave !== confirmar) {
       Swal.fire("Error", "Las contraseñas no coinciden", "error");
+      return;
+    }
+
+    // Ubigeo obligatorio
+    if (!dep) {
+      Swal.fire("Residencia", "Selecciona un departamento.", "warning");
+      return;
+    }
+    if (!prov) {
+      Swal.fire("Residencia", "Selecciona una provincia.", "warning");
+      return;
+    }
+    if (!dist) {
+      Swal.fire("Residencia", "Selecciona un distrito.", "warning");
       return;
     }
 
@@ -45,18 +64,18 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    // Dirección viene autocompletada; valida que exista
     if (!direccion || direccion.length < 5) {
-      Swal.fire("Residencia", "Ingresa una dirección válida.", "warning");
+      Swal.fire("Residencia", "No se pudo obtener la dirección. Selecciona nuevamente tu condominio/urbanización.", "warning");
       return;
     }
 
-    // Archivo obligatorio
+    // Archivo obligatorio cuando ya eligió destino
     if (!file) {
       Swal.fire("Residencia", "Debes subir el comprobante de domicilio (recibo de servicio).", "warning");
       return;
     }
 
-    // Validación cliente (rápida)
     if (file.size > MAX_BYTES) {
       Swal.fire("Archivo", "El comprobante supera el tamaño máximo permitido (2 MB).", "warning");
       return;
@@ -76,6 +95,11 @@ document.addEventListener("DOMContentLoaded", () => {
     fd.append("email", document.getElementById("rEmail").value.trim());
     fd.append("codigo_rol", "2");
     fd.append("clave", clave);
+
+    // Ubigeo (por ahora solo para validación / futuro; backend puede ignorarlo si no lo guarda)
+    fd.append("codigo_departamento", String(dep));
+    fd.append("codigo_provincia", String(prov));
+    fd.append("codigo_distrito", String(dist));
 
     fd.append("tipo_conjunto", tipo);
     fd.append("codigo_condominio", tipo === "condominio" ? String(Number(codigoCondominio)) : "");
@@ -113,16 +137,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (result && result.success) {
         Swal.fire({
-        title: "Éxito",
-        text: result.message || "Usuario registrado con éxito",
-        icon: "success",
-        iconColor: "#16A34A",
-        confirmButtonText: "OK",
-        confirmButtonColor: "#16A34A",
-        background: "#FFFFFF",
-        allowOutsideClick: false,
-        allowEscapeKey: false
-      }).then(() => window.location.href = base + '/');
+          title: "Éxito",
+          text: result.message || "Usuario registrado con éxito",
+          icon: "success",
+          iconColor: "#16A34A",
+          confirmButtonText: "OK",
+          confirmButtonColor: "#16A34A",
+          background: "#FFFFFF",
+          allowOutsideClick: false,
+          allowEscapeKey: false
+        }).then(() => window.location.href = base + '/');
 
       } else {
         Swal.fire("Error", result.message || "No se pudo registrar", "error");

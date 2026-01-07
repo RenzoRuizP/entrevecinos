@@ -610,3 +610,102 @@ ALTER TABLE usuario_residencia
   ADD COLUMN comprobante_domicilio VARCHAR(255) NULL AFTER direccion;
 
 
+
+CREATE TABLE `producto_revision` (
+  `codigo_revision` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `codigo_producto` int(11) NOT NULL,
+  `estado_anterior` tinyint(2) NOT NULL,
+  `estado_nuevo` tinyint(2) NOT NULL,
+  `comentario` varchar(500) DEFAULT NULL,
+  `codigo_soporte` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`codigo_revision`),
+  KEY `ix_rev_producto` (`codigo_producto`,`created_at`),
+  KEY `ix_rev_soporte` (`codigo_soporte`,`created_at`),
+  CONSTRAINT `fk_rev_producto` FOREIGN KEY (`codigo_producto`) REFERENCES `producto` (`codigo_producto`),
+  CONSTRAINT `fk_rev_soporte` FOREIGN KEY (`codigo_soporte`) REFERENCES `usuario` (`codigo_usuario`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=UTF8MB4_GENERAL_CI;
+
+
+ALTER TABLE menu
+  ADD COLUMN orden INT NOT NULL DEFAULT 1 AFTER icono,
+  ADD COLUMN activo TINYINT(1) NOT NULL DEFAULT 1 AFTER orden;
+
+DROP TABLE ubigeo_departamento;
+DROP TABLE ubigeo_provincia;
+DROP TABLEubigeo_distrito;
+DROP TABLE urbanizacion
+
+
+-- =========================
+-- 1) UBIGEO (mínimo) - estado 'A'
+-- =========================
+
+CREATE TABLE IF NOT EXISTS ubigeo_departamento (
+  codigo_departamento INT NOT NULL,
+  nombre_departamento VARCHAR(150) NOT NULL,
+  estado CHAR(1) NOT NULL DEFAULT 'A',
+  PRIMARY KEY (codigo_departamento)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS ubigeo_provincia (
+  codigo_provincia INT NOT NULL,
+  codigo_departamento INT NOT NULL,
+  nombre_provincia VARCHAR(150) NOT NULL,
+  estado CHAR(1) NOT NULL DEFAULT 'A',
+  PRIMARY KEY (codigo_provincia),
+  KEY idx_dep (codigo_departamento),
+  CONSTRAINT fk_prov_dep
+    FOREIGN KEY (codigo_departamento) REFERENCES ubigeo_departamento(codigo_departamento)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS ubigeo_distrito (
+  codigo_distrito INT NOT NULL,
+  codigo_provincia INT NOT NULL,
+  nombre_distrito VARCHAR(150) NOT NULL,
+  estado CHAR(1) NOT NULL DEFAULT 'A',
+  PRIMARY KEY (codigo_distrito),
+  KEY idx_prov (codigo_provincia),
+  CONSTRAINT fk_dist_prov
+    FOREIGN KEY (codigo_provincia) REFERENCES ubigeo_provincia(codigo_provincia)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =========================
+-- 2) Condominio: agregar distrito + índice + FK
+-- =========================
+
+ALTER TABLE condominio
+  ADD COLUMN codigo_distrito INT NULL AFTER direccion_condominio;
+
+ALTER TABLE condominio
+  ADD KEY idx_cond_distrito (codigo_distrito);
+
+ALTER TABLE condominio
+  ADD CONSTRAINT fk_condominio_distrito
+    FOREIGN KEY (codigo_distrito) REFERENCES ubigeo_distrito(codigo_distrito)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT;
+
+-- =========================
+-- 3) Urbanización (nueva tabla) - estado 'A'
+-- =========================
+
+CREATE TABLE IF NOT EXISTS urbanizacion (
+  codigo_urbanizacion INT NOT NULL AUTO_INCREMENT,
+  nombre_urbanizacion VARCHAR(200) NOT NULL,
+  direccion_urbanizacion VARCHAR(300) NOT NULL,
+  codigo_distrito INT NOT NULL,
+  fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  fecha_actualizacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  estado CHAR(1) NOT NULL DEFAULT 'A',
+  PRIMARY KEY (codigo_urbanizacion),
+  KEY idx_urb_dist (codigo_distrito),
+  CONSTRAINT fk_urbanizacion_distrito
+    FOREIGN KEY (codigo_distrito) REFERENCES ubigeo_distrito(codigo_distrito)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

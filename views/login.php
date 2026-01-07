@@ -194,6 +194,29 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 
               <div class="row g-3 mb-4">
 
+                <!-- UBIGEO -->
+                <div class="col-md-4">
+                  <label for="comboDepartamento" class="form-label">Departamento</label>
+                  <select class="form-select" id="comboDepartamento" name="comboDepartamento" required>
+                    <option value="">Cargando...</option>
+                  </select>
+                </div>
+
+                <div class="col-md-4">
+                  <label for="comboProvincia" class="form-label">Provincia</label>
+                  <select class="form-select" id="comboProvincia" name="comboProvincia" required disabled>
+                    <option value="">Selecciona provincia</option>
+                  </select>
+                </div>
+
+                <div class="col-md-4">
+                  <label for="comboDistrito" class="form-label">Distrito</label>
+                  <select class="form-select" id="comboDistrito" name="comboDistrito" required disabled>
+                    <option value="">Selecciona distrito</option>
+                  </select>
+                </div>
+
+                <!-- Conjunto Residencial -->
                 <div class="col-md-6">
                   <label for="comboConjuntoResidencial" class="form-label">Conjunto residencial</label>
                   <select class="form-select" id="comboConjuntoResidencial" name="comboConjuntoResidencial" required>
@@ -201,18 +224,19 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
                     <option value="condominio">Condominio</option>
                     <option value="urbanizacion">Urbanización</option>
                   </select>
+                  <div class="form-text">Primero selecciona el distrito, luego el tipo de conjunto.</div>
                 </div>
 
                 <div class="col-md-6 d-none" id="wrapCondominio">
                   <label for="comboCondominio" class="form-label">Condominio</label>
-                  <select class="form-select" id="comboCondominio" name="comboCondominio">
+                  <select class="form-select" id="comboCondominio" name="comboCondominio" disabled>
                     <option value="">Selecciona condominio</option>
                   </select>
                 </div>
 
                 <div class="col-md-6 d-none" id="wrapUrbanizacion">
                   <label for="comboUrbanizacion" class="form-label">Urbanización</label>
-                  <select class="form-select" id="comboUrbanizacion" name="comboUrbanizacion">
+                  <select class="form-select" id="comboUrbanizacion" name="comboUrbanizacion" disabled>
                     <option value="">Selecciona urbanización</option>
                   </select>
                 </div>
@@ -220,10 +244,10 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
                 <!-- Dirección + Comprobante (aparecen juntos) -->
                 <div class="col-12 d-none" id="wrapDireccion">
                   <label for="direccion" class="form-label">Dirección</label>
-                  <input type="text" class="form-control" id="direccion" name="direccion" placeholder="Ej: Av. Los Álamos 123, Mz B Lt 5">
+                  <input type="text" class="form-control" id="direccion" name="direccion" placeholder="Dirección automática" disabled>
 
                   <div class="form-text mb-3">
-                    Escribe la dirección exacta dentro del condominio/urbanización.
+                    La dirección se completa automáticamente según tu selección.
                   </div>
 
                   <label for="comprobante_domicilio" class="form-label">
@@ -284,9 +308,18 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 
   <!-- Scripts de la vista -->
   <script>window.BASE_URL = '<?= BASE_URL ?>';</script>
+
   <script src="<?= BASE_URL ?>views/js/vistaRegistrarUser.js"></script>
+
+  <!-- ✅ NUEVO: Ubigeo -->
+  <script src="<?= BASE_URL ?>views/js/combo_ubigeo.js"></script>
+
+  <!-- ✅ Actualizado: conjunto residencial (filtrado por distrito + dirección auto) -->
   <script src="<?= BASE_URL ?>views/js/combo_conjunto_residencial.js"></script>
+
+  <!-- Registro -->
   <script src="<?= BASE_URL ?>views/js/registrarUser.js"></script>
+
   <script src="<?= BASE_URL ?>views/js/iniciarSesion.js"></script>
 
   <script>

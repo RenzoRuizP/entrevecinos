@@ -112,6 +112,7 @@ safeRequire(__DIR__ . '/controllers/AuthController.php');
 safeRequire(__DIR__ . '/controllers/MenuPrincipalController.php');
 safeRequire(__DIR__ . '/controllers/CondominioController.php');
 safeRequire(__DIR__ . '/controllers/UrbanizacionController.php');
+safeRequire(__DIR__ . '/controllers/UbigeoController.php'); // ✅ NUEVO
 safeRequire(__DIR__ . '/controllers/UserController.php');
 safeRequire(__DIR__ . '/controllers/miPerfilController.php');
 safeRequire(__DIR__ . '/controllers/productoController.php');
@@ -168,12 +169,21 @@ $publicRoutes = [
     '#^/$#',
     '#^/login$#',
     '#^/usuarios/registrar$#',
+
+    // filtros por distrito (siguen siendo públicos)
     '#^/condominios$#',
     '#^/urbanizaciones$#',
+
+    // combos antiguos
     '#^/condominios/(\d+)/torres$#',
     '#^/torres/(\d+)/departamentos$#',
     '#^/tipos$#',
     '#^/tipos/(\d+)/categoria_grupo$#',
+
+    // ✅ NUEVO: ubigeo
+    '#^/ubigeo/departamentos$#',
+    '#^/ubigeo/departamentos/(\d+)/provincias$#',
+    '#^/ubigeo/provincias/(\d+)/distritos$#',
 ];
 
 // ------------------------------
@@ -194,6 +204,11 @@ $routes = [
 
     // --- Urbanizaciones ---
     ['GET',  '#^/urbanizaciones$#',             [UrbanizacionController::class, 'listar'],            'json'],
+
+    // ✅ NUEVO: Ubigeo
+    ['GET',  '#^/ubigeo/departamentos$#',                 [UbigeoController::class, 'departamentos'], 'json'],
+    ['GET',  '#^/ubigeo/departamentos/(\d+)/provincias$#',[UbigeoController::class, 'provincias'],    'json'],
+    ['GET',  '#^/ubigeo/provincias/(\d+)/distritos$#',    [UbigeoController::class, 'distritos'],     'json'],
 
     // --- Tipos / Categorías ---
     ['GET',  '#^/tipos$#',                       [tipoController::class, 'listar'],                'json'],
@@ -296,7 +311,6 @@ foreach ($routes as $r) {
             evRenderSesionFinalizada($loginUrl);
         }
 
-        // Guardar usuario auth en variable global “segura” para controllers (opcional)
         $GLOBALS['EV_AUTH'] = $rTok['data'] ?? [];
     }
 

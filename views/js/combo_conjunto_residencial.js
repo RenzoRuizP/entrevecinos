@@ -3,8 +3,9 @@
   'use strict';
 
   function buildURL(path) {
-    if (!window.BASE_URL) return path;
-    return window.BASE_URL.replace(/\/+$/, "") + "/" + path.replace(/^\/+/, "");
+    const b = (window.BASE_URL || '').replace(/\/+$/, '');
+    const p = String(path || '').replace(/^\/+/, '');
+    return b ? (b + '/' + p) : ('/' + p);
   }
 
   function setHidden(el, hidden) {
@@ -49,12 +50,15 @@
   function init() {
     const comboTipo = document.getElementById("comboConjuntoResidencial");
 
+    const comboDistrito = document.getElementById("comboDistrito");
+
     const wrapCondominio = document.getElementById("wrapCondominio");
     const wrapUrbanizacion = document.getElementById("wrapUrbanizacion");
     const wrapDireccion = document.getElementById("wrapDireccion");
 
     const comboCondominio = document.getElementById("comboCondominio");
     const comboUrbanizacion = document.getElementById("comboUrbanizacion");
+
     const inputDireccion = document.getElementById("direccion");
     const inputComprobante = document.getElementById("comprobante_domicilio");
 
@@ -63,45 +67,98 @@
       return;
     }
 
-    // ✅ Evitar múltiples inicializaciones
     if (comboTipo.dataset.evInit === "1") return;
     comboTipo.dataset.evInit = "1";
 
-    // Estado UI inicial
-    setHidden(wrapCondominio, true);
-    setHidden(wrapUrbanizacion, true);
-    setHidden(wrapDireccion, true);
+    // UX: dirección siempre disabled (solo visualización)
+    inputDireccion.setAttribute('disabled', 'disabled');
 
-    resetSelect(comboCondominio, "Selecciona condominio", { disabled: true });
-    resetSelect(comboUrbanizacion, "Selecciona urbanización", { disabled: true });
-    resetInput(inputDireccion);
-    resetFileInput(inputComprobante);
+    // Estado
+    let distritoActual = null;
 
-    // ✅ Cache de data en memoria (para alternar sin romper el select)
-    let cacheCondominios = null;     // array
-    let cacheUrbanizaciones = null;  // array
+    // Cache por distrito
+    const cache = {
+      condominios: new Map(),     // key: distId, value: array
+      urbanizaciones: new Map()   // key: distId, value: array
+    };
 
-    // ✅ Token anti-race-condition (si cambian rápido)
+    // anti-race
     let reqId = 0;
 
-    async function ensureCondominiosLoaded(currentReq) {
-      if (cacheCondominios && Array.isArray(cacheCondominios)) return cacheCondominios;
+    function resetResidenciaUITotal() {
+      // Ocultar wrappers secundarios
+      setHidden(wrapCondominio, true);
+      setHidden(wrapUrbanizacion, true);
+      setHidden(wrapDireccion, true);
 
-      const data = await fetchJSON(buildURL("condominios"));
-      if (currentReq !== reqId) return null; // respuesta vieja, se ignora
+      // limpiar selects
+      resetSelect(comboCondominio, "Selecciona condominio", { disabled: true });
+      resetSelect(comboUrbanizacion, "Selecciona urbanización", { disabled: true });
 
-      cacheCondominios = Array.isArray(data) ? data : (data ? [data] : []);
-      return cacheCondominios;
+      // limpiar direccion/file
+      resetInput(inputDireccion);
+      resetFileInput(inputComprobante);
+
+      // reset tipo
+      comboTipo.value = "";
     }
 
-    async function ensureUrbanizacionesLoaded(currentReq) {
-      if (cacheUrbanizaciones && Array.isArray(cacheUrbanizaciones)) return cacheUrbanizaciones;
+    function resetDependientesTipo() {
+      // al cambiar tipo, limpiar cond/urb + direccion/file
+      resetSelect(comboCondominio, "Selecciona condominio", { disabled: true });
+      resetSelect(comboUrbanizacion, "Selecciona urbanización", { disabled: true });
 
-      const data = await fetchJSON(buildURL("urbanizaciones"));
-      if (currentReq !== reqId) return null; // respuesta vieja, se ignora
+      resetInput(inputDireccion);
+      resetFileInput(inputComprobante);
 
-      cacheUrbanizaciones = Array.isArray(data) ? data : (data ? [data] : []);
-      return cacheUrbanizaciones;
+      setHidden(wrapDireccion, true);
+    }
+
+    // Estado inicial
+    resetResidenciaUITotal();
+
+    // Cuando ubigeo cambia (dep/prov), resetea residencia
+    document.addEventListener('EV:UBIGEO_RESET_RESIDENCIA', () => {
+      distritoActual = null;
+      resetResidenciaUITotal();
+    });
+
+    // Cuando distrito cambia, habilitar tipo y resetear listas
+    document.addEventListener('EV:UBIGEO_DISTRITO_CHANGE', (ev) => {
+      distritoActual = ev?.detail?.codigo_distrito || null;
+
+      // Resetear todo el bloque (tipo, combos, direccion, file)
+      resetResidenciaUITotal();
+
+      // Si no hay distrito, no hacemos nada más
+      if (!distritoActual) return;
+
+      // Mantener tipo vacío, pero ahora el usuario ya puede elegir con sentido.
+      // (No bloqueamos el tipo, pero el filtrado depende del distritoActual)
+    });
+
+    async function ensureCondominiosByDistrito(currentReq, distId) {
+      if (!distId) return [];
+      if (cache.condominios.has(distId)) return cache.condominios.get(distId);
+
+      const data = await fetchJSON(buildURL(`condominios?distrito=${encodeURIComponent(distId)}`));
+      if (currentReq !== reqId) return null;
+
+      const arr = Array.isArray(data) ? data : [];
+      cache.condominios.set(distId, arr);
+      return arr;
+    }
+
+    async function ensureUrbanizacionesByDistrito(currentReq, distId) {
+      if (!distId) return [];
+      if (cache.urbanizaciones.has(distId)) return cache.urbanizaciones.get(distId);
+
+      const data = await fetchJSON(buildURL(`urbanizaciones?distrito=${encodeURIComponent(distId)}`));
+      if (currentReq !== reqId) return null;
+
+      const arr = Array.isArray(data) ? data : [];
+      cache.urbanizaciones.set(distId, arr);
+      return arr;
     }
 
     async function onTipoChange() {
@@ -110,38 +167,36 @@
 
       const tipo = comboTipo.value;
 
-      // Reseteos base (siempre)
-      resetInput(inputDireccion);
-      resetFileInput(inputComprobante);
-      setHidden(wrapDireccion, true);
+      resetDependientesTipo();
 
-      // OJO: aquí sí reseteamos selects, pero si hay cache, repintamos
-      resetSelect(comboCondominio, "Selecciona condominio", { disabled: true });
-      resetSelect(comboUrbanizacion, "Selecciona urbanización", { disabled: true });
+      // si no hay distrito, no permitimos continuar (UX defensivo)
+      const distId = distritoActual || (comboDistrito ? parseInt(comboDistrito.value || '0', 10) : 0);
+      if (!distId) {
+        setHidden(wrapCondominio, true);
+        setHidden(wrapUrbanizacion, true);
+        setHidden(wrapDireccion, true);
+        return;
+      }
 
       if (tipo === "condominio") {
         setHidden(wrapCondominio, false);
         setHidden(wrapUrbanizacion, true);
 
-        // UX: loading state
         resetSelect(comboCondominio, "Cargando condominios...", { disabled: true });
 
         try {
-          const arr = await ensureCondominiosLoaded(currentReq);
-          if (!arr) return; // fue reemplazado por otro cambio
+          const arr = await ensureCondominiosByDistrito(currentReq, distId);
+          if (!arr) return;
 
           fillSelectFromArray(
             comboCondominio,
-            "Selecciona condominio",
+            arr.length ? "Selecciona condominio" : "No hay condominios en este distrito",
             arr,
             (c) => ({ value: c.codigo_condominio, text: c.nombre_condominio })
           );
-          comboCondominio.disabled = false;
-
-          // Importante: si tu otro script (combo_condominio.js) depende de este select,
-          // aquí ya está poblado. Los listeners ya deberían estar enganchados.
+          comboCondominio.disabled = arr.length === 0;
         } catch (e) {
-          console.error("[EV][Residencia] Error cargando condominios:", e);
+          console.error("[EV][Residencia] Error cargando condominios por distrito:", e);
           resetSelect(comboCondominio, "No se pudo cargar. Reintenta.", { disabled: true });
         }
 
@@ -155,18 +210,18 @@
         resetSelect(comboUrbanizacion, "Cargando urbanizaciones...", { disabled: true });
 
         try {
-          const arr = await ensureUrbanizacionesLoaded(currentReq);
+          const arr = await ensureUrbanizacionesByDistrito(currentReq, distId);
           if (!arr) return;
 
           fillSelectFromArray(
             comboUrbanizacion,
-            "Selecciona urbanización",
+            arr.length ? "Selecciona urbanización" : "No hay urbanizaciones en este distrito",
             arr,
             (u) => ({ value: u.codigo_urbanizacion, text: u.nombre_urbanizacion })
           );
-          comboUrbanizacion.disabled = false;
+          comboUrbanizacion.disabled = arr.length === 0;
         } catch (e) {
-          console.error("[EV][Residencia] Error cargando urbanizaciones:", e);
+          console.error("[EV][Residencia] Error cargando urbanizaciones por distrito:", e);
           resetSelect(comboUrbanizacion, "No se pudo cargar. Reintenta.", { disabled: true });
         }
 
@@ -179,8 +234,25 @@
       setHidden(wrapDireccion, true);
     }
 
+    function findInCache(distId, tipo, codigo) {
+      if (!distId || !codigo) return null;
+      const id = String(codigo);
+
+      if (tipo === 'condominio') {
+        const arr = cache.condominios.get(distId) || [];
+        return arr.find(x => String(x.codigo_condominio) === id) || null;
+      }
+      if (tipo === 'urbanizacion') {
+        const arr = cache.urbanizaciones.get(distId) || [];
+        return arr.find(x => String(x.codigo_urbanizacion) === id) || null;
+      }
+      return null;
+    }
+
     function onDestinoChange() {
       const tipo = comboTipo.value;
+      const distId = distritoActual || (comboDistrito ? parseInt(comboDistrito.value || '0', 10) : 0);
+
       const selected = (tipo === "condominio")
         ? comboCondominio.value
         : comboUrbanizacion.value;
@@ -188,7 +260,21 @@
       resetInput(inputDireccion);
       resetFileInput(inputComprobante);
 
-      setHidden(wrapDireccion, !selected);
+      if (!selected) {
+        setHidden(wrapDireccion, true);
+        return;
+      }
+
+      const item = findInCache(distId, tipo, selected);
+
+      if (tipo === 'condominio') {
+        inputDireccion.value = item?.direccion_condominio ? String(item.direccion_condominio) : '';
+      } else {
+        inputDireccion.value = item?.direccion_urbanizacion ? String(item.direccion_urbanizacion) : '';
+      }
+
+      // Mostrar dirección + comprobante
+      setHidden(wrapDireccion, false);
     }
 
     comboTipo.addEventListener("change", () => {
