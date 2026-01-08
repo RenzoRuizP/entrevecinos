@@ -241,6 +241,8 @@ $routes = [
     // --- API Usuario ---
     ['GET',  '#^/api/usuario/datos$#',       [usuarioDatosController::class, 'obtenerDatos'],     'json'],
     ['POST', '#^/api/usuario/actualizar$#',  [usuarioDatosController::class, 'actualizarDatos'],  'json'],
+    ['POST', '#^/api/usuario/cambiar-clave$#', [usuarioDatosController::class, 'cambiarClave'], 'json'],
+
 
     // ✅ NUEVO: Solicitud de cambio de residencia (con upload)
     // Nota: esto lo atiende usuarioDatosController (o el controller que ya uses), pero aquí queda la ruta.

@@ -11,19 +11,30 @@ class UsuarioResidenciaSolicitud extends Conexion
 
         $codCondominio   = $data['codigo_condominio']   ?? null;
         $codUrbanizacion = $data['codigo_urbanizacion'] ?? null;
-        $codDepartamento = $data['codigo_departamento'] ?? null;
 
         $sql = "INSERT INTO usuario_residencia_solicitud
                 (codigo_usuario, tipo_conjunto, codigo_condominio, codigo_urbanizacion, codigo_departamento, direccion, comprobante_domicilio, estado)
                 VALUES
-                (:u, :tipo, :cc, :cu, :cd, :dir, :file, 'pendiente')";
+                (:u, :tipo, :cc, :cu, NULL, :dir, :file, 'pendiente')";
 
         $st = $this->dblink->prepare($sql);
         $st->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
         $st->bindValue(':tipo', $tipo, PDO::PARAM_STR);
-        $st->bindValue(':cc', $codCondominio !== null && $codCondominio !== '' ? (int)$codCondominio : null, PDO::PARAM_INT);
-        $st->bindValue(':cu', $codUrbanizacion !== null && $codUrbanizacion !== '' ? (int)$codUrbanizacion : null, PDO::PARAM_INT);
-        $st->bindValue(':cd', $codDepartamento !== null && $codDepartamento !== '' ? (int)$codDepartamento : null, PDO::PARAM_INT);
+
+        // cc
+        if ($codCondominio !== null && $codCondominio !== '' && (int)$codCondominio > 0) {
+            $st->bindValue(':cc', (int)$codCondominio, PDO::PARAM_INT);
+        } else {
+            $st->bindValue(':cc', null, PDO::PARAM_NULL);
+        }
+
+        // cu
+        if ($codUrbanizacion !== null && $codUrbanizacion !== '' && (int)$codUrbanizacion > 0) {
+            $st->bindValue(':cu', (int)$codUrbanizacion, PDO::PARAM_INT);
+        } else {
+            $st->bindValue(':cu', null, PDO::PARAM_NULL);
+        }
+
         $st->bindValue(':dir', $direccion, PDO::PARAM_STR);
         $st->bindValue(':file', $rutaRelativaArchivo, PDO::PARAM_STR);
 
@@ -52,7 +63,7 @@ class UsuarioResidenciaSolicitud extends Conexion
         if ($estado !== 'all') { $where[] = "s.estado = :estado"; $params[':estado'] = $estado; }
         if ($tipo !== '')      { $where[] = "s.tipo_conjunto = :tipo"; $params[':tipo'] = $tipo; }
 
-        if ($tipo === 'condominio' && $codigo > 0) { $where[] = "s.codigo_condominio = :codigo"; $params[':codigo'] = $codigo; }
+        if ($tipo === 'condominio' && $codigo > 0)   { $where[] = "s.codigo_condominio = :codigo"; $params[':codigo'] = $codigo; }
         if ($tipo === 'urbanizacion' && $codigo > 0) { $where[] = "s.codigo_urbanizacion = :codigo"; $params[':codigo'] = $codigo; }
 
         if ($q !== '') {
@@ -66,7 +77,6 @@ class UsuarioResidenciaSolicitud extends Conexion
                      FROM usuario_residencia_solicitud s
                      INNER JOIN usuario u ON u.codigo_usuario = s.codigo_usuario
                      {$whereSql}";
-
         $stC = $this->dblink->prepare($sqlCount);
         foreach ($params as $k => $v) $stC->bindValue($k, $v);
         $stC->execute();
@@ -78,7 +88,6 @@ class UsuarioResidenciaSolicitud extends Conexion
                     s.tipo_conjunto,
                     s.codigo_condominio,
                     s.codigo_urbanizacion,
-                    s.codigo_departamento,
                     s.direccion,
                     s.comprobante_domicilio,
                     s.estado,
@@ -100,7 +109,6 @@ class UsuarioResidenciaSolicitud extends Conexion
                 {$whereSql}
                 ORDER BY s.created_at DESC
                 LIMIT {$size} OFFSET {$off}";
-
         $st = $this->dblink->prepare($sql);
         foreach ($params as $k => $v) $st->bindValue($k, $v);
         $st->execute();
@@ -135,16 +143,15 @@ class UsuarioResidenciaSolicitud extends Conexion
                 WHERE codigo_solicitud = :id";
         $st = $this->dblink->prepare($sql);
         $st->bindValue(':e', $estado, PDO::PARAM_STR);
-        $st->bindValue(':c', $comentario, PDO::PARAM_STR);
+        $st->bindValue(':c', $comentario, $comentario === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $st->bindValue(':id', $codigoSolicitud, PDO::PARAM_INT);
         return $st->execute();
     }
 
     /**
-     * Aplica la residencia aprobada:
+     * Aplica la residencia aprobada (Opción A: SIN departamento):
      * - upsert usuario_residencia
-     * - si condominio: upsert usuario_departamento
-     * - si urbanización: elimina usuario_departamento
+     * - NO toca usuario_departamento
      */
     public function aplicarResidenciaAprobada(array $sol): void
     {
@@ -154,64 +161,49 @@ class UsuarioResidenciaSolicitud extends Conexion
 
         $cc = $sol['codigo_condominio'] !== null ? (int)$sol['codigo_condominio'] : null;
         $cu = $sol['codigo_urbanizacion'] !== null ? (int)$sol['codigo_urbanizacion'] : null;
-        $cd = $sol['codigo_departamento'] !== null ? (int)$sol['codigo_departamento'] : null;
 
         // 1) Upsert usuario_residencia (1 registro vigente por usuario)
-        $existsSql = "SELECT codigo_usuario_residencia FROM usuario_residencia WHERE codigo_usuario = :u LIMIT 1";
+        $existsSql = "SELECT codigo_usuario_residencia
+                      FROM usuario_residencia
+                      WHERE codigo_usuario = :u
+                      ORDER BY codigo_usuario_residencia DESC
+                      LIMIT 1";
         $stE = $this->dblink->prepare($existsSql);
         $stE->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
         $stE->execute();
         $idUr = $stE->fetchColumn();
 
         if ($idUr) {
-            $upd = "UPDATE usuario_residencia
+            $sql = "UPDATE usuario_residencia
                     SET tipo_conjunto = :tipo,
                         codigo_condominio = :cc,
                         codigo_urbanizacion = :cu,
                         direccion = :dir,
                         comprobante_domicilio = :comp
-                    WHERE codigo_usuario = :u";
-            $st = $this->dblink->prepare($upd);
+                    WHERE codigo_usuario_residencia = :id";
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':id', (int)$idUr, PDO::PARAM_INT);
         } else {
-            $ins = "INSERT INTO usuario_residencia
+            $sql = "INSERT INTO usuario_residencia
                     (codigo_usuario, tipo_conjunto, codigo_condominio, codigo_urbanizacion, direccion, comprobante_domicilio)
                     VALUES (:u, :tipo, :cc, :cu, :dir, :comp)";
-            $st = $this->dblink->prepare($ins);
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
         }
 
-        $st->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
         $st->bindValue(':tipo', $tipo, PDO::PARAM_STR);
-        $st->bindValue(':cc', $tipo === 'condominio' ? $cc : null, PDO::PARAM_INT);
-        $st->bindValue(':cu', $tipo === 'urbanizacion' ? $cu : null, PDO::PARAM_INT);
+
+        if ($tipo === 'condominio' && $cc) $st->bindValue(':cc', $cc, PDO::PARAM_INT);
+        else $st->bindValue(':cc', null, PDO::PARAM_NULL);
+
+        if ($tipo === 'urbanizacion' && $cu) $st->bindValue(':cu', $cu, PDO::PARAM_INT);
+        else $st->bindValue(':cu', null, PDO::PARAM_NULL);
+
         $st->bindValue(':dir', $dir, PDO::PARAM_STR);
-        $st->bindValue(':comp', (string)$sol['comprobante_domicilio'], PDO::PARAM_STR);
+        $st->bindValue(':comp', (string)($sol['comprobante_domicilio'] ?? ''), PDO::PARAM_STR);
         $st->execute();
 
-        // 2) usuario_departamento
-        if ($tipo === 'condominio') {
-            if (!$cd) throw new Exception("Solicitud aprobada inválida: falta codigo_departamento.");
-
-            $stChk = $this->dblink->prepare("SELECT 1 FROM usuario_departamento WHERE codigo_usuario = :u LIMIT 1");
-            $stChk->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
-            $stChk->execute();
-            $has = (bool)$stChk->fetchColumn();
-
-            if ($has) {
-                $stUp = $this->dblink->prepare("UPDATE usuario_departamento SET codigo_departamento = :d WHERE codigo_usuario = :u");
-                $stUp->bindValue(':d', $cd, PDO::PARAM_INT);
-                $stUp->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
-                $stUp->execute();
-            } else {
-                $stIn = $this->dblink->prepare("INSERT INTO usuario_departamento (codigo_usuario, codigo_departamento) VALUES (:u, :d)");
-                $stIn->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
-                $stIn->bindValue(':d', $cd, PDO::PARAM_INT);
-                $stIn->execute();
-            }
-        } else {
-            $stDel = $this->dblink->prepare("DELETE FROM usuario_departamento WHERE codigo_usuario = :u");
-            $stDel->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
-            $stDel->execute();
-        }
+        // 2) NO usuario_departamento (Opción A)
     }
 
     public function aprobarSolicitud(int $codigoSolicitud, ?string $comentario = null): bool
@@ -219,7 +211,6 @@ class UsuarioResidenciaSolicitud extends Conexion
         $sol = $this->obtenerPorId($codigoSolicitud);
         if (!$sol) return false;
 
-        // Solo aprobable si está pendiente u observada (opcional)
         $estadoActual = strtolower((string)($sol['estado'] ?? 'pendiente'));
         if (!in_array($estadoActual, ['pendiente', 'observada'], true)) {
             return false;
@@ -238,5 +229,4 @@ class UsuarioResidenciaSolicitud extends Conexion
             throw $e;
         }
     }
-
 }

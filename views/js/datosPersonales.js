@@ -1,31 +1,109 @@
-// ✅ views/js/datosPersonales.js (EV) — residencia + ubigeo + solicitud con upload
+// views/js/datosPersonales.js — Wizard 3 pasos (EV) + residencia con solicitud + cambio clave
 (function () {
   "use strict";
 
   const baseURL = (window.BASE_URL || "/entrevecinos").replace(/\/$/, "");
-  let initializedOnce = false;
 
-  // Endpoints existentes
+  // Endpoints
+  const API_CONDOMINIOS = `${baseURL}/condominios`;
   const API_URBANIZACIONES = `${baseURL}/urbanizaciones`;
+
   const API_UB_DEPTOS = `${baseURL}/ubigeo/departamentos`;
   const API_UB_PROVS  = (depId) => `${baseURL}/ubigeo/departamentos/${depId}/provincias`;
   const API_UB_DISTS  = (provId) => `${baseURL}/ubigeo/provincias/${provId}/distritos`;
 
-  // Guardado existente
   const API_ACTUALIZAR = `${baseURL}/api/usuario/actualizar`;
-
-  // ✅ Nuevo endpoint (FormData + archivo)
   const API_SOLICITAR_CAMBIO = `${baseURL}/api/usuario/solicitar-cambio-residencia`;
+  const API_CAMBIAR_CLAVE = `${baseURL}/api/usuario/cambiar-clave`;
 
-  function $(sel, root = document) {
-    return root.querySelector(sel);
-  }
+  function $(sel, root = document) { return root.querySelector(sel); }
 
   function setHidden(el, hidden) {
     if (!el) return;
     el.classList.toggle("d-none", !!hidden);
   }
 
+  async function fetchJSON(url, opts = {}) {
+    const res = await fetch(url, {
+      method: opts.method || "GET",
+      cache: "no-store",
+      credentials: "include",
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        "Accept": "application/json",
+        ...(opts.headers || {})
+      },
+      body: opts.body || null
+    });
+
+    const ct = (res.headers.get("content-type") || "").toLowerCase();
+    if (!ct.includes("application/json")) {
+      const txt = await res.text().catch(() => "");
+      throw new Error("Respuesta no JSON. " + (txt ? txt.slice(0, 150) : ""));
+    }
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.message || data?.mensaje || data?.error || `HTTP ${res.status}`);
+    }
+    return data;
+  }
+
+  function swalWarn(title, text) {
+    Swal.fire({ icon: "warning", title, text, confirmButtonColor: "#115C41" });
+  }
+  function swalErr(text) {
+    Swal.fire({ icon: "error", title: "Error", text, confirmButtonColor: "#BF3604" });
+  }
+  function swalOk(title, text) {
+    Swal.fire({ icon: "success", title, text, confirmButtonColor: "#115C41" });
+  }
+
+  function getBaseState() {
+    const root = document.getElementById("dp-state");
+    return {
+      tipo: (root?.dataset?.tipo || "").trim().toLowerCase(),
+      codCondominio: (root?.dataset?.codigoCondominio || "").trim(),
+      codUrbanizacion: (root?.dataset?.codigoUrbanizacion || "").trim(),
+      direccion: (root?.dataset?.direccion || "").trim(),
+      comprobante: (root?.dataset?.comprobante || "").trim(),
+      ub_depto: (root?.dataset?.ubDepto || "").trim(),
+      ub_prov: (root?.dataset?.ubProv || "").trim(),
+      ub_dist: (root?.dataset?.ubDist || "").trim(),
+    };
+  }
+
+  // -------------------------
+  // Wizard UI
+  // -------------------------
+  function setStep(container, step) {
+    const steps = container.querySelectorAll(".ev-stepper .ev-step");
+    const panels = container.querySelectorAll(".ev-step-panel");
+
+    steps.forEach(s => {
+      const isActive = String(s.dataset.step) === String(step);
+      s.classList.toggle("active", isActive);
+      s.classList.toggle("done", Number(s.dataset.step) < Number(step));
+    });
+
+    panels.forEach(p => {
+      const show = String(p.dataset.panel) === String(step);
+      p.classList.toggle("d-none", !show);
+    });
+
+    const btnAnterior = $("#btnAnterior", container);
+    if (btnAnterior) btnAnterior.disabled = (Number(step) <= 1);
+
+    container.dataset.dpStep = String(step);
+  }
+
+  function currentStep(container) {
+    return Number(container.dataset.dpStep || "1");
+  }
+
+  // -------------------------
+  // Ubigeo
+  // -------------------------
   function resetSelect(sel, placeholder, { disabled = false } = {}) {
     if (!sel) return;
     sel.innerHTML = `<option value="">${placeholder}</option>`;
@@ -48,134 +126,10 @@
     });
   }
 
-  async function fetchJSON(url, opts = {}) {
-    const res = await fetch(url, {
-      method: opts.method || "GET",
-      cache: "no-store",
-      credentials: "include",
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-        "Accept": "application/json",
-        ...(opts.headers || {})
-      },
-      body: opts.body || null
-    });
-
-    const ct = (res.headers.get("content-type") || "").toLowerCase();
-    if (!ct.includes("application/json")) {
-      const txt = await res.text().catch(() => "");
-      throw new Error("Respuesta no JSON. " + (txt ? txt.slice(0, 120) : ""));
-    }
-
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data?.ok === false) {
-      throw new Error(data?.mensaje || data?.message || `HTTP ${res.status}`);
-    }
-    return data;
-  }
-
-  // ---- estado base (para detectar cambio de residencia) ----
-  function getResidenciaState() {
-    const root = document.getElementById("dp-residencia");
-    if (!root) {
-      return { tipo: "", codCondominio: "", codUrbanizacion: "", direccion: "", ub_depto: "", ub_prov: "", ub_dist: "" };
-    }
-
-    // Nota: dataset convierte kebab-case -> camelCase
-    return {
-      tipo: (root.dataset.tipo || "").trim(),
-      codCondominio: (root.dataset.codigoCondominio || "").trim(),
-      codUrbanizacion: (root.dataset.codigoUrbanizacion || "").trim(),
-      direccion: (root.dataset.direccion || "").trim(),
-      ub_depto: (root.dataset.ubDepto || "").trim(),
-      ub_prov: (root.dataset.ubProv || "").trim(),
-      ub_dist: (root.dataset.ubDist || "").trim(),
-      // departamento EV si existiera
-      codDepartamento: (root.dataset.codigoDepartamento || "").trim(),
-    };
-  }
-
-  function getFormState(form) {
-    const data = {};
-    form.querySelectorAll("input, select, textarea").forEach((el) => {
-      if (!el.id) return;
-      if (el.type === "file") return; // file no se compara en cancel
-      data[el.id] = el.value;
-    });
-    return data;
-  }
-
-  function setFormState(form, state) {
-    form.querySelectorAll("input, select, textarea").forEach((el) => {
-      if (!el.id || !(el.id in state)) return;
-      if (el.type === "file") return;
-      el.value = state[el.id];
-    });
-  }
-
-  function hasChanges(form, initialState) {
-    return Object.keys(initialState).some((id) => {
-      const el = form.querySelector("#" + id);
-      if (!el) return false;
-      return (el.value || "") !== (initialState[id] || "");
-    });
-  }
-
-  function toggleCancelar(form, initialState, btnCancelar) {
-    if (!btnCancelar) return;
-    btnCancelar.style.display = hasChanges(form, initialState) ? "inline-flex" : "none";
-  }
-
-  // ---- residencia UI + loaders ----
-  function currentTipo(container, base) {
-    const rCondo = container.querySelector("#dpTipoCondominio");
-    const rUrb = container.querySelector("#dpTipoUrbanizacion");
-    if (rCondo && rCondo.checked) return "condominio";
-    if (rUrb && rUrb.checked) return "urbanizacion";
-    return (base.tipo || "").toLowerCase();
-  }
-
-  function residenciaChanged(container, base) {
-    const tipo = currentTipo(container, base);
-
-    const condominio = container.querySelector("#comboCondominio")?.value || "";
-    const departamento = container.querySelector("#comboDepartamento")?.value || "";
-    const urbanizacion = container.querySelector("#comboUrbanizacion")?.value || "";
-    const direccion = container.querySelector("#direccion")?.value.trim() || "";
-
-    const ubD = container.querySelector("#dpUbDepto")?.value || "";
-    const ubP = container.querySelector("#dpUbProv")?.value || "";
-    const ubDi = container.querySelector("#dpUbDist")?.value || "";
-
-    if (String(tipo) !== String((base.tipo || "").toLowerCase())) return true;
-
-    if (tipo === "condominio") {
-      if (String(condominio) !== String(base.codCondominio)) return true;
-      // depto: si no tienes base.codDepartamento, igual detecta cambio cuando usuario selecciona uno distinto a vacío
-      if (base.codDepartamento) {
-        if (String(departamento) !== String(base.codDepartamento)) return true;
-      } else {
-        if (String(departamento || "") && String(departamento) !== String(base.codDepartamento || "")) return true;
-      }
-    }
-
-    if (tipo === "urbanizacion") {
-      if (String(urbanizacion) !== String(base.codUrbanizacion)) return true;
-    }
-
-    if (String(direccion) !== String(base.direccion)) return true;
-
-    if (String(ubD) !== String(base.ub_depto)) return true;
-    if (String(ubP) !== String(base.ub_prov)) return true;
-    if (String(ubDi) !== String(base.ub_dist)) return true;
-
-    return false;
-  }
-
   async function initUbigeo(container, base) {
-    const selDep = container.querySelector("#dpUbDepto");
-    const selProv = container.querySelector("#dpUbProv");
-    const selDist = container.querySelector("#dpUbDist");
+    const selDep = $("#dpUbDepto", container);
+    const selProv = $("#dpUbProv", container);
+    const selDist = $("#dpUbDist", container);
     if (!selDep || !selProv || !selDist) return;
 
     if (container.dataset.dpUbigeoInit === "1") return;
@@ -189,65 +143,38 @@
     resetSelect(selProv, "-- Seleccione --", { disabled: true });
     resetSelect(selDist, "-- Seleccione --", { disabled: true });
 
-    try {
-      const deps = await fetchJSON(API_UB_DEPTOS);
-      fillSelect(
-        selDep,
-        "-- Seleccione --",
-        Array.isArray(deps) ? deps : [],
-        (d) => ({ value: d.codigo_departamento, text: d.nombre_departamento }),
-        preDep
-      );
-      selDep.disabled = false;
-
-      // Si hay preselect, cargar provs
-      if (preDep) {
-        await loadProvincias(preDep, preProv, preDist);
-      }
-    } catch (e) {
-      console.error("[EV][Ubigeo] Error deps:", e);
-      resetSelect(selDep, "No se pudo cargar", { disabled: true });
-    }
-
     async function loadProvincias(depId, preselectProv = "", preselectDist = "") {
       resetSelect(selProv, "Cargando...", { disabled: true });
       resetSelect(selDist, "-- Seleccione --", { disabled: true });
-      try {
-        const provs = await fetchJSON(API_UB_PROVS(depId));
-        fillSelect(
-          selProv,
-          "-- Seleccione --",
-          Array.isArray(provs) ? provs : [],
-          (p) => ({ value: p.codigo_provincia, text: p.nombre_provincia }),
-          preselectProv
-        );
-        selProv.disabled = false;
+      const provs = await fetchJSON(API_UB_PROVS(depId));
+      fillSelect(selProv, "-- Seleccione --", Array.isArray(provs) ? provs : [], (p) => ({
+        value: p.codigo_provincia, text: p.nombre_provincia
+      }), preselectProv);
+      selProv.disabled = false;
 
-        if (preselectProv) {
-          await loadDistritos(preselectProv, preselectDist);
-        }
-      } catch (e) {
-        console.error("[EV][Ubigeo] Error provs:", e);
-        resetSelect(selProv, "No se pudo cargar", { disabled: true });
-      }
+      if (preselectProv) await loadDistritos(preselectProv, preselectDist);
     }
 
     async function loadDistritos(provId, preselectDist = "") {
       resetSelect(selDist, "Cargando...", { disabled: true });
-      try {
-        const dists = await fetchJSON(API_UB_DISTS(provId));
-        fillSelect(
-          selDist,
-          "-- Seleccione --",
-          Array.isArray(dists) ? dists : [],
-          (d) => ({ value: d.codigo_distrito, text: d.nombre_distrito }),
-          preselectDist
-        );
-        selDist.disabled = false;
-      } catch (e) {
-        console.error("[EV][Ubigeo] Error dists:", e);
-        resetSelect(selDist, "No se pudo cargar", { disabled: true });
-      }
+      const dists = await fetchJSON(API_UB_DISTS(provId));
+      fillSelect(selDist, "-- Seleccione --", Array.isArray(dists) ? dists : [], (d) => ({
+        value: d.codigo_distrito, text: d.nombre_distrito
+      }), preselectDist);
+      selDist.disabled = false;
+    }
+
+    try {
+      const deps = await fetchJSON(API_UB_DEPTOS);
+      fillSelect(selDep, "-- Seleccione --", Array.isArray(deps) ? deps : [], (d) => ({
+        value: d.codigo_departamento, text: d.nombre_departamento
+      }), preDep);
+      selDep.disabled = false;
+
+      if (preDep) await loadProvincias(preDep, preProv, preDist);
+    } catch (e) {
+      console.error("[EV][Ubigeo] Error:", e);
+      resetSelect(selDep, "No se pudo cargar", { disabled: true });
     }
 
     selDep.addEventListener("change", async () => {
@@ -258,6 +185,7 @@
         return;
       }
       await loadProvincias(depId, "", "");
+      refreshResidenciaUI(container, base);
     });
 
     selProv.addEventListener("change", async () => {
@@ -267,299 +195,437 @@
         return;
       }
       await loadDistritos(provId, "");
+      refreshResidenciaUI(container, base);
     });
+
+    selDist.addEventListener("change", () => refreshResidenciaUI(container, base));
+  }
+
+  // -------------------------
+  // Residencia (sin departamento)
+  // -------------------------
+  function currentTipo(container, base) {
+    const rCondo = $("#dpTipoCondominio", container);
+    const rUrb = $("#dpTipoUrbanizacion", container);
+    if (rCondo && rCondo.checked) return "condominio";
+    if (rUrb && rUrb.checked) return "urbanizacion";
+    return (base.tipo || "").toLowerCase();
+  }
+
+  function getResidenciaNow(container, base) {
+    const tipo = currentTipo(container, base);
+    const condominio = $("#comboCondominio", container)?.value || "";
+    const urbanizacion = $("#comboUrbanizacion", container)?.value || "";
+    const direccion = ($("#direccion", container)?.value || "").trim();
+
+    const ubD = $("#dpUbDepto", container)?.value || "";
+    const ubP = $("#dpUbProv", container)?.value || "";
+    const ubDi = $("#dpUbDist", container)?.value || "";
+
+    return { tipo, condominio, urbanizacion, direccion, ubD, ubP, ubDi };
+  }
+
+  function residenciaChanged(container, base) {
+    const now = getResidenciaNow(container, base);
+
+    if (String(now.tipo) !== String(base.tipo)) return true;
+
+    if (now.tipo === "condominio") {
+      if (String(now.condominio) !== String(base.codCondominio)) return true;
+    }
+    if (now.tipo === "urbanizacion") {
+      if (String(now.urbanizacion) !== String(base.codUrbanizacion)) return true;
+    }
+
+    if (String(now.direccion) !== String(base.direccion)) return true;
+
+    if (String(now.ubD) !== String(base.ub_depto)) return true;
+    if (String(now.ubP) !== String(base.ub_prov)) return true;
+    if (String(now.ubDi) !== String(base.ub_dist)) return true;
+
+    return false;
+  }
+
+  async function initCondominios(container, base) {
+    const combo = $("#comboCondominio", container);
+    if (!combo) return;
+
+    if (combo.dataset.evLoaded === "1") return;
+    combo.dataset.evLoaded = "1";
+
+    const pre = combo.dataset.valorRegistrado || base.codCondominio || "";
+
+    resetSelect(combo, "Cargando condominios...", { disabled: true });
+
+    try {
+      const data = await fetchJSON(API_CONDOMINIOS);
+      const arr = Array.isArray(data) ? data : [];
+
+      fillSelect(combo, "-- Seleccione condominio --", arr, (c) => ({
+        value: c.codigo_condominio,
+        text: c.nombre_condominio
+      }), pre);
+
+      const map = new Map();
+      arr.forEach(c => map.set(String(c.codigo_condominio), String(c.direccion_condominio || "")));
+      combo._evDirMap = map;
+
+      combo.disabled = false;
+
+      if (pre) {
+        const dir = map.get(String(pre)) || "";
+        const inputDir = $("#direccion", container);
+        if (inputDir) inputDir.value = dir || base.direccion || "";
+      }
+
+    } catch (e) {
+      console.error("[EV][Condominios] Error:", e);
+      resetSelect(combo, "No se pudo cargar", { disabled: true });
+    }
   }
 
   async function initUrbanizaciones(container, base) {
-    const comboUrbanizacion = container.querySelector("#comboUrbanizacion");
-    if (!comboUrbanizacion) return;
+    const combo = $("#comboUrbanizacion", container);
+    if (!combo) return;
 
-    // solo carga cuando se use
-    const preselect = comboUrbanizacion.dataset.valorRegistrado || base.codUrbanizacion || "";
+    if (combo.dataset.evLoaded === "1") return;
+    combo.dataset.evLoaded = "1";
 
-    resetSelect(comboUrbanizacion, "Cargando urbanizaciones...", { disabled: true });
+    const pre = combo.dataset.valorRegistrado || base.codUrbanizacion || "";
+
+    resetSelect(combo, "Cargando urbanizaciones...", { disabled: true });
 
     try {
       const data = await fetchJSON(API_URBANIZACIONES);
       const arr = Array.isArray(data) ? data : [];
-      fillSelect(
-        comboUrbanizacion,
-        "-- Seleccione urbanización --",
-        arr,
-        (u) => ({ value: u.codigo_urbanizacion, text: u.nombre_urbanizacion }),
-        preselect
-      );
-      comboUrbanizacion.disabled = false;
-    } catch (e) {
-      console.error("[EV][DatosPersonales] Error cargando urbanizaciones:", e);
-      resetSelect(comboUrbanizacion, "No se pudo cargar. Reintenta.", { disabled: true });
-    }
-  }
 
-  function initResidenciaUI(container) {
-    const base = getResidenciaState();
+      fillSelect(combo, "-- Seleccione urbanización --", arr, (u) => ({
+        value: u.codigo_urbanizacion,
+        text: u.nombre_urbanizacion
+      }), pre);
 
-    const wrapCondominio = container.querySelector("#wrapCondominio");
-    const wrapUrbanizacion = container.querySelector("#wrapUrbanizacion");
-    const wrapDireccion = container.querySelector("#wrapDireccion");
-    const wrapUpload = container.querySelector("#wrapUploadDomicilio");
+      const map = new Map();
+      arr.forEach(u => map.set(String(u.codigo_urbanizacion), String(u.direccion_urbanizacion || "")));
+      combo._evDirMap = map;
 
-    const inputDireccion = container.querySelector("#direccion");
-    const fileDoc = container.querySelector("#dpDocDomicilio");
+      combo.disabled = false;
 
-    if (!wrapCondominio || !wrapUrbanizacion || !wrapDireccion) return;
-
-    // Evita doble init
-    if (container.dataset.dpResidenciaInit === "1") return;
-    container.dataset.dpResidenciaInit = "1";
-
-    // set dirección desde base si faltara
-    if (inputDireccion) {
-      inputDireccion.value = inputDireccion.value || base.direccion || "";
-    }
-
-    // init ubigeo (si existe)
-    initUbigeo(container, base);
-
-    function refresh() {
-      const tipo = currentTipo(container, base);
-
-      setHidden(wrapCondominio, tipo !== "condominio");
-      setHidden(wrapUrbanizacion, tipo !== "urbanizacion");
-      setHidden(wrapDireccion, !(tipo === "condominio" || tipo === "urbanizacion"));
-
-      // Cargar combos según tipo
-      if (tipo === "condominio") {
-        if (window.EV_initCombosCondominio) {
-          try { window.EV_initCombosCondominio(); } catch (e) { console.warn("EV_initCombosCondominio error:", e); }
-        }
-      } else if (tipo === "urbanizacion") {
-        initUrbanizaciones(container, base);
+      if (pre) {
+        const dir = map.get(String(pre)) || "";
+        const inputDir = $("#direccion", container);
+        if (inputDir) inputDir.value = dir || base.direccion || "";
       }
 
-      const changed = residenciaChanged(container, base);
-      if (wrapUpload) setHidden(wrapUpload, !changed);
-
-      if (fileDoc) fileDoc.required = !!changed;
+    } catch (e) {
+      console.error("[EV][Urbanizaciones] Error:", e);
+      resetSelect(combo, "No se pudo cargar", { disabled: true });
     }
-
-    // listeners
-    ["#dpTipoCondominio", "#dpTipoUrbanizacion", "#comboCondominio", "#comboDepartamento", "#comboUrbanizacion", "#direccion", "#dpUbDepto", "#dpUbProv", "#dpUbDist"]
-      .forEach((sel) => {
-        const el = container.querySelector(sel);
-        if (!el) return;
-        el.addEventListener("change", refresh);
-        el.addEventListener("input", refresh);
-      });
-
-    refresh();
   }
 
-  // ---- guardado principal ----
+  function refreshResidenciaUI(container, base) {
+    const wrapCondo = $("#wrapCondominio", container);
+    const wrapUrb = $("#wrapUrbanizacion", container);
+    const wrapUp = $("#wrapUploadDomicilio", container);
+
+    const tipo = currentTipo(container, base);
+    setHidden(wrapCondo, tipo !== "condominio");
+    setHidden(wrapUrb, tipo !== "urbanizacion");
+
+    if (tipo === "condominio") initCondominios(container, base);
+    if (tipo === "urbanizacion") initUrbanizaciones(container, base);
+
+    const changed = residenciaChanged(container, base);
+    setHidden(wrapUp, !changed);
+
+    const file = $("#dpDocDomicilio", container);
+    if (file) file.required = !!changed;
+  }
+
+  function initFilePreview(container) {
+    const file = $("#dpDocDomicilio", container);
+    const wrap = $("#wrapFileSelected", container);
+    const aName = $("#dpFileSelectedName", container);
+    const meta = $("#dpFileSelectedMeta", container);
+    const btnRemove = $("#btnRemoveSelectedFile", container);
+
+    if (!file || !wrap || !aName || !meta || !btnRemove) return;
+
+    function humanSize(n) {
+      if (!Number.isFinite(n)) return "";
+      const kb = n / 1024;
+      if (kb < 1024) return `${kb.toFixed(0)} KB`;
+      return `${(kb / 1024).toFixed(2)} MB`;
+    }
+
+    function clearSelected() {
+      file.value = "";
+      setHidden(wrap, true);
+    }
+
+    file.addEventListener("change", () => {
+      const f = file.files && file.files[0] ? file.files[0] : null;
+      if (!f) return clearSelected();
+
+      aName.textContent = f.name || "archivo";
+      meta.textContent = `${(f.type || "file").toLowerCase()} · ${humanSize(f.size)}`;
+      setHidden(wrap, false);
+    });
+
+    btnRemove.addEventListener("click", clearSelected);
+  }
+
+  // -------------------------
+  // Submit (Actualizar)
+  // -------------------------
+  function hasPasswordIntent(container) {
+    const a = ($("#password_actual", container)?.value || "").trim();
+    const n = ($("#password_nueva", container)?.value || "").trim();
+    const c = ($("#password_confirmar", container)?.value || "").trim();
+    return (a !== "" || n !== "" || c !== "");
+  }
+
+  async function submitActualizar(container, base) {
+    const btn = $("#btnActualizar", container);
+    const original = btn ? btn.innerHTML : "";
+
+    const telefono = ($("#telefono", container)?.value || "").trim();
+
+    // ✅ PARCHE: estos 2 campos son requeridos por tu backend actualizarDatos()
+    const email = ($("#email", container)?.value || "").trim();
+    const nombreCompleto = ($("#nombre_completo", container)?.value || "").trim();
+
+    const ubD = $("#dpUbDepto", container)?.value || "";
+    const ubP = $("#dpUbProv", container)?.value || "";
+    const ubDi = $("#dpUbDist", container)?.value || "";
+
+    if (!ubD || !ubP || !ubDi) {
+      return swalWarn("Ubigeo requerido", "Selecciona Departamento, Provincia y Distrito.");
+    }
+
+    const now = getResidenciaNow(container, base);
+
+    if (now.tipo === "condominio") {
+      if (!now.condominio) return swalWarn("Selecciona tu condominio", "Debes seleccionar un condominio.");
+    } else if (now.tipo === "urbanizacion") {
+      if (!now.urbanizacion) return swalWarn("Selecciona tu urbanización", "Debes seleccionar una urbanización.");
+    } else {
+      return swalWarn("Residencia no definida", "No se pudo determinar el tipo de residencia.");
+    }
+
+    const cambioResidencia = residenciaChanged(container, base);
+    const wantsPass = hasPasswordIntent(container);
+
+    if (btn) {
+      btn.disabled = true;
+      btn.classList.add("saving");
+      btn.innerHTML = "Actualizando...";
+    }
+
+    try {
+      // 1) Si NO cambió residencia: actualizar datos básicos (/api/usuario/actualizar)
+      if (!cambioResidencia) {
+        const payload = {
+          // ✅ PARCHE: requeridos por backend
+          email: email,
+          nombre_completo: nombreCompleto,
+
+          telefono: telefono,
+
+          ubigeo_departamento: ubD,
+          ubigeo_provincia: ubP,
+          ubigeo_distrito: ubDi,
+
+          tipo_conjunto: now.tipo,
+          direccion: now.direccion,
+          codigo_condominio: now.tipo === "condominio" ? now.condominio : null,
+          codigo_urbanizacion: now.tipo === "urbanizacion" ? now.urbanizacion : null,
+        };
+
+        const res = await fetch(API_ACTUALIZAR, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+          },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || data.mensaje || data.error || `HTTP ${res.status}`);
+      }
+
+      // 2) Si cambió residencia: enviar solicitud (FormData + archivo)
+      if (cambioResidencia) {
+        const file = $("#dpDocDomicilio", container);
+        const f = file?.files?.[0] || null;
+
+        if (!f) return swalWarn("Adjunta un comprobante", "Para cambiar de domicilio debes adjuntar un comprobante.");
+
+        const max = 5 * 1024 * 1024;
+        const okType = /^(application\/pdf|image\/jpeg|image\/png)$/i.test(f.type);
+        const okExt = /\.(pdf|jpg|jpeg|png)$/i.test(f.name || "");
+        if (!(okType || okExt)) return swalWarn("Archivo no permitido", "Solo se permite PDF, JPG o PNG.");
+        if (f.size > max) return swalWarn("Archivo muy pesado", "El archivo no debe superar 5MB.");
+
+        const fd = new FormData();
+        fd.append("tipo_conjunto", now.tipo);
+        fd.append("direccion", now.direccion);
+
+        fd.append("codigo_condominio", now.tipo === "condominio" ? now.condominio : "");
+        fd.append("codigo_urbanizacion", now.tipo === "urbanizacion" ? now.urbanizacion : "");
+
+        fd.append("ubigeo_departamento", ubD);
+        fd.append("ubigeo_provincia", ubP);
+        fd.append("ubigeo_distrito", ubDi);
+
+        fd.append("documento_domicilio", f);
+
+        const res2 = await fetch(API_SOLICITAR_CAMBIO, {
+          method: "POST",
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+          credentials: "include",
+          body: fd,
+        });
+
+        const data2 = await res2.json().catch(() => ({}));
+        if (!res2.ok) throw new Error(data2.message || data2.mensaje || data2.error || `HTTP ${res2.status}`);
+      }
+
+      // 3) Password (si aplica)
+      if (wantsPass) {
+        const a = ($("#password_actual", container)?.value || "").trim();
+        const n = ($("#password_nueva", container)?.value || "").trim();
+        const c = ($("#password_confirmar", container)?.value || "").trim();
+
+        if (!a || !n || !c) return swalWarn("Campos incompletos", "Completa contraseña actual, nueva y confirmación.");
+        if (n !== c) return swalWarn("No coincide", "La nueva contraseña y la confirmación no coinciden.");
+        if (n.length < 8) return swalWarn("Contraseña débil", "La contraseña debe tener mínimo 8 caracteres.");
+        if (n === a) return swalWarn("Inválida", "La nueva contraseña debe ser distinta a la actual.");
+
+        const res3 = await fetch(API_CAMBIAR_CLAVE, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+          credentials: "include",
+          body: JSON.stringify({
+            password_actual: a,
+            password_nueva: n,
+            password_confirmar: c,
+          }),
+        });
+
+        const data3 = await res3.json().catch(() => ({}));
+        if (!res3.ok) throw new Error(data3.message || data3.mensaje || data3.error || `HTTP ${res3.status}`);
+
+        $("#password_actual", container).value = "";
+        $("#password_nueva", container).value = "";
+        $("#password_confirmar", container).value = "";
+      }
+
+      if (cambioResidencia) {
+        swalOk("Solicitud enviada", "Tu solicitud de cambio de domicilio fue enviada. Un administrador la revisará.");
+      } else if (wantsPass) {
+        swalOk("Actualizado", "Tus datos se actualizaron y tu contraseña fue cambiada.");
+      } else {
+        swalOk("Actualizado", "Tus datos se actualizaron correctamente.");
+      }
+
+    } catch (e) {
+      console.error("[EV][DatosPersonales] Error:", e);
+      swalErr(e.message || "No se pudo conectar con el servidor.");
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.classList.remove("saving");
+        btn.innerHTML = original;
+      }
+    }
+  }
+
+  // -------------------------
+  // Init principal
+  // -------------------------
   function initDatosPersonales() {
     const container = document.querySelector(".container-datos-personales");
     if (!container) return;
 
-    initResidenciaUI(container);
-
     if (container.dataset.dpInitialized === "1") return;
     container.dataset.dpInitialized = "1";
 
-    const form = container.querySelector("#formDatosPersonales");
-    if (!form) return;
+    const base = getBaseState();
 
-    const btnGuardar = container.querySelector("#btnGuardar");
-    const btnCancelar = container.querySelector("#btnCancelar");
+    setStep(container, 1);
 
-    let initialState = getFormState(form);
-    form.addEventListener("input", () => toggleCancelar(form, initialState, btnCancelar));
-    form.addEventListener("change", () => toggleCancelar(form, initialState, btnCancelar));
+    initUbigeo(container, base);
 
-    function swalWarn(title, text) {
-      Swal.fire({ icon: "warning", title, text, confirmButtonColor: "#115C41" });
-    }
+    initCondominios(container, base);
+    initUrbanizaciones(container, base);
 
-    function swalErr(text) {
-      Swal.fire({ icon: "error", title: "Error", text, confirmButtonColor: "#BF3604" });
-    }
+    const inputDir = $("#direccion", container);
+    if (inputDir) inputDir.value = inputDir.value || base.direccion || "";
 
-    function swalOk(title, text) {
-      Swal.fire({ icon: "success", title, text, confirmButtonColor: "#115C41" });
-    }
+    ["#dpTipoCondominio", "#dpTipoUrbanizacion", "#comboCondominio", "#comboUrbanizacion", "#dpUbDepto", "#dpUbProv", "#dpUbDist"]
+      .forEach(sel => {
+        const el = $(sel, container);
+        if (!el) return;
+        el.addEventListener("change", () => refreshResidenciaUI(container, base));
+      });
 
-    if (btnGuardar) {
-      btnGuardar.addEventListener("click", async (e) => {
-        e.preventDefault();
-
-        const base = getResidenciaState();
-
-        const nombre = container.querySelector("#nombre_completo")?.value.trim() || "";
-        const email = container.querySelector("#email")?.value.trim() || "";
-        const telefono = container.querySelector("#telefono")?.value.trim() || "";
-
-        const tipo = currentTipo(container, base); // condominio|urbanizacion
-        const direccion = container.querySelector("#direccion")?.value.trim() || "";
-
-        const condominio = container.querySelector("#comboCondominio")?.value || "";
-        const departamento = container.querySelector("#comboDepartamento")?.value || "";
-        const urbanizacion = container.querySelector("#comboUrbanizacion")?.value || "";
-
-        const ub_depto = container.querySelector("#dpUbDepto")?.value || "";
-        const ub_prov = container.querySelector("#dpUbProv")?.value || "";
-        const ub_dist = container.querySelector("#dpUbDist")?.value || "";
-
-        const fileDoc = container.querySelector("#dpDocDomicilio");
-
-        if (!nombre) return swalWarn("Completa tu nombre", "El campo nombre completo es obligatorio.");
-        if (!email) return swalWarn("Correo requerido", "No se encontró el correo asociado a tu cuenta.");
-
-        // Validación residencia mínima
-        if (tipo === "condominio") {
-          if (!condominio) return swalWarn("Selecciona tu condominio", "Debes seleccionar un condominio para continuar.");
-          if (!departamento) return swalWarn("Selecciona tu departamento", "Debes seleccionar un departamento para continuar.");
-          if (!direccion) return swalWarn("Dirección requerida", "Completa tu dirección para continuar.");
-        } else if (tipo === "urbanizacion") {
-          if (!urbanizacion) return swalWarn("Selecciona tu urbanización", "Debes seleccionar una urbanización para continuar.");
-          if (!direccion) return swalWarn("Dirección requerida", "Completa tu dirección para continuar.");
-        } else {
-          return swalWarn("Residencia no definida", "No se pudo determinar tu tipo de residencia. Contacta soporte.");
-        }
-
-        // Ubigeo recomendado/obligatorio para auditoría
-        if (!ub_depto || !ub_prov || !ub_dist) {
-          return swalWarn("Ubigeo requerido", "Selecciona Departamento, Provincia y Distrito para tu domicilio.");
-        }
-
-        const cambioResidencia = residenciaChanged(container, base);
-
-        btnGuardar.disabled = true;
-        btnGuardar.classList.add("saving");
-        const originalText = btnGuardar.innerHTML;
-        btnGuardar.innerHTML = "Guardando...";
-
-        try {
-          if (!cambioResidencia) {
-            // ✅ flujo actual (NO romper): JSON a /api/usuario/actualizar
-            const payload = {
-              email,
-              nombre_completo: nombre,
-              telefono,
-
-              tipo_conjunto: tipo,
-              direccion,
-
-              codigo_condominio: tipo === "condominio" ? condominio : null,
-              comboDepartamento: tipo === "condominio" ? departamento : null,
-              codigo_departamento: tipo === "condominio" ? departamento : null,
-
-              codigo_urbanizacion: tipo === "urbanizacion" ? urbanizacion : null,
-
-              ubigeo_departamento: ub_depto,
-              ubigeo_provincia: ub_prov,
-              ubigeo_distrito: ub_dist,
-            };
-
-            const res = await fetch(API_ACTUALIZAR, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-Requested-With": "XMLHttpRequest",
-              },
-              credentials: "include",
-              body: JSON.stringify(payload),
-            });
-
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data.message || data.mensaje || data.error || `Error HTTP ${res.status}`);
-
-            swalOk("Datos actualizados", data.message || data.mensaje || "Tus datos se guardaron correctamente.");
-            initialState = getFormState(form);
-            toggleCancelar(form, initialState, btnCancelar);
-            return;
-          }
-
-          // ✅ flujo NUEVO: Solicitud de cambio de residencia (FormData + archivo)
-          if (!fileDoc || !fileDoc.files || !fileDoc.files[0]) {
-            return swalWarn("Adjunta un recibo", "Para cambiar de domicilio debes adjuntar un recibo o comprobante.");
-          }
-
-          const f = fileDoc.files[0];
-          const max = 5 * 1024 * 1024;
-          const okType = /^(application\/pdf|image\/jpeg|image\/png)$/i.test(f.type);
-          const okExt = /\.(pdf|jpg|jpeg|png)$/i.test(f.name || "");
-          if (!(okType || okExt)) {
-            return swalWarn("Archivo no permitido", "Solo se permite PDF, JPG o PNG.");
-          }
-          if (f.size > max) {
-            return swalWarn("Archivo muy pesado", "El archivo no debe superar 5MB.");
-          }
-
-          const fd = new FormData();
-          fd.append("email", email);
-          fd.append("telefono", telefono);
-          fd.append("nombre_completo", nombre);
-
-          fd.append("tipo_conjunto", tipo);
-          fd.append("direccion", direccion);
-
-          fd.append("codigo_condominio", tipo === "condominio" ? condominio : "");
-          fd.append("codigo_departamento", tipo === "condominio" ? departamento : "");
-          fd.append("codigo_urbanizacion", tipo === "urbanizacion" ? urbanizacion : "");
-
-          fd.append("ubigeo_departamento", ub_depto);
-          fd.append("ubigeo_provincia", ub_prov);
-          fd.append("ubigeo_distrito", ub_dist);
-
-          // archivo
-          fd.append("documento_domicilio", f);
-
-          const res2 = await fetch(API_SOLICITAR_CAMBIO, {
-            method: "POST",
-            headers: { "X-Requested-With": "XMLHttpRequest" },
-            credentials: "include",
-            body: fd,
-          });
-
-          const data2 = await res2.json().catch(() => ({}));
-          if (!res2.ok) throw new Error(data2.message || data2.mensaje || data2.error || `Error HTTP ${res2.status}`);
-
-          swalOk(
-            "Solicitud enviada",
-            data2.mensaje || "Tu solicitud de cambio de domicilio fue enviada. Un administrador la revisará."
-          );
-
-          // Importante: NO actualizamos base local automáticamente; se aplica solo tras aprobación admin.
-          initialState = getFormState(form);
-          toggleCancelar(form, initialState, btnCancelar);
-
-        } catch (err) {
-          console.error("[EV][DatosPersonales] Error:", err);
-          swalErr(err.message || "No se pudo conectar con el servidor.");
-        } finally {
-          btnGuardar.disabled = false;
-          btnGuardar.classList.remove("saving");
-          btnGuardar.innerHTML = originalText;
-        }
+    const cCondo = $("#comboCondominio", container);
+    if (cCondo) {
+      cCondo.addEventListener("change", () => {
+        const id = cCondo.value || "";
+        const dir = cCondo._evDirMap ? (cCondo._evDirMap.get(String(id)) || "") : "";
+        const d = $("#direccion", container);
+        if (d) d.value = dir || "";
+        refreshResidenciaUI(container, base);
       });
     }
 
-    if (btnCancelar) {
-      btnCancelar.addEventListener("click", (e) => {
-        e.preventDefault();
-        setFormState(form, initialState);
-        toggleCancelar(form, initialState, btnCancelar);
+    const cUrb = $("#comboUrbanizacion", container);
+    if (cUrb) {
+      cUrb.addEventListener("change", () => {
+        const id = cUrb.value || "";
+        const dir = cUrb._evDirMap ? (cUrb._evDirMap.get(String(id)) || "") : "";
+        const d = $("#direccion", container);
+        if (d) d.value = dir || "";
+        refreshResidenciaUI(container, base);
       });
+    }
+
+    refreshResidenciaUI(container, base);
+    initFilePreview(container);
+
+    container.querySelectorAll(".ev-stepper .ev-step").forEach(s => {
+      s.addEventListener("click", () => {
+        const step = Number(s.dataset.step || "1");
+        setStep(container, step);
+      });
+    });
+
+    const btnAnterior = $("#btnAnterior", container);
+    if (btnAnterior) {
+      btnAnterior.addEventListener("click", () => {
+        const step = currentStep(container);
+        if (step > 1) setStep(container, step - 1);
+      });
+    }
+
+    const btnActualizar = $("#btnActualizar", container);
+    if (btnActualizar) {
+      btnActualizar.addEventListener("click", async (e) => {
+        e.preventDefault();
+        await submitActualizar(container, base);
+      });
+    }
+
+    const main = document.getElementById("contenido-principal");
+    if (main && container.dataset.dpObs !== "1") {
+      container.dataset.dpObs = "1";
+      const obs = new MutationObserver(() => {});
+      obs.observe(main, { childList: true, subtree: true });
     }
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
-    initDatosPersonales();
-
-    const main = document.getElementById("contenido-principal");
-    if (main && !initializedOnce) {
-      initializedOnce = true;
-      const observer = new MutationObserver(() => initDatosPersonales());
-      observer.observe(main, { childList: true, subtree: true });
-    }
-  });
+  document.addEventListener("DOMContentLoaded", initDatosPersonales);
 })();

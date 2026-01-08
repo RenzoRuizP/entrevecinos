@@ -26,4 +26,24 @@ class Urbanizacion extends Conexion
         $st->execute();
         return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
+
+    /**
+     * ✅ NUEVO: Obtiene la dirección de la urbanización por ID.
+     * Usado para Opción A (dirección desde BD; no confiar en POST si el input está disabled).
+     */
+    public function obtenerDireccionPorId(int $codigoUrbanizacion): string
+    {
+        if ($codigoUrbanizacion <= 0) return '';
+
+        $sql = "SELECT direccion_urbanizacion
+                FROM urbanizacion
+                WHERE codigo_urbanizacion = :id
+                LIMIT 1";
+        $st = $this->dblink->prepare($sql);
+        $st->bindParam(':id', $codigoUrbanizacion, PDO::PARAM_INT);
+        $st->execute();
+
+        $dir = $st->fetchColumn();
+        return is_string($dir) ? trim($dir) : '';
+    }
 }

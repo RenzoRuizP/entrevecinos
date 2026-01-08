@@ -2,9 +2,10 @@
 // models/User.php
 require_once __DIR__ . '/../database/Conexion.php';
 
-class User extends Conexion {
-
-    public function registrar($data) {
+class User extends Conexion
+{
+    public function registrar($data)
+    {
         $stmt = null;
 
         try {
@@ -63,7 +64,6 @@ class User extends Conexion {
 
             $ok = $stmt->execute();
 
-            // Importante: cuando se usan CALL, libera cursor para siguientes queries
             try { $stmt->closeCursor(); } catch (Throwable $e) {}
 
             return $ok;
@@ -76,7 +76,8 @@ class User extends Conexion {
         }
     }
 
-    public function DatosUsuario($email) {
+    public function DatosUsuario($email)
+    {
         $sql = "
             SELECT
                 u.codigo_usuario AS codigo_usuario,
@@ -84,30 +85,31 @@ class User extends Conexion {
                 u.email,
                 u.documento,
                 u.telefono,
+                u.codigo_rol AS codigo_rol,
 
                 ur.tipo_conjunto,
+                ur.codigo_condominio AS codigo_condominio,
+                ur.codigo_urbanizacion AS codigo_urbanizacion,
                 ur.direccion,
                 ur.comprobante_domicilio,
 
-                c.codigo_condominio,
                 c.nombre_condominio,
-
-                ub.codigo_urbanizacion,
                 ub.nombre_urbanizacion
 
             FROM usuario u
-            INNER JOIN usuario_residencia ur
+            LEFT JOIN usuario_residencia ur
                 ON u.codigo_usuario = ur.codigo_usuario
             LEFT JOIN condominio c
                 ON ur.codigo_condominio = c.codigo_condominio
             LEFT JOIN urbanizacion ub
                 ON ur.codigo_urbanizacion = ub.codigo_urbanizacion
             WHERE u.email = :email
+            ORDER BY ur.codigo_usuario_residencia DESC
             LIMIT 1
         ";
 
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindParam(':email', $email);
+        $stmt->bindParam(':email', $email, PDO::PARAM_STR);
         $stmt->execute();
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }

@@ -708,4 +708,63 @@ CREATE TABLE IF NOT EXISTS urbanizacion (
     FOREIGN KEY (codigo_distrito) REFERENCES ubigeo_distrito(codigo_distrito)
     ON UPDATE CASCADE
     ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
+
+ALTER TABLE usuario
+  MODIFY estado TINYINT(1) NOT NULL DEFAULT 1
+  COMMENT '0=Inactivo, 1=En revisión, 2=Habilitado';
+
+
+
+--
+
+CREATE TABLE `usuario_residencia_solicitud` (
+  `codigo_solicitud` int(11) NOT NULL AUTO_INCREMENT,
+  `codigo_usuario` int(11) NOT NULL,
+
+  `tipo_conjunto` enum('condominio','urbanizacion') NOT NULL,
+  `codigo_condominio` int(11) DEFAULT NULL,
+  `codigo_urbanizacion` int(11) DEFAULT NULL,
+  `codigo_departamento` int(11) DEFAULT NULL,
+
+  `direccion` varchar(250) NOT NULL,
+  `comprobante_domicilio` varchar(255) NOT NULL,
+
+  `estado` enum('pendiente','observada','aprobada','rechazada') NOT NULL DEFAULT 'pendiente',
+  `comentario_admin` varchar(500) DEFAULT NULL,
+
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+
+  PRIMARY KEY (`codigo_solicitud`),
+  KEY `idx_urs_usuario` (`codigo_usuario`),
+  KEY `idx_urs_estado` (`estado`),
+  KEY `idx_urs_condominio` (`codigo_condominio`),
+  KEY `idx_urs_urbanizacion` (`codigo_urbanizacion`),
+
+  CONSTRAINT `fk_urs_usuario` FOREIGN KEY (`codigo_usuario`) REFERENCES `usuario` (`codigo_usuario`),
+  CONSTRAINT `fk_urs_condominio` FOREIGN KEY (`codigo_condominio`) REFERENCES `condominio` (`codigo_condominio`),
+  CONSTRAINT `fk_urs_urbanizacion` FOREIGN KEY (`codigo_urbanizacion`) REFERENCES `urbanizacion` (`codigo_urbanizacion`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=UTF8MB4_GENERAL_CI;
+
+
+ALTER TABLE usuario_residencia_solicitud
+  DROP FOREIGN KEY fk_urs_condominio,
+  DROP FOREIGN KEY fk_urs_urbanizacion,
+  DROP FOREIGN KEY fk_urs_usuario;
+
+-- Si existe FK hacia departamento, bórralo también (depende de tu BD real)
+-- SHOW CREATE TABLE usuario_residencia_solicitud;  -- úsalo para ver el nombre exacto del FK
+
+ALTER TABLE usuario_residencia_solicitud
+  DROP COLUMN codigo_departamento;
+
+-- Vuelve a crear FKs (sin departamento)
+ALTER TABLE usuario_residencia_solicitud
+  ADD CONSTRAINT fk_urs_usuario FOREIGN KEY (codigo_usuario) REFERENCES usuario (codigo_usuario),
+  ADD CONSTRAINT fk_urs_condominio FOREIGN KEY (codigo_condominio) REFERENCES condominio (codigo_condominio),
+  ADD CONSTRAINT fk_urs_urbanizacion FOREIGN KEY (codigo_urbanizacion) REFERENCES urbanizacion (codigo_urbanizacion);
+
+ALTER TABLE usuario_residencia_solicitud
+  DROP COLUMN codigo_departamento;

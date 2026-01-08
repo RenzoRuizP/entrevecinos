@@ -1,11 +1,13 @@
 <?php
 // controllers/api/usuarioDatosController.php
-// EV — API: Datos de usuario + Solicitud cambio de residencia
+// EV — API: Datos de usuario + Solicitud cambio de residencia (Opción A: sin departamento)
 
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../models/Usuario.php';
 require_once __DIR__ . '/../../models/UsuarioResidenciaSolicitud.php';
+require_once __DIR__ . '/../../models/CondominioModel.php';
+require_once __DIR__ . '/../../models/Urbanizacion.php';
 
 class usuarioDatosController
 {
@@ -20,6 +22,25 @@ class usuarioDatosController
     {
         $auth = $GLOBALS['EV_AUTH'] ?? [];
         return (int)($auth['codigo_usuario'] ?? 0);
+    }
+
+    private function normalizeTipo(string $tipo): string
+    {
+        return strtolower(trim($tipo));
+    }
+
+    /**
+     * Dirección: NO confiar en POST cuando el input es disabled.
+     * Regla: se toma desde BD según tipo_conjunto.
+     */
+    private function obtenerDireccionDesdeBD(string $tipo, int $codCon, int $codUrb): string
+    {
+        if ($tipo === 'condominio') {
+            $m = new CondominioModel();
+            return trim((string)$m->obtenerDireccionPorId($codCon));
+        }
+        $m = new Urbanizacion();
+        return trim((string)$m->obtenerDireccionPorId($codUrb));
     }
 
     public function obtenerDatos(): void
@@ -39,10 +60,7 @@ class usuarioDatosController
                 return;
             }
 
-            $this->json(200, [
-                'success' => true,
-                'usuario' => $usuario,
-            ]);
+            $this->json(200, ['success' => true, 'usuario' => $usuario]);
         } catch (Throwable $e) {
             $this->json(500, [
                 'success' => false,
@@ -81,10 +99,12 @@ class usuarioDatosController
                 return;
             }
 
+            // Importante: este endpoint NO debe aplicar cambios de residencia si tú quieres que
+            // cambios de residencia vayan por solicitud.
+            // Si tu Usuario::actualizarDatos hoy actualiza usuario_residencia, entonces en tu JS
+            // debes asegurarte de que cuando hay cambio de residencia NO se llame a /actualizar
+            // sino a /solicitar-cambio-residencia (como ya lo estás planteando).
             $usuarioModel = new Usuario();
-
-            // Importante: tu modelo debe validar internamente qué campos actualiza.
-            // Aquí no rompemos compatibilidad: enviamos $data tal cual.
             $usuarioModel->actualizarDatos($codigoUsuario, $data);
 
             $this->json(200, [
@@ -107,18 +127,16 @@ class usuarioDatosController
     }
 
     /**
-     * POST /api/usuario/residencia/solicitar  (sugerido)
+     * POST /api/usuario/solicitar-cambio-residencia
      * FormData:
      * - tipo_conjunto: condominio|urbanizacion
      * - codigo_condominio (si condominio)
-     * - codigo_departamento (si condominio)
      * - codigo_urbanizacion (si urbanizacion)
-     * - direccion
+     * - ubigeo_departamento, ubigeo_provincia, ubigeo_distrito (obligatorios por tu requerimiento actual)
      * - documento_domicilio (file: pdf|jpg|jpeg|png <= 5MB)
      *
-     * Nota: ubigeo_* se valida si lo envías desde UI, pero NO se inserta
-     * en BD porque tu tabla usuario_residencia_solicitud (según tu modelo)
-     * no lo tiene aún. Cuando lo agregues a tabla, se amplía.
+     * Dirección:
+     * - Se toma desde BD (condominio/urbanizacion) y se guarda en solicitud.
      */
     public function solicitarCambioResidencia(): void
     {
@@ -129,14 +147,11 @@ class usuarioDatosController
                 return;
             }
 
-            $tipo   = strtolower(trim((string)($_POST['tipo_conjunto'] ?? '')));
-            $dir    = trim((string)($_POST['direccion'] ?? ''));
+            $tipo = $this->normalizeTipo((string)($_POST['tipo_conjunto'] ?? ''));
 
             $codCon = (int)($_POST['codigo_condominio'] ?? 0);
-            $codDep = (int)($_POST['codigo_departamento'] ?? 0);
             $codUrb = (int)($_POST['codigo_urbanizacion'] ?? 0);
 
-            // Si en UI envías ubigeo, lo validamos (sin persistir por ahora)
             $ubDep  = trim((string)($_POST['ubigeo_departamento'] ?? ''));
             $ubProv = trim((string)($_POST['ubigeo_provincia'] ?? ''));
             $ubDist = trim((string)($_POST['ubigeo_distrito'] ?? ''));
@@ -145,21 +160,16 @@ class usuarioDatosController
                 $this->json(422, ['ok' => false, 'mensaje' => 'Tipo de conjunto inválido.']);
                 return;
             }
-            if ($dir === '') {
-                $this->json(422, ['ok' => false, 'mensaje' => 'Dirección requerida.']);
-                return;
-            }
 
-            // Ubigeo: si lo mandas, debe estar completo (no obligamos si tu UI aún no lo usa)
-            $algunoUbigeo = ($ubDep !== '' || $ubProv !== '' || $ubDist !== '');
-            if ($algunoUbigeo && ($ubDep === '' || $ubProv === '' || $ubDist === '')) {
-                $this->json(422, ['ok' => false, 'mensaje' => 'Ubigeo incompleto.']);
+            // Ubigeo obligatorio (según tu requerimiento)
+            if ($ubDep === '' || $ubProv === '' || $ubDist === '') {
+                $this->json(422, ['ok' => false, 'mensaje' => 'Ubigeo requerido.']);
                 return;
             }
 
             if ($tipo === 'condominio') {
-                if ($codCon <= 0 || $codDep <= 0) {
-                    $this->json(422, ['ok' => false, 'mensaje' => 'Condominio y departamento son obligatorios.']);
+                if ($codCon <= 0) {
+                    $this->json(422, ['ok' => false, 'mensaje' => 'Condominio obligatorio.']);
                     return;
                 }
             } else {
@@ -169,9 +179,16 @@ class usuarioDatosController
                 }
             }
 
+            // Dirección real desde BD
+            $direccion = $this->obtenerDireccionDesdeBD($tipo, $codCon, $codUrb);
+            if ($direccion === '') {
+                $this->json(422, ['ok' => false, 'mensaje' => 'No se pudo obtener la dirección desde BD.']);
+                return;
+            }
+
             // Archivo
             if (!isset($_FILES['documento_domicilio']) || !is_array($_FILES['documento_domicilio'])) {
-                $this->json(422, ['ok' => false, 'mensaje' => 'Adjunta un documento de domicilio.']);
+                $this->json(422, ['ok' => false, 'mensaje' => 'Adjunta un comprobante de domicilio.']);
                 return;
             }
 
@@ -195,33 +212,32 @@ class usuarioDatosController
                 return;
             }
 
-            // Guardado físico
-            $uploadsDir = __DIR__ . '/../../uploads/residencias';
+            // Guardado físico (ESTÁNDAR FINAL)
+            $uploadsDir = __DIR__ . '/../../resources/uploads/comprobantes';
             if (!is_dir($uploadsDir)) {
                 @mkdir($uploadsDir, 0775, true);
             }
 
-            $safeFile = 'residencia_' . $codigoUsuario . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+            $safeFile = 'comp_res_' . $codigoUsuario . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
             $destPath = $uploadsDir . '/' . $safeFile;
 
-            if (!move_uploaded_file((string)$f['tmp_name'], $destPath)) {
+            if (!move_uploaded_file((string)($f['tmp_name'] ?? ''), $destPath)) {
                 $this->json(500, ['ok' => false, 'mensaje' => 'No se pudo guardar el archivo.']);
                 return;
             }
 
-            // Ruta relativa (para BD) — consistente con tu modelo UsuarioResidenciaSolicitud::crear(...)
-            $rutaRelativa = 'uploads/residencias/' . $safeFile;
+            // Ruta relativa a guardar en BD (ESTÁNDAR FINAL)
+            $rutaRelativa = 'resources/uploads/comprobantes/' . $safeFile;
 
-            // Registrar solicitud (BD)
+            // Registrar solicitud (BD) - sin departamento
             $model = new UsuarioResidenciaSolicitud();
 
             $idSolicitud = $model->crear($codigoUsuario, [
                 'tipo_conjunto'        => $tipo,
                 'codigo_condominio'    => ($tipo === 'condominio')   ? $codCon : null,
-                'codigo_departamento'  => ($tipo === 'condominio')   ? $codDep : null,
                 'codigo_urbanizacion'  => ($tipo === 'urbanizacion') ? $codUrb : null,
-                'direccion'            => $dir,
-                // ubigeo_* no se inserta porque tu tabla/modelo no lo contemplan aún
+                'direccion'            => $direccion, // <-- desde BD
+                // ubigeo_* (no persiste aquí salvo que lo agregues a la tabla)
             ], $rutaRelativa);
 
             $this->json(200, [
@@ -235,6 +251,106 @@ class usuarioDatosController
             $this->json(500, [
                 'ok' => false,
                 'mensaje' => 'ERROR_SERVIDOR',
+                'detalle' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function cambiarClave(): void
+    {
+        try {
+            $codigoUsuario = $this->authUserId();
+            if ($codigoUsuario <= 0) {
+                $this->json(401, ['success' => false, 'error' => 'UNAUTHORIZED']);
+                return;
+            }
+
+            $rawInput = file_get_contents('php://input');
+            $data = json_decode($rawInput ?: '[]', true);
+
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($data)) {
+                $this->json(400, [
+                    'success' => false,
+                    'error'   => 'JSON_INVALIDO',
+                    'detalle' => json_last_error_msg(),
+                ]);
+                return;
+            }
+
+            $actual = trim((string)($data['password_actual'] ?? ''));
+            $nueva  = trim((string)($data['password_nueva'] ?? ''));
+            $conf   = trim((string)($data['password_confirmar'] ?? ''));
+
+            if ($actual === '' || $nueva === '' || $conf === '') {
+                $this->json(422, [
+                    'success' => false,
+                    'error'   => 'DATOS_INCOMPLETOS',
+                    'message' => 'Completa los 3 campos.'
+                ]);
+                return;
+            }
+
+            if ($nueva !== $conf) {
+                $this->json(422, [
+                    'success' => false,
+                    'error'   => 'NO_COINCIDE',
+                    'message' => 'La nueva contraseña y la confirmación no coinciden.'
+                ]);
+                return;
+            }
+
+            if (strlen($nueva) < 8) {
+                $this->json(422, [
+                    'success' => false,
+                    'error'   => 'CLAVE_DEBIL',
+                    'message' => 'La contraseña debe tener mínimo 8 caracteres.'
+                ]);
+                return;
+            }
+
+            if ($nueva === $actual) {
+                $this->json(422, [
+                    'success' => false,
+                    'error'   => 'CLAVE_IGUAL',
+                    'message' => 'La nueva contraseña debe ser distinta a la actual.'
+                ]);
+                return;
+            }
+
+            $usuarioModel = new Usuario();
+
+            // Requiere que existan estos métodos en Usuario.php
+            $hash = $usuarioModel->obtenerHashClave($codigoUsuario);
+            if (!$hash || !password_verify($actual, (string)$hash)) {
+                $this->json(403, [
+                    'success' => false,
+                    'error'   => 'CLAVE_ACTUAL_INVALIDA',
+                    'message' => 'La contraseña actual no es correcta.'
+                ]);
+                return;
+            }
+
+            $hashNueva = password_hash($nueva, PASSWORD_BCRYPT);
+
+            $ok = $usuarioModel->actualizarClave($codigoUsuario, $hashNueva);
+            if (!$ok) {
+                $this->json(500, [
+                    'success' => false,
+                    'error'   => 'NO_SE_PUDO_ACTUALIZAR',
+                    'message' => 'No se pudo actualizar la contraseña.'
+                ]);
+                return;
+            }
+
+            $this->json(200, [
+                'success' => true,
+                'message' => 'Contraseña actualizada correctamente.'
+            ]);
+
+        } catch (Throwable $e) {
+            $this->json(500, [
+                'success' => false,
+                'error'   => 'ERROR_SERVIDOR',
                 'detalle' => $e->getMessage(),
             ]);
         }
