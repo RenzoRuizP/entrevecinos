@@ -220,8 +220,3 @@ require_once __DIR__ . '/../Config/config.php';
     </div>
   </div>
 </div>
-
-<script>
-  window.EV_BASE_URL = "<?= rtrim(BASE_URL, '/'); ?>";
-</script>
-<script src="<?= rtrim(BASE_URL, '/'); ?>/views/js/atenderPublicacion.js"></script>

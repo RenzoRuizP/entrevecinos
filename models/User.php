@@ -5,6 +5,8 @@ require_once __DIR__ . '/../database/Conexion.php';
 class User extends Conexion {
 
     public function registrar($data) {
+        $stmt = null;
+
         try {
             $hash = password_hash($data['clave'], PASSWORD_BCRYPT);
 
@@ -59,8 +61,17 @@ class User extends Conexion {
                 $stmt->bindValue(':comprobante_domicilio', null, PDO::PARAM_NULL);
             }
 
-            return $stmt->execute();
-        } catch (Exception $e) {
+            $ok = $stmt->execute();
+
+            // Importante: cuando se usan CALL, libera cursor para siguientes queries
+            try { $stmt->closeCursor(); } catch (Throwable $e) {}
+
+            return $ok;
+
+        } catch (Throwable $e) {
+            if ($stmt) {
+                try { $stmt->closeCursor(); } catch (Throwable $t) {}
+            }
             throw $e;
         }
     }

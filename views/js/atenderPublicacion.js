@@ -2,6 +2,12 @@
 (function () {
   "use strict";
 
+  // ✅ Blindaje: si NO estamos en la vista At. Publicación, no inicializar
+  // (usa un ancla real de tu vista; aquí lo más crítico es tbodyItems)
+  const $ = (s) => document.querySelector(s);
+  const tbody = $("#tbodyItems");
+  if (!tbody) return;
+
   // ===== BASE robusto (compatibilidad con tu app) =====
   const rawBase =
     (window.BASE_URL || window.EV_BASE_URL || "/entrevecinos").toString().trim();
@@ -13,9 +19,7 @@
   const API_DET = (id) => `${BASE}/api/soporte/productos/${id}`;
   const API_ESTADO = (id) => `${BASE}/api/soporte/productos/${id}/estado`;
 
-  const $ = (s) => document.querySelector(s);
-
-  const tbody = $("#tbodyItems");
+  // Otros refs (opcionales)
   const lblMeta = $("#lblMeta");
   const lblPend = $("#lblPendientes");
   const lblFooterLeft = $("#lblFooterLeft");
@@ -28,7 +32,7 @@
   const fTexto = $("#fTexto");
 
   const modalEl = $("#modalPub");
-  const modal = modalEl ? new bootstrap.Modal(modalEl) : null;
+  const modal = (modalEl && window.bootstrap) ? new bootstrap.Modal(modalEl) : null;
 
   const mTitulo = $("#mTitulo");
   const mPrecio = $("#mPrecio");
@@ -107,7 +111,6 @@
 
     const ct = (r.headers.get("content-type") || "").toLowerCase();
 
-    // Si NO es JSON, casi seguro es login/HTML/plantilla => no lo aceptamos
     if (!ct.includes("application/json")) {
       const txt = await r.text().catch(() => "");
       const snippet = txt ? txt.slice(0, 180) : "";
@@ -177,8 +180,8 @@
 
   function buildListUrl() {
     const params = new URLSearchParams();
-    params.set("estado", (fEstado.value || "pendiente").toLowerCase());
-    params.set("q", (fTexto.value || "").trim());
+    params.set("estado", ((fEstado && fEstado.value) ? fEstado.value : "pendiente").toLowerCase());
+    params.set("q", (fTexto && fTexto.value ? fTexto.value : "").trim());
     params.set("page", String(state.page));
     params.set("size", String(state.size));
     return `${API_LIST}?${params.toString()}`;
@@ -216,8 +219,6 @@
     try {
       const data = await apiGet(buildListUrl());
 
-      // Formato A: { ok:true, data:{...} }
-      // Formato B: { ok:true, total, items, ... }
       const payload = (data && data.data && typeof data.data === "object")
         ? data.data
         : data;
@@ -245,6 +246,7 @@
 
     } catch (e) {
       console.error("[EV][ATENDER_PUBLICACION]", e);
+
       tbody.innerHTML = `
         <tr>
           <td colspan="6">
@@ -301,26 +303,30 @@
     const comentario = (mComentario?.value || "").trim();
 
     if (nuevo === "rechazada" && comentario.length < 3) {
-      Swal.fire({
-        icon: "warning",
-        title: "Comentario requerido",
-        text: "Debes ingresar un comentario para rechazar.",
-        confirmButtonText: "Entendido",
-        confirmButtonColor: "#0F592F",
-      });
+      if (window.Swal) {
+        Swal.fire({
+          icon: "warning",
+          title: "Comentario requerido",
+          text: "Debes ingresar un comentario para rechazar.",
+          confirmButtonText: "Entendido",
+          confirmButtonColor: "#0F592F",
+        });
+      }
       return;
     }
 
     await apiPost(API_ESTADO(id), { estado: nuevo, comentario });
     modal && modal.hide();
 
-    Swal.fire({
-      icon: "success",
-      title: "Listo",
-      text: "Estado actualizado correctamente.",
-      confirmButtonText: "Entendido",
-      confirmButtonColor: "#0F592F",
-    });
+    if (window.Swal) {
+      Swal.fire({
+        icon: "success",
+        title: "Listo",
+        text: "Estado actualizado correctamente.",
+        confirmButtonText: "Entendido",
+        confirmButtonColor: "#0F592F",
+      });
+    }
 
     await cargarLista();
   }
@@ -370,18 +376,20 @@
     cargarLista();
   });
 
-  tbody?.addEventListener("click", (e) => {
+  tbody.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-action='ver']");
     if (!btn) return;
     const id = btn.getAttribute("data-id");
     abrirDetalle(id).catch((err) => {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: err.message || "No se pudo abrir el detalle.",
-        confirmButtonText: "Entendido",
-        confirmButtonColor: "#0F592F",
-      });
+      if (window.Swal) {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: err.message || "No se pudo abrir el detalle.",
+          confirmButtonText: "Entendido",
+          confirmButtonColor: "#0F592F",
+        });
+      }
     });
   });
 

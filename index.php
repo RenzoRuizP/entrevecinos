@@ -112,7 +112,7 @@ safeRequire(__DIR__ . '/controllers/AuthController.php');
 safeRequire(__DIR__ . '/controllers/MenuPrincipalController.php');
 safeRequire(__DIR__ . '/controllers/CondominioController.php');
 safeRequire(__DIR__ . '/controllers/UrbanizacionController.php');
-safeRequire(__DIR__ . '/controllers/UbigeoController.php'); // ✅ NUEVO
+safeRequire(__DIR__ . '/controllers/UbigeoController.php');
 safeRequire(__DIR__ . '/controllers/UserController.php');
 safeRequire(__DIR__ . '/controllers/miPerfilController.php');
 safeRequire(__DIR__ . '/controllers/productoController.php');
@@ -122,9 +122,8 @@ safeRequire(__DIR__ . '/controllers/billeteraController.php');
 safeRequire(__DIR__ . '/controllers/credencialController.php');
 safeRequire(__DIR__ . '/controllers/recibirPedidosController.php');
 safeRequire(__DIR__ . '/controllers/atenderRecargasController.php');
-
-// ✅ NUEVO: atender publicación (vista)
 safeRequire(__DIR__ . '/controllers/atenderPublicacionController.php');
+safeRequire(__DIR__ . '/controllers/atenderCuentasUsuarioController.php');
 
 // API Controllers
 safeRequire(__DIR__ . '/controllers/api/usuarioDatosController.php');
@@ -133,9 +132,8 @@ safeRequire(__DIR__ . '/controllers/api/apiPedidoController.php');
 safeRequire(__DIR__ . '/controllers/api/apiSoporteRecargasController.php');
 safeRequire(__DIR__ . '/controllers/api/apiRecargaSaldoController.php');
 safeRequire(__DIR__ . '/controllers/api/apiProductoController.php');
-
-// ✅ NUEVO: API soporte productos
 safeRequire(__DIR__ . '/controllers/api/apiSoporteProductosController.php');
+safeRequire(__DIR__ . '/controllers/api/apiSoporteUsuariosController.php');
 
 // ------------------------------
 // 2) Normalización BASE_URL / basePath
@@ -180,7 +178,7 @@ $publicRoutes = [
     '#^/tipos$#',
     '#^/tipos/(\d+)/categoria_grupo$#',
 
-    // ✅ NUEVO: ubigeo
+    // ubigeo
     '#^/ubigeo/departamentos$#',
     '#^/ubigeo/departamentos/(\d+)/provincias$#',
     '#^/ubigeo/provincias/(\d+)/distritos$#',
@@ -205,10 +203,10 @@ $routes = [
     // --- Urbanizaciones ---
     ['GET',  '#^/urbanizaciones$#',             [UrbanizacionController::class, 'listar'],            'json'],
 
-    // ✅ NUEVO: Ubigeo
-    ['GET',  '#^/ubigeo/departamentos$#',                 [UbigeoController::class, 'departamentos'], 'json'],
-    ['GET',  '#^/ubigeo/departamentos/(\d+)/provincias$#',[UbigeoController::class, 'provincias'],    'json'],
-    ['GET',  '#^/ubigeo/provincias/(\d+)/distritos$#',    [UbigeoController::class, 'distritos'],     'json'],
+    // --- Ubigeo ---
+    ['GET',  '#^/ubigeo/departamentos$#',                  [UbigeoController::class, 'departamentos'], 'json'],
+    ['GET',  '#^/ubigeo/departamentos/(\d+)/provincias$#', [UbigeoController::class, 'provincias'],    'json'],
+    ['GET',  '#^/ubigeo/provincias/(\d+)/distritos$#',     [UbigeoController::class, 'distritos'],     'json'],
 
     // --- Tipos / Categorías ---
     ['GET',  '#^/tipos$#',                       [tipoController::class, 'listar'],                'json'],
@@ -230,9 +228,13 @@ $routes = [
     ['GET', '#^/credencial$#',       [credencialController::class, 'index'],      'html'],
     ['GET', '#^/recibir$#',          [recibirPedidosController::class, 'index'],  'html'],
     ['GET', '#^/atender-recargas$#', [atenderRecargasController::class, 'index'], 'html'],
-
-    // ✅ NUEVO: Atender publicación (vista soporte)
     ['GET', '#^/atender-publicacion$#', [atenderPublicacionController::class, 'index'], 'html'],
+
+    // ✅ IMPORTANTE: ruta real del menú (BD) => /atender-cuentas
+    ['GET', '#^/atender-cuentas$#', [atenderCuentasUsuarioController::class, 'index'], 'html'],
+
+    // ✅ Compatibilidad (por si ya lo usaste antes)
+    ['GET', '#^/atender-cuentas-usuario$#', [atenderCuentasUsuarioController::class, 'index'], 'html'],
 
     // --- API Usuario ---
     ['GET',  '#^/api/usuario/datos$#',       [usuarioDatosController::class, 'obtenerDatos'],     'json'],
@@ -260,13 +262,17 @@ $routes = [
     ['GET',  '#^/api/soporte/recargas$#',              [apiSoporteRecargasController::class, 'listar'],           'json'],
     ['POST', '#^/api/soporte/recargas/(\d+)/estado$#', [apiSoporteRecargasController::class, 'actualizarEstado'], 'json'],
 
-    // ✅ NUEVO: API Soporte Productos (Atender publicación)
+    // --- API Soporte Productos ---
     ['GET',  '#^/api/soporte/productos$#',              [apiSoporteProductosController::class, 'listar'], 'json'],
     ['GET',  '#^/api/soporte/productos/(\d+)$#',        [apiSoporteProductosController::class, 'detalle'], 'json'],
     ['POST', '#^/api/soporte/productos/(\d+)/estado$#', [apiSoporteProductosController::class, 'actualizarEstado'], 'json'],
 
+    // ✅ API Soporte Usuarios (Atender cuentas)
+    ['GET',  '#^/api/soporte/usuarios$#',              [apiSoporteUsuariosController::class, 'listar'], 'json'],
+    ['POST', '#^/api/soporte/usuarios/(\d+)/estado$#', [apiSoporteUsuariosController::class, 'actualizarEstado'], 'json'],
+
     // --- API Recargas ---
-    ['POST', '#^/api/recargas/registrar$#',            [apiRecargaSaldoController::class, 'registrar'],         'json'],
+    ['POST', '#^/api/recargas/registrar$#',            [apiRecargaSaldoController::class, 'registrar'], 'json'],
 ];
 
 // ============================================================
