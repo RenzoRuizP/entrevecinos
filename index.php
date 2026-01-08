@@ -135,6 +135,9 @@ safeRequire(__DIR__ . '/controllers/api/apiProductoController.php');
 safeRequire(__DIR__ . '/controllers/api/apiSoporteProductosController.php');
 safeRequire(__DIR__ . '/controllers/api/apiSoporteUsuariosController.php');
 
+// ✅ NUEVO: soporte cambios de residencia (admin)
+safeRequire(__DIR__ . '/controllers/api/apiSoporteResidenciasController.php');
+
 // ------------------------------
 // 2) Normalización BASE_URL / basePath
 // ------------------------------
@@ -232,13 +235,16 @@ $routes = [
 
     // ✅ IMPORTANTE: ruta real del menú (BD) => /atender-cuentas
     ['GET', '#^/atender-cuentas$#', [atenderCuentasUsuarioController::class, 'index'], 'html'],
-
-    // ✅ Compatibilidad (por si ya lo usaste antes)
+    // ✅ Compatibilidad
     ['GET', '#^/atender-cuentas-usuario$#', [atenderCuentasUsuarioController::class, 'index'], 'html'],
 
     // --- API Usuario ---
     ['GET',  '#^/api/usuario/datos$#',       [usuarioDatosController::class, 'obtenerDatos'],     'json'],
     ['POST', '#^/api/usuario/actualizar$#',  [usuarioDatosController::class, 'actualizarDatos'],  'json'],
+
+    // ✅ NUEVO: Solicitud de cambio de residencia (con upload)
+    // Nota: esto lo atiende usuarioDatosController (o el controller que ya uses), pero aquí queda la ruta.
+    ['POST', '#^/api/usuario/solicitar-cambio-residencia$#', [usuarioDatosController::class, 'solicitarCambioResidencia'], 'json'],
 
     // --- API Producto ---
     ['POST', '#^/api/producto/registrar$#',        [apiProductoController::class, 'registrarProducto'],  'json'],
@@ -270,6 +276,10 @@ $routes = [
     // ✅ API Soporte Usuarios (Atender cuentas)
     ['GET',  '#^/api/soporte/usuarios$#',              [apiSoporteUsuariosController::class, 'listar'], 'json'],
     ['POST', '#^/api/soporte/usuarios/(\d+)/estado$#', [apiSoporteUsuariosController::class, 'actualizarEstado'], 'json'],
+
+    // ✅ NUEVO: API Soporte Residencias (Atender cuentas: cambios de residencia)
+    ['GET',  '#^/api/soporte/residencias$#',              [apiSoporteResidenciasController::class, 'listar'], 'json'],
+    ['POST', '#^/api/soporte/residencias/(\d+)/estado$#', [apiSoporteResidenciasController::class, 'actualizarEstado'], 'json'],
 
     // --- API Recargas ---
     ['POST', '#^/api/recargas/registrar$#',            [apiRecargaSaldoController::class, 'registrar'], 'json'],

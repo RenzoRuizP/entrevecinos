@@ -15,7 +15,7 @@ require_once __DIR__ . '/../Config/config.php';
       <div class="ev-hero-top">
         <div class="ev-hero-left">
           <h1 class="ev-au-title mb-1">Atender cuentas de usuario</h1>
-          <div class="ev-au-subtitle">Revisa y habilita cuentas registradas (estado “En revisión”).</div>
+          <div class="ev-au-subtitle">Revisa cuentas en estado “En revisión” y solicitudes de cambio de residencia.</div>
         </div>
 
         <div class="ev-hero-right">
@@ -158,12 +158,84 @@ require_once __DIR__ . '/../Config/config.php';
   </div>
 
 </div>
-<!-- Debe ir si o si esta ruta porque si no, no se muestra la lista de usuario por revisar-->
+
+<!-- MODAL: Detalle de Usuario -->
+<div class="modal fade" id="modalUsuario" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content ev-modal">
+      <div class="modal-header ev-modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-person-vcard me-2"></i> Detalle de usuario
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body ev-modal-body">
+        <div class="row g-4">
+
+          <div class="col-12 col-lg-6">
+            <div class="ev-kv">
+              <div class="ev-kv-item"><span>Nombre:</span> <strong id="mNombre">—</strong></div>
+              <div class="ev-kv-item"><span>Email:</span> <strong id="mEmail">—</strong></div>
+              <div class="ev-kv-item"><span>Teléfono:</span> <strong id="mTelefono">—</strong></div>
+              <div class="ev-kv-item"><span>Documento:</span> <strong id="mDocumento">—</strong></div>
+              <div class="ev-kv-item"><span>Residencia:</span> <strong id="mResidencia">—</strong></div>
+
+              <!-- Preparado para cuando tu API devuelva tipo_solicitud -->
+              <div class="ev-kv-item"><span>Solicitud:</span> <strong id="mTipoSolicitud">—</strong></div>
+
+              <div class="ev-kv-item"><span>Estado:</span> <span id="mEstadoBadge" class="ev-badge ev-review">—</span></div>
+            </div>
+
+            <div class="ev-hint mt-3">
+              <i class="bi bi-info-circle me-2"></i>
+              Valida el recibo (luz/agua/internet) y confirma que el nombre/dirección coincidan con el registro del usuario.
+            </div>
+          </div>
+
+          <div class="col-12 col-lg-6">
+            <div class="ev-proof">
+              <div class="ev-proof-title">
+                <i class="bi bi-file-earmark-text me-2"></i> Recibo / Comprobante de domicilio
+              </div>
+
+              <div class="ev-proof-box">
+                <img id="mDocImg" src="" alt="Documento" class="img-fluid d-none">
+                <iframe id="mDocPdf" class="ev-doc-frame d-none" src="" title="Documento PDF"></iframe>
+
+                <div id="mNoDoc" class="ev-proof-empty">
+                  No hay documento adjunto.
+                </div>
+              </div>
+
+              <div class="ev-proof-actions">
+                <a href="#" id="mDocLink" target="_blank" rel="noopener" class="btn ev-btn-light btn-sm d-none">
+                  <i class="bi bi-box-arrow-up-right me-1"></i> Abrir en nueva pestaña
+                </a>
+              </div>
+
+              <div class="ev-proof-hint">
+                Si el documento es PDF y no se previsualiza en tu navegador, usa “Abrir en nueva pestaña”.
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="modal-footer ev-modal-footer">
+        <button type="button" class="btn ev-btn-light" data-bs-dismiss="modal">
+          <i class="bi bi-x-circle me-1"></i> Cerrar
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <script src="<?= rtrim(BASE_URL,'/') ?>/views/js/atenderCuentasUsuario.js"></script>
 
 <script>
-  // Atajos UX (sin tocar tu JS principal)
-  // Cambia el select y dispara change (tu JS ya escucha)
   (function(){
     const fEstado = document.getElementById('fEstado');
     if(!fEstado) return;
