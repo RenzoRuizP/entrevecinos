@@ -23,6 +23,23 @@
     el.classList.toggle("d-none", !!hidden);
   }
 
+  function safeSwal() {
+    return (typeof window.Swal !== "undefined" && window.Swal && typeof window.Swal.fire === "function");
+  }
+
+  function swalWarn(title, text) {
+    if (!safeSwal()) { alert(`${title}\n\n${text}`); return; }
+    Swal.fire({ icon: "warning", title, text, confirmButtonColor: "#115C41" });
+  }
+  function swalErr(text) {
+    if (!safeSwal()) { alert(`Error\n\n${text}`); return; }
+    Swal.fire({ icon: "error", title: "Error", text, confirmButtonColor: "#BF3604" });
+  }
+  function swalOk(title, text) {
+    if (!safeSwal()) { alert(`${title}\n\n${text}`); return; }
+    Swal.fire({ icon: "success", title, text, confirmButtonColor: "#115C41" });
+  }
+
   async function fetchJSON(url, opts = {}) {
     const res = await fetch(url, {
       method: opts.method || "GET",
@@ -47,16 +64,6 @@
       throw new Error(data?.message || data?.mensaje || data?.error || `HTTP ${res.status}`);
     }
     return data;
-  }
-
-  function swalWarn(title, text) {
-    Swal.fire({ icon: "warning", title, text, confirmButtonColor: "#115C41" });
-  }
-  function swalErr(text) {
-    Swal.fire({ icon: "error", title: "Error", text, confirmButtonColor: "#BF3604" });
-  }
-  function swalOk(title, text) {
-    Swal.fire({ icon: "success", title, text, confirmButtonColor: "#115C41" });
   }
 
   function getBaseState() {
@@ -95,10 +102,27 @@
     if (btnAnterior) btnAnterior.disabled = (Number(step) <= 1);
 
     container.dataset.dpStep = String(step);
+    syncPrimaryCTA(container);
   }
 
   function currentStep(container) {
     return Number(container.dataset.dpStep || "1");
+  }
+
+  function syncPrimaryCTA(container) {
+    const btn = $("#btnActualizar", container);
+    if (!btn) return;
+
+    const step = currentStep(container);
+
+    if (!btn.dataset.labelActualizar) btn.dataset.labelActualizar = btn.textContent.trim() || "Actualizar";
+    if (!btn.dataset.labelSiguiente) btn.dataset.labelSiguiente = "Siguiente";
+
+    if (step < 3) {
+      btn.innerHTML = `<i class="bi bi-arrow-right me-1"></i> ${btn.dataset.labelSiguiente}`;
+    } else {
+      btn.innerHTML = `<i class="fas fa-save me-1"></i> ${btn.dataset.labelActualizar}`;
+    }
   }
 
   // -------------------------
@@ -135,9 +159,9 @@
     if (container.dataset.dpUbigeoInit === "1") return;
     container.dataset.dpUbigeoInit = "1";
 
-    const preDep = selDep.dataset.valorRegistrado || base.ub_depto || "";
-    const preProv = selProv.dataset.valorRegistrado || base.ub_prov || "";
-    const preDist = selDist.dataset.valorRegistrado || base.ub_dist || "";
+    const preDep  = selDep.dataset.valorRegistrado  || base.ub_depto || "";
+    const preProv = selProv.dataset.valorRegistrado || base.ub_prov  || "";
+    const preDist = selDist.dataset.valorRegistrado || base.ub_dist  || "";
 
     resetSelect(selDep, "Cargando...", { disabled: true });
     resetSelect(selProv, "-- Seleccione --", { disabled: true });
@@ -146,6 +170,7 @@
     async function loadProvincias(depId, preselectProv = "", preselectDist = "") {
       resetSelect(selProv, "Cargando...", { disabled: true });
       resetSelect(selDist, "-- Seleccione --", { disabled: true });
+
       const provs = await fetchJSON(API_UB_PROVS(depId));
       fillSelect(selProv, "-- Seleccione --", Array.isArray(provs) ? provs : [], (p) => ({
         value: p.codigo_provincia, text: p.nombre_provincia
@@ -178,31 +203,39 @@
     }
 
     selDep.addEventListener("change", async () => {
-      const depId = selDep.value;
-      if (!depId) {
-        resetSelect(selProv, "-- Seleccione --", { disabled: true });
-        resetSelect(selDist, "-- Seleccione --", { disabled: true });
-        return;
+      try {
+        const depId = selDep.value;
+        if (!depId) {
+          resetSelect(selProv, "-- Seleccione --", { disabled: true });
+          resetSelect(selDist, "-- Seleccione --", { disabled: true });
+          return;
+        }
+        await loadProvincias(depId, "", "");
+        refreshResidenciaUI(container, base);
+      } catch (e) {
+        console.error("[EV][Ubigeo] change dep:", e);
       }
-      await loadProvincias(depId, "", "");
-      refreshResidenciaUI(container, base);
     });
 
     selProv.addEventListener("change", async () => {
-      const provId = selProv.value;
-      if (!provId) {
-        resetSelect(selDist, "-- Seleccione --", { disabled: true });
-        return;
+      try {
+        const provId = selProv.value;
+        if (!provId) {
+          resetSelect(selDist, "-- Seleccione --", { disabled: true });
+          return;
+        }
+        await loadDistritos(provId, "");
+        refreshResidenciaUI(container, base);
+      } catch (e) {
+        console.error("[EV][Ubigeo] change prov:", e);
       }
-      await loadDistritos(provId, "");
-      refreshResidenciaUI(container, base);
     });
 
     selDist.addEventListener("change", () => refreshResidenciaUI(container, base));
   }
 
   // -------------------------
-  // Residencia (sin departamento)
+  // Residencia
   // -------------------------
   function currentTipo(container, base) {
     const rCondo = $("#dpTipoCondominio", container);
@@ -254,7 +287,6 @@
     combo.dataset.evLoaded = "1";
 
     const pre = combo.dataset.valorRegistrado || base.codCondominio || "";
-
     resetSelect(combo, "Cargando condominios...", { disabled: true });
 
     try {
@@ -277,7 +309,6 @@
         const inputDir = $("#direccion", container);
         if (inputDir) inputDir.value = dir || base.direccion || "";
       }
-
     } catch (e) {
       console.error("[EV][Condominios] Error:", e);
       resetSelect(combo, "No se pudo cargar", { disabled: true });
@@ -292,7 +323,6 @@
     combo.dataset.evLoaded = "1";
 
     const pre = combo.dataset.valorRegistrado || base.codUrbanizacion || "";
-
     resetSelect(combo, "Cargando urbanizaciones...", { disabled: true });
 
     try {
@@ -315,7 +345,6 @@
         const inputDir = $("#direccion", container);
         if (inputDir) inputDir.value = dir || base.direccion || "";
       }
-
     } catch (e) {
       console.error("[EV][Urbanizaciones] Error:", e);
       resetSelect(combo, "No se pudo cargar", { disabled: true });
@@ -375,7 +404,7 @@
   }
 
   // -------------------------
-  // Submit (Actualizar)
+  // Submit
   // -------------------------
   function hasPasswordIntent(container) {
     const a = ($("#password_actual", container)?.value || "").trim();
@@ -389,10 +418,6 @@
     const original = btn ? btn.innerHTML : "";
 
     const telefono = ($("#telefono", container)?.value || "").trim();
-
-    // ✅ PARCHE: estos 2 campos son requeridos por tu backend actualizarDatos()
-    const email = ($("#email", container)?.value || "").trim();
-    const nombreCompleto = ($("#nombre_completo", container)?.value || "").trim();
 
     const ubD = $("#dpUbDepto", container)?.value || "";
     const ubP = $("#dpUbProv", container)?.value || "";
@@ -422,19 +447,12 @@
     }
 
     try {
-      // 1) Si NO cambió residencia: actualizar datos básicos (/api/usuario/actualizar)
       if (!cambioResidencia) {
         const payload = {
-          // ✅ PARCHE: requeridos por backend
-          email: email,
-          nombre_completo: nombreCompleto,
-
           telefono: telefono,
-
           ubigeo_departamento: ubD,
           ubigeo_provincia: ubP,
           ubigeo_distrito: ubDi,
-
           tipo_conjunto: now.tipo,
           direccion: now.direccion,
           codigo_condominio: now.tipo === "condominio" ? now.condominio : null,
@@ -455,7 +473,6 @@
         if (!res.ok) throw new Error(data.message || data.mensaje || data.error || `HTTP ${res.status}`);
       }
 
-      // 2) Si cambió residencia: enviar solicitud (FormData + archivo)
       if (cambioResidencia) {
         const file = $("#dpDocDomicilio", container);
         const f = file?.files?.[0] || null;
@@ -471,14 +488,13 @@
         const fd = new FormData();
         fd.append("tipo_conjunto", now.tipo);
         fd.append("direccion", now.direccion);
-
         fd.append("codigo_condominio", now.tipo === "condominio" ? now.condominio : "");
         fd.append("codigo_urbanizacion", now.tipo === "urbanizacion" ? now.urbanizacion : "");
-
         fd.append("ubigeo_departamento", ubD);
         fd.append("ubigeo_provincia", ubP);
         fd.append("ubigeo_distrito", ubDi);
 
+        // IMPORTANTE: el backend espera "documento_domicilio" (según tu JS original)
         fd.append("documento_domicilio", f);
 
         const res2 = await fetch(API_SOLICITAR_CAMBIO, {
@@ -492,7 +508,6 @@
         if (!res2.ok) throw new Error(data2.message || data2.mensaje || data2.error || `HTTP ${res2.status}`);
       }
 
-      // 3) Password (si aplica)
       if (wantsPass) {
         const a = ($("#password_actual", container)?.value || "").trim();
         const n = ($("#password_nueva", container)?.value || "").trim();
@@ -538,6 +553,7 @@
         btn.disabled = false;
         btn.classList.remove("saving");
         btn.innerHTML = original;
+        syncPrimaryCTA(container);
       }
     }
   }
@@ -545,17 +561,19 @@
   // -------------------------
   // Init principal
   // -------------------------
-  function initDatosPersonales() {
-    const container = document.querySelector(".container-datos-personales");
+  function initDatosPersonales(rootEl) {
+    const container = rootEl || document.querySelector(".container-datos-personales");
     if (!container) return;
 
-    if (container.dataset.dpInitialized === "1") return;
+    if (container.dataset.dpInitialized === "1") {
+      syncPrimaryCTA(container);
+      return;
+    }
     container.dataset.dpInitialized = "1";
 
     const base = getBaseState();
 
     setStep(container, 1);
-
     initUbigeo(container, base);
 
     initCondominios(container, base);
@@ -615,17 +633,37 @@
     if (btnActualizar) {
       btnActualizar.addEventListener("click", async (e) => {
         e.preventDefault();
+
+        const step = currentStep(container);
+        if (step < 3) {
+          setStep(container, step + 1);
+          return;
+        }
+
         await submitActualizar(container, base);
       });
     }
 
-    const main = document.getElementById("contenido-principal");
-    if (main && container.dataset.dpObs !== "1") {
-      container.dataset.dpObs = "1";
-      const obs = new MutationObserver(() => {});
-      obs.observe(main, { childList: true, subtree: true });
-    }
+    syncPrimaryCTA(container);
   }
 
-  document.addEventListener("DOMContentLoaded", initDatosPersonales);
+  // -------------------------
+  // Boot determinístico (SIN MutationObserver)
+  // -------------------------
+  function boot() {
+    initDatosPersonales();
+  }
+
+  // Carga directa
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+
+  // Carga AJAX: el core de navegación debe disparar este evento al insertar HTML
+  // (En mi propuesta de menuIzquierda.js ya lo disparo: document.dispatchEvent(new CustomEvent("ev:content-loaded", ...)))
+  document.addEventListener("ev:content-loaded", () => {
+    initDatosPersonales();
+  });
 })();

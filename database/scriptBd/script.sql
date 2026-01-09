@@ -297,20 +297,42 @@ SELECT
                     
                     
                     
-                    
-                    
-                    
-                    
-                    
-                    SELECT 
-                        m_i.codigo_menu_item ,m_i.nombre, m_i.icono
-                    FROM 
-                        rol r INNER JOIN menu_item_accesos m_i_a
-                    ON 
-                        r.codigo_rol = m_i_a.codigo_rol INNER JOIN menu_item m_i
-                    ON
-                        m_i.codigo_menu_item = m_i_a.codigo_menu_item INNER JOIN menu m
-                    ON
-                        m.codigo_menu = m_i.codigo_menu
-                    WHERE 
-                        r.nombre LIKE 'vecino' and m.codigo_menu = 2 and m_i_a.acceso = 'A';
+-- Verifica que condominio tiene codigo_distrito
+SHOW COLUMNS FROM condominio LIKE 'codigo_distrito';
+
+-- Verifica FK y el índice
+SHOW CREATE TABLE condominio;
+
+-- Verifica que urbanizacion existe
+SHOW TABLES LIKE 'urbanizacion';
+
+-- Verifica ubigeo
+SHOW TABLES LIKE 'ubigeo_%';
+
+
+
+
+
+
+
+
+INSERT INTO ubigeo_departamento (codigo_departamento, nombre_departamento, estado)
+VALUES (15, 'Lima', 'A');
+
+INSERT INTO ubigeo_provincia (codigo_provincia, codigo_departamento, nombre_provincia, estado)
+VALUES (1501, 15, 'Lima', 'A');
+
+INSERT INTO ubigeo_distrito (codigo_distrito, codigo_provincia, nombre_distrito, estado)
+VALUES
+(150113, 1501, 'Chorrillos', 'A'),
+(150104, 1501, 'Barranco', 'A');
+
+
+UPDATE condominio
+SET codigo_distrito = 150113
+WHERE codigo_condominio IN (1,2);
+
+INSERT INTO urbanizacion (nombre_urbanizacion, direccion_urbanizacion, codigo_distrito, estado)
+VALUES ('Urbanización Los Álamos', 'Av. Principal 123', 150113, 'A');
+
+

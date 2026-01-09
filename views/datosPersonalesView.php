@@ -11,7 +11,6 @@ require_once __DIR__ . '/../Config/config.php';
   $direccionResidencia = (string)($datosUsuario['direccion'] ?? '');
   $comprobante         = (string)($datosUsuario['comprobante_domicilio'] ?? '');
 
-  // Ubigeo (si no lo tienes persistido, quedará vacío)
   $ub_depto = (string)($datosUsuario['ubigeo_departamento'] ?? '');
   $ub_prov  = (string)($datosUsuario['ubigeo_provincia'] ?? '');
   $ub_dist  = (string)($datosUsuario['ubigeo_distrito'] ?? '');
@@ -31,19 +30,19 @@ require_once __DIR__ . '/../Config/config.php';
 ></div>
 
 <div class="container-datos-personales fade-in">
-  <div class="card shadow-lg border-0 rounded-4 ev-datos-card">
+  <div class="card shadow-sm border-0 rounded-4 ev-datos-card">
 
-    <!-- HEADER -->
-    <div class="card-header d-flex align-items-center justify-content-between">
+    <!-- HEADER (blanco estilo Mis Productos) -->
+    <div class="card-header bg-white border-0 d-flex align-items-center justify-content-between py-4 px-4">
       <div class="d-flex align-items-center gap-3">
         <span class="ev-datos-icon">
           <i class="bi bi-person-badge-fill"></i>
         </span>
-        <div>
-          <h5 class="mb-1">Mi perfil</h5>
-          <small class="ev-datos-subtitle">
+        <div class="lh-sm">
+          <div class="fw-bold" style="font-size: 1.35rem; color: #0F592F;">Mi perfil</div>
+          <div class="text-muted" style="font-size: .95rem;">
             Actualiza tu información. Los cambios de residencia requieren verificación.
-          </small>
+          </div>
         </div>
       </div>
     </div>
@@ -70,13 +69,9 @@ require_once __DIR__ . '/../Config/config.php';
 
       <form id="formDatosPersonales" class="ev-wizard" autocomplete="off" enctype="multipart/form-data">
 
-        <!-- =========================
-             PASO 1: DATOS PERSONALES
-        ========================== -->
+        <!-- PASO 1 -->
         <section class="ev-step-panel" data-panel="1">
-
           <div class="row g-3">
-            <!-- Nombre completo (disabled) -->
             <div class="col-md-6">
               <label for="nombre_completo" class="form-label ev-form-label">Nombre completo</label>
               <input
@@ -88,7 +83,6 @@ require_once __DIR__ . '/../Config/config.php';
               >
             </div>
 
-            <!-- Documento (disabled) -->
             <div class="col-md-6">
               <label for="documento" class="form-label ev-form-label">Documento de identidad</label>
               <input
@@ -100,7 +94,6 @@ require_once __DIR__ . '/../Config/config.php';
               >
             </div>
 
-            <!-- Email (disabled) -->
             <div class="col-md-6">
               <label for="email" class="form-label ev-form-label">Correo electrónico</label>
               <input
@@ -112,7 +105,6 @@ require_once __DIR__ . '/../Config/config.php';
               >
             </div>
 
-            <!-- Teléfono -->
             <div class="col-md-6">
               <label for="telefono" class="form-label ev-form-label">Teléfono</label>
               <input
@@ -133,9 +125,7 @@ require_once __DIR__ . '/../Config/config.php';
           </div>
         </section>
 
-        <!-- =========================
-             PASO 2: RESIDENCIA
-        ========================== -->
+        <!-- PASO 2 -->
         <section class="ev-step-panel d-none" data-panel="2">
           <div class="row g-3">
 
@@ -146,7 +136,6 @@ require_once __DIR__ . '/../Config/config.php';
               </div>
             </div>
 
-            <!-- Ubigeo -->
             <div class="col-md-4">
               <label for="dpUbDepto" class="form-label ev-form-label">Departamento (Ubigeo)</label>
               <select id="dpUbDepto" class="form-select ev-input-rounded"
@@ -169,7 +158,6 @@ require_once __DIR__ . '/../Config/config.php';
               </select>
             </div>
 
-            <!-- Tipo de conjunto -->
             <div class="col-12">
               <label class="form-label ev-form-label mb-2">Conjunto residencial</label>
               <div class="d-flex flex-wrap gap-3">
@@ -187,36 +175,39 @@ require_once __DIR__ . '/../Config/config.php';
             </div>
 
             <!-- Condominio -->
-            <div id="wrapCondominio" class="row g-3">
-              <div class="col-md-6">
-                <label for="comboCondominio" class="form-label ev-form-label">Condominio</label>
-                <select
-                  id="comboCondominio"
-                  name="comboCondominio"
-                  class="form-select ev-input-rounded"
-                  data-valor-registrado="<?= htmlspecialchars($codigoCondominio, ENT_QUOTES, 'UTF-8'); ?>"
-                >
-                  <option value="">-- Seleccione condominio --</option>
-                </select>
+            <div class="col-12" id="wrapCondominio">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="comboCondominio" class="form-label ev-form-label">Condominio</label>
+                  <select
+                    id="comboCondominio"
+                    name="comboCondominio"
+                    class="form-select ev-input-rounded"
+                    data-valor-registrado="<?= htmlspecialchars($codigoCondominio, ENT_QUOTES, 'UTF-8'); ?>"
+                  >
+                    <option value="">-- Seleccione condominio --</option>
+                  </select>
+                </div>
               </div>
             </div>
 
             <!-- Urbanización -->
-            <div id="wrapUrbanizacion" class="row g-3 d-none">
-              <div class="col-md-6">
-                <label for="comboUrbanizacion" class="form-label ev-form-label">Urbanización</label>
-                <select
-                  id="comboUrbanizacion"
-                  name="comboUrbanizacion"
-                  class="form-select ev-input-rounded"
-                  data-valor-registrado="<?= htmlspecialchars($codigoUrbanizacion, ENT_QUOTES, 'UTF-8'); ?>"
-                >
-                  <option value="">-- Seleccione urbanización --</option>
-                </select>
+            <div class="col-12 d-none" id="wrapUrbanizacion">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="comboUrbanizacion" class="form-label ev-form-label">Urbanización</label>
+                  <select
+                    id="comboUrbanizacion"
+                    name="comboUrbanizacion"
+                    class="form-select ev-input-rounded"
+                    data-valor-registrado="<?= htmlspecialchars($codigoUrbanizacion, ENT_QUOTES, 'UTF-8'); ?>"
+                  >
+                    <option value="">-- Seleccione urbanización --</option>
+                  </select>
+                </div>
               </div>
             </div>
 
-            <!-- Dirección (disabled, se autocompleta al elegir condominio/urbanización) -->
             <div class="col-12">
               <label for="direccion" class="form-label ev-form-label">Dirección</label>
               <input
@@ -226,12 +217,9 @@ require_once __DIR__ . '/../Config/config.php';
                 value="<?= htmlspecialchars($direccionResidencia, ENT_QUOTES, 'UTF-8'); ?>"
                 disabled
               >
-              <div class="form-text">
-                La dirección se toma del conjunto residencial seleccionado.
-              </div>
+              <div class="form-text">La dirección se toma del conjunto residencial seleccionado.</div>
             </div>
 
-            <!-- Comprobante actual (link) -->
             <div class="col-12" id="wrapComprobanteActual" <?= $comprobante ? '' : 'style="display:none;"' ?>>
               <label class="form-label ev-form-label mb-2">Comprobante actual</label>
               <div class="ev-file-row">
@@ -250,7 +238,6 @@ require_once __DIR__ . '/../Config/config.php';
               </div>
             </div>
 
-            <!-- Upload SOLO si cambia residencia -->
             <div class="col-12 d-none" id="wrapUploadDomicilio">
               <label for="dpDocDomicilio" class="form-label ev-form-label">
                 Nuevo comprobante de domicilio (obligatorio si cambias residencia)
@@ -264,7 +251,6 @@ require_once __DIR__ . '/../Config/config.php';
                 accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
               />
 
-              <!-- Preview archivo seleccionado -->
               <div class="ev-file-row mt-2 d-none" id="wrapFileSelected">
                 <div class="ev-file-info">
                   <i class="bi bi-file-earmark-text"></i>
@@ -276,20 +262,15 @@ require_once __DIR__ . '/../Config/config.php';
                 </button>
               </div>
 
-              <div class="form-text">
-                Tipos permitidos: PDF, JPG, PNG. Tamaño máximo: 5MB.
-              </div>
+              <div class="form-text">Tipos permitidos: PDF, JPG, PNG. Tamaño máximo: 5MB.</div>
             </div>
 
           </div>
         </section>
 
-        <!-- =========================
-             PASO 3: CUENTA
-        ========================== -->
+        <!-- PASO 3 -->
         <section class="ev-step-panel d-none" data-panel="3">
           <div class="row g-3">
-
             <div class="col-12">
               <div class="ev-hint">
                 <i class="bi bi-lock me-2"></i>
@@ -313,11 +294,8 @@ require_once __DIR__ . '/../Config/config.php';
             </div>
 
             <div class="col-12">
-              <div class="form-text">
-                Recomendación: mínimo 8 caracteres.
-              </div>
+              <div class="form-text">Recomendación: mínimo 8 caracteres.</div>
             </div>
-
           </div>
         </section>
 
@@ -343,4 +321,4 @@ require_once __DIR__ . '/../Config/config.php';
 </div>
 
 <!-- Script wizard -->
-<script src="<?= rtrim(BASE_URL,'/') ?>/views/js/datosPersonales.js?v=<?= time() ?>"></script>
+<script src="<?= rtrim(BASE_URL,'/') ?>/views/js/datosPersonales.js?v=1.0.0"></script>

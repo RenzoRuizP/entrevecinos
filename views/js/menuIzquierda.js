@@ -1,13 +1,25 @@
-// views/js/menuIzquierda.js — navegación AJAX ÚNICA y estable (EV) + Sidebar móvil robusta
+// views/js/menuIzquierda.js — navegación AJAX ÚNICA y definitiva (EV)
+// FIX RAÍZ: timeout por scripts externos + watchdog overlay + abort de cargas anteriores + refcount
+
 document.addEventListener("DOMContentLoaded", () => {
   "use strict";
 
-  const LOG = "[EV][NAV]";
-  const baseURL = (window.BASE_URL || "/entrevecinos").toString().replace(/\/+$/, "");
-  const contenedor = document.getElementById("contenido-principal");
+  // Evita doble inicialización (causa típica de bugs raros)
+  if (window.__EV_NAV_INIT__ === true) return;
+  window.__EV_NAV_INIT__ = true;
+
+  const BASE = (window.BASE_URL || "/entrevecinos").toString().replace(/\/+$/, "");
+  const main = document.getElementById("contenido-principal");
   const sidebar = document.getElementById("sidebar");
 
-  // Backdrop (garantizar que exista)
+  if (!main) {
+    console.warn("[EV][NAV] Falta #contenido-principal. No se inicializa navegación AJAX.");
+    return;
+  }
+
+  // ==========================
+  // Backdrop (mobile)
+  // ==========================
   let backdrop = document.getElementById("sidebar-backdrop");
   if (!backdrop) {
     backdrop = document.createElement("div");
@@ -15,312 +27,365 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(backdrop);
   }
 
-  // Helpers responsive
-  const isMobile = () => window.matchMedia("(max-width: 991.98px)").matches;
-
-  const lockBody = (lock) => {
-    if (!isMobile()) {
-      document.body.style.overflow = "";
-      return;
-    }
-    document.body.style.overflow = lock ? "hidden" : "";
-  };
-
-  const openSidebar = () => {
+  function closeSidebarMobile() {
     if (!sidebar) return;
-    sidebar.classList.add("active");
-    backdrop.classList.add("show");
-    lockBody(true);
-  };
-
-  const closeSidebar = () => {
-    if (!sidebar) return;
-    sidebar.classList.remove("active");
+    sidebar.classList.remove("open");
     backdrop.classList.remove("show");
-    lockBody(false);
-  };
+  }
 
-  const toggleSidebar = () => {
-    if (!sidebar) return;
-    const open = sidebar.classList.contains("active");
-    if (open) closeSidebar();
-    else openSidebar();
-  };
+  // ==========================
+  // Overlay único EV (GLOBAL)
+  // ==========================
+  let overlayRefCount = 0;
+  let overlayWatchdog = null;
 
-  // Construcción URL robusta
-  const buildUrl = (ruta) => {
-    if (!ruta) return null;
-    const r = ruta.toString().trim();
-    if (!r || r === "#") return null;
-    if (r.startsWith("#menu")) return null;
+  function ensureEvOverlay() {
+    let ov = document.getElementById("ev-nav-overlay");
+    if (ov) return ov;
+
+    ov = document.createElement("div");
+    ov.id = "ev-nav-overlay";
+    ov.setAttribute("aria-hidden", "true");
+    ov.style.cssText = `
+      position: fixed; inset: 0;
+      display: none;
+      align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.65);
+      backdrop-filter: blur(2px);
+      z-index: 99999;
+    `;
+
+    const box = document.createElement("div");
+    box.style.cssText = `
+      display:flex; align-items:center; gap:10px;
+      padding: 14px 18px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid rgba(15,89,47,0.10);
+      box-shadow: 0 18px 45px rgba(0,0,0,0.12), 0 6px 12px rgba(0,0,0,0.06);
+      font-family: Poppins, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #0F592F;
+      font-weight: 600;
+    `;
+
+    const spinner = document.createElement("div");
+    spinner.style.cssText = `
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      border: 4px solid rgba(22,163,74,0.18);
+      border-top-color: rgba(15,89,47,0.95);
+      animation: evspin .8s linear infinite;
+    `;
+
+    const txt = document.createElement("div");
+    txt.textContent = "Cargando...";
+
+    const style = document.createElement("style");
+    style.textContent = `@keyframes evspin{to{transform:rotate(360deg)}}`;
+
+    box.appendChild(spinner);
+    box.appendChild(txt);
+    ov.appendChild(style);
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+
+    return ov;
+  }
+
+  function showEvOverlay() {
+    overlayRefCount = Math.max(0, overlayRefCount) + 1;
+    ensureEvOverlay().style.display = "flex";
+
+    // Watchdog global: aunque algo se cuelgue, se apaga solo
+    // (esto elimina el “cargando infinito” en todos los casos)
+    if (overlayWatchdog) clearTimeout(overlayWatchdog);
+    overlayWatchdog = setTimeout(() => {
+      overlayRefCount = 0;
+      const ov = document.getElementById("ev-nav-overlay");
+      if (ov) ov.style.display = "none";
+    }, 20000); // 20s hard-stop
+  }
+
+  function hideEvOverlay(force = false) {
+    if (force) overlayRefCount = 0;
+    overlayRefCount = Math.max(0, overlayRefCount - 1);
+
+    if (overlayRefCount === 0) {
+      const ov = document.getElementById("ev-nav-overlay");
+      if (ov) ov.style.display = "none";
+      if (overlayWatchdog) {
+        clearTimeout(overlayWatchdog);
+        overlayWatchdog = null;
+      }
+    }
+  }
+
+  // ==========================
+  // Apagado agresivo de loaders legacy
+  // ==========================
+  function killLegacyLoaders() {
+    const selectors = [
+      "#spinner-overlay", "#loading-overlay", "#loader-overlay", "#global-loader", "#ev-loading",
+      ".spinner-overlay", ".loading-overlay", ".loader-overlay", ".global-loader",
+      ".preloader", "#preloader", ".page-loader", "#page-loader",
+      ".overlay-loading", "#overlay-loading",
+      ".ajax-loading", "#ajax-loading"
+    ];
+    selectors.forEach((sel) => {
+      document.querySelectorAll(sel).forEach((el) => {
+        try { el.style.display = "none"; } catch (_) {}
+        try { el.classList.add("d-none"); } catch (_) {}
+        try { el.classList.remove("show"); } catch (_) {}
+      });
+    });
+
+    document.querySelectorAll('[aria-busy="true"], [data-loading="true"], [data-loader="true"]').forEach((el) => {
+      try { el.setAttribute("aria-busy", "false"); } catch (_) {}
+      try { el.dataset.loading = "false"; } catch (_) {}
+      try { el.style.display = "none"; } catch (_) {}
+      try { el.classList.add("d-none"); } catch (_) {}
+    });
+
+    document.body.classList.remove("loading", "is-loading", "modal-open");
+    document.documentElement.classList.remove("loading", "is-loading");
+  }
+
+  // ==========================
+  // URL helpers
+  // ==========================
+  function buildUrl(href) {
+    if (!href) return null;
+    const r = href.toString().trim();
+    if (!r || r === "#" || r.startsWith("#menu")) return null;
 
     if (/^https?:\/\//i.test(r)) return r;
-    if (r.startsWith(baseURL)) return r;
-    if (r.startsWith("/")) return `${baseURL}${r}`;
-    return `${baseURL}/${r}`;
-  };
+    if (r.startsWith(BASE)) return r;
+    if (r.startsWith("/")) return BASE + r;
+    return BASE + "/" + r;
+  }
 
-  const showLoader = () => {
-    if (!contenedor) return;
-    contenedor.innerHTML = `
-      <div class="text-center p-5">
-        <div class="spinner-border text-success" role="status"></div>
-        <p class="mt-3">Cargando...</p>
-      </div>
-    `;
-  };
+  function addPartial(url) {
+    const u = new URL(url, window.location.origin);
+    if (!u.searchParams.has("partial")) u.searchParams.set("partial", "1");
+    return u.pathname + "?" + u.searchParams.toString();
+  }
 
-  const gotoLogin = () => {
-    window.location.href = `${baseURL}/login`;
-  };
+  // ==========================
+  // Scripts del parcial (FIX RAÍZ: timeout por script)
+  // ==========================
+  const LOADED = new Set(
+    Array.from(document.scripts)
+      .map(s => (s.src || "").trim())
+      .filter(Boolean)
+      .map(src => new URL(src, window.location.origin).href)
+  );
 
-  /**
-   * ✅ IMPORTANTE:
-   * Cuando inyectas HTML con innerHTML, los <script> NO se ejecutan.
-   * Esta función re-carga scripts externos e inline presentes en el HTML inyectado.
-   * - Ejecuta en orden (secuencial) los scripts con src
-   * - Ejecuta scripts inline recreándolos
-   */
-  const runInjectedScripts = async (rootEl) => {
-    if (!rootEl) return;
+  function runInline(code) {
+    if (!code) return;
+    try {
+      // eslint-disable-next-line no-new-func
+      new Function(code)();
+    } catch (e) {
+      console.error("[EV][NAV] Error en script inline:", e);
+    }
+  }
 
-    const scripts = Array.from(rootEl.querySelectorAll("script"));
+  function loadScriptWithTimeout(src, { signal, timeoutMs = 8000 } = {}) {
+    return new Promise((resolve) => {
+      if (!src) return resolve(false);
+
+      const abs = new URL(src, window.location.origin).href;
+      if (LOADED.has(abs)) return resolve(true);
+
+      const s = document.createElement("script");
+      s.src = abs;
+      s.defer = true;
+
+      let doneCalled = false;
+      const done = (ok) => {
+        if (doneCalled) return;
+        doneCalled = true;
+        try { s.onload = null; s.onerror = null; } catch (_) {}
+        try { if (s.parentNode) s.parentNode.removeChild(s); } catch (_) {}
+        if (ok) LOADED.add(abs);
+        resolve(ok);
+      };
+
+      const t = setTimeout(() => {
+        console.warn("[EV][NAV] Timeout cargando script:", abs);
+        done(false);
+      }, timeoutMs);
+
+      s.onload = () => { clearTimeout(t); done(true); };
+      s.onerror = () => { clearTimeout(t); done(false); };
+
+      if (signal) {
+        signal.addEventListener("abort", () => {
+          clearTimeout(t);
+          done(false);
+        }, { once: true });
+      }
+
+      document.body.appendChild(s);
+    });
+  }
+
+  async function processScripts(root, signal) {
+    const scripts = Array.from(root.querySelectorAll("script"));
     if (!scripts.length) return;
 
-    for (const oldScript of scripts) {
-      const newScript = document.createElement("script");
+    // eliminar del DOM para evitar doble ejecución
+    scripts.forEach(s => s.parentNode && s.parentNode.removeChild(s));
 
-      // Copiar atributos
-      for (const attr of oldScript.attributes) {
-        newScript.setAttribute(attr.name, attr.value);
-      }
+    const inline = scripts.filter(s => !s.src);
+    const external = scripts.filter(s => !!s.src);
 
-      // Si es externo
-      const src = oldScript.getAttribute("src");
-      if (src) {
-        // Evitar duplicar el mismo script muchas veces (opcional pero recomendado)
-        // Si quieres permitir recarga siempre, comenta este bloque.
-        const already = document.querySelector(`script[data-ev-loaded="1"][src="${src}"]`);
-        if (already) {
-          oldScript.remove();
-          continue;
-        }
+    inline.forEach(s => runInline(s.textContent || ""));
 
-        newScript.setAttribute("data-ev-loaded", "1");
-
-        // Cargar secuencial para respetar dependencias
-        await new Promise((resolve, reject) => {
-          newScript.onload = resolve;
-          newScript.onerror = () => reject(new Error(`No se pudo cargar script: ${src}`));
-          document.body.appendChild(newScript);
-        });
-
-      } else {
-        // Inline
-        newScript.text = oldScript.textContent || "";
-        document.body.appendChild(newScript);
-      }
-
-      oldScript.remove();
+    // Carga secuencial con timeout por script (NO cuelga nunca)
+    for (const s of external) {
+      // eslint-disable-next-line no-await-in-loop
+      await loadScriptWithTimeout(s.src, { signal, timeoutMs: 8000 });
     }
-  };
+  }
 
-  // ========= 1) NAVEGACIÓN AJAX (delegación única) =========
-  document.addEventListener("click", async (e) => {
-    const link = e.target.closest(".submenu-link");
-    if (!link) return;
+  // ==========================
+  // Fetch con timeout + abort (cargas encimadas)
+  // ==========================
+  let activeController = null;
+  let currentLoadId = 0;
 
-    e.preventDefault();
+  async function fetchWithTimeout(url, { timeoutMs = 15000, ...opts } = {}) {
+    const ctrl = new AbortController();
+    const id = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { ...opts, signal: ctrl.signal });
+      return { res, signal: ctrl.signal };
+    } finally {
+      clearTimeout(id);
+    }
+  }
 
-    const dataVista = (link.dataset && link.dataset.vista) ? link.dataset.vista : "";
-    const hrefAttr = link.getAttribute("href") || "";
-    const destino = dataVista || hrefAttr;
+  // ==========================
+  // Carga AJAX
+  // ==========================
+  async function loadPage(url, { pushState = true } = {}) {
+    const finalUrl = addPartial(url);
+    const myId = ++currentLoadId;
 
-    let url = buildUrl(destino);
-    if (!url) return;
+    // aborta carga anterior si existía
+    try { if (activeController) activeController.abort(); } catch (_) {}
+    activeController = new AbortController();
 
-    url += (url.includes("?") ? "&" : "?") + "partial=1";
+    killLegacyLoaders();
+    showEvOverlay();
 
-    showLoader();
+    // Watchdog extra por navegación (además del global)
+    const localWatchdog = setTimeout(() => {
+      if (myId === currentLoadId) {
+        console.warn("[EV][NAV] Watchdog: forzando hide overlay por cuelgue.");
+        hideEvOverlay(true);
+        killLegacyLoaders();
+      }
+    }, 22000);
 
     try {
-      const response = await fetch(url, {
+      const { res, signal } = await fetchWithTimeout(finalUrl, {
+        timeoutMs: 15000,
         method: "GET",
+        cache: "no-store",
+        credentials: "include",
         headers: {
           "X-Requested-With": "XMLHttpRequest",
           "X-Partial": "1",
-          "Accept": "text/html,application/json"
-        },
-        credentials: "include"
+          "Accept": "text/html"
+        }
       });
 
-      // 401 => sesión/token inválido
-      if (response.status === 401) {
-        Swal.fire({
-          icon: "warning",
-          title: "Sesión expirada",
-          text: "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
-          confirmButtonText: "Ir al login",
-          confirmButtonColor: "#0F592F"
-        }).then(gotoLogin);
-        return;
-      }
+      // Si el usuario ya disparó otra navegación, aborta el render
+      if (myId !== currentLoadId) return;
 
-      // 403 => autenticado pero sin permisos
-      if (response.status === 403) {
-        let msg = "No tienes permisos para acceder a esta opción.";
-        const ct = (response.headers.get("content-type") || "").toLowerCase();
+      const ct = (res.headers.get("content-type") || "").toLowerCase();
+      const text = await res.text().catch(() => "");
 
-        if (ct.includes("application/json")) {
-          const j = await response.json().catch(() => null);
-          if (j && (j.mensaje || j.message)) msg = j.mensaje || j.message;
-        } else {
-          await response.text().catch(() => "");
-        }
-
-        Swal.fire({
-          icon: "error",
-          title: "Acceso denegado",
-          text: msg,
-          confirmButtonText: "Entendido",
-          confirmButtonColor: "#0F592F"
-        });
-
-        if (contenedor) {
-          contenedor.innerHTML = `
-            <div class="alert alert-warning m-4 shadow-sm rounded-3">
-              <h5 class="mb-2"><i class="bi bi-shield-lock-fill"></i> Acceso denegado</h5>
-              <p class="mb-0">${msg}</p>
-            </div>
-          `;
-        }
-        return;
-      }
-
-      const contentType = (response.headers.get("content-type") || "").toLowerCase();
-
-      // Si vino JSON, puede ser error
-      if (contentType.includes("application/json")) {
-        const json = await response.json().catch(() => null);
-
-        if (json && json.error === "UNAUTHORIZED") {
-          // Si backend manda motivo=solo_admin con UNAUTHORIZED
-          if ((json.motivo || "").toLowerCase() === "solo_admin") {
-            Swal.fire({
-              icon: "error",
-              title: "Acceso denegado",
-              text: json.mensaje || "Solo el administrador puede acceder a esta opción.",
-              confirmButtonText: "Entendido",
-              confirmButtonColor: "#0F592F"
-            });
-            if (contenedor) contenedor.innerHTML = "";
-            return;
-          }
-
-          Swal.fire({
-            icon: "warning",
-            title: "Sesión expirada",
-            text: "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
-            confirmButtonText: "Ir al login",
-            confirmButtonColor: "#0F592F"
-          }).then(gotoLogin);
-          return;
-        }
-
-        throw new Error("La vista devolvió JSON en lugar de HTML.");
-      }
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP ${response.status}`);
-      }
-
-      const html = await response.text();
-
-      // Evitar inyectar documento completo o login
-      if (html.includes("formLogin") || html.includes("<html") || html.includes("<!doctype html")) {
-        Swal.fire({
-          icon: "warning",
-          title: "Sesión finalizada",
-          text: "Tu sesión ha caducado o la vista devolvió la plantilla completa.",
-          confirmButtonText: "Aceptar",
-          confirmButtonColor: "#0F592F"
-        }).then(() => (window.location.href = `${baseURL}/`));
-        return;
-      }
-
-      // Inyectar HTML
-      if (contenedor) contenedor.innerHTML = html;
-
-      // ✅ Ejecutar scripts dentro del HTML inyectado
-      await runInjectedScripts(contenedor);
-
-      // Activo del menú
-      document.querySelectorAll(".submenu-link").forEach((el) => el.classList.remove("active"));
-      link.classList.add("active");
-
-      // Sidebar móvil
-      if (isMobile()) closeSidebar();
-      else {
-        backdrop.classList.remove("show");
-        lockBody(false);
-      }
-
-      // Evento global de "vista cargada"
-      document.dispatchEvent(new CustomEvent("ev:vistaCargada", { detail: { url } }));
-
-    } catch (err) {
-      console.error(LOG, "Error:", err);
-      if (contenedor) {
-        contenedor.innerHTML = `
-          <div class="alert alert-danger m-4 shadow-sm rounded-3">
-            <h5 class="mb-2"><i class="bi bi-exclamation-triangle-fill"></i> Error</h5>
-            <p>No se pudo cargar el contenido solicitado.</p>
-            <small class="text-muted">${(err && err.message) ? err.message : "Error desconocido"}</small>
+      if (!res.ok) {
+        main.innerHTML = `
+          <div class="alert alert-danger border-0 shadow-sm rounded-4">
+            <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error</div>
+            <div>No se pudo cargar el contenido solicitado.</div>
+            <div class="small text-muted mt-2">HTTP ${res.status}</div>
           </div>
         `;
+        return;
       }
+
+      if (ct.includes("application/json")) {
+        main.innerHTML = `
+          <div class="alert alert-danger border-0 shadow-sm rounded-4">
+            <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error</div>
+            <div>La vista devolvió JSON en lugar de HTML.</div>
+            <div class="small text-muted mt-2">${finalUrl}</div>
+          </div>
+        `;
+        return;
+      }
+
+      main.innerHTML = text;
+
+      // Procesa scripts del parcial con timeout (NO cuelga)
+      await processScripts(main, signal);
+
+      document.dispatchEvent(new CustomEvent("ev:content-loaded", { detail: { url: finalUrl } }));
+
+      if (pushState) {
+        history.pushState({ url: finalUrl }, "", url);
+      }
+
+    } catch (e) {
+      const isAbort = String(e && e.name).toLowerCase().includes("abort");
+      main.innerHTML = `
+        <div class="alert alert-danger border-0 shadow-sm rounded-4">
+          <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error</div>
+          <div>${isAbort ? "La carga tardó demasiado y se canceló (timeout)." : "No se pudo cargar el contenido solicitado."}</div>
+          <div class="small text-muted mt-2">${String(e?.message || e)}</div>
+        </div>
+      `;
+      console.error("[EV][NAV] Error:", e);
+    } finally {
+      clearTimeout(localWatchdog);
+      // Apagado garantizado
+      hideEvOverlay(true);
+      killLegacyLoaders();
+      closeSidebarMobile();
     }
+  }
+
+  // ==========================
+  // Clicks del sidebar (delegación)
+  // ==========================
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest("a");
+    if (!a) return;
+
+    const inSidebar = a.closest("#sidebar") || a.closest(".main-sidebar") || a.closest(".ev-sidebar");
+    if (!inSidebar) return;
+
+    const href = a.getAttribute("href");
+    const url = buildUrl(href);
+    if (!url) return;
+
+    // links externos no se interceptan
+    if (/^https?:\/\//i.test(href || "")) return;
+
+    e.preventDefault();
+    loadPage(url, { pushState: true });
+  }, true);
+
+  // Back/forward
+  window.addEventListener("popstate", (ev) => {
+    const u = ev.state?.url;
+    if (!u) return;
+    const clean = u.replace(/(\?|&)partial=1\b/g, "").replace(/[?&]$/, "");
+    loadPage(clean, { pushState: false });
   });
-
-  // ========= 2) TOGGLE SIDEBAR (móvil) =========
-  const toggleButtons = document.querySelectorAll(
-    "[data-lte-toggle='sidebar'], .sidebar-toggle, #btnToggleSidebar"
-  );
-
-  toggleButtons.forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      toggleSidebar();
-    });
-  });
-
-  backdrop.addEventListener("click", () => closeSidebar());
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeSidebar();
-  });
-
-  window.addEventListener("resize", () => {
-    if (!isMobile()) {
-      if (sidebar) sidebar.classList.remove("active");
-      backdrop.classList.remove("show");
-      lockBody(false);
-    }
-  });
-
-  // ========= 3) SUBMENÚS (acordeón) =========
-  document.querySelectorAll("#sidebar .nav-link[data-bs-toggle='collapse']").forEach((link) => {
-    link.addEventListener("click", function () {
-      const parent = this.closest("li");
-      const submenu = parent ? parent.querySelector(".collapse") : null;
-      if (!submenu) return;
-
-      document.querySelectorAll("#sidebar .collapse.show").forEach((openMenu) => {
-        if (openMenu !== submenu) openMenu.classList.remove("show");
-      });
-
-      submenu.classList.toggle("show");
-    });
-  });
-
 });
