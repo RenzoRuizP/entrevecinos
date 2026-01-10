@@ -1,5 +1,6 @@
 // views/js/menuIzquierda.js — navegación AJAX ÚNICA y definitiva (EV)
-// FIX RAÍZ: timeout por scripts externos + watchdog overlay + abort de cargas anteriores + refcount
+// SOLUCIÓN RAÍZ: Shell único (MenuPrincipal) + deep link (ev_goto) + parciales AJAX
+// Mantiene tu lógica: timeout scripts, watchdog overlay, abort, refcount.
 
 document.addEventListener("DOMContentLoaded", () => {
   "use strict";
@@ -96,14 +97,12 @@ document.addEventListener("DOMContentLoaded", () => {
     overlayRefCount = Math.max(0, overlayRefCount) + 1;
     ensureEvOverlay().style.display = "flex";
 
-    // Watchdog global: aunque algo se cuelgue, se apaga solo
-    // (esto elimina el “cargando infinito” en todos los casos)
     if (overlayWatchdog) clearTimeout(overlayWatchdog);
     overlayWatchdog = setTimeout(() => {
       overlayRefCount = 0;
       const ov = document.getElementById("ev-nav-overlay");
       if (ov) ov.style.display = "none";
-    }, 20000); // 20s hard-stop
+    }, 20000);
   }
 
   function hideEvOverlay(force = false) {
@@ -171,7 +170,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================
-  // Scripts del parcial (FIX RAÍZ: timeout por script)
+  // Scripts del parcial (timeout por script)
   // ==========================
   const LOADED = new Set(
     Array.from(document.scripts)
@@ -234,7 +233,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const scripts = Array.from(root.querySelectorAll("script"));
     if (!scripts.length) return;
 
-    // eliminar del DOM para evitar doble ejecución
     scripts.forEach(s => s.parentNode && s.parentNode.removeChild(s));
 
     const inline = scripts.filter(s => !s.src);
@@ -242,7 +240,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     inline.forEach(s => runInline(s.textContent || ""));
 
-    // Carga secuencial con timeout por script (NO cuelga nunca)
     for (const s of external) {
       // eslint-disable-next-line no-await-in-loop
       await loadScriptWithTimeout(s.src, { signal, timeoutMs: 8000 });
@@ -250,9 +247,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================
-  // Fetch con timeout + abort (cargas encimadas)
+  // Fetch con timeout + abort
   // ==========================
-  let activeController = null;
   let currentLoadId = 0;
 
   async function fetchWithTimeout(url, { timeoutMs = 15000, ...opts } = {}) {
@@ -273,14 +269,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const finalUrl = addPartial(url);
     const myId = ++currentLoadId;
 
-    // aborta carga anterior si existía
-    try { if (activeController) activeController.abort(); } catch (_) {}
-    activeController = new AbortController();
-
     killLegacyLoaders();
     showEvOverlay();
 
-    // Watchdog extra por navegación (además del global)
     const localWatchdog = setTimeout(() => {
       if (myId === currentLoadId) {
         console.warn("[EV][NAV] Watchdog: forzando hide overlay por cuelgue.");
@@ -302,7 +293,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
 
-      // Si el usuario ya disparó otra navegación, aborta el render
       if (myId !== currentLoadId) return;
 
       const ct = (res.headers.get("content-type") || "").toLowerCase();
@@ -332,7 +322,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       main.innerHTML = text;
 
-      // Procesa scripts del parcial con timeout (NO cuelga)
       await processScripts(main, signal);
 
       document.dispatchEvent(new CustomEvent("ev:content-loaded", { detail: { url: finalUrl } }));
@@ -353,7 +342,6 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("[EV][NAV] Error:", e);
     } finally {
       clearTimeout(localWatchdog);
-      // Apagado garantizado
       hideEvOverlay(true);
       killLegacyLoaders();
       closeSidebarMobile();
@@ -374,7 +362,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const url = buildUrl(href);
     if (!url) return;
 
-    // links externos no se interceptan
     if (/^https?:\/\//i.test(href || "")) return;
 
     e.preventDefault();
@@ -388,4 +375,27 @@ document.addEventListener("DOMContentLoaded", () => {
     const clean = u.replace(/(\?|&)partial=1\b/g, "").replace(/[?&]$/, "");
     loadPage(clean, { pushState: false });
   });
+
+  // ==========================================================
+  // SOLUCIÓN RAÍZ: Deep link desde F5
+  // Router redirige a /MenuPrincipal?ev_goto=/ruta
+  // y aquí cargamos ese módulo automáticamente via AJAX.
+  // ==========================================================
+  try {
+    const qs = new URLSearchParams(window.location.search);
+    const goto = qs.get("ev_goto");
+
+    if (goto) {
+      // Limpiar URL para que no se repita el goto en refresh del shell
+      const cleanShellUrl = BASE + "/MenuPrincipal";
+      window.history.replaceState({}, document.title, cleanShellUrl);
+
+      const url = buildUrl(goto);
+      if (url) {
+        loadPage(url, { pushState: true });
+      }
+    }
+  } catch (e) {
+    console.warn("[EV][NAV] ev_goto no procesado:", e);
+  }
 });

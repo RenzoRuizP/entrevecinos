@@ -1,6 +1,7 @@
 <?php
 // ============================================================
 // index.php — Enrutamiento centralizado (EV)
+// SOLUCIÓN RAÍZ: Shell único (MenuPrincipal) + parciales para módulos
 // ============================================================
 
 declare(strict_types=1);
@@ -222,7 +223,7 @@ $routes = [
     ['GET',  '#^/logout$#', [AuthController::class, 'logout'], 'html'],
     ['POST', '#^/logout$#', [AuthController::class, 'logout'], 'json'],
 
-    // --- Vistas ---
+    // --- Vistas (módulos) ---
     ['GET', '#^/mi-perfil$#',        [miPerfilController::class, 'index'],        'html'],
     ['GET', '#^/publicacion$#',      [productoController::class, 'index'],        'html'], // legacy
     ['GET', '#^/producto$#',         [productoController::class, 'index'],        'html'],
@@ -232,20 +233,13 @@ $routes = [
     ['GET', '#^/recibir$#',          [recibirPedidosController::class, 'index'],  'html'],
     ['GET', '#^/atender-recargas$#', [atenderRecargasController::class, 'index'], 'html'],
     ['GET', '#^/atender-publicacion$#', [atenderPublicacionController::class, 'index'], 'html'],
-
-    // ✅ IMPORTANTE: ruta real del menú (BD) => /atender-cuentas
-    ['GET', '#^/atender-cuentas$#', [atenderCuentasUsuarioController::class, 'index'], 'html'],
-    // ✅ Compatibilidad
+    ['GET', '#^/atender-cuentas$#',  [atenderCuentasUsuarioController::class, 'index'], 'html'],
     ['GET', '#^/atender-cuentas-usuario$#', [atenderCuentasUsuarioController::class, 'index'], 'html'],
 
     // --- API Usuario ---
     ['GET',  '#^/api/usuario/datos$#',       [usuarioDatosController::class, 'obtenerDatos'],     'json'],
     ['POST', '#^/api/usuario/actualizar$#',  [usuarioDatosController::class, 'actualizarDatos'],  'json'],
     ['POST', '#^/api/usuario/cambiar-clave$#', [usuarioDatosController::class, 'cambiarClave'], 'json'],
-
-
-    // ✅ NUEVO: Solicitud de cambio de residencia (con upload)
-    // Nota: esto lo atiende usuarioDatosController (o el controller que ya uses), pero aquí queda la ruta.
     ['POST', '#^/api/usuario/solicitar-cambio-residencia$#', [usuarioDatosController::class, 'solicitarCambioResidencia'], 'json'],
 
     // --- API Producto ---
@@ -279,7 +273,7 @@ $routes = [
     ['GET',  '#^/api/soporte/usuarios$#',              [apiSoporteUsuariosController::class, 'listar'], 'json'],
     ['POST', '#^/api/soporte/usuarios/(\d+)/estado$#', [apiSoporteUsuariosController::class, 'actualizarEstado'], 'json'],
 
-    // ✅ NUEVO: API Soporte Residencias (Atender cuentas: cambios de residencia)
+    // ✅ API Soporte Residencias (Atender cuentas: cambios de residencia)
     ['GET',  '#^/api/soporte/residencias$#',              [apiSoporteResidenciasController::class, 'listar'], 'json'],
     ['POST', '#^/api/soporte/residencias/(\d+)/estado$#', [apiSoporteResidenciasController::class, 'actualizarEstado'], 'json'],
 
@@ -330,6 +324,27 @@ foreach ($routes as $r) {
         }
 
         $GLOBALS['EV_AUTH'] = $rTok['data'] ?? [];
+    }
+
+    // ============================================================
+    // SOLUCIÓN RAÍZ:
+    // Deep link (F5 / URL directa) a módulos:
+    // - Si es ruta HTML protegida, y NO es parcial,
+    //   siempre pasamos por MenuPrincipal (shell con menús/estilos)
+    //   y luego el cliente carga el módulo vía AJAX usando ev_goto.
+    // ============================================================
+    if (
+        !$isPublic
+        && $type === 'html'
+        && !esPeticionParcial()
+        && $uri !== '/MenuPrincipal'
+        && $uri !== '/logout'
+        && $uri !== '/login'
+        && $uri !== '/'
+    ) {
+        $target = rtrim($baseUrl, '/') . '/MenuPrincipal?ev_goto=' . urlencode($uri);
+        header('Location: ' . $target, true, 302);
+        exit;
     }
 
     // Ejecutar controlador
