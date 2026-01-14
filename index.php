@@ -2,6 +2,7 @@
 // ============================================================
 // index.php — Enrutamiento centralizado (EV)
 // SOLUCIÓN RAÍZ: Shell único (MenuPrincipal) + parciales para módulos
+// + Guardado por secciones (teléfono / residencia / cuenta) sin romper legacy
 // ============================================================
 
 declare(strict_types=1);
@@ -136,7 +137,7 @@ safeRequire(__DIR__ . '/controllers/api/apiProductoController.php');
 safeRequire(__DIR__ . '/controllers/api/apiSoporteProductosController.php');
 safeRequire(__DIR__ . '/controllers/api/apiSoporteUsuariosController.php');
 
-// ✅ NUEVO: soporte cambios de residencia (admin)
+// ✅ soporte cambios de residencia (admin)
 safeRequire(__DIR__ . '/controllers/api/apiSoporteResidenciasController.php');
 
 // ------------------------------
@@ -236,11 +237,17 @@ $routes = [
     ['GET', '#^/atender-cuentas$#',  [atenderCuentasUsuarioController::class, 'index'], 'html'],
     ['GET', '#^/atender-cuentas-usuario$#', [atenderCuentasUsuarioController::class, 'index'], 'html'],
 
-    // --- API Usuario ---
+    // --- API Usuario (legacy) ---
     ['GET',  '#^/api/usuario/datos$#',       [usuarioDatosController::class, 'obtenerDatos'],     'json'],
     ['POST', '#^/api/usuario/actualizar$#',  [usuarioDatosController::class, 'actualizarDatos'],  'json'],
     ['POST', '#^/api/usuario/cambiar-clave$#', [usuarioDatosController::class, 'cambiarClave'], 'json'],
     ['POST', '#^/api/usuario/solicitar-cambio-residencia$#', [usuarioDatosController::class, 'solicitarCambioResidencia'], 'json'],
+
+    // ✅ NUEVO: Guardado por secciones (no rompe legacy)
+    ['POST', '#^/api/usuario/actualizar-telefono$#',   [usuarioDatosController::class, 'actualizarTelefono'],   'json'],
+    ['POST', '#^/api/usuario/actualizar-residencia$#', [usuarioDatosController::class, 'actualizarResidencia'], 'json'],
+    // Alias semántico (opcional)
+    ['POST', '#^/api/usuario/actualizar-cuenta$#', [usuarioDatosController::class, 'cambiarClave'], 'json'],
 
     // --- API Producto ---
     ['POST', '#^/api/producto/registrar$#',        [apiProductoController::class, 'registrarProducto'],  'json'],
@@ -363,8 +370,13 @@ foreach ($routes as $r) {
 
     $controller = new $controllerClass();
 
+    // ✅ Header coherente por tipo (y evita conflictos)
     if (!headers_sent()) {
-        header('Content-Type: ' . ($type === 'json' ? 'application/json' : 'text/html') . '; charset=utf-8');
+        if ($type === 'json') {
+            header('Content-Type: application/json; charset=utf-8');
+        } else {
+            header('Content-Type: text/html; charset=utf-8');
+        }
     }
 
     array_shift($matches);

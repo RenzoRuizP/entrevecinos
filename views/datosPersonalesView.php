@@ -32,7 +32,7 @@ require_once __DIR__ . '/../Config/config.php';
 <div class="container-datos-personales fade-in">
   <div class="card shadow-sm border-0 rounded-4 ev-datos-card">
 
-    <!-- HEADER (blanco estilo Mis Productos) -->
+    <!-- HEADER -->
     <div class="card-header bg-white border-0 d-flex align-items-center justify-content-between py-4 px-4">
       <div class="d-flex align-items-center gap-3">
         <span class="ev-datos-icon">
@@ -121,6 +121,13 @@ require_once __DIR__ . '/../Config/config.php';
                 <i class="bi bi-info-circle me-2"></i>
                 Tu nombre, documento y correo no se pueden editar desde aquí.
               </div>
+            </div>
+
+            <!-- ✅ Guardar paso 1 -->
+            <div class="col-12 d-flex justify-content-end">
+              <button type="button" class="btn btn-ev-primary" id="btnGuardarPaso1">
+                <i class="fas fa-save me-1"></i> Guardar
+              </button>
             </div>
           </div>
         </section>
@@ -265,6 +272,13 @@ require_once __DIR__ . '/../Config/config.php';
               <div class="form-text">Tipos permitidos: PDF, JPG, PNG. Tamaño máximo: 5MB.</div>
             </div>
 
+            <!-- ✅ Guardar paso 2 -->
+            <div class="col-12 d-flex justify-content-end">
+              <button type="button" class="btn btn-ev-primary" id="btnGuardarPaso2">
+                <i class="fas fa-save me-1"></i> Guardar
+              </button>
+            </div>
+
           </div>
         </section>
 
@@ -296,21 +310,26 @@ require_once __DIR__ . '/../Config/config.php';
             <div class="col-12">
               <div class="form-text">Recomendación: mínimo 8 caracteres.</div>
             </div>
+
+            <!-- ✅ Guardar paso 3 -->
+            <div class="col-12 d-flex justify-content-end">
+              <button type="button" class="btn btn-ev-primary" id="btnGuardarPaso3">
+                <i class="fas fa-save me-1"></i> Guardar
+              </button>
+            </div>
           </div>
         </section>
 
-        <!-- FOOTER -->
+        <!-- FOOTER NAV: Atrás / Siguiente -->
         <div class="ev-wizard-footer mt-4">
           <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center">
             <button type="button" class="btn btn-ev-neutral" id="btnAnterior">
-              <i class="bi bi-arrow-left me-1"></i> Anterior
+              <i class="bi bi-arrow-left me-1"></i> Atrás
             </button>
 
-            <div class="d-flex gap-2">
-              <button type="button" class="btn btn-ev-primary" id="btnActualizar">
-                <i class="fas fa-save me-1"></i> Actualizar
-              </button>
-            </div>
+            <button type="button" class="btn btn-ev-neutral" id="btnSiguiente">
+              Siguiente <i class="bi bi-arrow-right ms-1"></i>
+            </button>
           </div>
         </div>
 
@@ -320,5 +339,4 @@ require_once __DIR__ . '/../Config/config.php';
   </div>
 </div>
 
-<!-- Script wizard -->
-<script src="<?= rtrim(BASE_URL,'/') ?>/views/js/datosPersonales.js?v=1.0.0"></script>
+<script src="<?= rtrim(BASE_URL,'/') ?>/views/js/datosPersonales.js?v=1.0.1"></script>

@@ -1,6 +1,6 @@
 <?php
 // controllers/api/usuarioDatosController.php
-// EV — API: Datos de usuario + Solicitud cambio de residencia (Opción A: sin departamento)
+// EV — API: Datos de usuario + Solicitud cambio de residencia + Guardado por secciones
 
 declare(strict_types=1);
 
@@ -8,6 +8,9 @@ require_once __DIR__ . '/../../models/Usuario.php';
 require_once __DIR__ . '/../../models/UsuarioResidenciaSolicitud.php';
 require_once __DIR__ . '/../../models/CondominioModel.php';
 require_once __DIR__ . '/../../models/Urbanizacion.php';
+
+// ✅ Reutilizamos el updater ya existente (no tocamos Usuario.php)
+require_once __DIR__ . '/../../models/UsuarioSoporte.php';
 
 class usuarioDatosController
 {
@@ -70,6 +73,10 @@ class usuarioDatosController
         }
     }
 
+    /**
+     * LEGACY: /api/usuario/actualizar
+     * Mantener para compatibilidad.
+     */
     public function actualizarDatos(): void
     {
         try {
@@ -99,11 +106,6 @@ class usuarioDatosController
                 return;
             }
 
-            // Importante: este endpoint NO debe aplicar cambios de residencia si tú quieres que
-            // cambios de residencia vayan por solicitud.
-            // Si tu Usuario::actualizarDatos hoy actualiza usuario_residencia, entonces en tu JS
-            // debes asegurarte de que cuando hay cambio de residencia NO se llame a /actualizar
-            // sino a /solicitar-cambio-residencia (como ya lo estás planteando).
             $usuarioModel = new Usuario();
             $usuarioModel->actualizarDatos($codigoUsuario, $data);
 
@@ -126,17 +128,68 @@ class usuarioDatosController
         }
     }
 
+    // =========================================================
+    // ✅ Guardado por secciones
+    // =========================================================
+
+    public function actualizarTelefono(): void
+    {
+        try {
+            $codigoUsuario = $this->authUserId();
+            if ($codigoUsuario <= 0) {
+                $this->json(401, ['ok' => false, 'error' => 'UNAUTHORIZED']);
+                return;
+            }
+
+            $rawInput = file_get_contents('php://input');
+            $data = json_decode($rawInput ?: '[]', true);
+
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($data)) {
+                $this->json(400, [
+                    'ok'      => false,
+                    'error'   => 'JSON_INVALIDO',
+                    'detalle' => json_last_error_msg(),
+                ]);
+                return;
+            }
+
+            $telefono = trim((string)($data['telefono'] ?? ''));
+            if ($telefono === '') {
+                $this->json(422, ['ok' => false, 'error' => 'TELEFONO_REQUERIDO', 'mensaje' => 'Ingresa tu teléfono.']);
+                return;
+            }
+
+            $usuarioModel = new Usuario();
+            $ok = $usuarioModel->actualizarTelefono($codigoUsuario, $telefono);
+
+            if (!$ok) {
+                $this->json(422, ['ok' => false, 'error' => 'TELEFONO_INVALIDO', 'mensaje' => 'Formato esperado: 9XXXXXXXX.']);
+                return;
+            }
+
+            $this->json(200, ['ok' => true, 'mensaje' => 'Teléfono actualizado correctamente.']);
+        } catch (Throwable $e) {
+            $this->json(500, [
+                'ok'      => false,
+                'error'   => 'ERROR_SERVIDOR',
+                'detalle' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function actualizarResidencia(): void
+    {
+        $this->solicitarCambioResidencia();
+    }
+
     /**
      * POST /api/usuario/solicitar-cambio-residencia
      * FormData:
      * - tipo_conjunto: condominio|urbanizacion
      * - codigo_condominio (si condominio)
      * - codigo_urbanizacion (si urbanizacion)
-     * - ubigeo_departamento, ubigeo_provincia, ubigeo_distrito (obligatorios por tu requerimiento actual)
+     * - ubigeo_departamento, ubigeo_provincia, ubigeo_distrito
      * - documento_domicilio (file: pdf|jpg|jpeg|png <= 5MB)
-     *
-     * Dirección:
-     * - Se toma desde BD (condominio/urbanizacion) y se guarda en solicitud.
      */
     public function solicitarCambioResidencia(): void
     {
@@ -161,25 +214,20 @@ class usuarioDatosController
                 return;
             }
 
-            // Ubigeo obligatorio (según tu requerimiento)
             if ($ubDep === '' || $ubProv === '' || $ubDist === '') {
                 $this->json(422, ['ok' => false, 'mensaje' => 'Ubigeo requerido.']);
                 return;
             }
 
-            if ($tipo === 'condominio') {
-                if ($codCon <= 0) {
-                    $this->json(422, ['ok' => false, 'mensaje' => 'Condominio obligatorio.']);
-                    return;
-                }
-            } else {
-                if ($codUrb <= 0) {
-                    $this->json(422, ['ok' => false, 'mensaje' => 'Urbanización obligatoria.']);
-                    return;
-                }
+            if ($tipo === 'condominio' && $codCon <= 0) {
+                $this->json(422, ['ok' => false, 'mensaje' => 'Condominio obligatorio.']);
+                return;
+            }
+            if ($tipo === 'urbanizacion' && $codUrb <= 0) {
+                $this->json(422, ['ok' => false, 'mensaje' => 'Urbanización obligatoria.']);
+                return;
             }
 
-            // Dirección real desde BD
             $direccion = $this->obtenerDireccionDesdeBD($tipo, $codCon, $codUrb);
             if ($direccion === '') {
                 $this->json(422, ['ok' => false, 'mensaje' => 'No se pudo obtener la dirección desde BD.']);
@@ -212,7 +260,6 @@ class usuarioDatosController
                 return;
             }
 
-            // Guardado físico (ESTÁNDAR FINAL)
             $uploadsDir = __DIR__ . '/../../resources/uploads/comprobantes';
             if (!is_dir($uploadsDir)) {
                 @mkdir($uploadsDir, 0775, true);
@@ -226,30 +273,40 @@ class usuarioDatosController
                 return;
             }
 
-            // Ruta relativa a guardar en BD (ESTÁNDAR FINAL)
             $rutaRelativa = 'resources/uploads/comprobantes/' . $safeFile;
 
-            // Registrar solicitud (BD) - sin departamento
+            // ✅ Registrar solicitud (upsert)
             $model = new UsuarioResidenciaSolicitud();
-
-            $idSolicitud = $model->crear($codigoUsuario, [
+            $idSolicitud = $model->upsertPendiente($codigoUsuario, [
                 'tipo_conjunto'        => $tipo,
-                'codigo_condominio'    => ($tipo === 'condominio')   ? $codCon : null,
+                'codigo_condominio'    => ($tipo === 'condominio') ? $codCon : null,
                 'codigo_urbanizacion'  => ($tipo === 'urbanizacion') ? $codUrb : null,
-                'direccion'            => $direccion, // <-- desde BD
-                // ubigeo_* (no persiste aquí salvo que lo agregues a la tabla)
+                'direccion'            => $direccion,
             ], $rutaRelativa);
 
+            if ($idSolicitud <= 0) {
+                $this->json(500, ['ok' => false, 'mensaje' => 'No se pudo registrar la solicitud.']);
+                return;
+            }
+
+            // ✅ Regla: al solicitar cambio, cuenta pasa a "En revisión" (estado=1)
+            // (Así aparece en Modo Usuarios / En revisión)
+            try {
+                $uSoporte = new UsuarioSoporte();
+                $uSoporte->actualizarEstado($codigoUsuario, 1);
+            } catch (Throwable $e) {
+                // No bloquear la solicitud si el update del estado falla
+            }
+
             $this->json(200, [
-                'ok' => $idSolicitud > 0,
-                'id' => $idSolicitud,
-                'mensaje' => ($idSolicitud > 0)
-                    ? 'Solicitud registrada. Queda en revisión.'
-                    : 'No se pudo registrar la solicitud.',
+                'ok'      => true,
+                'id'      => $idSolicitud,
+                'mensaje' => 'Solicitud registrada. Queda en revisión.',
             ]);
+
         } catch (Throwable $e) {
             $this->json(500, [
-                'ok' => false,
+                'ok'      => false,
                 'mensaje' => 'ERROR_SERVIDOR',
                 'detalle' => $e->getMessage(),
             ]);
@@ -319,7 +376,6 @@ class usuarioDatosController
 
             $usuarioModel = new Usuario();
 
-            // Requiere que existan estos métodos en Usuario.php
             $hash = $usuarioModel->obtenerHashClave($codigoUsuario);
             if (!$hash || !password_verify($actual, (string)$hash)) {
                 $this->json(403, [

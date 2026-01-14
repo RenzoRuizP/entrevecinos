@@ -54,9 +54,29 @@ class Usuario extends Conexion
     }
 
     /* =========================
+       ✅ NUEVO: ESTADO (para flujo solicitudes)
+    ========================== */
+    public function obtenerEstado(int $codigo_usuario): int
+    {
+        $sql = "SELECT estado FROM usuario WHERE codigo_usuario = :cu LIMIT 1";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':cu', $codigo_usuario, PDO::PARAM_INT);
+        $st->execute();
+        return (int)($st->fetchColumn() ?? 0);
+    }
+
+    public function actualizarEstado(int $codigo_usuario, int $estado): bool
+    {
+        if (!in_array($estado, [0, 1, 2], true)) return false;
+        $sql = "UPDATE usuario SET estado = :e WHERE codigo_usuario = :cu LIMIT 1";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':e', $estado, PDO::PARAM_INT);
+        $st->bindValue(':cu', $codigo_usuario, PDO::PARAM_INT);
+        return $st->execute();
+    }
+
+    /* =========================
        OBTENER USUARIO (alineado a usuario_residencia)
-       Devuelve campos que tu vista/JS consumen:
-       tipo_conjunto, codigo_condominio, codigo_urbanizacion, direccion, comprobante_domicilio
     ========================== */
     public function obtenerPorCodigo($codigo_usuario)
     {
@@ -88,30 +108,45 @@ class Usuario extends Conexion
         if (!$row) return false;
 
         return [
-            'codigo_usuario'       => $row['codigo_usuario'],
-            'nombre_completo'      => $row['nombre_completo'],
-            'email'                => $row['email'],
-            'documento'            => $row['documento'],
-            'telefono'             => $row['telefono'],
+            'codigo_usuario'        => $row['codigo_usuario'],
+            'nombre_completo'       => $row['nombre_completo'],
+            'email'                 => $row['email'],
+            'documento'             => $row['documento'],
+            'telefono'              => $row['telefono'],
 
-            'tipo_conjunto'        => $row['tipo_conjunto'] ?? '',
-            'codigo_condominio'    => $row['codigo_condominio'] ?? '',
-            'codigo_urbanizacion'  => $row['codigo_urbanizacion'] ?? '',
-            'direccion'            => $row['direccion'] ?? '',
-            'comprobante_domicilio'=> $row['comprobante_domicilio'] ?? '',
+            'tipo_conjunto'         => $row['tipo_conjunto'] ?? '',
+            'codigo_condominio'     => $row['codigo_condominio'] ?? '',
+            'codigo_urbanizacion'   => $row['codigo_urbanizacion'] ?? '',
+            'direccion'             => $row['direccion'] ?? '',
+            'comprobante_domicilio' => $row['comprobante_domicilio'] ?? '',
         ];
     }
 
     /* =========================
-       ACTUALIZAR DATOS
-       - Actualiza usuario (nombre/telefono/documento si viene)
-       - Actualiza o inserta usuario_residencia
-       - NO usa torre/departamento
+       ✅ NUEVO: ACTUALIZAR SOLO TELEFONO
+       - No toca residencia
+    ========================== */
+    public function actualizarTelefono(int $codigo_usuario, string $telefono): bool
+    {
+        $telefono = preg_replace('/\s+/', '', trim($telefono));
+
+        if ($telefono === '') return false;
+        if (!preg_match('/^9\d{8}$/', $telefono)) return false;
+
+        $sql = "UPDATE usuario SET telefono = :telefono WHERE codigo_usuario = :cu";
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindValue(':telefono', $telefono, PDO::PARAM_STR);
+        $stmt->bindValue(':cu', $codigo_usuario, PDO::PARAM_INT);
+        return $stmt->execute();
+    }
+
+    /* =========================
+       ACTUALIZAR DATOS (legacy)
+       - Actualiza usuario + usuario_residencia (sin departamento)
     ========================== */
     public function actualizarDatos($codigo_usuario, $data)
     {
         try {
-            // 1) Validar duplicado de email (si lo envías)
             if (!empty($data['email']) && $this->emailExiste($data['email'], $codigo_usuario)) {
                 throw new Exception("El correo electrónico ingresado ya está registrado por otro usuario.");
             }
@@ -132,7 +167,6 @@ class Usuario extends Conexion
                 throw new Exception("La dirección es obligatoria.");
             }
 
-            // 2) Resolver códigos según tipo (SIN departamento)
             $codigo_condominio   = null;
             $codigo_urbanizacion = null;
 
@@ -152,10 +186,8 @@ class Usuario extends Conexion
                 if (!$this->urbanizacionExiste($codigo_urbanizacion)) throw new Exception("La urbanización seleccionada no existe.");
             }
 
-            // 3) Transacción
             $this->dblink->beginTransaction();
 
-            // 3.1) Actualizar usuario
             $sqlU = "UPDATE usuario
                      SET nombre = :nombre,
                          telefono = :telefono" . ($documento !== null ? ", documento = :documento" : "") . "
@@ -167,7 +199,6 @@ class Usuario extends Conexion
             $stmtU->bindValue(':codigo_usuario', $codigo_usuario, PDO::PARAM_INT);
             $stmtU->execute();
 
-            // 3.2) Insert/Update usuario_residencia (por codigo_usuario)
             $urId = $this->residenciaIdPorUsuario($codigo_usuario);
 
             if ($urId) {
@@ -207,29 +238,25 @@ class Usuario extends Conexion
         }
     }
 
-        /* =========================
-        PASSWORD / CLAVE
-        - usuario.clave guarda hash
-        - exige clave_actual + nueva + confirmar
-        ========================== */
+    /* =========================
+       PASSWORD / CLAVE
+    ========================== */
+    public function obtenerHashClave(int $codigo_usuario): ?string
+    {
+        $sql = "SELECT clave FROM usuario WHERE codigo_usuario = :cu LIMIT 1";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':cu', $codigo_usuario, PDO::PARAM_INT);
+        $st->execute();
+        $hash = $st->fetchColumn();
+        return $hash ? (string)$hash : null;
+    }
 
-        public function obtenerHashClave(int $codigo_usuario): ?string
-        {
-            $sql = "SELECT clave FROM usuario WHERE codigo_usuario = :cu LIMIT 1";
-            $st = $this->dblink->prepare($sql);
-            $st->bindValue(':cu', $codigo_usuario, PDO::PARAM_INT);
-            $st->execute();
-            $hash = $st->fetchColumn();
-            return $hash ? (string)$hash : null;
-        }
-
-        public function actualizarClave(int $codigo_usuario, string $hashNueva): bool
-        {
-            $sql = "UPDATE usuario SET clave = :h WHERE codigo_usuario = :cu";
-            $st = $this->dblink->prepare($sql);
-            $st->bindValue(':h', $hashNueva, PDO::PARAM_STR);
-            $st->bindValue(':cu', $codigo_usuario, PDO::PARAM_INT);
-            return $st->execute();
-        }
-
+    public function actualizarClave(int $codigo_usuario, string $hashNueva): bool
+    {
+        $sql = "UPDATE usuario SET clave = :h WHERE codigo_usuario = :cu";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':h', $hashNueva, PDO::PARAM_STR);
+        $st->bindValue(':cu', $codigo_usuario, PDO::PARAM_INT);
+        return $st->execute();
+    }
 }

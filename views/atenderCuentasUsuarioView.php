@@ -1,13 +1,10 @@
 <?php
 require_once __DIR__ . '/../Config/config.php';
 ?>
-<script>
-  window.BASE_URL = "<?= rtrim(BASE_URL, '/'); ?>";
-</script>
 
 <?php include_once __DIR__ . '/estilos/atenderCuentasUsuarioEstilo.php'; ?>
 
-<div class="container-fluid px-3 px-md-4 py-3 ev-au-page">
+<div class="container-fluid px-3 px-md-4 py-3 ev-au-page" data-ev-module="atender-cuentas">
 
   <!-- HERO CARD -->
   <div class="ev-card ev-hero mb-3">
@@ -38,6 +35,13 @@ require_once __DIR__ . '/../Config/config.php';
                   <i class="bi bi-eraser me-2"></i>Limpiar filtros
                 </button>
               </li>
+              <li><hr class="dropdown-divider"></li>
+
+              <li>
+                <button class="dropdown-item" type="button" id="btnModoResidencias">
+                  <i class="bi bi-house-door me-2"></i>Ver cambios de residencia
+                </button>
+              </li>
             </ul>
           </div>
 
@@ -51,6 +55,7 @@ require_once __DIR__ . '/../Config/config.php';
         </div>
 
         <div class="ev-quick-actions">
+          <!-- Estos botones serán “contextuales” según modo (usuarios / residencias) -->
           <button type="button" class="btn ev-btn-light btn-sm" id="btnEstadoRevision">
             <i class="bi bi-hourglass-split me-1"></i> En revisión
           </button>
@@ -76,6 +81,15 @@ require_once __DIR__ . '/../Config/config.php';
 
     <div class="ev-card-body">
       <form id="formFiltrosAU" class="row g-3 align-items-end" onsubmit="return false;">
+
+        <div class="col-12 col-lg-3">
+          <label class="form-label">Modo</label>
+          <select class="form-select ev-input" id="fModo">
+            <option value="usuarios" selected>Usuarios</option>
+            <option value="residencias">Cambios de residencia</option>
+          </select>
+        </div>
+
         <div class="col-12 col-lg-3">
           <label class="form-label">Estado</label>
           <select class="form-select ev-input" id="fEstado">
@@ -95,7 +109,7 @@ require_once __DIR__ . '/../Config/config.php';
           </select>
         </div>
 
-        <div class="col-12 col-lg-4">
+        <div class="col-12 col-lg-3">
           <label class="form-label">Condominio / Urbanización</label>
           <select class="form-select ev-input" id="fCodigo" disabled>
             <option value="">Selecciona…</option>
@@ -103,13 +117,14 @@ require_once __DIR__ . '/../Config/config.php';
           <div class="form-text">Se habilita cuando eliges “Condominio” o “Urbanización”.</div>
         </div>
 
-        <div class="col-12 col-lg-2">
+        <div class="col-12 col-lg-6">
           <label class="form-label">Buscar</label>
           <div class="position-relative">
             <i class="bi bi-search ev-input-icon"></i>
             <input type="text" class="form-control ev-input ps-5" id="fQ" placeholder="Nombre, email, documento" autocomplete="off">
           </div>
         </div>
+
       </form>
     </div>
   </div>
@@ -117,8 +132,8 @@ require_once __DIR__ . '/../Config/config.php';
   <!-- Table -->
   <div class="ev-card">
     <div class="ev-card-header ev-card-header-row">
-      <h2 class="ev-card-title mb-0">Usuarios</h2>
-      <div class="ev-table-meta" id="pageInfo">1</div>
+      <h2 class="ev-card-title mb-0" id="tblTitle">Usuarios</h2>
+      <div class="ev-table-meta" id="pageInfo">—</div>
     </div>
 
     <div class="ev-table-wrap">
@@ -181,7 +196,6 @@ require_once __DIR__ . '/../Config/config.php';
               <div class="ev-kv-item"><span>Documento:</span> <strong id="mDocumento">—</strong></div>
               <div class="ev-kv-item"><span>Residencia:</span> <strong id="mResidencia">—</strong></div>
 
-              <!-- Preparado para cuando tu API devuelva tipo_solicitud -->
               <div class="ev-kv-item"><span>Solicitud:</span> <strong id="mTipoSolicitud">—</strong></div>
 
               <div class="ev-kv-item"><span>Estado:</span> <span id="mEstadoBadge" class="ev-badge ev-review">—</span></div>
@@ -191,6 +205,24 @@ require_once __DIR__ . '/../Config/config.php';
               <i class="bi bi-info-circle me-2"></i>
               Valida el recibo (luz/agua/internet) y confirma que el nombre/dirección coincidan con el registro del usuario.
             </div>
+
+            <div id="wrapDecisionResidencia" class="d-none mt-3">
+              <label class="form-label">Comentario (obligatorio para Observada/Rechazada)</label>
+              <textarea class="form-control ev-input" id="mComentarioResidencia" rows="3" placeholder="Escribe un comentario..."></textarea>
+
+              <div class="d-flex gap-2 mt-2" id="wrapAccionesResidencia">
+                <button type="button" class="btn ev-btn-orange" id="btnAprobarResidencia">
+                  <i class="bi bi-check2-circle me-1"></i> Aprobar
+                </button>
+                <button type="button" class="btn ev-btn-light" id="btnObservarResidencia">
+                  <i class="bi bi-exclamation-circle me-1"></i> Observar
+                </button>
+                <button type="button" class="btn btn-outline-danger" id="btnRechazarResidencia">
+                  <i class="bi bi-x-circle me-1"></i> Rechazar
+                </button>
+              </div>
+            </div>
+
           </div>
 
           <div class="col-12 col-lg-6">
@@ -232,26 +264,3 @@ require_once __DIR__ . '/../Config/config.php';
     </div>
   </div>
 </div>
-
-<script src="<?= rtrim(BASE_URL,'/') ?>/views/js/atenderCuentasUsuario.js"></script>
-
-<script>
-  (function(){
-    const fEstado = document.getElementById('fEstado');
-    if(!fEstado) return;
-
-    const clickSet = (btnId, val) => {
-      const b = document.getElementById(btnId);
-      if(!b) return;
-      b.addEventListener('click', () => {
-        fEstado.value = String(val);
-        fEstado.dispatchEvent(new Event('change', { bubbles:true }));
-      });
-    };
-
-    clickSet('btnEstadoRevision', '1');
-    clickSet('btnEstadoHabilitado', '2');
-    clickSet('btnEstadoInactivo', '0');
-    clickSet('btnEstadoTodos', 'all');
-  })();
-</script>

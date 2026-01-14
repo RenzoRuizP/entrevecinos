@@ -1,4 +1,4 @@
-// views/js/datosPersonales.js — Wizard 3 pasos (EV) + residencia con solicitud + cambio clave
+// views/js/datosPersonales.js — Wizard 3 pasos (EV) + Guardar por paso + residencia con solicitud + cambio clave
 (function () {
   "use strict";
 
@@ -12,7 +12,8 @@
   const API_UB_PROVS  = (depId) => `${baseURL}/ubigeo/departamentos/${depId}/provincias`;
   const API_UB_DISTS  = (provId) => `${baseURL}/ubigeo/provincias/${provId}/distritos`;
 
-  const API_ACTUALIZAR = `${baseURL}/api/usuario/actualizar`;
+  // ✅ Guardado por secciones
+  const API_ACTUALIZAR_TELEFONO = `${baseURL}/api/usuario/actualizar-telefono`;
   const API_SOLICITAR_CAMBIO = `${baseURL}/api/usuario/solicitar-cambio-residencia`;
   const API_CAMBIAR_CLAVE = `${baseURL}/api/usuario/cambiar-clave`;
 
@@ -38,6 +39,10 @@
   function swalOk(title, text) {
     if (!safeSwal()) { alert(`${title}\n\n${text}`); return; }
     Swal.fire({ icon: "success", title, text, confirmButtonColor: "#115C41" });
+  }
+  function swalInfo(title, text) {
+    if (!safeSwal()) { alert(`${title}\n\n${text}`); return; }
+    Swal.fire({ icon: "info", title, text, confirmButtonColor: "#115C41" });
   }
 
   async function fetchJSON(url, opts = {}) {
@@ -99,30 +104,16 @@
     });
 
     const btnAnterior = $("#btnAnterior", container);
+    const btnSiguiente = $("#btnSiguiente", container);
+
     if (btnAnterior) btnAnterior.disabled = (Number(step) <= 1);
+    if (btnSiguiente) btnSiguiente.disabled = (Number(step) >= 3);
 
     container.dataset.dpStep = String(step);
-    syncPrimaryCTA(container);
   }
 
   function currentStep(container) {
     return Number(container.dataset.dpStep || "1");
-  }
-
-  function syncPrimaryCTA(container) {
-    const btn = $("#btnActualizar", container);
-    if (!btn) return;
-
-    const step = currentStep(container);
-
-    if (!btn.dataset.labelActualizar) btn.dataset.labelActualizar = btn.textContent.trim() || "Actualizar";
-    if (!btn.dataset.labelSiguiente) btn.dataset.labelSiguiente = "Siguiente";
-
-    if (step < 3) {
-      btn.innerHTML = `<i class="bi bi-arrow-right me-1"></i> ${btn.dataset.labelSiguiente}`;
-    } else {
-      btn.innerHTML = `<i class="fas fa-save me-1"></i> ${btn.dataset.labelActualizar}`;
-    }
   }
 
   // -------------------------
@@ -211,7 +202,6 @@
           return;
         }
         await loadProvincias(depId, "", "");
-        refreshResidenciaUI(container, base);
       } catch (e) {
         console.error("[EV][Ubigeo] change dep:", e);
       }
@@ -225,13 +215,10 @@
           return;
         }
         await loadDistritos(provId, "");
-        refreshResidenciaUI(container, base);
       } catch (e) {
         console.error("[EV][Ubigeo] change prov:", e);
       }
     });
-
-    selDist.addEventListener("change", () => refreshResidenciaUI(container, base));
   }
 
   // -------------------------
@@ -404,30 +391,54 @@
   }
 
   // -------------------------
-  // Submit
+  // Guardar Paso 1: Teléfono
   // -------------------------
-  function hasPasswordIntent(container) {
-    const a = ($("#password_actual", container)?.value || "").trim();
-    const n = ($("#password_nueva", container)?.value || "").trim();
-    const c = ($("#password_confirmar", container)?.value || "").trim();
-    return (a !== "" || n !== "" || c !== "");
-  }
-
-  async function submitActualizar(container, base) {
-    const btn = $("#btnActualizar", container);
+  async function guardarPaso1(container) {
+    const btn = $("#btnGuardarPaso1", container);
     const original = btn ? btn.innerHTML : "";
 
     const telefono = ($("#telefono", container)?.value || "").trim();
 
-    const ubD = $("#dpUbDepto", container)?.value || "";
-    const ubP = $("#dpUbProv", container)?.value || "";
-    const ubDi = $("#dpUbDist", container)?.value || "";
-
-    if (!ubD || !ubP || !ubDi) {
-      return swalWarn("Ubigeo requerido", "Selecciona Departamento, Provincia y Distrito.");
+    if (!telefono) return swalWarn("Teléfono requerido", "Ingresa tu número de teléfono.");
+    if (!/^9\d{8}$/.test(telefono.replace(/\s+/g, ""))) {
+      return swalWarn("Teléfono inválido", "El teléfono debe tener 9 dígitos y empezar con 9.");
     }
 
+    if (btn) { btn.disabled = true; btn.classList.add("saving"); btn.innerHTML = "Guardando..."; }
+
+    try {
+      const res = await fetch(API_ACTUALIZAR_TELEFONO, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        credentials: "include",
+        body: JSON.stringify({ telefono })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || data.mensaje || data.error || `HTTP ${res.status}`);
+
+      swalOk("Guardado", "Tu teléfono fue actualizado.");
+    } catch (e) {
+      console.error("[EV][Paso1] Error:", e);
+      swalErr(e.message || "No se pudo guardar el teléfono.");
+    } finally {
+      if (btn) { btn.disabled = false; btn.classList.remove("saving"); btn.innerHTML = original; }
+    }
+  }
+
+  // -------------------------
+  // Guardar Paso 2: Residencia (solicitud si cambia)
+  // -------------------------
+  async function guardarPaso2(container, base) {
+    const btn = $("#btnGuardarPaso2", container);
+    const original = btn ? btn.innerHTML : "";
+
     const now = getResidenciaNow(container, base);
+
+    // Validaciones básicas
+    if (!now.ubD || !now.ubP || !now.ubDi) {
+      return swalWarn("Ubigeo requerido", "Selecciona Departamento, Provincia y Distrito.");
+    }
 
     if (now.tipo === "condominio") {
       if (!now.condominio) return swalWarn("Selecciona tu condominio", "Debes seleccionar un condominio.");
@@ -437,124 +448,100 @@
       return swalWarn("Residencia no definida", "No se pudo determinar el tipo de residencia.");
     }
 
-    const cambioResidencia = residenciaChanged(container, base);
-    const wantsPass = hasPasswordIntent(container);
+    const changed = residenciaChanged(container, base);
 
-    if (btn) {
-      btn.disabled = true;
-      btn.classList.add("saving");
-      btn.innerHTML = "Actualizando...";
+    if (!changed) {
+      return swalInfo("Sin cambios", "No detecté cambios en tu residencia para enviar solicitud.");
     }
 
+    // Si cambió: exige archivo y crea solicitud
+    const file = $("#dpDocDomicilio", container);
+    const f = file?.files?.[0] || null;
+    if (!f) return swalWarn("Adjunta un comprobante", "Para cambiar de domicilio debes adjuntar un comprobante.");
+
+    const max = 5 * 1024 * 1024;
+    const okType = /^(application\/pdf|image\/jpeg|image\/png)$/i.test(f.type);
+    const okExt = /\.(pdf|jpg|jpeg|png)$/i.test(f.name || "");
+    if (!(okType || okExt)) return swalWarn("Archivo no permitido", "Solo se permite PDF, JPG o PNG.");
+    if (f.size > max) return swalWarn("Archivo muy pesado", "El archivo no debe superar 5MB.");
+
+    if (btn) { btn.disabled = true; btn.classList.add("saving"); btn.innerHTML = "Enviando..."; }
+
     try {
-      if (!cambioResidencia) {
-        const payload = {
-          telefono: telefono,
-          ubigeo_departamento: ubD,
-          ubigeo_provincia: ubP,
-          ubigeo_distrito: ubDi,
-          tipo_conjunto: now.tipo,
-          direccion: now.direccion,
-          codigo_condominio: now.tipo === "condominio" ? now.condominio : null,
-          codigo_urbanizacion: now.tipo === "urbanizacion" ? now.urbanizacion : null,
-        };
+      const fd = new FormData();
+      fd.append("tipo_conjunto", now.tipo);
+      fd.append("direccion", now.direccion);
+      fd.append("codigo_condominio", now.tipo === "condominio" ? now.condominio : "");
+      fd.append("codigo_urbanizacion", now.tipo === "urbanizacion" ? now.urbanizacion : "");
+      fd.append("ubigeo_departamento", now.ubD);
+      fd.append("ubigeo_provincia", now.ubP);
+      fd.append("ubigeo_distrito", now.ubDi);
 
-        const res = await fetch(API_ACTUALIZAR, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Requested-With": "XMLHttpRequest",
-          },
-          credentials: "include",
-          body: JSON.stringify(payload),
-        });
+      // backend espera este nombre:
+      fd.append("documento_domicilio", f);
 
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.message || data.mensaje || data.error || `HTTP ${res.status}`);
-      }
+      const res2 = await fetch(API_SOLICITAR_CAMBIO, {
+        method: "POST",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+        credentials: "include",
+        body: fd,
+      });
 
-      if (cambioResidencia) {
-        const file = $("#dpDocDomicilio", container);
-        const f = file?.files?.[0] || null;
+      const data2 = await res2.json().catch(() => ({}));
+      if (!res2.ok) throw new Error(data2.message || data2.mensaje || data2.error || `HTTP ${res2.status}`);
 
-        if (!f) return swalWarn("Adjunta un comprobante", "Para cambiar de domicilio debes adjuntar un comprobante.");
-
-        const max = 5 * 1024 * 1024;
-        const okType = /^(application\/pdf|image\/jpeg|image\/png)$/i.test(f.type);
-        const okExt = /\.(pdf|jpg|jpeg|png)$/i.test(f.name || "");
-        if (!(okType || okExt)) return swalWarn("Archivo no permitido", "Solo se permite PDF, JPG o PNG.");
-        if (f.size > max) return swalWarn("Archivo muy pesado", "El archivo no debe superar 5MB.");
-
-        const fd = new FormData();
-        fd.append("tipo_conjunto", now.tipo);
-        fd.append("direccion", now.direccion);
-        fd.append("codigo_condominio", now.tipo === "condominio" ? now.condominio : "");
-        fd.append("codigo_urbanizacion", now.tipo === "urbanizacion" ? now.urbanizacion : "");
-        fd.append("ubigeo_departamento", ubD);
-        fd.append("ubigeo_provincia", ubP);
-        fd.append("ubigeo_distrito", ubDi);
-
-        // IMPORTANTE: el backend espera "documento_domicilio" (según tu JS original)
-        fd.append("documento_domicilio", f);
-
-        const res2 = await fetch(API_SOLICITAR_CAMBIO, {
-          method: "POST",
-          headers: { "X-Requested-With": "XMLHttpRequest" },
-          credentials: "include",
-          body: fd,
-        });
-
-        const data2 = await res2.json().catch(() => ({}));
-        if (!res2.ok) throw new Error(data2.message || data2.mensaje || data2.error || `HTTP ${res2.status}`);
-      }
-
-      if (wantsPass) {
-        const a = ($("#password_actual", container)?.value || "").trim();
-        const n = ($("#password_nueva", container)?.value || "").trim();
-        const c = ($("#password_confirmar", container)?.value || "").trim();
-
-        if (!a || !n || !c) return swalWarn("Campos incompletos", "Completa contraseña actual, nueva y confirmación.");
-        if (n !== c) return swalWarn("No coincide", "La nueva contraseña y la confirmación no coinciden.");
-        if (n.length < 8) return swalWarn("Contraseña débil", "La contraseña debe tener mínimo 8 caracteres.");
-        if (n === a) return swalWarn("Inválida", "La nueva contraseña debe ser distinta a la actual.");
-
-        const res3 = await fetch(API_CAMBIAR_CLAVE, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-          credentials: "include",
-          body: JSON.stringify({
-            password_actual: a,
-            password_nueva: n,
-            password_confirmar: c,
-          }),
-        });
-
-        const data3 = await res3.json().catch(() => ({}));
-        if (!res3.ok) throw new Error(data3.message || data3.mensaje || data3.error || `HTTP ${res3.status}`);
-
-        $("#password_actual", container).value = "";
-        $("#password_nueva", container).value = "";
-        $("#password_confirmar", container).value = "";
-      }
-
-      if (cambioResidencia) {
-        swalOk("Solicitud enviada", "Tu solicitud de cambio de domicilio fue enviada. Un administrador la revisará.");
-      } else if (wantsPass) {
-        swalOk("Actualizado", "Tus datos se actualizaron y tu contraseña fue cambiada.");
-      } else {
-        swalOk("Actualizado", "Tus datos se actualizaron correctamente.");
-      }
-
+      swalOk("Solicitud enviada", "Tu solicitud de cambio de domicilio fue enviada. Un administrador la revisará.");
     } catch (e) {
-      console.error("[EV][DatosPersonales] Error:", e);
-      swalErr(e.message || "No se pudo conectar con el servidor.");
+      console.error("[EV][Paso2] Error:", e);
+      swalErr(e.message || "No se pudo enviar la solicitud.");
     } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.classList.remove("saving");
-        btn.innerHTML = original;
-        syncPrimaryCTA(container);
-      }
+      if (btn) { btn.disabled = false; btn.classList.remove("saving"); btn.innerHTML = original; }
+    }
+  }
+
+  // -------------------------
+  // Guardar Paso 3: Contraseña
+  // -------------------------
+  async function guardarPaso3(container) {
+    const btn = $("#btnGuardarPaso3", container);
+    const original = btn ? btn.innerHTML : "";
+
+    const a = ($("#password_actual", container)?.value || "").trim();
+    const n = ($("#password_nueva", container)?.value || "").trim();
+    const c = ($("#password_confirmar", container)?.value || "").trim();
+
+    if (!a || !n || !c) return swalWarn("Campos incompletos", "Completa contraseña actual, nueva y confirmación.");
+    if (n !== c) return swalWarn("No coincide", "La nueva contraseña y la confirmación no coinciden.");
+    if (n.length < 8) return swalWarn("Contraseña débil", "La contraseña debe tener mínimo 8 caracteres.");
+    if (n === a) return swalWarn("Inválida", "La nueva contraseña debe ser distinta a la actual.");
+
+    if (btn) { btn.disabled = true; btn.classList.add("saving"); btn.innerHTML = "Guardando..."; }
+
+    try {
+      const res = await fetch(API_CAMBIAR_CLAVE, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        credentials: "include",
+        body: JSON.stringify({
+          password_actual: a,
+          password_nueva: n,
+          password_confirmar: c,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || data.mensaje || data.error || `HTTP ${res.status}`);
+
+      $("#password_actual", container).value = "";
+      $("#password_nueva", container).value = "";
+      $("#password_confirmar", container).value = "";
+
+      swalOk("Actualizado", "Tu contraseña fue cambiada correctamente.");
+    } catch (e) {
+      console.error("[EV][Paso3] Error:", e);
+      swalErr(e.message || "No se pudo cambiar la contraseña.");
+    } finally {
+      if (btn) { btn.disabled = false; btn.classList.remove("saving"); btn.innerHTML = original; }
     }
   }
 
@@ -565,10 +552,7 @@
     const container = rootEl || document.querySelector(".container-datos-personales");
     if (!container) return;
 
-    if (container.dataset.dpInitialized === "1") {
-      syncPrimaryCTA(container);
-      return;
-    }
+    if (container.dataset.dpInitialized === "1") return;
     container.dataset.dpInitialized = "1";
 
     const base = getBaseState();
@@ -582,7 +566,7 @@
     const inputDir = $("#direccion", container);
     if (inputDir) inputDir.value = inputDir.value || base.direccion || "";
 
-    ["#dpTipoCondominio", "#dpTipoUrbanizacion", "#comboCondominio", "#comboUrbanizacion", "#dpUbDepto", "#dpUbProv", "#dpUbDist"]
+    ["#dpTipoCondominio", "#dpTipoUrbanizacion", "#comboCondominio", "#comboUrbanizacion"]
       .forEach(sel => {
         const el = $(sel, container);
         if (!el) return;
@@ -614,6 +598,7 @@
     refreshResidenciaUI(container, base);
     initFilePreview(container);
 
+    // Click stepper
     container.querySelectorAll(".ev-stepper .ev-step").forEach(s => {
       s.addEventListener("click", () => {
         const step = Number(s.dataset.step || "1");
@@ -621,6 +606,7 @@
       });
     });
 
+    // Footer nav
     const btnAnterior = $("#btnAnterior", container);
     if (btnAnterior) {
       btnAnterior.addEventListener("click", () => {
@@ -629,41 +615,32 @@
       });
     }
 
-    const btnActualizar = $("#btnActualizar", container);
-    if (btnActualizar) {
-      btnActualizar.addEventListener("click", async (e) => {
-        e.preventDefault();
-
+    const btnSiguiente = $("#btnSiguiente", container);
+    if (btnSiguiente) {
+      btnSiguiente.addEventListener("click", () => {
         const step = currentStep(container);
-        if (step < 3) {
-          setStep(container, step + 1);
-          return;
-        }
-
-        await submitActualizar(container, base);
+        if (step < 3) setStep(container, step + 1);
       });
     }
 
-    syncPrimaryCTA(container);
+    // Guardar por paso
+    const b1 = $("#btnGuardarPaso1", container);
+    if (b1) b1.addEventListener("click", (e) => { e.preventDefault(); guardarPaso1(container); });
+
+    const b2 = $("#btnGuardarPaso2", container);
+    if (b2) b2.addEventListener("click", (e) => { e.preventDefault(); guardarPaso2(container, base); });
+
+    const b3 = $("#btnGuardarPaso3", container);
+    if (b3) b3.addEventListener("click", (e) => { e.preventDefault(); guardarPaso3(container); });
   }
 
-  // -------------------------
-  // Boot determinístico (SIN MutationObserver)
-  // -------------------------
-  function boot() {
-    initDatosPersonales();
-  }
+  function boot() { initDatosPersonales(); }
 
-  // Carga directa
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot);
   } else {
     boot();
   }
 
-  // Carga AJAX: el core de navegación debe disparar este evento al insertar HTML
-  // (En mi propuesta de menuIzquierda.js ya lo disparo: document.dispatchEvent(new CustomEvent("ev:content-loaded", ...)))
-  document.addEventListener("ev:content-loaded", () => {
-    initDatosPersonales();
-  });
+  document.addEventListener("ev:content-loaded", () => initDatosPersonales());
 })();
