@@ -7,6 +7,7 @@ require_once __DIR__ . '/../Config/config.php';
 
 <div class="ev-notif-wrap fade-in">
   <div class="card ev-notif-card">
+
     <div class="ev-notif-header">
       <div class="ev-notif-titlebox">
         <div class="ev-notif-ico"><i class="bi bi-bell-fill"></i></div>
@@ -45,23 +46,25 @@ require_once __DIR__ . '/../Config/config.php';
         <button class="btn ev-btn ev-btn-light" id="btnNextNotif" type="button"><i class="bi bi-chevron-right"></i></button>
       </div>
     </div>
+
   </div>
 </div>
 
 <!-- Modal detalle / reenviar -->
-<div class="modal fade ev-modal" id="modalNotifResidencia" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalNotifResidencia" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content ev-modal-content ev-notif-modal-content">
-      <div class="modal-header ev-notif-modal-header">
-        <h5 class="modal-title ev-notif-modal-title">
-          <i class="bi bi-house-check me-2"></i> Detalle de notificación
+    <div class="modal-content ev-modal-content">
+
+      <div class="modal-header ev-modal-header">
+        <h5 class="modal-title ev-modal-title">
+          <i class="bi bi-house-check me-2"></i>Detalle de notificación
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
 
       <div class="modal-body">
         <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-          <span id="mState" class="ev-badge-state ev-badge-read">—</span>
+          <span id="mState" class="ev-badge-state">—</span>
           <span class="text-muted small" id="mFecha">—</span>
         </div>
 
@@ -70,7 +73,7 @@ require_once __DIR__ . '/../Config/config.php';
 
         <hr>
 
-        <div class="ev-notif-reenvio-box">
+        <div class="ev-reenvio-box">
           <div class="fw-bold mb-2">Reenviar solicitud</div>
           <div class="text-muted small mb-2">
             Si la solicitud fue observada o rechazada, adjunta un nuevo comprobante para reenviar.
@@ -80,16 +83,19 @@ require_once __DIR__ . '/../Config/config.php';
             accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
           <div class="form-text">PDF/JPG/PNG · Máximo 5MB.</div>
 
-          <div class="d-flex gap-2 mt-3">
-            <button type="button" class="btn ev-btn ev-btn-orange d-none" id="btnReenviar">
-              <i class="bi bi-send-check me-1"></i> Reenviar solicitud
+          <div class="ev-modal-actions mt-3">
+            <button type="button" class="btn ev-btn ev-btn-guardar" id="btnGuardarReenvio">
+              <i class="bi bi-check2-circle me-1"></i> Guardar
             </button>
             <button type="button" class="btn ev-btn ev-btn-light" data-bs-dismiss="modal">Cerrar</button>
           </div>
-        </div>
 
+          <div class="text-muted small mt-2 d-none" id="evReenvioLocked">
+            Esta notificación ya fue atendida.
+          </div>
+        </div>
       </div>
+
     </div>
   </div>
 </div>
-

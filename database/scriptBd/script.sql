@@ -336,3 +336,9 @@ INSERT INTO urbanizacion (nombre_urbanizacion, direccion_urbanizacion, codigo_di
 VALUES ('Urbanización Los Álamos', 'Av. Principal 123', 150113, 'A');
 
 
+DESCRIBE usuario_residencia_solicitud;
+DESCRIBE usuario_residencia;
+
+DESCRIBE usuario;
+DESCRIBE provincia;
+DESCRIBE distrito;

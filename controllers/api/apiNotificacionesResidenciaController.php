@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/UsuarioResidenciaSolicitud.php';
+require_once __DIR__ . '/../../models/Notificacion.php';
 
 final class apiNotificacionesResidenciaController
 {
@@ -22,7 +23,6 @@ final class apiNotificacionesResidenciaController
 
     private function guardarArchivoComprobante(array $file, int $codigoUsuario): string
     {
-        $baseDir = rtrim((string)BASE_URL, '/'); // solo para consistencia; no se usa en filesystem
         $uploadRel = 'resources/uploads/comprobantes';
         $uploadAbs = __DIR__ . '/../../' . $uploadRel;
 
@@ -62,8 +62,8 @@ final class apiNotificacionesResidenciaController
 
     public function reenviar($codigoSolicitud): void
     {
-        $u = $this->codigoUsuarioAuth();
-        $id = (int)$codigoSolicitud;
+        $u  = $this->codigoUsuarioAuth();
+        $id = (int)$codigoSolicitud; // ✅ ESTE ES EL ID ORIGINAL observado/rechazado
 
         if ($u <= 0) {
             $this->json(401, ['ok' => false, 'mensaje' => 'No autenticado.']);
@@ -74,7 +74,6 @@ final class apiNotificacionesResidenciaController
             return;
         }
 
-        // Archivo obligatorio
         $file = $_FILES['documento_domicilio'] ?? null;
         if (!$file || !is_array($file)) {
             $this->json(422, ['ok' => false, 'mensaje' => 'Adjunta el comprobante para reenviar.']);
@@ -101,7 +100,7 @@ final class apiNotificacionesResidenciaController
         }
 
         try {
-            $ruta = $this->guardarArchivoComprobante($file, $u);
+            $ruta  = $this->guardarArchivoComprobante($file, $u);
             $newId = $model->reenviarDesdeObservadaRechazada($id, $ruta);
 
             if ($newId <= 0) {
@@ -109,10 +108,17 @@ final class apiNotificacionesResidenciaController
                 return;
             }
 
+            // ✅ FIX RAÍZ: cerrar la notificación ligada a la solicitud original
+            $n = new Notificacion();
+            $cerradas = $n->marcarLeidasPorReferencia($u, 'residencia', $id);
+
             $this->json(200, [
                 'ok' => true,
                 'mensaje' => 'Solicitud reenviada. Queda pendiente de revisión.',
-                'data' => ['codigo_solicitud' => $newId]
+                'data' => [
+                    'codigo_solicitud' => $newId,
+                    'notificaciones_cerradas' => $cerradas
+                ]
             ]);
         } catch (Throwable $e) {
             $this->json(422, ['ok' => false, 'mensaje' => $e->getMessage()]);

@@ -131,4 +131,29 @@ final class Notificacion extends Conexion
         $st->execute();
         return (int)($st->fetch(PDO::FETCH_ASSOC)['c'] ?? 0);
     }
+
+    /**
+     * ✅ FIX RAÍZ:
+     * Cierra (marca leídas) todas las notificaciones del usuario para una referencia (solicitud).
+     * Ej: categoria='residencia' y referencia_id = codigo_solicitud observado/rechazado.
+     */
+    public function marcarLeidasPorReferencia(int $codigoUsuario, string $categoria, int $referenciaId): int
+    {
+        $categoria = strtolower(trim($categoria));
+
+        $sql = "UPDATE notificacion
+                SET estado = 'leida', read_at = CURRENT_TIMESTAMP
+                WHERE codigo_usuario = :u
+                  AND categoria = :cat
+                  AND referencia_id = :ref
+                  AND estado = 'no_leida'";
+
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
+        $st->bindValue(':cat', $categoria, PDO::PARAM_STR);
+        $st->bindValue(':ref', $referenciaId, PDO::PARAM_INT);
+        $st->execute();
+
+        return (int)$st->rowCount();
+    }
 }

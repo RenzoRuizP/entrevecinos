@@ -1,36 +1,31 @@
 // views/js/notificacionesResidencia.js
-// Notificaciones · Residencia (Vecino)
-// - Lista: /api/notificaciones?categoria=residencia&estado=...&page=...&size=...
-// - Marcar leída: POST /api/notificaciones/{codigo_notificacion}/leida
-// - Reenviar: POST /api/notificaciones/residencia/{referencia_id}/reenviar
-//
-// FIX:
-// 1) Header modal blanco -> ya se resuelve 100% por CSS (ev-notif-modal-title)
-// 2) Tras reenviar: desaparece de la lista (se remueve + refresh + opcional marcar leída)
-// 3) Hover premium -> CSS (ev-btn-orange:hover)
+// Módulo: Notificaciones > Residencia (Vecino)
+// Lista observadas/rechazadas + Modal detalle + Reenviar solicitud
+// FIXES:
+// - “Ver” solo si estado = no_leida (bloquea reenvío múltiple)
+// - Al reenviar: backend marca notificación como leída por referencia_id (solicitud original)
+// - Botón Guardar: a la derecha + hover premium + bloqueo UI tras éxito
 
 (function () {
   "use strict";
 
-  const NS = "__EV_NOTIF_RESIDENCIA_UI__";
+  const NS = "__EV_NOTI_RESIDENCIA__";
   if (!window[NS]) window[NS] = { controller: null, bound: false };
-  const globalState = window[NS];
+  const state = window[NS];
 
-  function init() {
-    // abort anterior
-    try { if (globalState.controller) globalState.controller.abort(); } catch (_) {}
-    globalState.controller = new AbortController();
-    const { signal } = globalState.controller;
+  function initNotificacionesResidencia() {
+    try { if (state.controller) state.controller.abort(); } catch (_) {}
+    state.controller = new AbortController();
+    const { signal } = state.controller;
 
     const base = (window.BASE_URL || window.EV_BASE_URL || "").toString().replace(/\/+$/, "");
     const buildURL = (p) => base + "/" + String(p || "").replace(/^\/+/, "");
-
     const $ = (id) => document.getElementById(id);
 
-    // --- DOM (según tu view actual) ---
+    // DOM
     const list = $("listNotif");
-    const selEstado = $("fEstadoNotif");
-    const btnRefresh = $("btnRefrescarNotif");
+    const fEstado = $("fEstadoNotif");
+    const btnRefrescar = $("btnRefrescarNotif");
     const counter = $("evNotifCounter");
     const footerLeft = $("evFooterLeft");
     const btnPrev = $("btnPrevNotif");
@@ -46,25 +41,24 @@
     const mTitulo = $("mTitulo");
     const mMensaje = $("mMensaje");
     const mFile = $("mFile");
-    const btnReenviar = $("btnReenviar");
+    const btnGuardar = $("btnGuardarReenvio");
+    const lockMsg = $("evReenvioLocked");
 
-    // Si no estamos en esta vista, salir
     if (!list || !modal) return;
 
-    // --- Estado ---
-    let loading = false;
+    // Local state
     let page = 1;
-    const size = 8;
+    const size = 10;
+    let total = 0;
+    let loading = false;
+    let seleccionado = null;
 
-    // Notificación seleccionada
-    let selected = null;
+    const itemsById = new Map();
 
-    // --- API ---
-    const API_LISTAR = buildURL("api/notificaciones");
-    const API_LEIDA = (idNoti) => buildURL(`api/notificaciones/${idNoti}/leida`);
-    const API_REENVIAR = (refId) => buildURL(`api/notificaciones/residencia/${refId}/reenviar`);
+    // Endpoints
+    const API_LISTAR = buildURL("api/notificaciones"); // GET ?categoria=residencia&estado=...&page&size
+    const API_REENVIAR = (id) => buildURL(`api/notificaciones/residencia/${id}/reenviar`);
 
-    // --- Helpers ---
     const escapeHtml = (s) =>
       String(s ?? "")
         .replaceAll("&", "&amp;")
@@ -72,10 +66,6 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
-
-    function tryParseJSON(str) {
-      try { return JSON.parse(String(str || "")); } catch (_) { return null; }
-    }
 
     function swalOk(msg) {
       if (window.Swal?.fire) return Swal.fire({ icon: "success", title: "Listo", text: msg, timer: 1400, showConfirmButton: false });
@@ -90,23 +80,14 @@
       alert(msg);
     }
 
-    function badgeEstadoSolicitud(row) {
-      // En tu tabla notificacion existe: subcategoria (y es el mejor lugar para esto)
-      const sub = String(row?.subcategoria || "").toLowerCase().trim();
-
-      if (sub === "observada") return `<span class="ev-badge-state ev-badge-obs"><i class="bi bi-exclamation-circle"></i> Observada</span>`;
-      if (sub === "rechazada") return `<span class="ev-badge-state ev-badge-rej"><i class="bi bi-x-circle"></i> Rechazada</span>`;
-
-      // fallback: inferencia por título
-      const t = String(row?.titulo || "").toLowerCase();
-      if (t.includes("rechaz")) return `<span class="ev-badge-state ev-badge-rej"><i class="bi bi-x-circle"></i> Rechazada</span>`;
+    function badgeEstado(estado) {
+      const e = String(estado || "").toLowerCase();
+      if (e === "rechazada") return `<span class="ev-badge-state ev-badge-rej"><i class="bi bi-x-circle"></i> Rechazada</span>`;
       return `<span class="ev-badge-state ev-badge-obs"><i class="bi bi-exclamation-circle"></i> Observada</span>`;
     }
 
-    function isReenviable(row) {
-      // Reenviar solo si subcategoria es observada o rechazada (tu regla de negocio)
-      const sub = String(row?.subcategoria || "").toLowerCase().trim();
-      return (sub === "observada" || sub === "rechazada");
+    function dotClass(noti) {
+      return String(noti?.estado || "") === "leida" ? "ev-dot read" : "ev-dot";
     }
 
     async function fetchJSON(url, opts = {}) {
@@ -137,17 +118,14 @@
       return data;
     }
 
-    function renderSkeleton() {
-      list.innerHTML = `
-        <div class="ev-item" aria-busy="true">
-          <div class="ev-item-left">
-            <div class="ev-dot"></div>
-            <div>
-              <p class="ev-item-title mb-1">Cargando…</p>
-              <p class="ev-item-msg mb-0">Obteniendo tus notificaciones…</p>
-            </div>
-          </div>
-        </div>`;
+    function parseRows(res) {
+      if (res && typeof res === "object" && Array.isArray(res.data)) {
+        return { rows: res.data, total: Number(res.meta?.total || 0) };
+      }
+      if (Array.isArray(res)) return { rows: res, total: res.length };
+      const alt = res?.items || res?.rows || res?.notificaciones || null;
+      if (Array.isArray(alt)) return { rows: alt, total: Number(res.total || alt.length || 0) };
+      return { rows: [], total: 0 };
     }
 
     function renderEmpty(msg) {
@@ -156,187 +134,142 @@
           <div class="ev-item-left">
             <div class="ev-dot read"></div>
             <div>
-              <p class="ev-item-title mb-1">Sin resultados</p>
-              <p class="ev-item-msg mb-0">${escapeHtml(msg || "No hay notificaciones para mostrar.")}</p>
+              <div class="ev-item-title">Sin resultados</div>
+              <div class="ev-item-msg">${escapeHtml(msg || "No tienes solicitudes observadas o rechazadas.")}</div>
+              <div class="ev-item-meta">—</div>
             </div>
           </div>
         </div>`;
     }
 
-    function setMeta(meta) {
-      const total = Number(meta?.total || 0);
-      const p = Number(meta?.page || 1);
-      const s = Number(meta?.size || size);
-      const pages = Math.max(1, Math.ceil(total / Math.max(1, s)));
+    function updateFooter(showing) {
+      const maxPage = Math.max(1, Math.ceil(total / size));
+      if (pageInfo) pageInfo.textContent = `${page} / ${maxPage}`;
+      if (btnPrev) btnPrev.disabled = page <= 1;
+      if (btnNext) btnNext.disabled = page >= maxPage;
+      if (footerLeft) footerLeft.textContent = `Mostrando ${showing} de ${total}`;
+      if (counter) counter.textContent = `${total} total`;
+    }
 
-      if (counter) counter.textContent = `${total} en total`;
-      if (footerLeft) {
-        const from = total === 0 ? 0 : ((p - 1) * s + 1);
-        const to = Math.min(total, p * s);
-        footerLeft.textContent = `Mostrando ${from}-${to} de ${total}`;
+    function onlyObsRej(rows) {
+      return (rows || []).filter(r => {
+        const payload = safeParsePayload(r?.payload_json);
+        const est = String(payload?.estado || "").toLowerCase();
+        // Solo obs/rej
+        return est === "observada" || est === "rechazada";
+      });
+    }
+
+    function safeParsePayload(payloadJson) {
+      try {
+        if (!payloadJson) return {};
+        if (typeof payloadJson === "object") return payloadJson;
+        return JSON.parse(String(payloadJson));
+      } catch (_) {
+        return {};
       }
-      if (pageInfo) pageInfo.textContent = `${p} / ${pages}`;
-
-      if (btnPrev) btnPrev.disabled = (p <= 1);
-      if (btnNext) btnNext.disabled = (p >= pages);
-
-      return pages;
     }
 
     function renderList(rows) {
-      if (!Array.isArray(rows) || rows.length === 0) {
-        renderEmpty("No tienes notificaciones de residencia para este filtro.");
+      const filtradas = onlyObsRej(rows);
+
+      if (!filtradas.length) {
+        renderEmpty("No tienes solicitudes observadas o rechazadas.");
+        total = 0;
+        updateFooter(0);
         return;
       }
 
-      list.innerHTML = rows.map((r) => {
-        const idNoti = Number(r.codigo_notificacion || 0);
-        const estadoLectura = String(r.estado || "").toLowerCase().trim(); // no_leida / leida
-        const dotClass = (estadoLectura === "leida") ? "ev-dot read" : "ev-dot";
+      itemsById.clear();
+      filtradas.forEach(n => itemsById.set(Number(n.codigo_notificacion), n));
 
-        // Para el “reenviar”, el ID correcto es referencia_id
-        const refId = Number(r.referencia_id || 0);
+      // Total real mostrado
+      total = filtradas.length;
+      updateFooter(filtradas.length);
 
-        // Mensaje corto
-        const msg = String(r.mensaje || "").trim();
-        const msgShort = msg.length > 120 ? (msg.slice(0, 120) + "…") : (msg || "—");
+      list.innerHTML = filtradas.map(n => {
+        const payload = safeParsePayload(n.payload_json);
+        const solicitudId = Number(payload?.codigo_solicitud || n.referencia_id || 0);
+        const estadoSol = String(payload?.estado || "").toLowerCase();
+        const fecha = n.created_at || "—";
+        const msg = payload?.comentario_admin || n.mensaje || "—";
 
-        const fecha = (r.created_at || r.read_at || "").toString();
+        // ✅ FIX RAÍZ UI: “Ver” solo si la notificación sigue NO LEÍDA
+        const puedeVer = String(n.estado) === "no_leida" && (estadoSol === "observada" || estadoSol === "rechazada");
 
-        // El botón "Ver" debe existir, pero reenviar solo se habilita en el modal si es reenviable.
-        // Y tras reenviar, el item se eliminará del DOM + refresh, evitando reenvíos múltiples.
         return `
-          <div class="ev-item" id="evNoti_${idNoti}" data-id="${idNoti}" data-ref="${refId}">
+          <div class="ev-item" id="notif_${n.codigo_notificacion}">
             <div class="ev-item-left">
-              <div class="${dotClass}"></div>
+              <div class="${dotClass(n)}"></div>
               <div>
-                <p class="ev-item-title mb-1">${escapeHtml(r.titulo || "Notificación")}</p>
-                <p class="ev-item-msg mb-0">${escapeHtml(msgShort)}</p>
-                <div class="ev-item-meta">
-                  <span class="me-2">${escapeHtml(fecha || "—")}</span>
-                  ${badgeEstadoSolicitud(r)}
-                </div>
+                <div class="ev-item-title">${escapeHtml(n.titulo || "Notificación de residencia")}</div>
+                <div class="ev-item-msg">${escapeHtml(String(msg).slice(0, 140))}${String(msg).length > 140 ? "…" : ""}</div>
+                <div class="ev-item-meta">${escapeHtml(fecha)} · Solicitud #${solicitudId}</div>
               </div>
             </div>
 
             <div class="ev-item-actions">
-              <button class="btn ev-btn ev-btn-light ev-btn-ver" type="button" data-open="${idNoti}">
-                <i class="bi bi-eye me-1"></i> Ver
-              </button>
+              ${badgeEstado(estadoSol)}
+              ${puedeVer ? `
+                <button class="btn ev-btn ev-btn-light btnVer" type="button"
+                        data-noti="${n.codigo_notificacion}"
+                        data-sol="${solicitudId}">
+                  <i class="bi bi-eye me-1"></i> Ver
+                </button>` : ``}
             </div>
-          </div>
-        `;
+          </div>`;
       }).join("");
     }
 
-    function openModalById(idNoti) {
-      const el = document.getElementById(`evNoti_${idNoti}`);
-      if (!el) return;
+    function openModal(noti, solicitudId) {
+      seleccionado = { noti, solicitudId };
 
-      const refId = Number(el.dataset.ref || 0);
+      const payload = safeParsePayload(noti.payload_json);
+      const estadoSol = String(payload?.estado || "").toLowerCase();
+      const fecha = noti.created_at || "—";
+      const comentario = payload?.comentario_admin || noti.mensaje || "—";
 
-      // Obtener el row desde dataset no es suficiente; lo guardaremos en memoria buscando en la última carga
-      // Para ello usamos un mapa local:
-      const row = lastRowsById.get(idNoti);
-      if (!row) return;
+      if (mState) mState.innerHTML = badgeEstado(estadoSol);
+      if (mFecha) mFecha.textContent = fecha;
+      if (mTitulo) mTitulo.textContent = noti.titulo || "Detalle de notificación";
+      if (mMensaje) mMensaje.textContent = comentario;
 
-      selected = {
-        row,
-        idNoti,
-        refId
-      };
-
-      const estadoLectura = String(row.estado || "").toLowerCase().trim();
-      const reenviable = isReenviable(row);
-
-      if (mTitulo) mTitulo.textContent = row.titulo || "Notificación";
-      if (mMensaje) mMensaje.textContent = row.mensaje || "—";
-      if (mFecha) mFecha.textContent = row.created_at || row.read_at || "—";
-      if (mState) mState.innerHTML = badgeEstadoSolicitud(row);
-
-      // Reset file
+      // Reset
       if (mFile) mFile.value = "";
+      if (lockMsg) lockMsg.classList.add("d-none");
 
-      // Botón reenviar solo si corresponde
-      if (btnReenviar) {
-        btnReenviar.classList.toggle("d-none", !reenviable);
-        btnReenviar.disabled = false;
+      // Si ya está leída, no debe permitir guardar
+      const reenviable = String(noti.estado) === "no_leida" && (estadoSol === "observada" || estadoSol === "rechazada");
+
+      if (btnGuardar) {
+        btnGuardar.classList.toggle("d-none", !reenviable);
+        btnGuardar.disabled = !reenviable;
       }
 
-      // Si está no_leida y el usuario abre el modal, marcamos leída (premium UX) SOLO si el filtro permite
-      // Esto no cambia la regla de reenvío: reenviar depende de subcategoria, no de estado leída.
-      if (estadoLectura === "no_leida") {
-        marcarLeidaSilencioso(idNoti).catch(() => {});
-      }
+      if (!reenviable && lockMsg) lockMsg.classList.remove("d-none");
 
       modal.show();
     }
 
-    async function marcarLeidaSilencioso(idNoti) {
-      try {
-        await fetchJSON(API_LEIDA(idNoti), { method: "POST" });
-
-        // Actualiza dot en UI si sigue visible
-        const item = document.getElementById(`evNoti_${idNoti}`);
-        const dot = item?.querySelector(".ev-dot");
-        if (dot) dot.classList.add("read");
-
-        // Si el usuario está filtrando "No leídas", al marcar leída debe desaparecer.
-        const est = String(selEstado?.value || "no_leida");
-        if (est === "no_leida") {
-          item?.remove();
-        }
-
-        // refresh suave para cuadrar contadores/paginación
-        await cargarLista({ keepPage: true, silent: true });
-      } catch (_) {
-        // silencioso
-      }
-    }
-
-    const lastRowsById = new Map();
-
-    async function cargarLista(opts = {}) {
+    async function cargarLista() {
       if (loading) return;
       loading = true;
 
-      const keepPage = !!opts.keepPage;
-      const silent = !!opts.silent;
-
-      if (!keepPage) page = 1;
-      if (!silent) renderSkeleton();
-
       try {
-        const estado = String(selEstado?.value || "no_leida");
-        const url =
-          `${API_LISTAR}?categoria=residencia&estado=${encodeURIComponent(estado)}&page=${encodeURIComponent(page)}&size=${encodeURIComponent(size)}`;
-
-        const res = await fetchJSON(url);
-        const rows = Array.isArray(res.data) ? res.data : [];
-        const meta = res.meta || { page, size, total: rows.length };
-
-        lastRowsById.clear();
-        rows.forEach((r) => {
-          const id = Number(r.codigo_notificacion || 0);
-          if (id > 0) lastRowsById.set(id, r);
+        const estado = (fEstado?.value || "no_leida").trim(); // no_leida|leida|all
+        const qs = new URLSearchParams({
+          categoria: "residencia",
+          estado,
+          page: String(page),
+          size: String(size)
         });
 
-        const pages = setMeta(meta);
-
-        // Ajuste si page queda fuera de rango tras cambios
-        if (page > pages) {
-          page = pages;
-          loading = false;
-          return cargarLista({ keepPage: true, silent: true });
-        }
-
-        renderList(rows);
+        const res = await fetchJSON(API_LISTAR + "?" + qs.toString());
+        const parsed = parseRows(res);
+        renderList(parsed.rows || []);
       } catch (e) {
         if (String(e?.name || "").toLowerCase() === "aborterror") return;
-        console.error("[EV][NOTIF_RESIDENCIA]", e);
-        if (counter) counter.textContent = "0 en total";
-        if (footerLeft) footerLeft.textContent = "Mostrando 0 de 0";
-        if (pageInfo) pageInfo.textContent = "1 / 1";
+        console.error("[EV][NOTI_RESIDENCIA]", e);
         renderEmpty("Error al cargar notificaciones.");
       } finally {
         loading = false;
@@ -344,15 +277,17 @@
     }
 
     async function reenviarSolicitud() {
-      if (!selected?.row) return swalInfo("Selecciona una notificación.");
-      const refId = Number(selected.refId || 0);
-      const idNoti = Number(selected.idNoti || 0);
+      if (!seleccionado?.noti) return swalInfo("Selecciona una notificación.");
+      const noti = seleccionado.noti;
 
-      if (!refId) return swalErr("No se encontró referencia de solicitud (referencia_id).");
+      // ✅ usamos el ID ORIGINAL de la solicitud (referencia_id / payload.codigo_solicitud)
+      const payload = safeParsePayload(noti.payload_json);
+      const solicitudId = Number(payload?.codigo_solicitud || noti.referencia_id || 0);
+      if (!solicitudId) return swalErr("No se pudo identificar la solicitud.");
 
-      // Bloqueo por subcategoria (regla de negocio)
-      if (!isReenviable(selected.row)) {
-        return swalInfo("Esta notificación ya no permite reenvío.");
+      // bloqueo por estado leído
+      if (String(noti.estado) !== "no_leida") {
+        return swalInfo("Esta notificación ya fue atendida.");
       }
 
       const f = mFile?.files?.[0] || null;
@@ -363,117 +298,92 @@
       if (!(okType || okExt)) return swalInfo("Solo se permite PDF, JPG o PNG.");
       if (f.size > 5 * 1024 * 1024) return swalInfo("Máximo 5MB.");
 
-      const original = btnReenviar ? btnReenviar.innerHTML : "";
-      if (btnReenviar) {
-        btnReenviar.disabled = true;
-        btnReenviar.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Reenviando...`;
+      const original = btnGuardar ? btnGuardar.innerHTML : "";
+      if (btnGuardar) {
+        btnGuardar.disabled = true;
+        btnGuardar.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Guardando...`;
       }
 
       try {
         const fd = new FormData();
         fd.append("documento_domicilio", f);
 
-        const res = await fetch(API_REENVIAR(refId), {
+        const res = await fetch(API_REENVIAR(solicitudId), {
           method: "POST",
-          cache: "no-store",
           credentials: "include",
           headers: { "X-Requested-With": "XMLHttpRequest" },
           body: fd,
           signal
         });
 
-        const ct = (res.headers.get("content-type") || "").toLowerCase();
-        const data = ct.includes("application/json")
-          ? await res.json().catch(() => ({}))
-          : { ok: res.ok };
-
+        const data = await res.json().catch(() => ({}));
         if (!res.ok || data.ok === false) {
           throw new Error(data.mensaje || data.message || `HTTP ${res.status}`);
         }
 
-        // Premium UX:
-        // 1) marcar leída (si existe idNoti)
-        if (idNoti) {
-          try { await fetchJSON(API_LEIDA(idNoti), { method: "POST" }); } catch (_) {}
-        }
-
-        // 2) cerrar modal
-        try { modal.hide(); } catch (_) {}
-
-        // 3) remover de la lista inmediatamente (evita reenvíos múltiples aunque no refresque)
-        const item = document.getElementById(`evNoti_${idNoti}`);
-        if (item) item.remove();
-
         swalOk(data.mensaje || "Solicitud reenviada.");
 
-        // 4) refresh para recalcular contadores/paginación
-        await cargarLista({ keepPage: true, silent: true });
+        // ✅ premium UX: cerrar modal
+        try { modal.hide(); } catch (_) {}
+
+        // ✅ marcar en UI como atendida: no debe tener “Ver” más (y opcionalmente remover item)
+        // Como backend la marcó leída por referencia_id, en el siguiente refresh ya no tendrá “Ver”.
+        // Si estás filtrando por "No leídas", va a desaparecer.
+        await cargarLista();
 
       } catch (e) {
-        console.error("[EV][REENVIAR_RESIDENCIA]", e);
+        console.error("[EV][REENVIAR]", e);
         swalErr(e.message || "No se pudo reenviar la solicitud.");
       } finally {
-        if (btnReenviar) {
-          btnReenviar.disabled = false;
-          btnReenviar.innerHTML = original;
+        if (btnGuardar) {
+          btnGuardar.disabled = false;
+          btnGuardar.innerHTML = original;
         }
       }
     }
 
-    // --- Eventos ---
+    // Events
     list.addEventListener("click", (ev) => {
-      const btn = ev.target.closest("[data-open]");
+      const btn = ev.target.closest(".btnVer");
       if (!btn) return;
-      const idNoti = Number(btn.getAttribute("data-open") || 0);
-      if (!idNoti) return;
-      openModalById(idNoti);
+
+      const notiId = Number(btn.dataset.noti || 0);
+      const solId = Number(btn.dataset.sol || 0);
+
+      const noti = itemsById.get(notiId);
+      if (noti) openModal(noti, solId);
     }, { signal });
 
-    if (btnReenviar) {
-      btnReenviar.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        reenviarSolicitud();
-      }, { signal });
-    }
+    btnGuardar?.addEventListener("click", (e) => {
+      e.preventDefault();
+      reenviarSolicitud();
+    }, { signal });
 
-    if (btnRefresh) {
-      btnRefresh.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        cargarLista({ keepPage: false });
-      }, { signal });
-    }
+    fEstado?.addEventListener("change", () => {
+      page = 1;
+      cargarLista();
+    }, { signal });
 
-    if (selEstado) {
-      selEstado.addEventListener("change", () => {
-        cargarLista({ keepPage: false });
-      }, { signal });
-    }
+    btnRefrescar?.addEventListener("click", () => cargarLista(), { signal });
 
-    if (btnPrev) {
-      btnPrev.addEventListener("click", () => {
-        if (page > 1) {
-          page -= 1;
-          cargarLista({ keepPage: true });
-        }
-      }, { signal });
-    }
+    btnPrev?.addEventListener("click", () => {
+      if (page > 1) { page--; cargarLista(); }
+    }, { signal });
 
-    if (btnNext) {
-      btnNext.addEventListener("click", () => {
-        page += 1;
-        cargarLista({ keepPage: true });
-      }, { signal });
-    }
+    btnNext?.addEventListener("click", () => {
+      const max = Math.max(1, Math.ceil(total / size));
+      if (page < max) { page++; cargarLista(); }
+    }, { signal });
 
     // Init
-    cargarLista({ keepPage: false });
+    cargarLista();
   }
 
-  if (!globalState.bound) {
-    globalState.bound = true;
-    document.addEventListener("DOMContentLoaded", init);
-    document.addEventListener("ev:content-loaded", init);
+  if (!state.bound) {
+    state.bound = true;
+    document.addEventListener("DOMContentLoaded", initNotificacionesResidencia);
+    document.addEventListener("ev:content-loaded", initNotificacionesResidencia);
   } else {
-    init();
+    initNotificacionesResidencia();
   }
 })();
