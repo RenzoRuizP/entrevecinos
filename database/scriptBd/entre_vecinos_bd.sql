@@ -768,3 +768,28 @@ ALTER TABLE usuario_residencia_solicitud
 
 ALTER TABLE usuario_residencia_solicitud
   DROP COLUMN codigo_departamento;
+
+
+
+
+
+CREATE TABLE `notificacion` (
+  `codigo_notificacion` INT(11) NOT NULL AUTO_INCREMENT,
+  `codigo_usuario` INT(11) NOT NULL,
+  `canal` VARCHAR(30) NOT NULL DEFAULT 'app',              -- app | email | push (futuro)
+  `categoria` VARCHAR(30) NOT NULL,                        -- residencia | soporte | pedidos (futuro)
+  `subcategoria` VARCHAR(50) NOT NULL DEFAULT '',          -- residencia_cambio
+  `referencia_id` INT(11) DEFAULT NULL,                    -- ej: codigo_solicitud
+  `titulo` VARCHAR(120) NOT NULL,
+  `mensaje` VARCHAR(500) NOT NULL,
+  `payload_json` LONGTEXT DEFAULT NULL,                    -- JSON (string) con datos extra
+  `estado` ENUM('no_leida','leida') NOT NULL DEFAULT 'no_leida',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `read_at` TIMESTAMP NULL DEFAULT NULL,
+  PRIMARY KEY (`codigo_notificacion`),
+  KEY `idx_notif_usuario_estado` (`codigo_usuario`,`estado`),
+  KEY `idx_notif_categoria` (`categoria`),
+  KEY `idx_notif_ref` (`referencia_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=UTF8MB4_GENERAL_CI;
+
+

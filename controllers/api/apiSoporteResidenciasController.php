@@ -4,6 +4,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../models/UsuarioResidenciaSolicitud.php';
+require_once __DIR__ . '/../../models/Notificacion.php';
 
 class apiSoporteResidenciasController
 {
@@ -31,8 +32,8 @@ class apiSoporteResidenciasController
         $model = new UsuarioResidenciaSolicitud();
 
         $filtros = [
-            'estado' => $_GET['estado'] ?? 'pendiente', // pendiente|observada|aprobada|rechazada|all
-            'tipo'   => $_GET['tipo'] ?? '',            // condominio|urbanizacion|''
+            'estado' => $_GET['estado'] ?? 'pendiente',
+            'tipo'   => $_GET['tipo'] ?? '',
             'codigo' => $_GET['codigo'] ?? 0,
             'q'      => $_GET['q'] ?? '',
             'page'   => $_GET['page'] ?? 1,
@@ -60,9 +61,8 @@ class apiSoporteResidenciasController
         if (!is_array($body)) $body = [];
 
         $estado = strtolower(trim((string)($body['estado'] ?? '')));
-
-        // ✅ Compatible: acepta comentario o comentario_admin
-        $comentario = trim((string)($body['comentario'] ?? ($body['comentario_admin'] ?? '')));
+        // ✅ compatible con tu JS actual: { comentario }
+        $comentario = trim((string)($body['comentario_admin'] ?? ($body['comentario'] ?? '')));
 
         if (!in_array($estado, ['pendiente','observada','aprobada','rechazada'], true)) {
             $this->json(422, ['ok' => false, 'mensaje' => 'Estado inválido.']);
@@ -70,7 +70,48 @@ class apiSoporteResidenciasController
         }
 
         $model = new UsuarioResidenciaSolicitud();
+
+        // Antes de actualizar, traemos solicitud para notificar correctamente
+        $sol = $model->obtenerSolicitud($id);
+        if (!$sol) {
+            $this->json(404, ['ok' => false, 'mensaje' => 'Solicitud no encontrada.']);
+            return;
+        }
+
         $ok = $model->actualizarEstadoSoporte($id, $estado, $comentario);
+
+        // ✅ Crear notificación si OBSERVADA o RECHAZADA
+        if ($ok && in_array($estado, ['observada','rechazada'], true)) {
+            $codigoUsuario = (int)($sol['codigo_usuario'] ?? 0);
+
+            if ($codigoUsuario > 0) {
+                $titulo = $estado === 'observada'
+                    ? 'Tu solicitud de residencia fue observada'
+                    : 'Tu solicitud de residencia fue rechazada';
+
+                $msg = $comentario !== ''
+                    ? $comentario
+                    : 'Revisa el detalle para reenviar tu solicitud con la corrección solicitada.';
+
+                $payload = json_encode([
+                    'codigo_solicitud' => $id,
+                    'estado' => $estado,
+                    'comentario_admin' => $comentario,
+                ], JSON_UNESCAPED_UNICODE);
+
+                $notif = new Notificacion();
+                $notif->crear([
+                    'codigo_usuario' => $codigoUsuario,
+                    'canal' => 'app',
+                    'categoria' => 'residencia',
+                    'subcategoria' => 'residencia_cambio',
+                    'referencia_id' => $id,
+                    'titulo' => $titulo,
+                    'mensaje' => $msg,
+                    'payload_json' => $payload,
+                ]);
+            }
+        }
 
         $this->json(200, [
             'ok' => $ok,

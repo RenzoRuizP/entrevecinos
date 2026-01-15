@@ -276,4 +276,37 @@ class UsuarioResidenciaSolicitud extends Conexion
             return false;
         }
     }
+
+        public function obtenerSolicitud(int $codigoSolicitud): ?array
+    {
+        $sql = "SELECT *
+                FROM usuario_residencia_solicitud
+                WHERE codigo_solicitud = :id
+                LIMIT 1";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':id', $codigoSolicitud, PDO::PARAM_INT);
+        $st->execute();
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function reenviarDesdeObservadaRechazada(int $codigoSolicitud, string $rutaComprobanteNueva): int
+    {
+        $s = $this->obtenerSolicitud($codigoSolicitud);
+        if (!$s) return 0;
+
+        $estado = strtolower((string)($s['estado'] ?? ''));
+        if (!in_array($estado, ['observada','rechazada'], true)) return 0;
+
+        $data = [
+            'tipo_conjunto'       => (string)$s['tipo_conjunto'],
+            'codigo_condominio'   => $s['codigo_condominio'] !== null ? (int)$s['codigo_condominio'] : null,
+            'codigo_urbanizacion' => $s['codigo_urbanizacion'] !== null ? (int)$s['codigo_urbanizacion'] : null,
+            'direccion'           => (string)$s['direccion'],
+        ];
+
+        // Reutilizamos tu lógica: upsert pendiente (si ya había pendiente la actualiza; si no, crea)
+        return $this->upsertPendiente((int)$s['codigo_usuario'], $data, $rutaComprobanteNueva);
+    }
+
 }

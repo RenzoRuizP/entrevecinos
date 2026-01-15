@@ -25,3 +25,4 @@
 <script src="<?= BASE_URL ?>views/js/atenderRecargas.js"></script>
 <script src="<?= BASE_URL ?>views/js/atenderPublicacion.js"></script>
 <script src="<?= BASE_URL ?>views/js/atenderCuentasUsuario.js"></script>
+<script src="<?= BASE_URL ?>views/js/notificacionesResidencia.js"></script>

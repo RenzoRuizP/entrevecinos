@@ -140,6 +140,12 @@ safeRequire(__DIR__ . '/controllers/api/apiSoporteUsuariosController.php');
 // ✅ soporte cambios de residencia (admin)
 safeRequire(__DIR__ . '/controllers/api/apiSoporteResidenciasController.php');
 
+safeRequire(__DIR__ . '/controllers/notificacionesResidenciaController.php');
+safeRequire(__DIR__ . '/controllers/api/apiNotificacionesController.php');
+safeRequire(__DIR__ . '/controllers/api/apiNotificacionesResidenciaController.php');
+safeRequire(__DIR__ . '/models/Notificacion.php');
+
+
 // ------------------------------
 // 2) Normalización BASE_URL / basePath
 // ------------------------------
@@ -286,6 +292,18 @@ $routes = [
 
     // --- API Recargas ---
     ['POST', '#^/api/recargas/registrar$#',            [apiRecargaSaldoController::class, 'registrar'], 'json'],
+
+    // --- Vistas (módulos) ---
+    ['GET', '#^/notificaciones-residencia$#', [notificacionesResidenciaController::class, 'index'], 'html'],
+
+    // --- API Notificaciones (vecino) ---
+    ['GET',  '#^/api/notificaciones$#',                 [apiNotificacionesController::class, 'listar'], 'json'],
+    ['GET',  '#^/api/notificaciones/counts$#',          [apiNotificacionesController::class, 'counts'], 'json'],
+    ['POST', '#^/api/notificaciones/(\d+)/leida$#',     [apiNotificacionesController::class, 'marcarLeida'], 'json'],
+
+    // --- API Reenvío residencia desde notificación ---
+    ['POST', '#^/api/notificaciones/residencia/(\d+)/reenviar$#', [apiNotificacionesResidenciaController::class, 'reenviar'], 'json'],
+
 ];
 
 // ============================================================
