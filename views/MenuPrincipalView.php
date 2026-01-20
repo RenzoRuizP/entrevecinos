@@ -7,8 +7,14 @@ header("Pragma: no-cache");
 header("Expires: 0");
 
 // $usuario viene desde MenuPrincipalController
+$usuario = $usuario ?? [];
+
+// Rol crudo para lógica
+$rolUsuarioRaw = strtolower(trim((string)($usuario['rol'] ?? 'vecino')));
+
+// Variables escapadas para UI
 $nombreUsuario = htmlspecialchars($usuario['nombre'] ?? 'Vecino(a)', ENT_QUOTES, 'UTF-8');
-$rolUsuario    = htmlspecialchars($usuario['rol'] ?? 'vecino', ENT_QUOTES, 'UTF-8');
+$rolUsuario    = htmlspecialchars($rolUsuarioRaw, ENT_QUOTES, 'UTF-8');
 
 // Preferir el que manda el controller
 $menusParaMenuIzquierda = $menusParaMenuIzquierda ?? ($menus ?? []);
@@ -34,6 +40,10 @@ $evGoto = trim((string)($_GET['ev_goto'] ?? ''));
   <?php include_once __DIR__ . '/estilos.view.php'; ?>
   <?php include_once __DIR__ . '/estilos/menuPrincipalEstilo.php'; ?>
   <?php include_once __DIR__ . '/estilos/menuArribaEstilo.php'; ?>
+
+  <?php if ($rolUsuarioRaw === 'soporte'): ?>
+    <?php include_once __DIR__ . '/estilos/soporteDashboardEstilo.php'; ?>
+  <?php endif; ?>
 
   <!-- Placeholder UX (solo cuando hay ev_goto) -->
   <style>
@@ -77,7 +87,9 @@ $evGoto = trim((string)($_GET['ev_goto'] ?? ''));
       <?php include __DIR__ . '/menuArribaView.php'; ?>
 
       <main class="content-wrapper fade-in" id="contenido-principal">
+
         <?php if ($evGoto !== ''): ?>
+
           <!-- Estado de carga: evita “pantalla vacía” mientras se carga el parcial via AJAX -->
           <div class="ev-shell-loading" aria-busy="true" aria-live="polite">
             <div class="ev-box">
@@ -85,9 +97,20 @@ $evGoto = trim((string)($_GET['ev_goto'] ?? ''));
               <div>Cargando módulo...</div>
             </div>
           </div>
+
         <?php else: ?>
-          <?php include __DIR__ . '/menuPrincipalContenido.php'; ?>
+
+          <?php
+            // ✅ HOME POR ROL
+            if ($rolUsuarioRaw === 'soporte') {
+              include __DIR__ . '/soporteDashboardView.php';
+            } else {
+              include __DIR__ . '/menuPrincipalContenido.php';
+            }
+          ?>
+
         <?php endif; ?>
+
       </main>
     </div>
 
