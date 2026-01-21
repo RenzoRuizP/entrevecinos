@@ -1,24 +1,30 @@
 <?php
 // controllers/atenderCuentasUsuarioController.php
+declare(strict_types=1);
+
 require_once __DIR__ . '/../Config/config.php';
 
-class atenderCuentasUsuarioController
+final class atenderCuentasUsuarioController
 {
-    private function isAdmin(): bool
+    private function isSoporteOrAdmin(): bool
     {
         $auth = $GLOBALS['EV_AUTH'] ?? [];
         $rol  = (int)($auth['codigo_rol'] ?? 0);
-        return $rol === (int)EV_ADMIN_ROLE_ID;
+
+        // Reglas de negocio:
+        // 1 = administrador, 3 = soporte
+        return in_array($rol, [1, 3], true);
     }
 
-    public function index()
+    public function index(): void
     {
-        if (!$this->isAdmin()) {
+        if (!$this->isSoporteOrAdmin()) {
             http_response_code(403);
-            echo "<h1 style='font-family:system-ui;padding:24px'>403</h1><p style='font-family:system-ui;padding:0 24px'>Acceso restringido.</p>";
+            echo "<h1 style='font-family:system-ui;padding:24px'>403</h1>
+                  <p style='font-family:system-ui;padding:0 24px'>Acceso restringido.</p>";
             return;
         }
 
-        include_once __DIR__ . '/../views/atenderCuentasUsuarioView.php';
+        require __DIR__ . '/../views/atenderCuentasUsuarioView.php';
     }
 }

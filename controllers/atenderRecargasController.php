@@ -9,19 +9,28 @@ class atenderRecargasController
     public function index()
     {
         try {
-            // 1) Validación de token (el router ya valida, esto es refuerzo)
             $token = $_COOKIE['auth_token'] ?? null;
             if (!$token) {
                 return $this->resolverNoAutorizado('sin_token');
             }
 
-            // SesionJWT::verificarToken() debe devolver ARRAY
             $datosToken = SesionJWT::verificarToken($token);
             if (!$datosToken || empty($datosToken['email'])) {
                 return $this->resolverNoAutorizado('token_invalido');
             }
 
-            // 2) Obtener datos completos del usuario
+            // ✅ autorización por rol
+            $rol = (int)($datosToken['codigo_rol'] ?? 0);
+            if (!in_array($rol, [1, 3], true)) {
+                http_response_code(403);
+                if ($this->esPeticionParcial()) {
+                    echo "<div class='alert alert-warning m-3'>Acceso restringido (solo Soporte/Admin).</div>";
+                    return;
+                }
+                header("Location: /entrevecinos/?error=forbidden");
+                return;
+            }
+
             $email = $datosToken['email'];
             $objUsuario = new User();
             $datosUsuario = $objUsuario->DatosUsuario($email);
@@ -30,8 +39,6 @@ class atenderRecargasController
                 return $this->resolverNoAutorizado('usuario_no_encontrado');
             }
 
-            // 3) Renderizar vista (parcial)
-            //    La vista puede usar $datosUsuario y BASE_URL
             header('X-Partial-Ok: 1');
             require __DIR__ . '/../views/AtenderRecargasView.php';
             return;
@@ -39,7 +46,6 @@ class atenderRecargasController
         } catch (Throwable $e) {
             error_log("Error en atenderRecargasController::index -> " . $e->getMessage());
 
-            // Si es parcial/AJAX, responde JSON de error
             if ($this->esPeticionParcial()) {
                 http_response_code(500);
                 header('Content-Type: application/json; charset=utf-8');
@@ -50,7 +56,6 @@ class atenderRecargasController
                 return;
             }
 
-            // Acceso directo: redirigir al login
             header("Location: /entrevecinos/?error=token_error");
             return;
         }
@@ -71,16 +76,13 @@ class atenderRecargasController
 
     private function esPeticionParcial(): bool
     {
-        // fetch/ajax clásico
         if (isset($_SERVER['HTTP_X_REQUESTED_WITH'])
             && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
             return true;
         }
-        // header explícito
         if (isset($_SERVER['HTTP_X_PARTIAL']) && $_SERVER['HTTP_X_PARTIAL'] === '1') {
             return true;
         }
-        // querystring ?partial=1
         if (isset($_GET['partial']) && $_GET['partial'] === '1') {
             return true;
         }

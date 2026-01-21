@@ -13,11 +13,10 @@ class atenderPublicacionController
         return is_array($u) ? $u : null;
     }
 
-    private function esAdmin(array $u): bool
+    private function esSoporteOrAdmin(array $u): bool
     {
         $codigoRol = (int)($u['codigo_rol'] ?? 0);
-        $adminId   = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
-        return ($codigoRol > 0 && $codigoRol === $adminId);
+        return ($codigoRol === 3 || $codigoRol === 1);
     }
 
     private function esParcial(): bool
@@ -42,15 +41,14 @@ class atenderPublicacionController
             return;
         }
 
-        if (!$this->esAdmin($u)) {
+        if (!$this->esSoporteOrAdmin($u)) {
             http_response_code(403);
 
-            // ✅ IMPORTANTE: En partial devolvemos HTML (NO JSON) para que NO rompa tu loader.
             if ($this->esParcial()) {
                 ?>
                 <div class="alert alert-warning m-3 shadow-sm rounded-3">
                     <h5 class="mb-1"><i class="bi bi-shield-lock-fill me-2"></i>Acceso denegado</h5>
-                    <div>Solo el administrador puede acceder a <b>Atender publicación</b>.</div>
+                    <div>Solo <b>Soporte</b> o <b>Administrador</b> puede acceder a <b>Atender publicación</b>.</div>
                 </div>
                 <?php
                 return;
@@ -60,7 +58,6 @@ class atenderPublicacionController
             return;
         }
 
-        // ✅ Render vista
         $viewPath = __DIR__ . '/../views/AtenderPublicacionView.php';
         if (!file_exists($viewPath)) {
             http_response_code(500);

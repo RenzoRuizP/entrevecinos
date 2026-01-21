@@ -1,173 +1,139 @@
 <?php
 // controllers/api/apiSoporteUsuariosController.php
-// EV — API Soporte (Admin): Usuarios
-
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../Config/config.php';
-require_once __DIR__ . '/../../models/UsuarioSoporte.php';
+require_once __DIR__ . '/../../models/SoporteUsuarios.php';
 
-class apiSoporteUsuariosController
+final class apiSoporteUsuariosController
 {
-    private function json(int $status, array $payload): void
+    private function rolActual(): int
     {
-        http_response_code($status);
+        $auth = $GLOBALS['EV_AUTH'] ?? [];
+        return (int)($auth['codigo_rol'] ?? 0);
+    }
+
+    private function codigoSoporte(): int
+    {
+        $auth = $GLOBALS['EV_AUTH'] ?? [];
+        return (int)($auth['codigo_usuario'] ?? 0);
+    }
+
+    private function puedeAccederSoporte(): bool
+    {
+        // Admin=1 (EV_ADMIN_ROLE_ID) y Soporte=3
+        $adminId   = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
+        $soporteId = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
+
+        $rol = $this->rolActual();
+        return ($rol === $adminId || $rol === $soporteId);
+    }
+
+    /**
+     * Normaliza el filtro estado para que acepte:
+     * - "0|1|2" (tu UI actual)
+     * - "inactivo|revision|habilitado|todos" (API semántica)
+     */
+    private function normalizarEstado(?string $estadoRaw): string
+    {
+        $s = strtolower(trim((string)$estadoRaw));
+
+        // Si llega numérico desde el front:
+        if ($s === '0') return 'inactivo';
+        if ($s === '1') return 'revision';
+        if ($s === '2') return 'habilitado';
+
+        // Aceptar variantes comunes:
+        if (in_array($s, ['en revision', 'revision', 'revisión', 'en revisión'], true)) return 'revision';
+        if (in_array($s, ['habilitado', 'habilitados'], true)) return 'habilitado';
+        if (in_array($s, ['inactivo', 'inactivos'], true)) return 'inactivo';
+        if ($s === 'todos' || $s === 'all') return 'todos';
+
+        // Fallback seguro:
+        return 'revision';
+    }
+
+    private function json(int $code, array $payload): void
+    {
+        http_response_code($code);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode($payload);
     }
 
-    private function isAdmin(): bool
-    {
-        $auth = $GLOBALS['EV_AUTH'] ?? [];
-        $rol  = (int)($auth['codigo_rol'] ?? 0);
-        return $rol === (int)EV_ADMIN_ROLE_ID;
-    }
-
-    /**
-     * Normaliza la respuesta del modelo al formato esperado por el JS:
-     * { ok:true, data:[...], meta:{ total,page,size } }
-     */
-    private function normalizeListResponse($res, int $page, int $size): array
-    {
-        // Caso ideal: { ok:true, data:[...], meta:{total} }
-        if (is_array($res) && array_key_exists('data', $res) && is_array($res['data'])) {
-            $ok = array_key_exists('ok', $res) ? (bool)$res['ok'] : true;
-
-            $meta = [];
-            if (isset($res['meta']) && is_array($res['meta'])) $meta = $res['meta'];
-
-            $total = (int)($meta['total'] ?? ($res['total'] ?? count($res['data'])));
-
-            return [
-                'ok'   => $ok,
-                'data' => $res['data'],
-                'meta' => [
-                    'total' => $total,
-                    'page'  => (int)($meta['page'] ?? $page),
-                    'size'  => (int)($meta['size'] ?? $size),
-                ],
-            ];
-        }
-
-        // Caso alterno común: { ok:true, rows:[...], total:123 }
-        if (is_array($res) && isset($res['rows']) && is_array($res['rows'])) {
-            $total = (int)($res['total'] ?? count($res['rows']));
-            return [
-                'ok'   => (bool)($res['ok'] ?? true),
-                'data' => $res['rows'],
-                'meta' => [
-                    'total' => $total,
-                    'page'  => $page,
-                    'size'  => $size,
-                ],
-            ];
-        }
-
-        // Caso array plano: [...]
-        if (is_array($res) && array_keys($res) === range(0, count($res) - 1)) {
-            return [
-                'ok'   => true,
-                'data' => $res,
-                'meta' => [
-                    'total' => count($res),
-                    'page'  => $page,
-                    'size'  => $size,
-                ],
-            ];
-        }
-
-        // Fallback
-        return [
-            'ok'   => false,
-            'data' => [],
-            'meta' => [
-                'total' => 0,
-                'page'  => $page,
-                'size'  => $size,
-            ],
-            'mensaje' => 'Respuesta inesperada del modelo.',
-        ];
-    }
-
+    // GET /api/soporte/usuarios?estado=0|1|2|todos OR estado=revision|habilitado|inactivo|todos
+    // &q=&page=1&limit=10
     public function listar(): void
     {
-        if (!$this->isAdmin()) {
+        if (!$this->puedeAccederSoporte()) {
             $this->json(403, ['ok' => false, 'mensaje' => 'Acceso restringido.']);
             return;
         }
 
+        $estado = $this->normalizarEstado($_GET['estado'] ?? null);
+        $q      = trim((string)($_GET['q'] ?? ''));
+        $page   = max(1, (int)($_GET['page'] ?? 1));
+        $limit  = (int)($_GET['limit'] ?? 10);
+        $limit  = ($limit <= 0) ? 10 : min($limit, 100);
+
         try {
-            $page = max(1, (int)($_GET['page'] ?? 1));
-            $size = max(1, min(50, (int)($_GET['size'] ?? 10)));
+            $m = new SoporteUsuarios();
 
-            $model = new UsuarioSoporte();
-
-            $filtros = [
-                'estado' => $_GET['estado'] ?? null,
-                'tipo'   => (string)($_GET['tipo'] ?? ''),
-                'codigo' => (int)($_GET['codigo'] ?? 0),
-                'q'      => (string)($_GET['q'] ?? ''),
+            $res = $m->listar([
+                'estado' => $estado, // <-- ahora siempre llega semántico al modelo
+                'q'      => $q,
                 'page'   => $page,
-                'size'   => $size,
-            ];
-
-            $res = $model->listar($filtros);
-            $payload = $this->normalizeListResponse($res, $page, $size);
-
-            // Siempre 200 para listado; el ok indica estado lógico
-            $this->json(200, $payload);
-
-        } catch (Throwable $e) {
-            $this->json(500, [
-                'ok'      => false,
-                'mensaje' => 'ERROR_SERVIDOR',
-                'detalle' => $e->getMessage(),
+                'limit'  => $limit,
             ]);
+
+            $this->json(200, [
+                'ok'   => true,
+                'data' => $res
+            ]);
+        } catch (Throwable $e) {
+            error_log('[EV][apiSoporteUsuariosController::listar] ' . $e->getMessage());
+            $this->json(500, ['ok' => false, 'mensaje' => 'Error interno del servidor.']);
         }
     }
 
-    public function actualizarEstado($codigoUsuario): void
+    // POST /api/soporte/usuarios/{id}/estado
+    // body: { "estado": 0|1|2 }
+    public function actualizarEstado(int $codigoUsuario): void
     {
-        if (!$this->isAdmin()) {
+        if (!$this->puedeAccederSoporte()) {
             $this->json(403, ['ok' => false, 'mensaje' => 'Acceso restringido.']);
             return;
         }
 
-        $id = (int)$codigoUsuario;
-        if ($id <= 0) {
-            $this->json(422, ['ok' => false, 'mensaje' => 'ID inválido.']);
+        $raw = file_get_contents('php://input');
+        $in  = json_decode($raw ?: '[]', true);
+        if (!is_array($in)) $in = [];
+
+        $estadoNuevo = isset($in['estado']) ? (int)$in['estado'] : -1;
+
+        // 0=inactivo, 1=en revisión, 2=habilitado
+        if (!in_array($estadoNuevo, [0, 1, 2], true)) {
+            $this->json(400, ['ok' => false, 'mensaje' => 'Estado inválido.']);
             return;
         }
 
         try {
-            $bodyRaw = file_get_contents('php://input');
-            $body = json_decode($bodyRaw ?: '[]', true);
+            $m = new SoporteUsuarios();
 
-            if (json_last_error() !== JSON_ERROR_NONE || !is_array($body)) {
-                $this->json(400, ['ok' => false, 'mensaje' => 'JSON inválido.']);
-                return;
-            }
-
-            $estado = (int)($body['estado'] ?? -1);
-
-            if (!in_array($estado, [0, 1, 2], true)) {
-                $this->json(422, ['ok' => false, 'mensaje' => 'Estado inválido.']);
-                return;
-            }
-
-            $model = new UsuarioSoporte();
-            $ok = $model->actualizarEstado($id, $estado);
-
-            $this->json(200, [
-                'ok' => (bool)$ok,
-                'mensaje' => $ok ? 'Estado actualizado.' : 'No se pudo actualizar.'
+            $ok = $m->actualizarEstadoUsuario([
+                'codigo_usuario' => $codigoUsuario,
+                'estado'         => $estadoNuevo,
+                'codigo_soporte' => $this->codigoSoporte(),
             ]);
+
+            if (!$ok) {
+                $this->json(404, ['ok' => false, 'mensaje' => 'Usuario no encontrado o sin cambios.']);
+                return;
+            }
+
+            $this->json(200, ['ok' => true, 'mensaje' => 'Estado actualizado.']);
         } catch (Throwable $e) {
-            $this->json(500, [
-                'ok'      => false,
-                'mensaje' => 'ERROR_SERVIDOR',
-                'detalle' => $e->getMessage(),
-            ]);
+            error_log('[EV][apiSoporteUsuariosController::actualizarEstado] ' . $e->getMessage());
+            $this->json(500, ['ok' => false, 'mensaje' => 'Error interno del servidor.']);
         }
     }
 }

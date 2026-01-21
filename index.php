@@ -127,6 +127,8 @@ safeRequire(__DIR__ . '/controllers/atenderRecargasController.php');
 safeRequire(__DIR__ . '/controllers/atenderPublicacionController.php');
 safeRequire(__DIR__ . '/controllers/atenderCuentasUsuarioController.php');
 
+safeRequire(__DIR__ . '/controllers/notificacionesResidenciaController.php');
+
 // API Controllers
 safeRequire(__DIR__ . '/controllers/api/usuarioDatosController.php');
 safeRequire(__DIR__ . '/controllers/api/apiBilleteraController.php');
@@ -140,10 +142,16 @@ safeRequire(__DIR__ . '/controllers/api/apiSoporteUsuariosController.php');
 // ✅ soporte cambios de residencia (admin)
 safeRequire(__DIR__ . '/controllers/api/apiSoporteResidenciasController.php');
 
-safeRequire(__DIR__ . '/controllers/notificacionesResidenciaController.php');
+// Notificaciones
 safeRequire(__DIR__ . '/controllers/api/apiNotificacionesController.php');
 safeRequire(__DIR__ . '/controllers/api/apiNotificacionesResidenciaController.php');
 safeRequire(__DIR__ . '/models/Notificacion.php');
+
+// ============================================================
+// ✅ NUEVO: API Dashboard Soporte (controller + model)
+// ============================================================
+safeRequire(__DIR__ . '/controllers/api/apiSoporteDashboardController.php');
+safeRequire(__DIR__ . '/models/SoporteDashboard.php');
 
 
 // ------------------------------
@@ -252,7 +260,6 @@ $routes = [
     // ✅ NUEVO: Guardado por secciones (no rompe legacy)
     ['POST', '#^/api/usuario/actualizar-telefono$#',   [usuarioDatosController::class, 'actualizarTelefono'],   'json'],
     ['POST', '#^/api/usuario/actualizar-residencia$#', [usuarioDatosController::class, 'actualizarResidencia'], 'json'],
-    // Alias semántico (opcional)
     ['POST', '#^/api/usuario/actualizar-cuenta$#', [usuarioDatosController::class, 'cambiarClave'], 'json'],
 
     // --- API Producto ---
@@ -290,20 +297,25 @@ $routes = [
     ['GET',  '#^/api/soporte/residencias$#',              [apiSoporteResidenciasController::class, 'listar'], 'json'],
     ['POST', '#^/api/soporte/residencias/(\d+)/estado$#', [apiSoporteResidenciasController::class, 'actualizarEstado'], 'json'],
 
-    // --- API Recargas ---
-    ['POST', '#^/api/recargas/registrar$#',            [apiRecargaSaldoController::class, 'registrar'], 'json'],
+    // ============================================================
+    // ✅ API Soporte Dashboard
+    // GET /api/soporte/dashboard?tiempo=hoy|7d|30d&limit=10
+    // ============================================================
+    ['GET',  '#^/api/soporte/dashboard$#', [apiSoporteDashboardController::class, 'resumen'], 'json'],
 
-    // --- Vistas (módulos) ---
+    // --- API Recargas ---
+    ['POST', '#^/api/recargas/registrar$#', [apiRecargaSaldoController::class, 'registrar'], 'json'],
+
+    // --- Vista ---
     ['GET', '#^/notificaciones-residencia$#', [notificacionesResidenciaController::class, 'index'], 'html'],
 
     // --- API Notificaciones (vecino) ---
-    ['GET',  '#^/api/notificaciones$#',                 [apiNotificacionesController::class, 'listar'], 'json'],
-    ['GET',  '#^/api/notificaciones/counts$#',          [apiNotificacionesController::class, 'counts'], 'json'],
-    ['POST', '#^/api/notificaciones/(\d+)/leida$#',     [apiNotificacionesController::class, 'marcarLeida'], 'json'],
+    ['GET',  '#^/api/notificaciones$#',             [apiNotificacionesController::class, 'listar'], 'json'],
+    ['GET',  '#^/api/notificaciones/counts$#',      [apiNotificacionesController::class, 'counts'], 'json'],
+    ['POST', '#^/api/notificaciones/(\d+)/leida$#', [apiNotificacionesController::class, 'marcarLeida'], 'json'],
 
     // --- API Reenvío residencia desde notificación ---
     ['POST', '#^/api/notificaciones/residencia/(\d+)/reenviar$#', [apiNotificacionesResidenciaController::class, 'reenviar'], 'json'],
-
 ];
 
 // ============================================================
@@ -352,11 +364,7 @@ foreach ($routes as $r) {
     }
 
     // ============================================================
-    // SOLUCIÓN RAÍZ:
-    // Deep link (F5 / URL directa) a módulos:
-    // - Si es ruta HTML protegida, y NO es parcial,
-    //   siempre pasamos por MenuPrincipal (shell con menús/estilos)
-    //   y luego el cliente carga el módulo vía AJAX usando ev_goto.
+    // SOLUCIÓN RAÍZ: Deep link a módulos HTML protegidos
     // ============================================================
     if (
         !$isPublic
@@ -388,7 +396,7 @@ foreach ($routes as $r) {
 
     $controller = new $controllerClass();
 
-    // ✅ Header coherente por tipo (y evita conflictos)
+    // ✅ Header coherente por tipo
     if (!headers_sent()) {
         if ($type === 'json') {
             header('Content-Type: application/json; charset=utf-8');

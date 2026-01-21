@@ -2,7 +2,6 @@
 <style>
 /* =========================================================
    EV - SOPORTE DASHBOARD (Soporte) - ESTILO FINAL PREMIUM
-   Basado en atenderRecargasEstilo.php
 ========================================================= */
 
 :root {
@@ -93,7 +92,7 @@
   box-shadow: 0 6px 16px rgba(234,124,18,0.30);
 }
 
-/* Botón “Atender” (pequeño) */
+/* Botón “Atender” (pequeño) — por si alguna vista lo usa */
 .ev-btn-atender{
   display:inline-flex;
   align-items:center;
@@ -171,9 +170,7 @@
 }
 
 /* Table */
-.ev-table{
-  width: 100%;
-}
+.ev-table{ width: 100%; }
 .ev-table thead th{
   background: var(--ev-gris-050);
   color: #374151;
@@ -182,16 +179,6 @@
   white-space: nowrap;
   vertical-align: middle;
 }
-
-/* ✅ Centrados por columna (encabezado + filas) */
-.ev-table th.ev-col-fecha,
-.ev-table td.ev-col-fecha{ text-align: center; }
-
-.ev-table th.ev-col-tipo,
-.ev-table td.ev-col-tipo{ text-align: center; }
-
-.ev-table th.ev-col-accion,
-.ev-table td.ev-col-accion{ text-align: center; }
 
 /* Layout filas */
 .ev-table tbody td{
@@ -202,6 +189,24 @@
 }
 .ev-table tbody tr:hover{ background: rgba(234,124,18,0.04); }
 
+/* =========================================================
+   ✅ FIX: CENTRADO REAL (porque tu vista usa text-end y ev-col-acciones)
+   - Centramos encabezados y celdas en "Atender ahora"
+   - Anulamos text-end SOLO dentro del dashboard
+========================================================= */
+.ev-soporte-dashboard .ev-table thead th,
+.ev-soporte-dashboard .ev-table tbody td{
+  text-align: center;
+}
+
+.ev-soporte-dashboard .ev-table .text-end{
+  text-align: center !important;
+}
+
+/* Si quieres que la 2da columna sea más legible, puedes activar esto:
+.ev-soporte-dashboard .ev-table tbody td:nth-child(2){ text-align:left; }
+*/
+
 /* Badges prioridad (Alta/Media/Baja) */
 .ev-badge{
   display:inline-flex;
@@ -211,8 +216,11 @@
   font-size: 0.82rem;
   font-weight: 900;
   border: 1px solid transparent;
-  text-transform: lowercase;
+  /* ❌ quitamos lowercase porque tú quieres “Alta/Media/Baja” */
+  text-transform: none;
+  letter-spacing: 0.01em;
 }
+
 .ev-badge-alta{
   background: rgba(234,124,18,0.12);
   border-color: rgba(234,124,18,0.35);
