@@ -187,13 +187,8 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
       <table class="table ev-table align-middle mb-0">
         <thead>
           <tr>
-            <!-- ✅ centrado por CSS: ev-col-fecha -->
             <th class="ev-col-fecha">Fecha</th>
-
-            <!-- ✅ centrado por CSS: ev-col-tipo -->
             <th class="ev-col-tipo">Tipo de atención</th>
-
-            <!-- ✅ centrado por CSS: ev-col-accion -->
             <th class="ev-col-accion">Acción</th>
           </tr>
         </thead>
@@ -262,6 +257,5 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
 </div>
 
 <script>
-// En tu Shell ya sueles definir BASE_URL, pero por seguridad (sin romper nada):
 window.BASE_URL = window.BASE_URL || "<?= $baseUrl ?>";
 </script>

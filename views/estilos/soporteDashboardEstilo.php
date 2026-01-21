@@ -92,7 +92,7 @@
   box-shadow: 0 6px 16px rgba(234,124,18,0.30);
 }
 
-/* Botón “Atender” (pequeño) — por si alguna vista lo usa */
+/* Botón “Atender” (pequeño) — usado en dashboard */
 .ev-btn-atender{
   display:inline-flex;
   align-items:center;
@@ -190,9 +190,7 @@
 .ev-table tbody tr:hover{ background: rgba(234,124,18,0.04); }
 
 /* =========================================================
-   ✅ FIX: CENTRADO REAL (porque tu vista usa text-end y ev-col-acciones)
-   - Centramos encabezados y celdas en "Atender ahora"
-   - Anulamos text-end SOLO dentro del dashboard
+   CENTRADO DE TABLA EN DASHBOARD
 ========================================================= */
 .ev-soporte-dashboard .ev-table thead th,
 .ev-soporte-dashboard .ev-table tbody td{
@@ -203,10 +201,6 @@
   text-align: center !important;
 }
 
-/* Si quieres que la 2da columna sea más legible, puedes activar esto:
-.ev-soporte-dashboard .ev-table tbody td:nth-child(2){ text-align:left; }
-*/
-
 /* Badges prioridad (Alta/Media/Baja) */
 .ev-badge{
   display:inline-flex;
@@ -216,11 +210,9 @@
   font-size: 0.82rem;
   font-weight: 900;
   border: 1px solid transparent;
-  /* ❌ quitamos lowercase porque tú quieres “Alta/Media/Baja” */
   text-transform: none;
   letter-spacing: 0.01em;
 }
-
 .ev-badge-alta{
   background: rgba(234,124,18,0.12);
   border-color: rgba(234,124,18,0.35);
@@ -235,6 +227,54 @@
   background: rgba(59,130,246,0.12);
   border-color: rgba(59,130,246,0.22);
   color: #1E3A8A;
+}
+
+/* =========================================================
+   ✅ NUEVO: "Tipo de atención" en 2 filas (limpio, no acumulado)
+   - Fila 1: Tipo + Badge + Nombre (centrado como bloque)
+   - Fila 2: email · condominio · dirección (centrado y compacto)
+========================================================= */
+.ev-att-cell{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap: 4px;
+  text-align:center;
+}
+
+.ev-att-top{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap: 10px;
+  flex-wrap: wrap;
+  line-height: 1.1;
+}
+
+.ev-att-tipo{
+  font-weight: 900;
+  color: var(--ev-texto);
+}
+
+.ev-att-badge .ev-badge{
+  transform: translateY(-1px);
+}
+
+.ev-att-nombre{
+  font-weight: 900;
+  color: var(--ev-verde-oscuro);
+}
+
+.ev-att-sub{
+  font-size: .86rem;
+  color: var(--ev-gris-600);
+  line-height: 1.15;
+  max-width: 820px;
+  text-align:center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Micro-premium: suavizar cards KPI */
@@ -277,5 +317,10 @@
 @media (max-width: 576px){
   .ev-recargas-title{ font-size: 1.65rem; }
   .ev-btn-atender{ width: 100%; min-width: unset; }
+
+  /* En móvil permitimos que la sublínea baje (no ellipsis) */
+  .ev-att-sub{
+    white-space: normal;
+  }
 }
 </style>

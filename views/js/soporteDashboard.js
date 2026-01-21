@@ -74,10 +74,24 @@
 
   function badgePrioridad(p) {
     const v = String(p || "").toLowerCase();
-    if (v.includes("alta")) return `<span class="ev-badge ev-badge-alta">alta</span>`;
-    if (v.includes("media")) return `<span class="ev-badge ev-badge-media">media</span>`;
-    if (v.includes("baja")) return `<span class="ev-badge ev-badge-baja">baja</span>`;
+    if (v.includes("alta")) return `<span class="ev-badge ev-badge-alta">Alta</span>`;
+    if (v.includes("media")) return `<span class="ev-badge ev-badge-media">Media</span>`;
+    if (v.includes("baja")) return `<span class="ev-badge ev-badge-baja">Baja</span>`;
     return "";
+  }
+
+  // ✅ NUEVO: arma sublínea compacta (sin verse “pesada”)
+  function buildSubline(it) {
+    const email = (it.email || it.usuario_email || "").trim();
+    const tipoConjunto = (it.tipo_conjunto || "").trim();
+    const dir = (it.direccion || "").trim();
+
+    const parts = [];
+    if (email) parts.push(email);
+    if (tipoConjunto) parts.push(tipoConjunto);
+    if (dir) parts.push(dir);
+
+    return parts.join(" · ");
   }
 
   function renderAtender(items) {
@@ -91,47 +105,40 @@
 
     tbody.innerHTML = items
       .map((it) => {
-        // Normalización tolerante (para evitar “devuelve datos pero no pinta”)
-        const fecha = esc(it.fecha || it.fecha_creacion || it.created_at || "");
-        const tipo = esc(it.tipo || it.tipo_atencion || it.modulo || "Cuenta en revisión");
-        const prioridad = badgePrioridad(it.prioridad || it.nivel || it.badge);
+        // Normalización tolerante
+        const fecha = esc(it.fecha || it.fecha_creacion || it.created_at || "—");
+        const tipoRaw = (it.tipo || it.tipo_atencion || it.modulo || "Cuenta en revisión");
+        const tipo = esc(tipoRaw);
 
-        // Texto descriptivo (cuentas/recargas/publicaciones/residencias)
-        const nombre = esc(it.nombre || it.usuario_nombre || "");
-        const email = esc(it.email || it.usuario_email || "");
-        const doc = esc(it.documento || it.usuario_documento || "");
-        const tel = esc(it.telefono || it.usuario_telefono || "");
+        const prioridadHtml = badgePrioridad(it.prioridad || it.nivel || it.badge);
 
-        const tipoConjunto = esc(it.tipo_conjunto || "");
-        const dir = esc(it.direccion || "");
-        const residenciaLinea =
-          tipoConjunto || dir
-            ? `<div class="text-muted small">${tipoConjunto ? esc(tipoConjunto) : ""}${tipoConjunto && dir ? " · " : ""}${dir}</div>`
-            : "";
+        const nombre = (it.nombre || it.usuario_nombre || "").trim();
+        const email = (it.email || it.usuario_email || "").trim();
 
-        const href = baseUrl + routeByTipo(tipo);
+        const nombreMostrar = esc(nombre || email || "");
 
-        // Columna "Tipo de atención": prioridad + resumen
-        const resumen =
-          nombre || email
-            ? `<strong>${nombre || email}</strong>
-               <div class="text-muted small">${[email, doc, tel].filter(Boolean).join(" · ")}</div>
-               ${residenciaLinea}`
-            : `<strong>${tipo}</strong>`;
+        const subline = esc(buildSubline(it));
 
+        const href = baseUrl + routeByTipo(tipoRaw);
+
+        // ✅ Render con 2 filas centradas:
+        // Fila 1: Tipo + Prioridad + Nombre (centrado como grupo)
+        // Fila 2: Subline (centrada y compacta)
         return `
           <tr>
             <td class="ev-col-fecha">
-              <div class="fw-semibold">${fecha || "—"}</div>
+              <div class="fw-semibold">${fecha}</div>
             </td>
 
             <td class="ev-col-tipo">
-              <div class="d-flex align-items-center justify-content-center gap-2 flex-wrap">
-                ${prioridad || ""}
-                <div class="text-start" style="max-width: 820px;">
-                  <div class="fw-semibold">${esc(tipo)}</div>
-                  <div>${resumen}</div>
+              <div class="ev-att-cell">
+                <div class="ev-att-top">
+                  <span class="ev-att-tipo">${tipo}</span>
+                  ${prioridadHtml ? `<span class="ev-att-badge">${prioridadHtml}</span>` : ``}
+                  ${nombreMostrar ? `<span class="ev-att-nombre">${nombreMostrar}</span>` : ``}
                 </div>
+
+                ${subline ? `<div class="ev-att-sub" title="${subline}">${subline}</div>` : ``}
               </div>
             </td>
 
@@ -145,10 +152,6 @@
   }
 
   function renderKPIs(kpis) {
-    // IDs existentes en tu view:
-    // kpiCuentasPend, kpiCuentasAprob, kpiCuentasRech
-    // kpiPubRevision, kpiPubReport, kpiPubSusp
-    // kpiRecPend, kpiRecVal, kpiRecObs
     const setText = (id, val) => {
       const el = $(id);
       if (el) el.textContent = String(val ?? 0);
@@ -175,7 +178,6 @@
 
   async function cargarDashboard() {
     const tbody = $("evAtenderAhoraBody");
-    // Si el parcial aún no está en DOM, no hagas nada (lo resolverá el observer)
     if (!tbody) return;
 
     setLoadingTabla();
@@ -183,11 +185,10 @@
     const tiempo = getTiempoSeleccionado();
     const limit = 10;
 
-    // ✅ Evitar cache de fetch (clave para F5 intermitente en algunos entornos)
+    // ✅ Evitar cache de fetch
     const url = new URL(`${baseUrl}/api/soporte/dashboard`, window.location.origin);
     url.searchParams.set("tiempo", tiempo);
     url.searchParams.set("limit", String(limit));
-    // cache-bust adicional por si el navegador se pone creativo:
     url.searchParams.set("_", String(Date.now()));
 
     try {
@@ -204,8 +205,6 @@
         return;
       }
 
-      // Estructura esperada:
-      // { ok:true, data:{ kpis:{...}, atender:[...] } }
       renderKPIs(json.data?.kpis || {});
       renderAtender(json.data?.atender || []);
     } catch (e) {
@@ -225,7 +224,6 @@
   }
 
   function init() {
-    // Se puede llamar múltiples veces; solo “boot” una vez.
     if (!baseUrl) return false;
 
     const tbody = $("evAtenderAhoraBody");
@@ -238,17 +236,14 @@
     return true;
   }
 
-  // ✅ Exponer init para que puedas llamarlo desde otros módulos si quieres
   window.EV_SoporteDashboard = window.EV_SoporteDashboard || {};
   window.EV_SoporteDashboard.init = init;
   window.EV_SoporteDashboard.refresh = cargarDashboard;
 
-  // ✅ AUTO-SOLUCIÓN: si el dashboard se inserta por AJAX, esperamos a que apare redundantemente.
   function startObserver() {
     if (observer) return;
 
     observer = new MutationObserver(() => {
-      // Cuando el parcial aparece, inicializa (y listo)
       const ok = init();
       if (ok && observer) {
         observer.disconnect();
@@ -259,15 +254,10 @@
     observer.observe(document.documentElement, { childList: true, subtree: true });
   }
 
-  // 1) Intento inmediato (si ya está el DOM)
   const okNow = init();
-
-  // 2) Si aún no está, esperamos por inserción AJAX
   if (!okNow) startObserver();
 
-  // 3) En algunos navegadores, al volver atrás/adelante (bfcache), re-cargar:
   window.addEventListener("pageshow", function () {
-    // Si ya existe la tabla en DOM, refresca sin depender de cache
     if ($("evAtenderAhoraBody")) cargarDashboard();
   });
 })();
