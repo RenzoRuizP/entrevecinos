@@ -29,39 +29,42 @@ final class apiSoporteUsuariosController
         return ($rol === $adminId || $rol === $soporteId);
     }
 
-    /**
-     * Normaliza el filtro estado para que acepte:
-     * - "0|1|2" (tu UI actual)
-     * - "inactivo|revision|habilitado|todos" (API semántica)
-     */
-    private function normalizarEstado(?string $estadoRaw): string
-    {
-        $s = strtolower(trim((string)$estadoRaw));
-
-        // Si llega numérico desde el front:
-        if ($s === '0') return 'inactivo';
-        if ($s === '1') return 'revision';
-        if ($s === '2') return 'habilitado';
-
-        // Aceptar variantes comunes:
-        if (in_array($s, ['en revision', 'revision', 'revisión', 'en revisión'], true)) return 'revision';
-        if (in_array($s, ['habilitado', 'habilitados'], true)) return 'habilitado';
-        if (in_array($s, ['inactivo', 'inactivos'], true)) return 'inactivo';
-        if ($s === 'todos' || $s === 'all') return 'todos';
-
-        // Fallback seguro:
-        return 'revision';
-    }
-
     private function json(int $code, array $payload): void
     {
         http_response_code($code);
         header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
         echo json_encode($payload);
     }
 
-    // GET /api/soporte/usuarios?estado=0|1|2|todos OR estado=revision|habilitado|inactivo|todos
-    // &q=&page=1&limit=10
+    /**
+     * Normaliza estado desde UI:
+     * - "1"|"revision" => "revision"
+     * - "2"|"habilitado" => "habilitado"
+     * - "0"|"inactivo" => "inactivo"
+     * - "todos" => "todos"
+     */
+    private function normalizarEstado($raw): string
+    {
+        $v = strtolower(trim((string)$raw));
+
+        // numéricos
+        if ($v === '1') return 'revision';
+        if ($v === '2') return 'habilitado';
+        if ($v === '0') return 'inactivo';
+
+        // texto
+        if (in_array($v, ['revision', 'en_revision', 'en revisión'], true)) return 'revision';
+        if (in_array($v, ['habilitado', 'habilitados'], true)) return 'habilitado';
+        if (in_array($v, ['inactivo', 'inactivos'], true)) return 'inactivo';
+        if ($v === 'todos' || $v === 'all') return 'todos';
+
+        // default seguro
+        return 'revision';
+    }
+
+    // GET /api/soporte/usuarios?estado=revision|habilitado|inactivo|todos&q=&page=1&limit=10
     public function listar(): void
     {
         if (!$this->puedeAccederSoporte()) {
@@ -69,7 +72,7 @@ final class apiSoporteUsuariosController
             return;
         }
 
-        $estado = $this->normalizarEstado($_GET['estado'] ?? null);
+        $estado = $this->normalizarEstado($_GET['estado'] ?? 'revision');
         $q      = trim((string)($_GET['q'] ?? ''));
         $page   = max(1, (int)($_GET['page'] ?? 1));
         $limit  = (int)($_GET['limit'] ?? 10);
@@ -79,7 +82,7 @@ final class apiSoporteUsuariosController
             $m = new SoporteUsuarios();
 
             $res = $m->listar([
-                'estado' => $estado, // <-- ahora siempre llega semántico al modelo
+                'estado' => $estado,
                 'q'      => $q,
                 'page'   => $page,
                 'limit'  => $limit,
@@ -118,7 +121,6 @@ final class apiSoporteUsuariosController
 
         try {
             $m = new SoporteUsuarios();
-
             $ok = $m->actualizarEstadoUsuario([
                 'codigo_usuario' => $codigoUsuario,
                 'estado'         => $estadoNuevo,
