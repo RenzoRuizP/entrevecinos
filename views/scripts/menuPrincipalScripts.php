@@ -35,13 +35,11 @@ $evVer = defined('EV_APP_VER') ? (string)EV_APP_VER : (string)time();
 <?php if ($rolUsuario === 'soporte'): ?>
 
   <!-- ✅ Scripts específicos del rol SOPORTE -->
+  <script src="<?= $baseUrl ?>/views/js/soporteDashboard.js?v=<?= $evVer ?>"></script>
   <script src="<?= $baseUrl ?>/views/js/atenderRecargas.js?v=<?= $evVer ?>"></script>
   <script src="<?= $baseUrl ?>/views/js/atenderPublicacion.js?v=<?= $evVer ?>"></script>
   <script src="<?= $baseUrl ?>/views/js/atenderCuentasUsuario.js?v=<?= $evVer ?>"></script>
   <script src="<?= $baseUrl ?>/views/js/notificacionesResidencia.js?v=<?= $evVer ?>"></script>
-
-  <!-- ✅ Dashboard soporte (CLAVE: versionado para evitar cache) -->
-  <script src="<?= $baseUrl ?>/views/js/soporteDashboard.js?v=<?= $evVer ?>"></script>
 
 <?php else: ?>
 

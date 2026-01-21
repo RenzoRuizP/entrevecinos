@@ -88,6 +88,23 @@
 }
 .ev-btn-light:hover{ background: #ECFDF5; border-color: rgba(22,163,74,0.35); }
 
+/* ✅ Chips premium (FIX) */
+.ev-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding: 10px 14px;
+  line-height: 1;
+}
+.ev-chip i{ font-size: 0.95rem; opacity: .9; }
+
+.ev-chip-active{
+  background: rgba(22,163,74,0.10) !important;
+  border-color: rgba(22,163,74,0.35) !important;
+  box-shadow: 0 10px 22px rgba(22,163,74,0.10);
+}
+
+/* Icon btn */
 .ev-icon-btn{
   width: 42px; height: 42px;
   border-radius: 14px;
@@ -306,15 +323,6 @@
   color: var(--ev-gris-500);
   font-weight: 700;
   text-align: center;
-}
-.ev-proof-actions{
-  padding: 10px 14px 0;
-}
-.ev-proof-hint{
-  padding: 10px 14px 14px;
-  color: var(--ev-gris-500);
-  font-size: 0.88rem;
-  font-weight: 600;
 }
 
 /* PDF frame */

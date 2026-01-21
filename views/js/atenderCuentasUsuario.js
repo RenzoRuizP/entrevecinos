@@ -5,13 +5,13 @@
   const baseUrl = (window.BASE_URL || "").replace(/\/+$/, "");
   if (!baseUrl) return;
 
-  // Estado vivo (para refresh)
-  let currentState = null;
-
-  // Para detectar reinserción del tbody (AJAX parcial)
-  let lastTbody = null;
   let observer = null;
+  let modalInstance = null;
+  let currentId = null;
 
+  // =========================
+  // Helpers
+  // =========================
   function esc(s) {
     return String(s ?? "")
       .replace(/&/g, "&amp;")
@@ -33,27 +33,33 @@
     );
   }
 
+  // Controles (según tu view actual)
   function getControls() {
     return {
       selEstado: $("#filtroEstado"),
-      inpBuscar: $("#filtroBuscar"),
       selModo: $("#filtroModo"),
+      selConjunto: $("#filtroConjunto"),
+      selCondominio: $("#filtroCondominio"),
+      inpBuscar: $("#filtroBuscar"),
+      btnAplicar: $("#btnBuscarAplicar"),
+      btnLimpiar: $("#btnBuscarLimpiar"),
       pagPrev: $("#btnPagPrev"),
       pagNext: $("#btnPagNext"),
       pagNum: $("#lblPagNum"),
       lblTotal: $("#lblTotal"),
+      chips: document.querySelectorAll(".js-ev-chip"),
     };
   }
 
   function normalizarEstado(v) {
     const s = String(v ?? "").trim().toLowerCase();
 
-    // numéricos (por compatibilidad con UI)
+    // soporta opciones numéricas
     if (s === "1") return "revision";
     if (s === "2") return "habilitado";
     if (s === "0") return "inactivo";
 
-    // texto
+    // soporta texto
     if (["revision", "en_revision", "en revisión"].includes(s)) return "revision";
     if (["habilitado", "habilitados"].includes(s)) return "habilitado";
     if (["inactivo", "inactivos"].includes(s)) return "inactivo";
@@ -64,13 +70,14 @@
 
   function badgeEstadoUsuario(v) {
     const n = Number(v);
-    if (n === 2) return `<span class="ev-badge ev-badge-media">Habilitado</span>`;
-    if (n === 0) return `<span class="ev-badge ev-badge-baja">Inactivo</span>`;
-    return `<span class="ev-badge ev-badge-alta">En revisión</span>`;
+    // estilos: ev-badge ev-review / ev-ok / ev-off (según tu CSS)
+    if (n === 2) return `<span class="ev-badge ev-ok"><i class="bi bi-check2-circle"></i> Habilitado</span>`;
+    if (n === 0) return `<span class="ev-badge ev-off"><i class="bi bi-slash-circle"></i> Inactivo</span>`;
+    return `<span class="ev-badge ev-review"><i class="bi bi-hourglass-split"></i> En revisión</span>`;
   }
 
   function residenciaTxt(it) {
-    const tipo = (it.tipo_conjunto || "").toLowerCase();
+    const tipo = String(it.tipo_conjunto || it.tipoConjunto || "").toLowerCase();
     if (!tipo) return `<span class="text-muted">—</span>`;
 
     const dir = it.direccion ? esc(it.direccion) : "—";
@@ -81,7 +88,12 @@
   function setLoading(tbody) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="5" class="text-center py-4 ev-empty">Cargando...</td>
+        <td colspan="5" class="text-center py-4 ev-empty">
+          <div class="ev-empty-wrap">
+            <div class="ev-empty-ico"><i class="bi bi-cloud-arrow-down"></i></div>
+            <div class="ev-empty-text">Cargando...</div>
+          </div>
+        </td>
       </tr>`;
   }
 
@@ -99,6 +111,165 @@
       </tr>`;
   }
 
+  // =========================
+  // Modal: Revisar cuenta
+  // =========================
+  function ensureModal() {
+    const el = $("#modalRevisarCuenta");
+    if (!el) return null;
+
+    if (modalInstance) return modalInstance;
+
+    // bootstrap viene por bundle global
+    modalInstance = new bootstrap.Modal(el, { backdrop: "static" });
+    return modalInstance;
+  }
+
+  function hideComprobante() {
+    const img = $("#mImgComprobante");
+    const pdf = $("#mPdfComprobante");
+    const empty = $("#mNoComprobante");
+    const link = $("#mLinkComprobante");
+
+    if (img) { img.style.display = "none"; img.src = ""; }
+    if (pdf) { pdf.style.display = "none"; pdf.src = ""; }
+    if (empty) empty.style.display = "block";
+    if (link) { link.style.display = "none"; link.href = "#"; }
+  }
+
+  function showComprobante(url) {
+    const u = String(url || "").trim();
+    if (!u) {
+      hideComprobante();
+      return;
+    }
+
+    const full = u.startsWith("http") ? u : (baseUrl + "/" + u.replace(/^\/+/, ""));
+
+    const img = $("#mImgComprobante");
+    const pdf = $("#mPdfComprobante");
+    const empty = $("#mNoComprobante");
+    const link = $("#mLinkComprobante");
+
+    if (link) { link.style.display = "inline"; link.href = full; }
+
+    const isPdf = full.toLowerCase().includes(".pdf");
+    if (empty) empty.style.display = "none";
+
+    if (isPdf) {
+      if (img) { img.style.display = "none"; img.src = ""; }
+      if (pdf) { pdf.style.display = "block"; pdf.src = full; }
+    } else {
+      if (pdf) { pdf.style.display = "none"; pdf.src = ""; }
+      if (img) { img.style.display = "block"; img.src = full; }
+    }
+  }
+
+  function fillModalFromItem(it) {
+    // Campos del modal
+    const mNombre = $("#mNombre");
+    const mEmail = $("#mEmail");
+    const mBadge = $("#mBadgeEstado");
+    const mDoc = $("#mDoc");
+    const mTel = $("#mTel");
+    const mTipo = $("#mTipoConjunto");
+    const mDir = $("#mDireccion");
+
+    if (mNombre) mNombre.textContent = it.nombre || "—";
+    if (mEmail) mEmail.textContent = it.email || "—";
+    if (mBadge) mBadge.innerHTML = badgeEstadoUsuario(it.estado);
+
+    if (mDoc) mDoc.textContent = it.documento || "—";
+    if (mTel) mTel.textContent = it.telefono || "—";
+    if (mTipo) mTipo.textContent = it.tipo_conjunto || it.tipoConjunto || "—";
+    if (mDir) mDir.textContent = it.direccion || "—";
+
+    // Comprobante (varios nombres posibles)
+    const comp =
+      it.comprobante_domicilio ||
+      it.comprobante ||
+      it.comprobante_url ||
+      it.url_comprobante ||
+      it.ruta_comprobante ||
+      "";
+
+    showComprobante(comp);
+  }
+
+  async function tryFetchDetalleUsuario(id) {
+    // Si tu backend tiene endpoint detalle, lo usamos.
+    // Si no existe, fallará y se hará fallback al item de la tabla.
+    const url = new URL(`${baseUrl}/api/soporte/usuarios/${id}`, window.location.origin);
+    url.searchParams.set("_", String(Date.now()));
+
+    const resp = await fetch(url.toString(), {
+      method: "GET",
+      headers: { "X-Partial": "1" },
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    const json = await resp.json().catch(() => null);
+    if (!resp.ok || !json || json.ok !== true) throw new Error("detalle no disponible");
+    return json.data || null;
+  }
+
+  async function openRevisarFromRow(btn) {
+    const id = Number(btn.getAttribute("data-id") || 0);
+    if (!id) return;
+
+    currentId = id;
+
+    // Fallback rápido: datos embebidos en data-*
+    const it = {
+      codigo_usuario: id,
+      nombre: btn.getAttribute("data-nombre") || "",
+      email: btn.getAttribute("data-email") || "",
+      documento: btn.getAttribute("data-doc") || "",
+      telefono: btn.getAttribute("data-tel") || "",
+      tipo_conjunto: btn.getAttribute("data-tipo_conjunto") || "",
+      direccion: btn.getAttribute("data-direccion") || "",
+      estado: Number(btn.getAttribute("data-estado") || 1),
+      comprobante_domicilio: btn.getAttribute("data-comprobante") || "",
+    };
+
+    // Pintar algo ya (para UX) y luego intentar enriquecer
+    fillModalFromItem(it);
+
+    const modal = ensureModal();
+    if (modal) modal.show();
+
+    // Intento opcional: detalle backend
+    try {
+      const det = await tryFetchDetalleUsuario(id);
+      if (det) {
+        // Normaliza: si backend devuelve otras keys, las mapeamos
+        const merged = {
+          ...it,
+          ...det,
+          // por si viene con nombres alternativos:
+          nombre: det.nombre || det.usuario_nombre || it.nombre,
+          email: det.email || det.usuario_email || it.email,
+          documento: det.documento || det.usuario_documento || it.documento,
+          telefono: det.telefono || det.usuario_telefono || it.telefono,
+          tipo_conjunto: det.tipo_conjunto || det.tipoConjunto || it.tipo_conjunto,
+          direccion: det.direccion || det.direccion_residencia || it.direccion,
+          comprobante_domicilio:
+            det.comprobante_domicilio ||
+            det.comprobante ||
+            det.comprobante_url ||
+            it.comprobante_domicilio,
+        };
+        fillModalFromItem(merged);
+      }
+    } catch (_) {
+      // Silencioso: nos quedamos con el fallback del row
+    }
+  }
+
+  // =========================
+  // Render tabla
+  // =========================
   function renderRows(tbody, items) {
     if (!items || !items.length) {
       setEmpty(tbody);
@@ -107,11 +278,25 @@
 
     tbody.innerHTML = items
       .map((it) => {
-        const id = Number(it.codigo_usuario);
-        const nombre = esc(it.nombre);
-        const email = esc(it.email);
-        const doc = esc(it.documento || "—");
-        const tel = esc(it.telefono || "—");
+        const id = Number(it.codigo_usuario || it.id || it.usuario_id);
+        const nombre = esc(it.nombre || it.usuario_nombre || "—");
+        const email = esc(it.email || it.usuario_email || "—");
+        const doc = esc(it.documento || it.usuario_documento || "—");
+        const tel = esc(it.telefono || it.usuario_telefono || "—");
+
+        const tipoConjunto = esc(it.tipo_conjunto || it.tipoConjunto || "");
+        const direccion = esc(it.direccion || it.direccion_residencia || "");
+        const estado = Number(it.estado ?? 1);
+
+        const comp =
+          esc(
+            it.comprobante_domicilio ||
+              it.comprobante ||
+              it.comprobante_url ||
+              it.url_comprobante ||
+              it.ruta_comprobante ||
+              ""
+          );
 
         return `
           <tr>
@@ -125,16 +310,37 @@
               <div class="text-muted small">${tel}</div>
             </td>
 
-            <td>${residenciaTxt(it)}</td>
+            <td>${residenciaTxt({
+              tipo_conjunto: tipoConjunto,
+              direccion: direccion
+            })}</td>
 
             <td class="text-center">
-              ${badgeEstadoUsuario(it.estado)}
+              ${badgeEstadoUsuario(estado)}
             </td>
 
             <td class="text-end">
               <div class="d-inline-flex gap-2">
-                <button class="btn btn-sm ev-btn-atender js-ev-set-estado" data-id="${id}" data-estado="2">Habilitar</button>
-                <button class="btn btn-sm btn-outline-danger js-ev-set-estado" data-id="${id}" data-estado="0">Inactivar</button>
+                <button
+                  type="button"
+                  class="btn btn-sm ev-btn-atender js-ev-revisar"
+                  data-id="${id}"
+                  data-nombre="${nombre}"
+                  data-email="${email}"
+                  data-doc="${doc}"
+                  data-tel="${tel}"
+                  data-tipo_conjunto="${tipoConjunto}"
+                  data-direccion="${direccion}"
+                  data-estado="${estado}"
+                  data-comprobante="${comp}"
+                >Revisar</button>
+
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-danger js-ev-set-estado"
+                  data-id="${id}"
+                  data-estado="0"
+                >Inactivar</button>
               </div>
             </td>
           </tr>
@@ -143,6 +349,9 @@
       .join("");
   }
 
+  // =========================
+  // API endpoints
+  // =========================
   function endpointList(modo) {
     if ((modo || "").toLowerCase().includes("res")) {
       return `${baseUrl}/api/soporte/residencias`;
@@ -160,11 +369,21 @@
 
     try {
       const url = new URL(endpointList(state.modo), window.location.origin);
+
       url.searchParams.set("estado", normalizarEstado(state.estado));
       url.searchParams.set("q", state.q || "");
       url.searchParams.set("page", String(state.page));
       url.searchParams.set("limit", String(state.limit));
-      url.searchParams.set("_", String(Date.now())); // cache-bust real
+
+      // Filtros opcionales: backend puede ignorarlos si no los usa (no rompe)
+      if (state.conjunto && state.conjunto !== "todos") {
+        url.searchParams.set("conjunto", String(state.conjunto));
+      }
+      if (state.condominio) {
+        url.searchParams.set("condominio", String(state.condominio));
+      }
+
+      url.searchParams.set("_", String(Date.now())); // cache-bust
 
       const resp = await fetch(url.toString(), {
         method: "GET",
@@ -183,6 +402,7 @@
 
       renderRows(tbody, items);
 
+      // UI paginado
       if (pagNum) pagNum.textContent = String(state.page);
       if (lblTotal) lblTotal.textContent = String(total);
 
@@ -192,7 +412,7 @@
         pagNext.disabled = state.page >= maxPage;
       }
     } catch (e) {
-      console.error("[EV][AtenderCuentasUsuario] load error:", e);
+      console.error("[EV][AtenderCuentas] load error:", e);
       setError(tbody);
     }
   }
@@ -213,39 +433,115 @@
         throw new Error("No se pudo actualizar estado.");
       }
 
-      refresh();
+      // refresca lista
+      window.EV_AtenderCuentasUsuario?.refresh?.();
     } catch (e) {
-      console.error("[EV][AtenderCuentasUsuario] postEstado error:", e);
+      console.error("[EV][AtenderCuentas] postEstado error:", e);
       alert("No se pudo actualizar el estado. Revisa consola/logs.");
     }
   }
 
+  // =========================
+  // Chips UI
+  // =========================
+  function syncChips(estado) {
+    const { chips } = getControls();
+    if (!chips || !chips.length) return;
+
+    chips.forEach((b) => {
+      const e = normalizarEstado(b.getAttribute("data-estado"));
+      const active = e === normalizarEstado(estado);
+
+      b.classList.toggle("ev-chip-active", active);
+      b.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+  }
+
+  // =========================
+  // Binding de eventos
+  // =========================
   function bind(state) {
-    const { selEstado, inpBuscar, selModo, pagPrev, pagNext } = getControls();
+    const {
+      selEstado,
+      selModo,
+      selConjunto,
+      selCondominio,
+      inpBuscar,
+      btnAplicar,
+      btnLimpiar,
+      pagPrev,
+      pagNext,
+      chips,
+    } = getControls();
 
-    // Delegación global (solo una vez en toda la app)
-    if (!document.body.dataset.evAtCtasDelegBound) {
-      document.body.dataset.evAtCtasDelegBound = "1";
+    // Delegación general
+    if (!document.body.dataset.evAtenderBound) {
+      document.body.dataset.evAtenderBound = "1";
+
       document.addEventListener("click", (ev) => {
+        // Revisar (abre modal)
+        const btnRev = ev.target.closest(".js-ev-revisar");
+        if (btnRev) {
+          ev.preventDefault();
+          openRevisarFromRow(btnRev);
+          return;
+        }
+
+        // Cambiar estado (inactivar rápido)
         const btn = ev.target.closest(".js-ev-set-estado");
-        if (!btn) return;
+        if (btn) {
+          ev.preventDefault();
+          const id = btn.getAttribute("data-id");
+          const est = btn.getAttribute("data-estado");
+          if (!id || !est) return;
+          postEstado(Number(id), Number(est));
+          return;
+        }
 
-        const id = btn.getAttribute("data-id");
-        const est = btn.getAttribute("data-estado");
-        if (!id || !est) return;
+        // Chips
+        const chip = ev.target.closest(".js-ev-chip");
+        if (chip) {
+          ev.preventDefault();
+          const est = normalizarEstado(chip.getAttribute("data-estado"));
+          state.estado = est;
+          state.page = 1;
 
-        postEstado(Number(id), Number(est));
+          if (selEstado) selEstado.value = est;
+          syncChips(est);
+
+          load(state);
+          return;
+        }
       });
     }
 
-    // Los controles cambian con el parcial (son nodos nuevos), por eso:
-    // marcamos el binding en el nodo, no global.
+    // Modal buttons
+    const btnAprobar = $("#btnModalAprobar");
+    const btnInactivar = $("#btnModalInactivar");
+
+    if (btnAprobar && !btnAprobar.dataset.evBound) {
+      btnAprobar.dataset.evBound = "1";
+      btnAprobar.addEventListener("click", () => {
+        if (!currentId) return;
+        postEstado(currentId, 2); // Aprobar / Habilitar
+      });
+    }
+
+    if (btnInactivar && !btnInactivar.dataset.evBound) {
+      btnInactivar.dataset.evBound = "1";
+      btnInactivar.addEventListener("click", () => {
+        if (!currentId) return;
+        postEstado(currentId, 0); // Inactivar
+      });
+    }
+
+    // Selects
     if (selEstado && !selEstado.dataset.evBound) {
       selEstado.dataset.evBound = "1";
       selEstado.addEventListener("change", () => {
         state.estado = selEstado.value;
         state.page = 1;
-        load(state);
+        syncChips(state.estado);
       });
     }
 
@@ -254,23 +550,80 @@
       selModo.addEventListener("change", () => {
         state.modo = selModo.value;
         state.page = 1;
+      });
+    }
+
+    if (selConjunto && !selConjunto.dataset.evBound) {
+      selConjunto.dataset.evBound = "1";
+      selConjunto.addEventListener("change", () => {
+        state.conjunto = selConjunto.value;
+        state.page = 1;
+
+        // Si el conjunto cambia a "todos", resetea condominio
+        if (state.conjunto === "todos" && selCondominio) {
+          selCondominio.value = "";
+          state.condominio = "";
+        }
+      });
+    }
+
+    if (selCondominio && !selCondominio.dataset.evBound) {
+      selCondominio.dataset.evBound = "1";
+      selCondominio.addEventListener("change", () => {
+        state.condominio = selCondominio.value || "";
+        state.page = 1;
+      });
+    }
+
+    // Buscar (solo setea state; aplicar lo hace el botón)
+    if (inpBuscar && !inpBuscar.dataset.evBound) {
+      inpBuscar.dataset.evBound = "1";
+      inpBuscar.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          state.q = inpBuscar.value.trim();
+          state.page = 1;
+          load(state);
+        }
+      });
+    }
+
+    // Aplicar / Limpiar
+    if (btnAplicar && !btnAplicar.dataset.evBound) {
+      btnAplicar.dataset.evBound = "1";
+      btnAplicar.addEventListener("click", () => {
+        state.q = inpBuscar ? inpBuscar.value.trim() : "";
+        state.page = 1;
+        // sincronia chips/estado
+        syncChips(state.estado);
         load(state);
       });
     }
 
-    if (inpBuscar && !inpBuscar.dataset.evBound) {
-      inpBuscar.dataset.evBound = "1";
-      let t = null;
-      inpBuscar.addEventListener("input", () => {
-        clearTimeout(t);
-        t = setTimeout(() => {
-          state.q = inpBuscar.value.trim();
-          state.page = 1;
-          load(state);
-        }, 250);
+    if (btnLimpiar && !btnLimpiar.dataset.evBound) {
+      btnLimpiar.dataset.evBound = "1";
+      btnLimpiar.addEventListener("click", () => {
+        if (inpBuscar) inpBuscar.value = "";
+        state.q = "";
+        state.page = 1;
+
+        // reset filtros a defaults razonables sin romper
+        if (selModo) selModo.value = "usuarios";
+        if (selEstado) selEstado.value = "revision";
+        if (selConjunto) selConjunto.value = "todos";
+        if (selCondominio) selCondominio.value = "";
+
+        state.modo = "usuarios";
+        state.estado = "revision";
+        state.conjunto = "todos";
+        state.condominio = "";
+
+        syncChips(state.estado);
+        load(state);
       });
     }
 
+    // Paginación
     if (pagPrev && !pagPrev.dataset.evBound) {
       pagPrev.dataset.evBound = "1";
       pagPrev.addEventListener("click", () => {
@@ -288,63 +641,60 @@
         load(state);
       });
     }
+
+    // Si existe NodeList de chips, inicializa aria/active
+    if (chips && chips.length) syncChips(state.estado);
   }
 
+  // =========================
+  // Init
+  // =========================
   function init() {
     const tbody = getTbody();
     if (!tbody) return false;
 
-    // Si el tbody es el mismo, no reinicializar a lo loco
-    // (pero igual refresh funciona).
-    if (lastTbody === tbody && currentState) return true;
+    const { selEstado, selModo, selConjunto, selCondominio, inpBuscar } = getControls();
 
-    lastTbody = tbody;
-
-    const { selEstado, selModo } = getControls();
-
-    currentState = {
+    const state = {
       modo: selModo ? selModo.value : "usuarios",
       estado: selEstado ? selEstado.value : "revision",
-      q: "",
+      conjunto: selConjunto ? selConjunto.value : "todos",
+      condominio: selCondominio ? (selCondominio.value || "") : "",
+      q: inpBuscar ? inpBuscar.value.trim() : "",
       page: 1,
       limit: 10,
     };
 
-    bind(currentState);
-    load(currentState);
+    bind(state);
+    load(state);
+
+    // API pública
+    window.EV_AtenderCuentasUsuario = window.EV_AtenderCuentasUsuario || {};
+    window.EV_AtenderCuentasUsuario.refresh = () => load(state);
+    window.EV_AtenderCuentasUsuario.init = init;
 
     return true;
   }
-
-  function refresh() {
-    if (currentState) load(currentState);
-    else init();
-  }
-
-  // API pública (para que el Shell la invoque si desea)
-  window.EV_AtenderCuentasUsuario = window.EV_AtenderCuentasUsuario || {};
-  window.EV_AtenderCuentasUsuario.init = init;
-  window.EV_AtenderCuentasUsuario.refresh = refresh;
 
   function startObserver() {
     if (observer) return;
 
     observer = new MutationObserver(() => {
-      // Si aparece/reaparece el tbody por carga AJAX: init() lo levanta.
-      init();
+      const ok = init();
+      if (ok && observer) {
+        observer.disconnect();
+        observer = null;
+      }
     });
 
     observer.observe(document.documentElement, { childList: true, subtree: true });
   }
 
-  // 1) intento inmediato
-  init();
+  const okNow = init();
+  if (!okNow) startObserver();
 
-  // 2) observa siempre (porque el usuario puede entrar/salir/volver a entrar al módulo)
-  startObserver();
-
-  // 3) bfcache (volver atrás/adelante)
+  // bfcache
   window.addEventListener("pageshow", () => {
-    if (getTbody()) refresh();
+    if (getTbody()) window.EV_AtenderCuentasUsuario?.refresh?.();
   });
 })();
