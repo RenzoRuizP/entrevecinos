@@ -25,28 +25,31 @@
     return document.querySelector(sel);
   }
 
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
   function getTbody() {
     return (
-      $("#evUsuariosBody") ||
-      $("#tablaUsuariosBody") ||
+      byId("evUsuariosBody") ||
+      byId("tablaUsuariosBody") ||
       document.querySelector("table tbody")
     );
   }
 
-  // Controles (según tu view actual)
   function getControls() {
     return {
-      selEstado: $("#filtroEstado"),
-      selModo: $("#filtroModo"),
-      selConjunto: $("#filtroConjunto"),
-      selCondominio: $("#filtroCondominio"),
-      inpBuscar: $("#filtroBuscar"),
-      btnAplicar: $("#btnBuscarAplicar"),
-      btnLimpiar: $("#btnBuscarLimpiar"),
-      pagPrev: $("#btnPagPrev"),
-      pagNext: $("#btnPagNext"),
-      pagNum: $("#lblPagNum"),
-      lblTotal: $("#lblTotal"),
+      selEstado: byId("filtroEstado"),
+      selModo: byId("filtroModo"),
+      selConjunto: byId("filtroConjunto"),
+      selCondominio: byId("filtroCondominio"),
+      inpBuscar: byId("filtroBuscar"),
+      btnAplicar: byId("btnBuscarAplicar"),
+      btnLimpiar: byId("btnBuscarLimpiar"),
+      pagPrev: byId("btnPagPrev"),
+      pagNext: byId("btnPagNext"),
+      pagNum: byId("lblPagNum"),
+      lblTotal: byId("lblTotal"),
       chips: document.querySelectorAll(".js-ev-chip"),
     };
   }
@@ -54,35 +57,41 @@
   function normalizarEstado(v) {
     const s = String(v ?? "").trim().toLowerCase();
 
-    // soporta opciones numéricas
+    // Soporta números (por si en algún lado llega)
     if (s === "1") return "revision";
     if (s === "2") return "habilitado";
     if (s === "0") return "inactivo";
 
-    // soporta texto
-    if (["revision", "en_revision", "en revisión"].includes(s)) return "revision";
+    if (["revision", "en_revision", "en revisión", "en revision"].includes(s)) return "revision";
     if (["habilitado", "habilitados"].includes(s)) return "habilitado";
     if (["inactivo", "inactivos"].includes(s)) return "inactivo";
     if (["todos", "all"].includes(s)) return "todos";
-
     return "revision";
   }
 
-  function badgeEstadoUsuario(v) {
-    const n = Number(v);
-    // estilos: ev-badge ev-review / ev-ok / ev-off (según tu CSS)
+  // Badges según tu CSS: ev-badge + ev-review/ev-ok/ev-off
+  function badgeEstadoUsuario(estado) {
+    const n = Number(estado);
     if (n === 2) return `<span class="ev-badge ev-ok"><i class="bi bi-check2-circle"></i> Habilitado</span>`;
     if (n === 0) return `<span class="ev-badge ev-off"><i class="bi bi-slash-circle"></i> Inactivo</span>`;
     return `<span class="ev-badge ev-review"><i class="bi bi-hourglass-split"></i> En revisión</span>`;
   }
 
   function residenciaTxt(it) {
-    const tipo = String(it.tipo_conjunto || it.tipoConjunto || "").toLowerCase();
+    const tipoRaw =
+      it.tipo_conjunto ||
+      it.tipoConjunto ||
+      it.conjunto_tipo ||
+      it.tipo ||
+      "";
+
+    const tipo = String(tipoRaw).toLowerCase();
     if (!tipo) return `<span class="text-muted">—</span>`;
 
-    const dir = it.direccion ? esc(it.direccion) : "—";
-    const t = tipo === "condominio" ? "Condominio" : "Urbanización";
-    return `<div class="fw-semibold">${t}</div><div class="text-muted small">${dir}</div>`;
+    const dir = it.direccion || it.direccion_residencia || it.dir || "";
+    const t = tipo.includes("cond") ? "Condominio" : "Urbanización";
+
+    return `<div class="fw-semibold">${esc(t)}</div><div class="text-muted small">${esc(dir || "—")}</div>`;
   }
 
   function setLoading(tbody) {
@@ -112,173 +121,28 @@
   }
 
   // =========================
-  // Modal: Revisar cuenta
+  // Endpoints
   // =========================
-  function ensureModal() {
-    const el = $("#modalRevisarCuenta");
-    if (!el) return null;
-
-    if (modalInstance) return modalInstance;
-
-    // bootstrap viene por bundle global
-    modalInstance = new bootstrap.Modal(el, { backdrop: "static" });
-    return modalInstance;
-  }
-
-  function hideComprobante() {
-    const img = $("#mImgComprobante");
-    const pdf = $("#mPdfComprobante");
-    const empty = $("#mNoComprobante");
-    const link = $("#mLinkComprobante");
-
-    if (img) { img.style.display = "none"; img.src = ""; }
-    if (pdf) { pdf.style.display = "none"; pdf.src = ""; }
-    if (empty) empty.style.display = "block";
-    if (link) { link.style.display = "none"; link.href = "#"; }
-  }
-
-  function showComprobante(url) {
-    const u = String(url || "").trim();
-    if (!u) {
-      hideComprobante();
-      return;
-    }
-
-    const full = u.startsWith("http") ? u : (baseUrl + "/" + u.replace(/^\/+/, ""));
-
-    const img = $("#mImgComprobante");
-    const pdf = $("#mPdfComprobante");
-    const empty = $("#mNoComprobante");
-    const link = $("#mLinkComprobante");
-
-    if (link) { link.style.display = "inline"; link.href = full; }
-
-    const isPdf = full.toLowerCase().includes(".pdf");
-    if (empty) empty.style.display = "none";
-
-    if (isPdf) {
-      if (img) { img.style.display = "none"; img.src = ""; }
-      if (pdf) { pdf.style.display = "block"; pdf.src = full; }
-    } else {
-      if (pdf) { pdf.style.display = "none"; pdf.src = ""; }
-      if (img) { img.style.display = "block"; img.src = full; }
-    }
-  }
-
-  function fillModalFromItem(it) {
-    // Campos del modal
-    const mNombre = $("#mNombre");
-    const mEmail = $("#mEmail");
-    const mBadge = $("#mBadgeEstado");
-    const mDoc = $("#mDoc");
-    const mTel = $("#mTel");
-    const mTipo = $("#mTipoConjunto");
-    const mDir = $("#mDireccion");
-
-    if (mNombre) mNombre.textContent = it.nombre || "—";
-    if (mEmail) mEmail.textContent = it.email || "—";
-    if (mBadge) mBadge.innerHTML = badgeEstadoUsuario(it.estado);
-
-    if (mDoc) mDoc.textContent = it.documento || "—";
-    if (mTel) mTel.textContent = it.telefono || "—";
-    if (mTipo) mTipo.textContent = it.tipo_conjunto || it.tipoConjunto || "—";
-    if (mDir) mDir.textContent = it.direccion || "—";
-
-    // Comprobante (varios nombres posibles)
-    const comp =
-      it.comprobante_domicilio ||
-      it.comprobante ||
-      it.comprobante_url ||
-      it.url_comprobante ||
-      it.ruta_comprobante ||
-      "";
-
-    showComprobante(comp);
-  }
-
-  async function tryFetchDetalleUsuario(id) {
-    // Si tu backend tiene endpoint detalle, lo usamos.
-    // Si no existe, fallará y se hará fallback al item de la tabla.
-    const url = new URL(`${baseUrl}/api/soporte/usuarios/${id}`, window.location.origin);
-    url.searchParams.set("_", String(Date.now()));
-
-    const resp = await fetch(url.toString(), {
-      method: "GET",
-      headers: { "X-Partial": "1" },
-      credentials: "include",
-      cache: "no-store",
-    });
-
-    const json = await resp.json().catch(() => null);
-    if (!resp.ok || !json || json.ok !== true) throw new Error("detalle no disponible");
-    return json.data || null;
-  }
-
-  async function openRevisarFromRow(btn) {
-    const id = Number(btn.getAttribute("data-id") || 0);
-    if (!id) return;
-
-    currentId = id;
-
-    // Fallback rápido: datos embebidos en data-*
-    const it = {
-      codigo_usuario: id,
-      nombre: btn.getAttribute("data-nombre") || "",
-      email: btn.getAttribute("data-email") || "",
-      documento: btn.getAttribute("data-doc") || "",
-      telefono: btn.getAttribute("data-tel") || "",
-      tipo_conjunto: btn.getAttribute("data-tipo_conjunto") || "",
-      direccion: btn.getAttribute("data-direccion") || "",
-      estado: Number(btn.getAttribute("data-estado") || 1),
-      comprobante_domicilio: btn.getAttribute("data-comprobante") || "",
-    };
-
-    // Pintar algo ya (para UX) y luego intentar enriquecer
-    fillModalFromItem(it);
-
-    const modal = ensureModal();
-    if (modal) modal.show();
-
-    // Intento opcional: detalle backend
-    try {
-      const det = await tryFetchDetalleUsuario(id);
-      if (det) {
-        // Normaliza: si backend devuelve otras keys, las mapeamos
-        const merged = {
-          ...it,
-          ...det,
-          // por si viene con nombres alternativos:
-          nombre: det.nombre || det.usuario_nombre || it.nombre,
-          email: det.email || det.usuario_email || it.email,
-          documento: det.documento || det.usuario_documento || it.documento,
-          telefono: det.telefono || det.usuario_telefono || it.telefono,
-          tipo_conjunto: det.tipo_conjunto || det.tipoConjunto || it.tipo_conjunto,
-          direccion: det.direccion || det.direccion_residencia || it.direccion,
-          comprobante_domicilio:
-            det.comprobante_domicilio ||
-            det.comprobante ||
-            det.comprobante_url ||
-            it.comprobante_domicilio,
-        };
-        fillModalFromItem(merged);
-      }
-    } catch (_) {
-      // Silencioso: nos quedamos con el fallback del row
-    }
+  function endpointList(modo) {
+    const m = String(modo || "").toLowerCase();
+    if (m.includes("res")) return `${baseUrl}/api/soporte/residencias`;
+    return `${baseUrl}/api/soporte/usuarios`;
   }
 
   // =========================
   // Render tabla
   // =========================
-  function renderRows(tbody, items) {
-    if (!items || !items.length) {
+  function renderRows(tbody, items, state) {
+    if (!Array.isArray(items) || items.length === 0) {
       setEmpty(tbody);
       return;
     }
 
     tbody.innerHTML = items
       .map((it) => {
-        const id = Number(it.codigo_usuario || it.id || it.usuario_id);
+        const id =
+          Number(it.codigo_usuario ?? it.id ?? it.usuario_id ?? 0);
+
         const nombre = esc(it.nombre || it.usuario_nombre || "—");
         const email = esc(it.email || it.usuario_email || "—");
         const doc = esc(it.documento || it.usuario_documento || "—");
@@ -286,17 +150,37 @@
 
         const tipoConjunto = esc(it.tipo_conjunto || it.tipoConjunto || "");
         const direccion = esc(it.direccion || it.direccion_residencia || "");
-        const estado = Number(it.estado ?? 1);
+        const estado = Number(it.estado ?? it.usuario_estado ?? 1);
 
-        const comp =
-          esc(
-            it.comprobante_domicilio ||
-              it.comprobante ||
-              it.comprobante_url ||
-              it.url_comprobante ||
-              it.ruta_comprobante ||
-              ""
-          );
+        // Comprobante (varios posibles nombres)
+        const comprobante =
+          it.comprobante_domicilio ||
+          it.comprobante ||
+          it.comprobante_url ||
+          it.url_comprobante ||
+          it.comprobanteRuta ||
+          "";
+
+        // Botón Revisar (abre modal)
+        const btnRevisar = `
+          <button
+            type="button"
+            class="btn btn-sm ev-btn-orange js-ev-revisar"
+            data-id="${id}"
+            data-nombre="${esc(it.nombre || it.usuario_nombre || "")}"
+            data-email="${esc(it.email || it.usuario_email || "")}"
+            data-doc="${esc(it.documento || it.usuario_documento || "")}"
+            data-tel="${esc(it.telefono || it.usuario_telefono || "")}"
+            data-tipo_conjunto="${tipoConjunto}"
+            data-direccion="${direccion}"
+            data-estado="${estado}"
+            data-comprobante="${esc(comprobante || "")}"
+          >Revisar</button>
+        `;
+
+        const btnInactivar = `
+          <button class="btn btn-sm btn-outline-danger js-ev-set-estado" data-id="${id}" data-estado="0">Inactivar</button>
+        `;
 
         return `
           <tr>
@@ -310,10 +194,7 @@
               <div class="text-muted small">${tel}</div>
             </td>
 
-            <td>${residenciaTxt({
-              tipo_conjunto: tipoConjunto,
-              direccion: direccion
-            })}</td>
+            <td>${residenciaTxt(it)}</td>
 
             <td class="text-center">
               ${badgeEstadoUsuario(estado)}
@@ -321,26 +202,8 @@
 
             <td class="text-end">
               <div class="d-inline-flex gap-2">
-                <button
-                  type="button"
-                  class="btn btn-sm ev-btn-atender js-ev-revisar"
-                  data-id="${id}"
-                  data-nombre="${nombre}"
-                  data-email="${email}"
-                  data-doc="${doc}"
-                  data-tel="${tel}"
-                  data-tipo_conjunto="${tipoConjunto}"
-                  data-direccion="${direccion}"
-                  data-estado="${estado}"
-                  data-comprobante="${comp}"
-                >Revisar</button>
-
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-danger js-ev-set-estado"
-                  data-id="${id}"
-                  data-estado="0"
-                >Inactivar</button>
+                ${btnRevisar}
+                ${btnInactivar}
               </div>
             </td>
           </tr>
@@ -350,38 +213,169 @@
   }
 
   // =========================
-  // API endpoints
+  // Modal
   // =========================
-  function endpointList(modo) {
-    if ((modo || "").toLowerCase().includes("res")) {
-      return `${baseUrl}/api/soporte/residencias`;
-    }
-    return `${baseUrl}/api/soporte/usuarios`;
+  function ensureModal() {
+    const el = byId("modalRevisarCuenta");
+    if (!el) return null;
+
+    if (modalInstance) return modalInstance;
+
+    // bootstrap global ya existe en tu shell
+    modalInstance = new bootstrap.Modal(el, { backdrop: "static" });
+    return modalInstance;
   }
 
+  function isPdf(url) {
+    return /\.pdf(\?|#|$)/i.test(String(url || ""));
+  }
+
+  function absUrlMaybe(u) {
+    const url = String(u || "").trim();
+    if (!url) return "";
+    // Si ya es absoluta
+    if (/^https?:\/\//i.test(url)) return url;
+    // Si es relativa: la llevamos a BASE_URL
+    if (url.startsWith("/")) return baseUrl + url;
+    return baseUrl + "/" + url;
+  }
+
+  function fillModalFromButton(btn) {
+    currentId = Number(btn.getAttribute("data-id") || 0);
+
+    const nombre = btn.getAttribute("data-nombre") || "—";
+    const email = btn.getAttribute("data-email") || "—";
+    const doc = btn.getAttribute("data-doc") || "—";
+    const tel = btn.getAttribute("data-tel") || "—";
+    const tipoConjunto = btn.getAttribute("data-tipo_conjunto") || "—";
+    const direccion = btn.getAttribute("data-direccion") || "—";
+    const estado = Number(btn.getAttribute("data-estado") || 1);
+    const comprobanteRaw = btn.getAttribute("data-comprobante") || "";
+
+    const mNombre = byId("mNombre");
+    const mEmail = byId("mEmail");
+    const mDoc = byId("mDoc");
+    const mTel = byId("mTel");
+    const mTipoConjunto = byId("mTipoConjunto");
+    const mDireccion = byId("mDireccion");
+    const mBadgeEstado = byId("mBadgeEstado");
+    const mObsTexto = byId("mObsTexto");
+
+    if (mNombre) mNombre.textContent = nombre;
+    if (mEmail) mEmail.textContent = email;
+    if (mDoc) mDoc.textContent = doc || "—";
+    if (mTel) mTel.textContent = tel || "—";
+    if (mTipoConjunto) mTipoConjunto.textContent = tipoConjunto || "—";
+    if (mDireccion) mDireccion.textContent = direccion || "—";
+    if (mBadgeEstado) mBadgeEstado.innerHTML = badgeEstadoUsuario(estado);
+
+    // limpiar observación
+    if (mObsTexto) mObsTexto.value = "";
+
+    // comprobante
+    const mLink = byId("mLinkComprobante");
+    const mImg = byId("mImgComprobante");
+    const mPdf = byId("mPdfComprobante");
+    const mEmpty = byId("mNoComprobante");
+
+    const compUrl = absUrlMaybe(comprobanteRaw);
+
+    // reset
+    if (mLink) { mLink.style.display = "none"; mLink.setAttribute("href", "#"); }
+    if (mImg) { mImg.style.display = "none"; mImg.setAttribute("src", ""); }
+    if (mPdf) { mPdf.style.display = "none"; mPdf.setAttribute("src", ""); }
+    if (mEmpty) mEmpty.style.display = "block";
+
+    if (compUrl) {
+      if (mLink) { mLink.style.display = "inline"; mLink.setAttribute("href", compUrl); }
+      if (isPdf(compUrl)) {
+        if (mPdf) { mPdf.style.display = "block"; mPdf.setAttribute("src", compUrl); }
+      } else {
+        if (mImg) { mImg.style.display = "block"; mImg.setAttribute("src", compUrl); }
+      }
+      if (mEmpty) mEmpty.style.display = "none";
+    }
+  }
+
+  // =========================
+  // API actions
+  // =========================
+  async function postEstado(id, estado) {
+    const url = `${baseUrl}/api/soporte/usuarios/${id}/estado`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Partial": "1" },
+      credentials: "include",
+      cache: "no-store",
+      body: JSON.stringify({ estado: Number(estado) }),
+    });
+
+    const json = await resp.json().catch(() => null);
+    if (!resp.ok || !json || json.ok !== true) {
+      throw new Error("No se pudo actualizar estado.");
+    }
+    return json;
+  }
+
+  async function postObservacion(id, observacion) {
+    const obs = String(observacion || "").trim();
+    if (!obs) {
+      alert("Ingresa una observación.");
+      return;
+    }
+
+    // Opción A: endpoint dedicado
+    // Opción B: mismo endpoint estado con {estado:1, observacion:"..."}
+    try {
+      const urlA = `${baseUrl}/api/soporte/usuarios/${id}/observacion`;
+      const respA = await fetch(urlA, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Partial": "1" },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify({ observacion: obs }),
+      });
+
+      const jsonA = await respA.json().catch(() => null);
+      if (respA.ok && jsonA && jsonA.ok === true) return;
+      throw new Error("Endpoint observacion no disponible");
+    } catch (_) {
+      const urlB = `${baseUrl}/api/soporte/usuarios/${id}/estado`;
+      const respB = await fetch(urlB, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Partial": "1" },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify({ estado: 1, observacion: obs }),
+      });
+
+      const jsonB = await respB.json().catch(() => null);
+      if (!respB.ok || !jsonB || jsonB.ok !== true) {
+        throw new Error("No se pudo registrar observación.");
+      }
+    }
+  }
+
+  // =========================
+  // Carga de data
+  // =========================
   async function load(state) {
     const tbody = getTbody();
     if (!tbody) return;
 
-    setLoading(tbody);
-
     const { pagNum, lblTotal, pagPrev, pagNext } = getControls();
+    setLoading(tbody);
 
     try {
       const url = new URL(endpointList(state.modo), window.location.origin);
-
       url.searchParams.set("estado", normalizarEstado(state.estado));
       url.searchParams.set("q", state.q || "");
       url.searchParams.set("page", String(state.page));
       url.searchParams.set("limit", String(state.limit));
 
-      // Filtros opcionales: backend puede ignorarlos si no los usa (no rompe)
-      if (state.conjunto && state.conjunto !== "todos") {
-        url.searchParams.set("conjunto", String(state.conjunto));
-      }
-      if (state.condominio) {
-        url.searchParams.set("condominio", String(state.condominio));
-      }
+      // filtros extra (backend puede ignorar si no aplica)
+      if (state.conjunto && state.conjunto !== "todos") url.searchParams.set("conjunto", state.conjunto);
+      if (state.condominio) url.searchParams.set("condominio", state.condominio);
 
       url.searchParams.set("_", String(Date.now())); // cache-bust
 
@@ -400,9 +394,8 @@
       const items = json?.data?.items || [];
       const total = Number(json?.data?.total || 0);
 
-      renderRows(tbody, items);
+      renderRows(tbody, items, state);
 
-      // UI paginado
       if (pagNum) pagNum.textContent = String(state.page);
       if (lblTotal) lblTotal.textContent = String(total);
 
@@ -417,48 +410,35 @@
     }
   }
 
-  async function postEstado(id, estado) {
-    try {
-      const url = `${baseUrl}/api/soporte/usuarios/${id}/estado`;
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Partial": "1" },
-        credentials: "include",
-        cache: "no-store",
-        body: JSON.stringify({ estado: Number(estado) }),
-      });
-
-      const json = await resp.json().catch(() => null);
-      if (!resp.ok || !json || json.ok !== true) {
-        throw new Error("No se pudo actualizar estado.");
-      }
-
-      // refresca lista
-      window.EV_AtenderCuentasUsuario?.refresh?.();
-    } catch (e) {
-      console.error("[EV][AtenderCuentas] postEstado error:", e);
-      alert("No se pudo actualizar el estado. Revisa consola/logs.");
-    }
-  }
-
   // =========================
-  // Chips UI
+  // UI: chips y filtros
   // =========================
-  function syncChips(estado) {
+  function syncChipsUI(estadoNormalized) {
     const { chips } = getControls();
-    if (!chips || !chips.length) return;
+    if (!chips) return;
 
     chips.forEach((b) => {
       const e = normalizarEstado(b.getAttribute("data-estado"));
-      const active = e === normalizarEstado(estado);
+      const active = e === estadoNormalized;
 
       b.classList.toggle("ev-chip-active", active);
       b.setAttribute("aria-pressed", active ? "true" : "false");
     });
   }
 
+  function setupCondominioEnable() {
+    const { selConjunto, selCondominio } = getControls();
+    if (!selConjunto || !selCondominio) return;
+
+    const v = String(selConjunto.value || "").toLowerCase();
+    const enable = v === "condominio" || v === "urbanizacion";
+
+    selCondominio.disabled = !enable;
+    if (!enable) selCondominio.value = "";
+  }
+
   // =========================
-  // Binding de eventos
+  // Bind
   // =========================
   function bind(state) {
     const {
@@ -474,64 +454,57 @@
       chips,
     } = getControls();
 
-    // Delegación general
-    if (!document.body.dataset.evAtenderBound) {
-      document.body.dataset.evAtenderBound = "1";
+    // Delegación (una sola vez global)
+    if (!document.body.dataset.evAtenderUsuariosBound) {
+      document.body.dataset.evAtenderUsuariosBound = "1";
 
-      document.addEventListener("click", (ev) => {
-        // Revisar (abre modal)
+      document.addEventListener("click", async (ev) => {
+        // Revisar (modal)
         const btnRev = ev.target.closest(".js-ev-revisar");
         if (btnRev) {
-          ev.preventDefault();
-          openRevisarFromRow(btnRev);
+          const m = ensureModal();
+          if (!m) return;
+
+          fillModalFromButton(btnRev);
+          m.show();
           return;
         }
 
-        // Cambiar estado (inactivar rápido)
-        const btn = ev.target.closest(".js-ev-set-estado");
-        if (btn) {
-          ev.preventDefault();
-          const id = btn.getAttribute("data-id");
-          const est = btn.getAttribute("data-estado");
-          if (!id || !est) return;
-          postEstado(Number(id), Number(est));
+        // Inactivar desde tabla
+        const btnSet = ev.target.closest(".js-ev-set-estado");
+        if (btnSet) {
+          const id = Number(btnSet.getAttribute("data-id") || 0);
+          const est = Number(btnSet.getAttribute("data-estado") || 0);
+          if (!id) return;
+
+          try {
+            await postEstado(id, est);
+            await load(state);
+          } catch (e) {
+            console.error("[EV][AtenderCuentas] postEstado error:", e);
+            alert("No se pudo actualizar el estado. Revisa consola/logs.");
+          }
           return;
         }
+      });
+    }
 
-        // Chips
-        const chip = ev.target.closest(".js-ev-chip");
-        if (chip) {
-          ev.preventDefault();
-          const est = normalizarEstado(chip.getAttribute("data-estado"));
-          state.estado = est;
+    // Chips
+    if (chips && chips.length) {
+      chips.forEach((b) => {
+        if (b.dataset.evBound) return;
+        b.dataset.evBound = "1";
+
+        b.addEventListener("click", () => {
+          const e = normalizarEstado(b.getAttribute("data-estado"));
+          state.estado = e;
           state.page = 1;
 
-          if (selEstado) selEstado.value = est;
-          syncChips(est);
+          if (selEstado) selEstado.value = e; // sync select
+          syncChipsUI(e);
 
           load(state);
-          return;
-        }
-      });
-    }
-
-    // Modal buttons
-    const btnAprobar = $("#btnModalAprobar");
-    const btnInactivar = $("#btnModalInactivar");
-
-    if (btnAprobar && !btnAprobar.dataset.evBound) {
-      btnAprobar.dataset.evBound = "1";
-      btnAprobar.addEventListener("click", () => {
-        if (!currentId) return;
-        postEstado(currentId, 2); // Aprobar / Habilitar
-      });
-    }
-
-    if (btnInactivar && !btnInactivar.dataset.evBound) {
-      btnInactivar.dataset.evBound = "1";
-      btnInactivar.addEventListener("click", () => {
-        if (!currentId) return;
-        postEstado(currentId, 0); // Inactivar
+        });
       });
     }
 
@@ -539,9 +512,10 @@
     if (selEstado && !selEstado.dataset.evBound) {
       selEstado.dataset.evBound = "1";
       selEstado.addEventListener("change", () => {
-        state.estado = selEstado.value;
+        state.estado = normalizarEstado(selEstado.value);
         state.page = 1;
-        syncChips(state.estado);
+        syncChipsUI(state.estado);
+        load(state);
       });
     }
 
@@ -550,20 +524,19 @@
       selModo.addEventListener("change", () => {
         state.modo = selModo.value;
         state.page = 1;
+        load(state);
       });
     }
 
     if (selConjunto && !selConjunto.dataset.evBound) {
       selConjunto.dataset.evBound = "1";
       selConjunto.addEventListener("change", () => {
-        state.conjunto = selConjunto.value;
+        state.conjunto = selConjunto.value || "todos";
+        state.condominio = "";
+        setupCondominioEnable();
         state.page = 1;
-
-        // Si el conjunto cambia a "todos", resetea condominio
-        if (state.conjunto === "todos" && selCondominio) {
-          selCondominio.value = "";
-          state.condominio = "";
-        }
+        // No auto-load (opcional). Tú pediste aplicar con botón:
+        // load(state);
       });
     }
 
@@ -571,31 +544,36 @@
       selCondominio.dataset.evBound = "1";
       selCondominio.addEventListener("change", () => {
         state.condominio = selCondominio.value || "";
-        state.page = 1;
+        // no auto-load (se aplica con botón)
       });
     }
 
-    // Buscar (solo setea state; aplicar lo hace el botón)
+    // Buscar: Enter aplica filtros
     if (inpBuscar && !inpBuscar.dataset.evBound) {
       inpBuscar.dataset.evBound = "1";
       inpBuscar.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
           e.preventDefault();
-          state.q = inpBuscar.value.trim();
+          state.q = (inpBuscar.value || "").trim();
           state.page = 1;
           load(state);
         }
       });
     }
 
-    // Aplicar / Limpiar
+    // Botones aplicar / limpiar
     if (btnAplicar && !btnAplicar.dataset.evBound) {
       btnAplicar.dataset.evBound = "1";
       btnAplicar.addEventListener("click", () => {
-        state.q = inpBuscar ? inpBuscar.value.trim() : "";
+        state.q = (inpBuscar ? inpBuscar.value : "").trim();
+        state.estado = normalizarEstado(selEstado ? selEstado.value : state.estado);
+        state.modo = selModo ? selModo.value : state.modo;
+        state.conjunto = selConjunto ? selConjunto.value : state.conjunto;
+        state.condominio = selCondominio ? selCondominio.value : state.condominio;
+
         state.page = 1;
-        // sincronia chips/estado
-        syncChips(state.estado);
+        syncChipsUI(state.estado);
+        setupCondominioEnable();
         load(state);
       });
     }
@@ -603,22 +581,21 @@
     if (btnLimpiar && !btnLimpiar.dataset.evBound) {
       btnLimpiar.dataset.evBound = "1";
       btnLimpiar.addEventListener("click", () => {
-        if (inpBuscar) inpBuscar.value = "";
-        state.q = "";
-        state.page = 1;
-
-        // reset filtros a defaults razonables sin romper
         if (selModo) selModo.value = "usuarios";
         if (selEstado) selEstado.value = "revision";
         if (selConjunto) selConjunto.value = "todos";
         if (selCondominio) selCondominio.value = "";
+        if (inpBuscar) inpBuscar.value = "";
 
         state.modo = "usuarios";
         state.estado = "revision";
         state.conjunto = "todos";
         state.condominio = "";
+        state.q = "";
+        state.page = 1;
 
-        syncChips(state.estado);
+        setupCondominioEnable();
+        syncChipsUI(state.estado);
         load(state);
       });
     }
@@ -642,8 +619,64 @@
       });
     }
 
-    // Si existe NodeList de chips, inicializa aria/active
-    if (chips && chips.length) syncChips(state.estado);
+    // Modal actions (una sola vez)
+    const btnModalAprobar = byId("btnModalAprobar");
+    const btnModalInactivar = byId("btnModalInactivar");
+    const btnModalObservar = byId("btnModalObservar");
+    const txtObs = byId("mObsTexto");
+
+    if (btnModalAprobar && !btnModalAprobar.dataset.evBound) {
+      btnModalAprobar.dataset.evBound = "1";
+      btnModalAprobar.addEventListener("click", async () => {
+        if (!currentId) return;
+
+        try {
+          await postEstado(currentId, 2); // aprobar => habilitar
+          ensureModal()?.hide();
+          await load(state);
+        } catch (e) {
+          console.error("[EV][AtenderCuentas] aprobar error:", e);
+          alert("No se pudo aprobar. Revisa consola/logs.");
+        }
+      });
+    }
+
+    if (btnModalInactivar && !btnModalInactivar.dataset.evBound) {
+      btnModalInactivar.dataset.evBound = "1";
+      btnModalInactivar.addEventListener("click", async () => {
+        if (!currentId) return;
+
+        try {
+          await postEstado(currentId, 0); // inactivar
+          ensureModal()?.hide();
+          await load(state);
+        } catch (e) {
+          console.error("[EV][AtenderCuentas] inactivar error:", e);
+          alert("No se pudo inactivar. Revisa consola/logs.");
+        }
+      });
+    }
+
+    // ✅ OBSERVAR (RESTAURADO)
+    if (btnModalObservar && !btnModalObservar.dataset.evBound) {
+      btnModalObservar.dataset.evBound = "1";
+      btnModalObservar.addEventListener("click", async () => {
+        if (!currentId) return;
+
+        try {
+          const obs = txtObs ? txtObs.value : "";
+          await postObservacion(currentId, obs);
+          ensureModal()?.hide();
+          await load(state);
+        } catch (e) {
+          console.error("[EV][AtenderCuentas] observar error:", e);
+          alert("No se pudo observar. Revisa consola/logs.");
+        }
+      });
+    }
+
+    setupCondominioEnable();
+    syncChipsUI(normalizarEstado(state.estado));
   }
 
   // =========================
@@ -657,18 +690,18 @@
 
     const state = {
       modo: selModo ? selModo.value : "usuarios",
-      estado: selEstado ? selEstado.value : "revision",
+      estado: selEstado ? normalizarEstado(selEstado.value) : "revision",
       conjunto: selConjunto ? selConjunto.value : "todos",
-      condominio: selCondominio ? (selCondominio.value || "") : "",
-      q: inpBuscar ? inpBuscar.value.trim() : "",
+      condominio: selCondominio ? selCondominio.value : "",
+      q: inpBuscar ? (inpBuscar.value || "").trim() : "",
       page: 1,
       limit: 10,
     };
 
+    // Evitar re-init agresivo, pero permitir refresh
     bind(state);
     load(state);
 
-    // API pública
     window.EV_AtenderCuentasUsuario = window.EV_AtenderCuentasUsuario || {};
     window.EV_AtenderCuentasUsuario.refresh = () => load(state);
     window.EV_AtenderCuentasUsuario.init = init;
@@ -693,7 +726,7 @@
   const okNow = init();
   if (!okNow) startObserver();
 
-  // bfcache
+  // bfcache (volver atrás/adelante)
   window.addEventListener("pageshow", () => {
     if (getTbody()) window.EV_AtenderCuentasUsuario?.refresh?.();
   });

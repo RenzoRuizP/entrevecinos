@@ -204,6 +204,20 @@ $baseUrl = rtrim(BASE_URL, '/');
             <div class="ev-hint mt-3">
               Verifica que el comprobante coincida con la residencia.
             </div>
+
+            <!-- ✅ OBSERVACIÓN (RESTAURADO) -->
+            <div class="mt-3">
+              <label class="form-label fw-semibold mb-2">Observación</label>
+              <textarea id="mObsTexto" class="form-control ev-input" rows="3"
+                placeholder="Indica qué debe corregir el usuario (ej: el recibo no coincide con la dirección)."></textarea>
+
+              <div class="d-flex justify-content-between align-items-center mt-2">
+                <small class="text-muted">Se enviará como observación al usuario.</small>
+                <button type="button" class="btn btn-outline-warning" id="btnModalObservar">
+                  Observar
+                </button>
+              </div>
+            </div>
           </div>
 
           <div class="col-12 col-lg-7">
@@ -213,11 +227,18 @@ $baseUrl = rtrim(BASE_URL, '/');
                 <a href="#" target="_blank" id="mLinkComprobante" class="small" style="display:none;">Abrir</a>
               </div>
 
-              <div class="ev-proof-actions px-3"></div>
+              <div class="ev-proof-actions px-3">
+                <!-- vacío -->
+              </div>
 
               <div class="ev-proof-box">
+                <!-- IMG -->
                 <img id="mImgComprobante" src="" alt="Comprobante" class="img-fluid rounded-3 border" style="display:none; max-height: 420px;">
+
+                <!-- PDF -->
                 <iframe id="mPdfComprobante" class="ev-doc-frame" style="display:none;" src=""></iframe>
+
+                <!-- Empty -->
                 <div id="mNoComprobante" class="ev-proof-empty">No hay comprobante adjunto.</div>
               </div>
 
@@ -226,7 +247,6 @@ $baseUrl = rtrim(BASE_URL, '/');
               </div>
             </div>
           </div>
-
         </div>
       </div>
 
@@ -239,6 +259,18 @@ $baseUrl = rtrim(BASE_URL, '/');
 </div>
 
 <script>
-  // Base URL seguro (el shell ya lo define):
+  // En tu Shell ya existe, pero lo dejamos seguro:
   window.BASE_URL = window.BASE_URL || "<?= $baseUrl ?>";
+</script>
+
+<!-- ✅ Importante: si esta vista entra por AJAX, el JS debe inicializarse igual -->
+<script src="<?= rtrim(BASE_URL,'/') ?>/views/js/atenderCuentasUsuario.js?v=<?= time() ?>"></script>
+
+<script>
+  // Refresco inmediato si el módulo ya fue cargado por el shell
+  if (window.EV_AtenderCuentasUsuario && typeof window.EV_AtenderCuentasUsuario.refresh === 'function') {
+    window.EV_AtenderCuentasUsuario.refresh();
+  } else if (window.EV_AtenderCuentasUsuario && typeof window.EV_AtenderCuentasUsuario.init === 'function') {
+    window.EV_AtenderCuentasUsuario.init();
+  }
 </script>
