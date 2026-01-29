@@ -1,4 +1,5 @@
 <?php
+// models/Conexion.php
 
 declare(strict_types=1);
 
@@ -8,25 +9,37 @@ require_once __DIR__ . '/../vendor/autoload.php';
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
 $dotenv->load();
 
-class Conexion {
+class Conexion
+{
     protected ?PDO $dblink = null; // ✅ Permite null
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->abrirConexion();
     }
 
-    public function __destruct() {
+    public function __destruct()
+    {
         $this->dblink = null; // Cierra la conexión sin error
     }
 
-    protected function abrirConexion(): void {
-        $dsn = "mysql:host=" . $_ENV['BD_SERVIDOR'] . 
-               ";port=" . $_ENV['BD_PUERTO'] . 
-               ";dbname=" . $_ENV['BD_NOMBRE_BD'] . 
-               ";charset=utf8mb4";
+    /**
+     * ✅ Getter oficial (evita accesos “raros” desde controllers/models)
+     */
+    public function getDblink(): ?PDO
+    {
+        return $this->dblink;
+    }
 
-        $usuario = $_ENV['BD_USUARIO'];
-        $clave   = $_ENV['BD_CLAVE'];
+    protected function abrirConexion(): void
+    {
+        $dsn = "mysql:host=" . ($_ENV['BD_SERVIDOR'] ?? 'localhost')
+             . ";port=" . ($_ENV['BD_PUERTO'] ?? '3306')
+             . ";dbname=" . ($_ENV['BD_NOMBRE_BD'] ?? '')
+             . ";charset=utf8mb4";
+
+        $usuario = $_ENV['BD_USUARIO'] ?? '';
+        $clave   = $_ENV['BD_CLAVE'] ?? '';
 
         try {
             $this->dblink = new PDO($dsn, $usuario, $clave);

@@ -1,8 +1,8 @@
 <?php
 // ============================================================
 // index.php — Enrutamiento centralizado (EV)
-// SOLUCIÓN RAÍZ: Shell único (MenuPrincipal) + parciales para módulos
-// + Guardado por secciones (teléfono / residencia / cuenta) sin romper legacy
+// Shell único (MenuPrincipal) + parciales para módulos
+// + Bloqueo por CUENTA OBSERVADA (vecino) con página dedicada
 // ============================================================
 
 declare(strict_types=1);
@@ -98,11 +98,110 @@ function evRenderSesionFinalizada(string $loginUrl): void
     exit;
 }
 
+/**
+ * ✅ Check rápido (router-level) si el vecino está OBSERVADO.
+ * Usa tu tabla: usuario_revision (estado_revision = 3).
+ *
+ * - Retorna true/false
+ * - Si no existe Conexion.php o falla DB, "falla abierto" (false) para NO romper navegación.
+ */
+function evUsuarioEstaObservado(int $codigoUsuario): bool
+{
+    try {
+        if (!class_exists('Conexion')) {
+            return false;
+        }
+
+        $cn = new Conexion();
+
+        // ✅ NO acceder a $cn->dblink (es protected). Usar getter.
+        if (!method_exists($cn, 'getDblink')) {
+            return false;
+        }
+
+        /** @var PDO|null $db */
+        $db = $cn->getDblink();
+        if (!$db) return false;
+
+        $sql = "SELECT estado_revision
+                FROM usuario_revision
+                WHERE codigo_usuario = :id
+                LIMIT 1";
+        $st = $db->prepare($sql);
+        $st->execute([':id' => $codigoUsuario]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) return false;
+        return ((int)($row['estado_revision'] ?? 0) === 3);
+    } catch (Throwable $e) {
+        error_log('[EV][INDEX][evUsuarioEstaObservado] ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * ✅ Check si el vecino está en REVISIÓN INICIAL
+ * Tabla: usuario.estado = 1
+ */
+function evUsuarioEstaEnRevisionInicial(int $codigoUsuario): bool
+{
+    try {
+        if (!class_exists('Conexion')) {
+            return false;
+        }
+
+        $cn = new Conexion();
+
+        if (!method_exists($cn, 'getDblink')) {
+            return false;
+        }
+
+        /** @var PDO|null $db */
+        $db = $cn->getDblink();
+        if (!$db) return false;
+
+        $sql = "SELECT estado
+                FROM usuario
+                WHERE codigo_usuario = :id
+                LIMIT 1";
+        $st = $db->prepare($sql);
+        $st->execute([':id' => $codigoUsuario]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) return false;
+
+        return ((int)($row['estado'] ?? 0) === 1);
+    } catch (Throwable $e) {
+        error_log('[EV][INDEX][evUsuarioEstaEnRevisionInicial] ' . $e->getMessage());
+        return false;
+    }
+}
+
+
+/**
+ * ✅ Bloqueo por cuenta observada:
+ * - Si el usuario (vecino) está observado, solo permitimos:
+ *   /cuenta-observada (vista)
+ *   /api/cuenta-observada/* (reenviar comprobante)
+ *   /logout
+ */
+function evRutaPermitidaEnObservacion(string $uri): bool
+{
+    return (
+        $uri === '/cuenta-observada'
+        || str_starts_with($uri, '/api/cuenta-observada')
+        || $uri === '/logout'
+    );
+}
+
 // ------------------------------
 // 1) Dependencias
 // ------------------------------
 safeRequire(__DIR__ . '/Config/config.php', true);
 safeRequire(__DIR__ . '/models/SesionJWT.php', true);
+
+// ✅ IMPORTANTE: Conexion (para check observado en router)
+safeRequire(__DIR__ . '/models/Conexion.php'); // no crítico para no romper si aún lo mueves
 
 // ✅ rol admin por defecto (si no lo definiste en config)
 if (!defined('EV_ADMIN_ROLE_ID')) {
@@ -126,10 +225,14 @@ safeRequire(__DIR__ . '/controllers/recibirPedidosController.php');
 safeRequire(__DIR__ . '/controllers/atenderRecargasController.php');
 safeRequire(__DIR__ . '/controllers/atenderPublicacionController.php');
 safeRequire(__DIR__ . '/controllers/atenderCuentasUsuarioController.php');
-
 safeRequire(__DIR__ . '/controllers/notificacionesResidenciaController.php');
 
-// API Controllers
+// ✅ NUEVO: Cuenta Observada (vista + api)
+// (respeta exactamente tus nombres de archivo/clase)
+safeRequire(__DIR__ . '/controllers/cuentaObservadaController.php');
+safeRequire(__DIR__ . '/controllers/api/apiCuentaObservadaController.php');
+
+// API Controllers existentes
 safeRequire(__DIR__ . '/controllers/api/usuarioDatosController.php');
 safeRequire(__DIR__ . '/controllers/api/apiBilleteraController.php');
 safeRequire(__DIR__ . '/controllers/api/apiPedidoController.php');
@@ -138,21 +241,14 @@ safeRequire(__DIR__ . '/controllers/api/apiRecargaSaldoController.php');
 safeRequire(__DIR__ . '/controllers/api/apiProductoController.php');
 safeRequire(__DIR__ . '/controllers/api/apiSoporteProductosController.php');
 safeRequire(__DIR__ . '/controllers/api/apiSoporteUsuariosController.php');
-
-// ✅ soporte cambios de residencia (admin)
 safeRequire(__DIR__ . '/controllers/api/apiSoporteResidenciasController.php');
-
-// Notificaciones
 safeRequire(__DIR__ . '/controllers/api/apiNotificacionesController.php');
 safeRequire(__DIR__ . '/controllers/api/apiNotificacionesResidenciaController.php');
 safeRequire(__DIR__ . '/models/Notificacion.php');
 
-// ============================================================
-// ✅ NUEVO: API Dashboard Soporte (controller + model)
-// ============================================================
+// Dashboard soporte
 safeRequire(__DIR__ . '/controllers/api/apiSoporteDashboardController.php');
 safeRequire(__DIR__ . '/models/SoporteDashboard.php');
-
 
 // ------------------------------
 // 2) Normalización BASE_URL / basePath
@@ -214,6 +310,11 @@ $routes = [
     ['POST', '#^/login$#',         [AuthController::class, 'login'],     'json'],
     ['GET',  '#^/MenuPrincipal$#', [MenuPrincipalController::class, 'index'], 'html'],
 
+    // ✅ CUENTA OBSERVADA (vecino)
+    ['GET',  '#^/cuenta-observada$#', [cuentaObservadaController::class, 'index'], 'html'],
+    // Subir nuevo comprobante desde pantalla de observado
+    ['POST', '#^/api/cuenta-observada/reenviar$#', [apiCuentaObservadaController::class, 'reenviar'], 'json'],
+
     // --- Condominios ---
     ['GET',  '#^/condominios$#',                [CondominioController::class, 'listar'],              'json'],
     ['GET',  '#^/condominios/(\d+)/torres$#',   [CondominioController::class, 'listarTorres'],        'json'],
@@ -257,7 +358,7 @@ $routes = [
     ['POST', '#^/api/usuario/cambiar-clave$#', [usuarioDatosController::class, 'cambiarClave'], 'json'],
     ['POST', '#^/api/usuario/solicitar-cambio-residencia$#', [usuarioDatosController::class, 'solicitarCambioResidencia'], 'json'],
 
-    // ✅ NUEVO: Guardado por secciones (no rompe legacy)
+    // ✅ Guardado por secciones (no rompe legacy)
     ['POST', '#^/api/usuario/actualizar-telefono$#',   [usuarioDatosController::class, 'actualizarTelefono'],   'json'],
     ['POST', '#^/api/usuario/actualizar-residencia$#', [usuarioDatosController::class, 'actualizarResidencia'], 'json'],
     ['POST', '#^/api/usuario/actualizar-cuenta$#', [usuarioDatosController::class, 'cambiarClave'], 'json'],
@@ -297,10 +398,7 @@ $routes = [
     ['GET',  '#^/api/soporte/residencias$#',              [apiSoporteResidenciasController::class, 'listar'], 'json'],
     ['POST', '#^/api/soporte/residencias/(\d+)/estado$#', [apiSoporteResidenciasController::class, 'actualizarEstado'], 'json'],
 
-    // ============================================================
     // ✅ API Soporte Dashboard
-    // GET /api/soporte/dashboard?tiempo=hoy|7d|30d&limit=10
-    // ============================================================
     ['GET',  '#^/api/soporte/dashboard$#', [apiSoporteDashboardController::class, 'resumen'], 'json'],
 
     // --- API Recargas ---
@@ -361,6 +459,45 @@ foreach ($routes as $r) {
         }
 
         $GLOBALS['EV_AUTH'] = $rTok['data'] ?? [];
+
+        // ============================================================
+        // ✅ BLOQUEO POR CUENTA OBSERVADA (solo vecino)
+        // - Tabla: usuario_revision (estado_revision = 3)
+        // - Solo deja pasar /cuenta-observada y /api/cuenta-observada/*
+        // ============================================================
+        $auth = $GLOBALS['EV_AUTH'] ?? [];
+        $codigoUsuario = (int)($auth['codigo_usuario'] ?? 0);
+        $codigoRol     = (int)($auth['codigo_rol'] ?? 0);
+
+        $adminId   = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
+        $soporteId = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
+
+        $esVecino = ($codigoUsuario > 0 && $codigoRol !== $adminId && $codigoRol !== $soporteId);
+
+        if ($esVecino && $codigoUsuario > 0) {
+            $observado = evUsuarioEstaObservado($codigoUsuario);
+            $enRevisionInicial = evUsuarioEstaEnRevisionInicial($codigoUsuario);
+
+            if (($observado || $enRevisionInicial) && !evRutaPermitidaEnObservacion($uri)) {
+
+                $redirect = rtrim($baseUrl, '/') . '/cuenta-observada';
+
+                if (esPeticionParcial() || $type === 'json' || str_starts_with($uri, '/api/')) {
+                    header('Content-Type: application/json; charset=utf-8');
+                    http_response_code(409);
+                    echo json_encode([
+                        'ok' => false,
+                        'error' => 'CUENTA_OBSERVADA',
+                        'mensaje' => 'Tu cuenta está observada. Debes reenviar tu comprobante.',
+                        'redirect' => $redirect
+                    ]);
+                    exit;
+                }
+
+                header('Location: ' . $redirect, true, 302);
+                exit;
+            }
+        }
     }
 
     // ============================================================
@@ -374,6 +511,7 @@ foreach ($routes as $r) {
         && $uri !== '/logout'
         && $uri !== '/login'
         && $uri !== '/'
+        && $uri !== '/cuenta-observada'
     ) {
         $target = rtrim($baseUrl, '/') . '/MenuPrincipal?ev_goto=' . urlencode($uri);
         header('Location: ' . $target, true, 302);
@@ -396,7 +534,6 @@ foreach ($routes as $r) {
 
     $controller = new $controllerClass();
 
-    // ✅ Header coherente por tipo
     if (!headers_sent()) {
         if ($type === 'json') {
             header('Content-Type: application/json; charset=utf-8');
