@@ -44,6 +44,10 @@ $baseUrl = rtrim(BASE_URL, '/');
           <button type="button" class="btn ev-btn-light ev-chip js-ev-chip ev-chip-active" data-estado="revision" aria-pressed="true">
             <i class="bi bi-hourglass-split"></i> En revisión
           </button>
+          <button class="js-ev-chip" data-estado="observado">
+            Observados
+          </button>
+
           <button type="button" class="btn ev-btn-light ev-chip js-ev-chip" data-estado="habilitado" aria-pressed="false">
             <i class="bi bi-check2-circle"></i> Habilitados
           </button>
@@ -83,6 +87,7 @@ $baseUrl = rtrim(BASE_URL, '/');
           <label class="form-label fw-semibold">Estado</label>
           <select class="form-select ev-input" id="filtroEstado">
             <option value="revision" selected>En revisión</option>
+            <option value="observado" >Observados</option>
             <option value="habilitado">Habilitados</option>
             <option value="inactivo">Inactivos</option>
             <option value="todos">Todos</option>

@@ -24,7 +24,7 @@ final class CuentaObservada extends Conexion
         try {
             $db->beginTransaction();
 
-            // 1️⃣ ¿Existe registro?
+            // 1️⃣ ¿Existe registro en usuario_revision?
             $sqlCheck = "
                 SELECT id
                 FROM usuario_revision
@@ -40,10 +40,10 @@ final class CuentaObservada extends Conexion
                 $sql = "
                     UPDATE usuario_revision
                     SET
-                        estado_revision      = 3,
-                        mensaje_observacion  = :mensaje,
-                        fecha_observacion    = NOW(),
-                        fecha_actualizacion  = NOW()
+                        estado_revision     = 3,
+                        mensaje_observacion = :mensaje,
+                        fecha_observacion   = NOW(),
+                        fecha_actualizacion = NOW()
                     WHERE codigo_usuario = :id
                 ";
             } else {
@@ -74,10 +74,10 @@ final class CuentaObservada extends Conexion
                 ':mensaje' => $mensaje
             ]);
 
-            // usuario sigue en revisión
+            // 🔴 CAMBIO CLAVE: usuario pasa a OBSERVADO
             $stUser = $db->prepare("
                 UPDATE usuario
-                SET estado = 1
+                SET estado = 3
                 WHERE codigo_usuario = :id
             ");
             $stUser->execute([':id' => $codigoUsuario]);
@@ -137,7 +137,6 @@ final class CuentaObservada extends Conexion
         try {
             $db->beginTransaction();
 
-            // mismo patrón: UPDATE o INSERT
             $sqlCheck = "
                 SELECT id
                 FROM usuario_revision
@@ -184,6 +183,13 @@ final class CuentaObservada extends Conexion
                 ':id'   => $codigoUsuario,
                 ':path' => $publicPath
             ]);
+
+            // Usuario vuelve a revisión
+            $db->prepare("
+                UPDATE usuario
+                SET estado = 1
+                WHERE codigo_usuario = :id
+            ")->execute([':id' => $codigoUsuario]);
 
             $db->commit();
 
