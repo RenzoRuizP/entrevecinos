@@ -61,7 +61,7 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
             <h6 class="ev-card-title mb-0">Cuentas</h6>
           </div>
 
-          <a href="<?= $baseUrl ?>/atender-cuentas" class="ev-icon-btn" aria-label="Ir a Atención de Cuentas">
+          <a data-ev-nav="1" href="<?= $baseUrl ?>/atender-cuentas" class="ev-icon-btn" aria-label="Ir a Atención de Cuentas">
             <i class="bi bi-arrow-right"></i>
           </a>
         </div>
@@ -82,7 +82,7 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
         </div>
 
         <div class="mt-3">
-          <a class="ev-btn-orange w-100 text-center d-block" href="<?= $baseUrl ?>/atender-cuentas">
+          <a data-ev-nav="1" class="ev-btn-orange w-100 text-center d-block" href="<?= $baseUrl ?>/atender-cuentas">
             Ver solicitudes
           </a>
         </div>
@@ -100,7 +100,7 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
             <h6 class="ev-card-title mb-0">Publicaciones</h6>
           </div>
 
-          <a href="<?= $baseUrl ?>/atender-publicacion" class="ev-icon-btn" aria-label="Ir a Atención de Publicación">
+          <a data-ev-nav="1" href="<?= $baseUrl ?>/atender-publicacion" class="ev-icon-btn" aria-label="Ir a Atención de Publicación">
             <i class="bi bi-arrow-right"></i>
           </a>
         </div>
@@ -121,7 +121,7 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
         </div>
 
         <div class="mt-3">
-          <a class="ev-btn-orange w-100 text-center d-block" href="<?= $baseUrl ?>/atender-publicacion">
+          <a data-ev-nav="1" class="ev-btn-orange w-100 text-center d-block" href="<?= $baseUrl ?>/atender-publicacion">
             Ver solicitudes
           </a>
         </div>
@@ -139,7 +139,7 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
             <h6 class="ev-card-title mb-0">Recargas</h6>
           </div>
 
-          <a href="<?= $baseUrl ?>/atender-recargas" class="ev-icon-btn" aria-label="Ir a Atención de Recargas">
+          <a data-ev-nav="1" href="<?= $baseUrl ?>/atender-recargas" class="ev-icon-btn" aria-label="Ir a Atención de Recargas">
             <i class="bi bi-arrow-right"></i>
           </a>
         </div>
@@ -160,7 +160,7 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
         </div>
 
         <div class="mt-3">
-          <a class="ev-btn-orange w-100 text-center d-block" href="<?= $baseUrl ?>/atender-recargas">
+          <a data-ev-nav="1" class="ev-btn-orange w-100 text-center d-block" href="<?= $baseUrl ?>/atender-recargas">
             Ver solicitudes
           </a>
         </div>
@@ -213,7 +213,7 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
 
     <div class="row g-3">
       <div class="col-12 col-md-6 col-lg-3">
-        <a class="ev-quick" href="<?= $baseUrl ?>/atender-cuentas">
+        <a data-ev-nav="1" class="ev-quick" href="<?= $baseUrl ?>/atender-cuentas">
           <span class="ev-quick-ico" aria-hidden="true"><i class="bi bi-person-check"></i></span>
           <div>
             <div class="ev-quick-title">At. Cuentas</div>
@@ -223,7 +223,7 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
       </div>
 
       <div class="col-12 col-md-6 col-lg-3">
-        <a class="ev-quick" href="<?= $baseUrl ?>/atender-publicacion">
+        <a data-ev-nav="1" class="ev-quick" href="<?= $baseUrl ?>/atender-publicacion">
           <span class="ev-quick-ico" aria-hidden="true"><i class="bi bi-megaphone"></i></span>
           <div>
             <div class="ev-quick-title">At. Publicación</div>
@@ -233,7 +233,7 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
       </div>
 
       <div class="col-12 col-md-6 col-lg-3">
-        <a class="ev-quick" href="<?= $baseUrl ?>/atender-recargas">
+        <a data-ev-nav="1" class="ev-quick" href="<?= $baseUrl ?>/atender-recargas">
           <span class="ev-quick-ico" aria-hidden="true"><i class="bi bi-wallet2"></i></span>
           <div>
             <div class="ev-quick-title">At. Recargas</div>
@@ -243,7 +243,7 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
       </div>
 
       <div class="col-12 col-md-6 col-lg-3">
-        <a class="ev-quick" href="<?= $baseUrl ?>/notificaciones-residencia">
+        <a data-ev-nav="1" class="ev-quick" href="<?= $baseUrl ?>/notificaciones-residencia">
           <span class="ev-quick-ico" aria-hidden="true"><i class="bi bi-bell"></i></span>
           <div>
             <div class="ev-quick-title">Notificaciones</div>

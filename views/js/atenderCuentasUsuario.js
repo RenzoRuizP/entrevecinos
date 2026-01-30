@@ -9,6 +9,9 @@
   let modalInstance = null;
   let currentId = null;
 
+  // Evita doble inicialización por navegación AJAX
+  let lastInitKey = "";
+
   // =========================
   // Helpers
   // =========================
@@ -23,14 +26,6 @@
 
   function byId(id) {
     return document.getElementById(id);
-  }
-
-  function getTbody() {
-    return (
-      byId("evUsuariosBody") ||
-      byId("tablaUsuariosBody") ||
-      document.querySelector("table tbody")
-    );
   }
 
   function getControls() {
@@ -50,6 +45,23 @@
     };
   }
 
+  /**
+   * ✅ Solo consideramos que estamos en el módulo "Atender cuentas"
+   * cuando existen los controles principales.
+   */
+  function isAtenderCuentasView() {
+    const c = getControls();
+    return !!(c.selModo && c.selEstado && c.inpBuscar);
+  }
+
+  /**
+   * ✅ Tbody específico del módulo (NO usamos fallback genérico a "table tbody"
+   * porque eso engancha el Dashboard y rompe la navegación AJAX)
+   */
+  function getTbody() {
+    return byId("evUsuariosBody") || byId("tablaUsuariosBody") || null;
+  }
+
   // =========================
   // Estados
   // =========================
@@ -66,6 +78,23 @@
     if (["observado", "observados"].includes(s)) return "observado";
 
     return "revision";
+  }
+
+  function estadoToApiValue(estado) {
+    switch (estado) {
+      case "revision":
+        return "1";
+      case "habilitado":
+        return "2";
+      case "observado":
+        return "3";
+      case "inactivo":
+        return "0";
+      case "todos":
+        return "todos";
+      default:
+        return "1";
+    }
   }
 
   function badgeEstadoUsuario(estado) {
@@ -155,23 +184,30 @@
       return;
     }
 
-    tbody.innerHTML = items.map((it) => {
-      const id = Number(it.codigo_usuario ?? it.id ?? 0);
-      const estado = Number(it.estado_revision ?? it.estado ?? it.usuario_estado ?? 1);
+    tbody.innerHTML = items
+      .map((it) => {
+        const id = Number(it.codigo_usuario ?? it.id ?? 0);
 
-      const nombre = esc(it.nombre || "—");
-      const email = esc(it.email || "—");
-      const doc = esc(it.documento || "—");
-      const tel = esc(it.telefono || "—");
+        // ✅ Regla de estado visual:
+        // - Si estado_revision = 3 => Observado (aunque usuario_estado sea 1)
+        // - Sino usar usuario_estado
+        const estadoRevision = Number(it.estado_revision ?? 0);
+        const estadoUsuario = Number(it.usuario_estado ?? it.estado ?? 1);
+        const estadoVisual = estadoRevision === 3 ? 3 : estadoUsuario;
 
-      const comprobante =
-        it.comprobante_domicilio ||
-        it.comprobante ||
-        it.comprobante_url ||
-        it.url_comprobante ||
-        "";
+        const nombre = esc(it.nombre || "—");
+        const email = esc(it.email || "—");
+        const doc = esc(it.documento || "—");
+        const tel = esc(it.telefono || "—");
 
-      return `
+        const comprobante =
+          it.comprobante_domicilio ||
+          it.comprobante ||
+          it.comprobante_url ||
+          it.url_comprobante ||
+          "";
+
+        return `
         <tr>
           <td>
             <div class="fw-bold">${nombre}</div>
@@ -182,7 +218,7 @@
             <div class="text-muted small">${tel}</div>
           </td>
           <td>${residenciaTxt(it)}</td>
-          <td class="text-center">${badgeEstadoUsuario(estado)}</td>
+          <td class="text-center">${badgeEstadoUsuario(estadoVisual)}</td>
           <td class="text-end">
             <button
               type="button"
@@ -194,14 +230,15 @@
               data-tel="${tel}"
               data-tipo_conjunto="${esc(it.tipo_conjunto || "")}"
               data-direccion="${esc(it.direccion || "")}"
-              data-estado="${estado}"
+              data-estado="${estadoVisual}"
               data-comprobante="${esc(comprobante)}"
             >
               Revisar
             </button>
           </td>
         </tr>`;
-    }).join("");
+      })
+      .join("");
   }
 
   // =========================
@@ -219,14 +256,14 @@
   function fillModalFromButton(btn) {
     currentId = Number(btn.dataset.id || 0);
 
-    byId("mNombre").textContent = btn.dataset.nombre || "—";
-    byId("mEmail").textContent = btn.dataset.email || "—";
-    byId("mDoc").textContent = btn.dataset.doc || "—";
-    byId("mTel").textContent = btn.dataset.tel || "—";
-    byId("mTipoConjunto").textContent = btn.dataset.tipo_conjunto || "—";
-    byId("mDireccion").textContent = btn.dataset.direccion || "—";
-    byId("mBadgeEstado").innerHTML = badgeEstadoUsuario(btn.dataset.estado);
-    byId("mObsTexto").value = "";
+    if (byId("mNombre")) byId("mNombre").textContent = btn.dataset.nombre || "—";
+    if (byId("mEmail")) byId("mEmail").textContent = btn.dataset.email || "—";
+    if (byId("mDoc")) byId("mDoc").textContent = btn.dataset.doc || "—";
+    if (byId("mTel")) byId("mTel").textContent = btn.dataset.tel || "—";
+    if (byId("mTipoConjunto")) byId("mTipoConjunto").textContent = btn.dataset.tipo_conjunto || "—";
+    if (byId("mDireccion")) byId("mDireccion").textContent = btn.dataset.direccion || "—";
+    if (byId("mBadgeEstado")) byId("mBadgeEstado").innerHTML = badgeEstadoUsuario(btn.dataset.estado);
+    if (byId("mObsTexto")) byId("mObsTexto").value = "";
   }
 
   // =========================
@@ -286,38 +323,34 @@
       });
 
       const json = await resp.json();
-      if (!resp.ok || json.ok !== true) throw new Error();
+      if (!resp.ok || json.ok !== true) throw new Error("API no ok");
 
       renderRows(tbody, json.data.items);
 
-      if (getControls().lblTotal) {
-        getControls().lblTotal.textContent = json.data.total;
-      }
-    } catch {
+      const c = getControls();
+      if (c.lblTotal) c.lblTotal.textContent = String(json.data.total ?? 0);
+    } catch (e) {
       setError(tbody);
     }
   }
-
-  function estadoToApiValue(estado) {
-  switch (estado) {
-    case "revision": return "1";
-    case "habilitado": return "2";
-    case "observado": return "3";
-    case "inactivo": return "0";
-    case "todos": return "todos";
-    default: return "1";
-  }
-}
-
 
   // =========================
   // Init
   // =========================
   function init() {
+    // ✅ Solo inicializar si estamos realmente en la vista de atender cuentas
+    if (!isAtenderCuentasView()) return false;
+
     const tbody = getTbody();
     if (!tbody) return false;
 
+    // key para evitar doble init en mismo DOM
+    const key = "atender-cuentas|" + window.location.pathname + "|" + (byId("evUsuariosBody") ? "evUsuariosBody" : "tablaUsuariosBody");
+    if (key === lastInitKey) return true;
+    lastInitKey = key;
+
     const c = getControls();
+
     const state = {
       modo: c.selModo?.value || "usuarios",
       estado: normalizarEstado(c.selEstado?.value || "revision"),
@@ -328,10 +361,14 @@
       limit: 10,
     };
 
+    // Click en "Revisar"
     document.addEventListener("click", (e) => {
       const btn = e.target.closest(".js-ev-revisar");
       if (!btn) return;
-      ensureModal();
+
+      const m = ensureModal();
+      if (!m) return;
+
       fillModalFromButton(btn);
       modalInstance.show();
     });
@@ -340,9 +377,25 @@
     return true;
   }
 
-  const ok = init();
-  if (!ok) {
-    observer = new MutationObserver(() => init());
+  // ✅ Siempre observamos cambios (navegación AJAX cambia el DOM)
+  function bootObserver() {
+    if (observer) return;
+
+    observer = new MutationObserver(() => {
+      init();
+    });
+
     observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  // init en DOM ready + observer permanente
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      init();
+      bootObserver();
+    });
+  } else {
+    init();
+    bootObserver();
   }
 })();

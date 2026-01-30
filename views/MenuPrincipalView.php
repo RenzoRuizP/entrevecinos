@@ -127,16 +127,5 @@ function ev_ver($pathAbs) {
 
   <?php include_once __DIR__ . '/scripts/menuPrincipalScripts.php'; ?>
 
-  <?php if ($rolUsuarioRaw === 'soporte'): ?>
-    <!-- ✅ IMPORTANTE: cargar JS de módulos soporte en el SHELL
-         porque los parciales AJAX no ejecutan <script> embebidos de forma confiable -->
-    <script>
-      window.BASE_URL = window.BASE_URL || "<?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?>";
-    </script>
-
-    <script src="<?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?>/views/js/soporteDashboard.js?v=<?= ev_ver(__DIR__ . '/js/soporteDashboard.js') ?>" defer></script>
-    <script src="<?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?>/views/js/atenderCuentasUsuario.js?v=<?= ev_ver(__DIR__ . '/js/atenderCuentasUsuario.js') ?>" defer></script>
-  <?php endif; ?>
-
 </body>
 </html>
