@@ -138,4 +138,70 @@ final class apiSoporteUsuariosController
             $this->json(500, ['ok' => false, 'mensaje' => 'Error interno del servidor.']);
         }
     }
+
+    public function observar(int $codigoUsuario): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $auth = $GLOBALS['EV_AUTH'] ?? [];
+        $rol  = (int)($auth['codigo_rol'] ?? 0);
+
+        $adminId   = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
+        $soporteId = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
+
+        if ($rol !== $adminId && $rol !== $soporteId) {
+            http_response_code(403);
+            echo json_encode([
+                'ok' => false,
+                'mensaje' => 'No autorizado.'
+            ]);
+            return;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        $mensaje = trim($input['observacion'] ?? '');
+
+        if ($mensaje === '') {
+            http_response_code(422);
+            echo json_encode([
+                'ok' => false,
+                'mensaje' => 'La observación es obligatoria.'
+            ]);
+            return;
+        }
+
+        try {
+            $db = (new Conexion())->getDblink();
+
+            $sql = "
+                UPDATE usuario_revision
+                SET
+                estado_revision = 3,
+                mensaje_observacion = :msg,
+                fecha_observacion = NOW()
+                WHERE codigo_usuario = :id
+            ";
+
+            $st = $db->prepare($sql);
+            $st->execute([
+                ':msg' => $mensaje,
+                ':id'  => $codigoUsuario
+            ]);
+
+            http_response_code(200);
+            echo json_encode([
+                'ok' => true,
+                'mensaje' => 'Cuenta observada correctamente.'
+            ]);
+
+        } catch (Throwable $e) {
+            error_log('[EV][SoporteUsuarios::observar] ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode([
+                'ok' => false,
+                'mensaje' => 'Error interno.'
+            ]);
+        }
+    }
+
 }

@@ -324,37 +324,28 @@
       return;
     }
 
-    // Opción A: endpoint dedicado
-    // Opción B: mismo endpoint estado con {estado:1, observacion:"..."}
-    try {
-      const urlA = `${baseUrl}/api/soporte/usuarios/${id}/observacion`;
-      const respA = await fetch(urlA, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Partial": "1" },
-        credentials: "include",
-        cache: "no-store",
-        body: JSON.stringify({ observacion: obs }),
-      });
+    const url = `${baseUrl}/api/cuenta-observada/${id}/observar`;
 
-      const jsonA = await respA.json().catch(() => null);
-      if (respA.ok && jsonA && jsonA.ok === true) return;
-      throw new Error("Endpoint observacion no disponible");
-    } catch (_) {
-      const urlB = `${baseUrl}/api/soporte/usuarios/${id}/estado`;
-      const respB = await fetch(urlB, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Partial": "1" },
-        credentials: "include",
-        cache: "no-store",
-        body: JSON.stringify({ estado: 1, observacion: obs }),
-      });
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Partial": "1"
+      },
+      credentials: "include",
+      cache: "no-store",
+      body: JSON.stringify({ observacion: obs }),
+    });
 
-      const jsonB = await respB.json().catch(() => null);
-      if (!respB.ok || !jsonB || jsonB.ok !== true) {
-        throw new Error("No se pudo registrar observación.");
-      }
+    const json = await resp.json().catch(() => null);
+
+    if (!resp.ok || !json || json.ok !== true) {
+      throw new Error(json?.mensaje || "No se pudo registrar observación.");
     }
+
+    return json;
   }
+
 
   // =========================
   // Carga de data

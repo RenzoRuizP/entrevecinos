@@ -394,6 +394,11 @@ $routes = [
     ['GET',  '#^/api/soporte/usuarios$#',              [apiSoporteUsuariosController::class, 'listar'], 'json'],
     ['POST', '#^/api/soporte/usuarios/(\d+)/estado$#', [apiSoporteUsuariosController::class, 'actualizarEstado'], 'json'],
 
+    // ✅ OBSERVAR-REVISAR cuenta (soporte)
+    ['POST', '#^/api/cuenta-observada/(\d+)/observar$#', [apiCuentaObservadaController::class, 'observar'], 'json'],
+
+
+
     // ✅ API Soporte Residencias (Atender cuentas: cambios de residencia)
     ['GET',  '#^/api/soporte/residencias$#',              [apiSoporteResidenciasController::class, 'listar'], 'json'],
     ['POST', '#^/api/soporte/residencias/(\d+)/estado$#', [apiSoporteResidenciasController::class, 'actualizarEstado'], 'json'],
