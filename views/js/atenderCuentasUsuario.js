@@ -256,15 +256,58 @@
   function fillModalFromButton(btn) {
     currentId = Number(btn.dataset.id || 0);
 
-    if (byId("mNombre")) byId("mNombre").textContent = btn.dataset.nombre || "—";
-    if (byId("mEmail")) byId("mEmail").textContent = btn.dataset.email || "—";
-    if (byId("mDoc")) byId("mDoc").textContent = btn.dataset.doc || "—";
-    if (byId("mTel")) byId("mTel").textContent = btn.dataset.tel || "—";
-    if (byId("mTipoConjunto")) byId("mTipoConjunto").textContent = btn.dataset.tipo_conjunto || "—";
-    if (byId("mDireccion")) byId("mDireccion").textContent = btn.dataset.direccion || "—";
-    if (byId("mBadgeEstado")) byId("mBadgeEstado").innerHTML = badgeEstadoUsuario(btn.dataset.estado);
-    if (byId("mObsTexto")) byId("mObsTexto").value = "";
+    byId("mNombre").textContent = btn.dataset.nombre || "—";
+    byId("mEmail").textContent = btn.dataset.email || "—";
+    byId("mDoc").textContent = btn.dataset.doc || "—";
+    byId("mTel").textContent = btn.dataset.tel || "—";
+    byId("mTipoConjunto").textContent = btn.dataset.tipo_conjunto || "—";
+    byId("mDireccion").textContent = btn.dataset.direccion || "—";
+    byId("mBadgeEstado").innerHTML = badgeEstadoUsuario(btn.dataset.estado);
+    byId("mObsTexto").value = "";
+
+    // =========================
+    // COMPROBANTE (AJUSTADO A TU HTML)
+    // =========================
+    const img   = byId("mImgComprobante");
+    const pdf   = byId("mPdfComprobante");
+    const empty = byId("mNoComprobante");
+    const link  = byId("mLinkComprobante");
+
+    if (!img || !pdf || !empty || !link) return;
+
+    // Reset
+    img.style.display = "none";
+    pdf.style.display = "none";
+    empty.style.display = "none";
+    link.style.display = "none";
+
+    const path = btn.dataset.comprobante || "";
+    if (!path) {
+      empty.style.display = "block";
+      return;
+    }
+
+    const url = `${baseUrl}/${path.replace(/^\/+/, "")}`;
+    link.href = url;
+    link.style.display = "inline";
+
+    if (/\.pdf$/i.test(url)) {
+      pdf.src = url;
+      pdf.style.display = "block";
+      return;
+    }
+
+    if (/\.(jpg|jpeg|png|webp)$/i.test(url)) {
+      img.src = url;
+      img.style.display = "block";
+      return;
+    }
+
+    // fallback
+    empty.style.display = "block";
   }
+
+
 
   // =========================
   // API
