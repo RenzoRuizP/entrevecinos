@@ -120,7 +120,7 @@ final class CuentaObservada extends Conexion
             return ['ok' => false, 'mensaje' => 'Sin conexión a BD.'];
         }
 
-        $dir = __DIR__ . '/../public/uploads/comprobantes';
+        $dir = EV_UPLOADS_DIR . '/comprobantes';
         if (!is_dir($dir)) {
             mkdir($dir, 0775, true);
         }
@@ -132,7 +132,8 @@ final class CuentaObservada extends Conexion
             return ['ok' => false, 'mensaje' => 'No se pudo guardar el archivo.'];
         }
 
-        $publicPath = rtrim((string)BASE_URL, '/') . '/public/uploads/comprobantes/' . $fname;
+        $publicPath = 'resources/uploads/comprobantes/' . $fname;
+
 
         try {
             $db->beginTransaction();

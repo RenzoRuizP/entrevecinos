@@ -47,17 +47,12 @@
 
   /**
    * ✅ Solo consideramos que estamos en el módulo "Atender cuentas"
-   * cuando existen los controles principales.
    */
   function isAtenderCuentasView() {
     const c = getControls();
     return !!(c.selModo && c.selEstado && c.inpBuscar);
   }
 
-  /**
-   * ✅ Tbody específico del módulo (NO usamos fallback genérico a "table tbody"
-   * porque eso engancha el Dashboard y rompe la navegación AJAX)
-   */
   function getTbody() {
     return byId("evUsuariosBody") || byId("tablaUsuariosBody") || null;
   }
@@ -82,18 +77,12 @@
 
   function estadoToApiValue(estado) {
     switch (estado) {
-      case "revision":
-        return "1";
-      case "habilitado":
-        return "2";
-      case "observado":
-        return "3";
-      case "inactivo":
-        return "0";
-      case "todos":
-        return "todos";
-      default:
-        return "1";
+      case "revision": return "1";
+      case "habilitado": return "2";
+      case "observado": return "3";
+      case "inactivo": return "0";
+      case "todos": return "todos";
+      default: return "1";
     }
   }
 
@@ -101,36 +90,19 @@
     const n = Number(estado);
 
     if (n === 3) {
-      return `<span class="ev-badge ev-off">
-        <i class="bi bi-exclamation-triangle"></i> Observado
-      </span>`;
+      return `<span class="ev-badge ev-off"><i class="bi bi-exclamation-triangle"></i> Observado</span>`;
     }
-
     if (n === 2) {
-      return `<span class="ev-badge ev-ok">
-        <i class="bi bi-check2-circle"></i> Habilitado
-      </span>`;
+      return `<span class="ev-badge ev-ok"><i class="bi bi-check2-circle"></i> Habilitado</span>`;
     }
-
     if (n === 0) {
-      return `<span class="ev-badge ev-off">
-        <i class="bi bi-slash-circle"></i> Inactivo
-      </span>`;
+      return `<span class="ev-badge ev-off"><i class="bi bi-slash-circle"></i> Inactivo</span>`;
     }
-
-    return `<span class="ev-badge ev-review">
-      <i class="bi bi-hourglass-split"></i> En revisión
-    </span>`;
+    return `<span class="ev-badge ev-review"><i class="bi bi-hourglass-split"></i> En revisión</span>`;
   }
 
   function residenciaTxt(it) {
-    const tipoRaw =
-      it.tipo_conjunto ||
-      it.tipoConjunto ||
-      it.conjunto_tipo ||
-      it.tipo ||
-      "";
-
+    const tipoRaw = it.tipo_conjunto || it.tipoConjunto || it.conjunto_tipo || it.tipo || "";
     const tipo = String(tipoRaw).toLowerCase();
     if (!tipo) return `<span class="text-muted">—</span>`;
 
@@ -142,28 +114,15 @@
   }
 
   function setLoading(tbody) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="5" class="text-center py-4 ev-empty">Cargando...</td>
-      </tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 ev-empty">Cargando...</td></tr>`;
   }
 
   function setEmpty(tbody) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="5" class="text-center py-4 ev-empty">
-          No hay registros para mostrar.
-        </td>
-      </tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 ev-empty">No hay registros para mostrar.</td></tr>`;
   }
 
   function setError(tbody) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="5" class="text-center py-4 ev-empty">
-          Error al cargar datos.
-        </td>
-      </tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 ev-empty">Error al cargar datos.</td></tr>`;
   }
 
   // =========================
@@ -184,46 +143,28 @@
       return;
     }
 
-    tbody.innerHTML = items
-      .map((it) => {
-        const id = Number(it.codigo_usuario ?? it.id ?? 0);
+    tbody.innerHTML = items.map((it) => {
+      const id = Number(it.codigo_usuario ?? it.id ?? 0);
 
-        // ✅ Regla de estado visual:
-        // - Si estado_revision = 3 => Observado (aunque usuario_estado sea 1)
-        // - Sino usar usuario_estado
-        const estadoRevision = Number(it.estado_revision ?? 0);
-        const estadoUsuario = Number(it.usuario_estado ?? it.estado ?? 1);
-        const estadoVisual = estadoRevision === 3 ? 3 : estadoUsuario;
+      const estadoRevision = Number(it.estado_revision ?? 0);
+      const estadoUsuario = Number(it.usuario_estado ?? it.estado ?? 1);
+      const estadoVisual = estadoRevision === 3 ? 3 : estadoUsuario;
 
-        const nombre = esc(it.nombre || "—");
-        const email = esc(it.email || "—");
-        const doc = esc(it.documento || "—");
-        const tel = esc(it.telefono || "—");
+      const nombre = esc(it.nombre || "—");
+      const email = esc(it.email || "—");
+      const doc = esc(it.documento || "—");
+      const tel = esc(it.telefono || "—");
 
-        const comprobante =
-          it.comprobante_domicilio ||
-          it.comprobante ||
-          it.comprobante_url ||
-          it.url_comprobante ||
-          "";
+      const comprobante = it.comprobante_domicilio || it.comprobante || it.comprobante_url || it.url_comprobante || "";
 
-        return `
+      return `
         <tr>
-          <td>
-            <div class="fw-bold">${nombre}</div>
-            <div class="text-muted small">${doc}</div>
-          </td>
-          <td>
-            <div class="fw-semibold">${email}</div>
-            <div class="text-muted small">${tel}</div>
-          </td>
+          <td><div class="fw-bold">${nombre}</div><div class="text-muted small">${doc}</div></td>
+          <td><div class="fw-semibold">${email}</div><div class="text-muted small">${tel}</div></td>
           <td>${residenciaTxt(it)}</td>
           <td class="text-center">${badgeEstadoUsuario(estadoVisual)}</td>
           <td class="text-end">
-            <button
-              type="button"
-              class="btn btn-sm ev-btn-orange js-ev-revisar"
-              data-id="${id}"
+            <button type="button" class="btn btn-sm ev-btn-orange js-ev-revisar" data-id="${id}"
               data-nombre="${nombre}"
               data-email="${email}"
               data-doc="${doc}"
@@ -232,28 +173,34 @@
               data-direccion="${esc(it.direccion || "")}"
               data-estado="${estadoVisual}"
               data-comprobante="${esc(comprobante)}"
-            >
+              data-observacion="${esc(it.mensaje_observacion || "")}">
               Revisar
             </button>
+
           </td>
         </tr>`;
-      })
-      .join("");
+    }).join("");
   }
 
-  // =========================
-  // Modal
-  // =========================
-  function ensureModal() {
-    const el = byId("modalRevisarCuenta");
-    if (!el) return null;
-    if (!modalInstance) {
-      modalInstance = new bootstrap.Modal(el, { backdrop: "static" });
-    }
-    return modalInstance;
-  }
+  // ===================================================
+  // FIX MODAL: botón "Revisar"
+  // ===================================================
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".js-ev-revisar");
+    if (!btn) return;
 
-  function fillModalFromButton(btn) {
+    const modalEl = document.getElementById("modalRevisarCuenta");
+    if (!modalEl) return;
+
+    /*if (!modalInstance) {
+      modalInstance = new bootstrap.Modal(modalEl, { backdrop: "static" });
+      }
+    */
+
+      modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl, {
+        backdrop: "static"
+      });
+
     currentId = Number(btn.dataset.id || 0);
 
     byId("mNombre").textContent = btn.dataset.nombre || "—";
@@ -263,19 +210,19 @@
     byId("mTipoConjunto").textContent = btn.dataset.tipo_conjunto || "—";
     byId("mDireccion").textContent = btn.dataset.direccion || "—";
     byId("mBadgeEstado").innerHTML = badgeEstadoUsuario(btn.dataset.estado);
-    byId("mObsTexto").value = "";
 
-    // =========================
-    // COMPROBANTE (AJUSTADO A TU HTML)
-    // =========================
+    // ⬇⬇⬇ AGREGA ESTO ⬇⬇⬇
+    const obsTextarea = document.getElementById("mObsTexto");
+    if (obsTextarea) {
+      obsTextarea.value = btn.dataset.observacion || "";
+    }
+
+
     const img   = byId("mImgComprobante");
     const pdf   = byId("mPdfComprobante");
     const empty = byId("mNoComprobante");
     const link  = byId("mLinkComprobante");
 
-    if (!img || !pdf || !empty || !link) return;
-
-    // Reset
     img.style.display = "none";
     pdf.style.display = "none";
     empty.style.display = "none";
@@ -284,64 +231,101 @@
     const path = btn.dataset.comprobante || "";
     if (!path) {
       empty.style.display = "block";
+    } else {
+      const url = `${baseUrl}/${path.replace(/^\/+/, "")}`;
+      //const url = `/${path.replace(/^\/+/, "")}`;
+      link.href = url;
+      link.style.display = "inline";
+
+      if (/\.pdf$/i.test(url)) {
+        pdf.src = url;
+        pdf.style.display = "block";
+      } else {
+        img.src = url;
+        img.style.display = "block";
+      }
+    }
+
+
+    modalInstance.show();
+  });
+
+  // ===================================================
+  // FIX: botón "Observar" (delegación correcta)
+  // ===================================================
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest("#btnModalObservar");
+    if (!btn) return;
+
+    if (!currentId) {
+      Swal.fire({
+        icon: "warning",
+        title: "Usuario no identificado",
+        text: "No se pudo determinar la cuenta.",
+      });
       return;
     }
 
-    const url = `${baseUrl}/${path.replace(/^\/+/, "")}`;
-    link.href = url;
-    link.style.display = "inline";
-
-    if (/\.pdf$/i.test(url)) {
-      pdf.src = url;
-      pdf.style.display = "block";
+    const obs = byId("mObsTexto")?.value || "";
+    if (!obs.trim()) {
+      Swal.fire({
+        icon: "warning",
+        title: "Observación requerida",
+        text: "Debes ingresar una observación.",
+      });
       return;
     }
 
-    if (/\.(jpg|jpeg|png|webp)$/i.test(url)) {
-      img.src = url;
-      img.style.display = "block";
-      return;
+    try {
+      btn.disabled = true;
+
+      const resp = await fetch(
+        `${baseUrl}/api/cuenta-observada/${currentId}/observar`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Partial": "1",
+          },
+          credentials: "include",
+          body: JSON.stringify({ observacion: obs }),
+        }
+      );
+
+      const json = await resp.json();
+      if (!resp.ok || json.ok !== true) {
+        throw new Error(json.mensaje || "No se pudo registrar la observación.");
+      }
+
+      Swal.fire({
+        icon: "success",
+        title: "Observación registrada",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+
+      modalInstance.hide();
+
+      // 🔁 refrescar listado
+      load({
+        modo: "usuarios",
+        estado: "revision",
+        q: "",
+        page: 1,
+        limit: 10,
+      });
+
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err.message || "Error al registrar observación.",
+      });
+    } finally {
+      btn.disabled = false;
     }
+  });
 
-    // fallback
-    empty.style.display = "block";
-  }
-
-
-
-  // =========================
-  // API
-  // =========================
-  async function postEstado(id, estado) {
-    const resp = await fetch(`${baseUrl}/api/soporte/usuarios/${id}/estado`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Partial": "1" },
-      credentials: "include",
-      body: JSON.stringify({ estado: Number(estado) }),
-    });
-
-    const json = await resp.json();
-    if (!resp.ok || json.ok !== true) {
-      throw new Error("No se pudo actualizar estado");
-    }
-  }
-
-  async function postObservacion(id, observacion) {
-    const obs = String(observacion || "").trim();
-    if (!obs) return alert("Ingresa una observación.");
-
-    const resp = await fetch(`${baseUrl}/api/cuenta-observada/${id}/observar`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Partial": "1" },
-      credentials: "include",
-      body: JSON.stringify({ observacion: obs }),
-    });
-
-    const json = await resp.json();
-    if (!resp.ok || json.ok !== true) {
-      throw new Error("No se pudo registrar observación");
-    }
-  }
 
   // =========================
   // Carga
@@ -366,12 +350,13 @@
       });
 
       const json = await resp.json();
-      if (!resp.ok || json.ok !== true) throw new Error("API no ok");
+      if (!resp.ok || json.ok !== true) throw new Error();
 
       renderRows(tbody, json.data.items);
 
       const c = getControls();
       if (c.lblTotal) c.lblTotal.textContent = String(json.data.total ?? 0);
+
     } catch (e) {
       setError(tbody);
     }
@@ -381,14 +366,9 @@
   // Init
   // =========================
   function init() {
-    // ✅ Solo inicializar si estamos realmente en la vista de atender cuentas
     if (!isAtenderCuentasView()) return false;
 
-    const tbody = getTbody();
-    if (!tbody) return false;
-
-    // key para evitar doble init en mismo DOM
-    const key = "atender-cuentas|" + window.location.pathname + "|" + (byId("evUsuariosBody") ? "evUsuariosBody" : "tablaUsuariosBody");
+    const key = "atender-cuentas|" + window.location.pathname;
     if (key === lastInitKey) return true;
     lastInitKey = key;
 
@@ -397,41 +377,67 @@
     const state = {
       modo: c.selModo?.value || "usuarios",
       estado: normalizarEstado(c.selEstado?.value || "revision"),
-      conjunto: c.selConjunto?.value || "todos",
-      condominio: c.selCondominio?.value || "",
       q: c.inpBuscar?.value || "",
       page: 1,
       limit: 10,
     };
 
-    // Click en "Revisar"
-    document.addEventListener("click", (e) => {
-      const btn = e.target.closest(".js-ev-revisar");
-      if (!btn) return;
+    // ===================================================
+    // FIX 1: CHIPS sincronizan estado real + backend
+    // ===================================================
+    c.chips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        c.chips.forEach(x => x.classList.remove("ev-chip-active"));
+        chip.classList.add("ev-chip-active");
 
-      const m = ensureModal();
-      if (!m) return;
+        const nuevoEstado = normalizarEstado(chip.dataset.estado);
+        state.estado = nuevoEstado;
+        if (c.selEstado) c.selEstado.value = nuevoEstado;
 
-      fillModalFromButton(btn);
-      modalInstance.show();
+        state.page = 1;
+        load(state);
+      });
     });
+
+    // ===================================================
+    // FIX 2: BOTÓN "Aplicar filtros"
+    // ===================================================
+    if (c.btnAplicar) {
+      c.btnAplicar.addEventListener("click", () => {
+        state.estado = normalizarEstado(c.selEstado?.value || "revision");
+        state.q = c.inpBuscar?.value || "";
+        state.page = 1;
+        load(state);
+      });
+    }
+
+    // ===================================================
+    // Limpiar
+    // ===================================================
+    if (c.btnLimpiar) {
+      c.btnLimpiar.addEventListener("click", () => {
+        c.inpBuscar.value = "";
+        c.selEstado.value = "revision";
+        state.estado = "revision";
+        state.q = "";
+        state.page = 1;
+        load(state);
+      });
+    }
 
     load(state);
     return true;
   }
 
-  // ✅ Siempre observamos cambios (navegación AJAX cambia el DOM)
+  // =========================
+  // Observer (AJAX)
+  // =========================
   function bootObserver() {
     if (observer) return;
-
-    observer = new MutationObserver(() => {
-      init();
-    });
-
+    observer = new MutationObserver(() => init());
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  // init en DOM ready + observer permanente
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
       init();

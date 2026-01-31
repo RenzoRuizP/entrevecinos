@@ -2,7 +2,8 @@
 // models/UsuarioRevision.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/Conexion.php';
+// require_once __DIR__ . '/Conexion.php';
+require_once __DIR__ . '/../database/Conexion.php';
 
 final class UsuarioRevision extends Conexion
 {
@@ -48,4 +49,45 @@ final class UsuarioRevision extends Conexion
     $row = $this->obtenerPorUsuario($codigoUsuario);
     return $row && (int)$row['estado_revision'] === 3;
   }
+
+  public function observarDesdeSoporte(int $codigoUsuario, string $mensaje): array
+  {
+      // ¿Existe registro?
+      $row = $this->obtenerPorUsuario($codigoUsuario);
+
+      if ($row) {
+          // UPDATE
+          $sql = "UPDATE usuario_revision
+                  SET estado_revision = 3,
+                      mensaje_observacion = :msg,
+                      fecha_observacion = NOW(),
+                      fecha_actualizacion = NOW()
+                  WHERE codigo_usuario = :id";
+      } else {
+          // INSERT
+          $sql = "INSERT INTO usuario_revision
+                  (codigo_usuario, estado_revision, mensaje_observacion, fecha_observacion)
+                  VALUES
+                  (:id, 3, :msg, NOW())";
+      }
+
+      $st = $this->dblink->prepare($sql);
+      $st->bindValue(':id', $codigoUsuario, PDO::PARAM_INT);
+      $st->bindValue(':msg', $mensaje, PDO::PARAM_STR);
+      $st->execute();
+
+      if ($st->rowCount() === 0 && !$row) {
+          return [
+              'ok' => false,
+              'mensaje' => 'No se pudo registrar la observación.'
+          ];
+      }
+
+      return [
+          'ok' => true,
+          'mensaje' => 'Observación registrada correctamente.'
+      ];
+  }
+
+
 }

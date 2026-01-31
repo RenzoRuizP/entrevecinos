@@ -82,10 +82,10 @@ final class cuentaObservadaController
             $estadoUsuario = (int)$user['estado'];
 
             // 👉 Si NO está en revisión, no debería ver esta vista
-            if ($estadoUsuario !== 1) {
+           /* if ($estadoUsuario !== 1) {
                 header('Location: ' . $baseUrl . '/MenuPrincipal', true, 302);
                 exit;
-            }
+            }*/
 
             // ============================
             // Revisión / Observación

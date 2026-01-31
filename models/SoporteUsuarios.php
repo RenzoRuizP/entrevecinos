@@ -6,31 +6,24 @@ require_once __DIR__ . '/../database/Conexion.php';
 
 final class SoporteUsuarios extends Conexion
 {
-    /**
-     * Listado de usuarios para "Atender cuentas"
-     */
-   public function listar(array $f): array
+    public function listar(array $f): array
     {
         if (!method_exists($this, 'getDblink')) {
-            return ['items'=>[], 'total'=>0];
+            return ['items' => [], 'total' => 0];
         }
 
         $db = $this->getDblink();
-        if (!$db) {
-            return ['items'=>[], 'total'=>0];
-        }
+        if (!$db) return ['items' => [], 'total' => 0];
 
         $estadoRaw = strtolower(trim((string)($f['estado'] ?? 'revision')));
-
         $estado = match ($estadoRaw) {
-            '1', 'revision', 'en_revision' => 'revision',
-            '2', 'habilitado'               => 'habilitado',
-            '3', 'observado', 'observados'  => 'observado',
-            '0', 'inactivo'                 => 'inactivo',
-            'todos', 'all'                  => 'todos',
-            default                         => 'revision',
+            '1', 'revision', 'en_revision', 'en revisión' => 'revision',
+            '2', 'habilitado', 'habilitados'              => 'habilitado',
+            '3', 'observado', 'observados'                => 'observado',
+            '0', 'inactivo', 'inactivos'                  => 'inactivo',
+            'todos', 'all'                                => 'todos',
+            default                                       => 'revision',
         };
-
 
         $q      = trim((string)($f['q'] ?? ''));
         $page   = max(1, (int)($f['page'] ?? 1));
@@ -40,19 +33,52 @@ final class SoporteUsuarios extends Conexion
         $where  = [];
         $params = [];
 
+        /**
+         * 🔐 Consolidado de revisión (1 fila por usuario)
+         * Incluye mensaje y comprobante reenviado
+         */
+        $joinRevision = "
+            LEFT JOIN (
+                SELECT
+                    codigo_usuario,
+                    MAX(estado_revision)     AS estado_revision,
+                    MAX(mensaje_observacion) AS mensaje_observacion,
+                    MAX(comprobante_path)    AS comprobante_path
+                FROM usuario_revision
+                GROUP BY codigo_usuario
+            ) ur ON ur.codigo_usuario = u.codigo_usuario
+        ";
+
+        /**
+         * 🔐 Última residencia del usuario
+         */
+        $joinResidencia = "
+            LEFT JOIN (
+                SELECT r1.*
+                FROM usuario_residencia r1
+                INNER JOIN (
+                    SELECT codigo_usuario, MAX(codigo_usuario_residencia) AS max_id
+                    FROM usuario_residencia
+                    GROUP BY codigo_usuario
+                ) r2
+                  ON r2.codigo_usuario = r1.codigo_usuario
+                 AND r2.max_id = r1.codigo_usuario_residencia
+            ) r ON r.codigo_usuario = u.codigo_usuario
+        ";
+
         // =========================
-        // FILTRO DE ESTADO (CORRECTO)
+        // FILTRO DE ESTADO
         // =========================
         switch ($estado) {
-
-            case 'revision':
-                $where[] = 'u.estado = 1';
-                $where[] = '(ur.estado_revision IS NULL OR ur.estado_revision = 1)';
+            case 'observado':
+                $where[] = 'ur.estado_revision = 3';
                 break;
 
-            case 'observado':
-                $where[] = 'u.estado = 1';
-                $where[] = 'ur.estado_revision = 3';
+            case 'revision':
+                $where[] = '(
+                    u.estado = 1
+                    AND (ur.estado_revision IS NULL OR ur.estado_revision IN (0,1))
+                )';
                 break;
 
             case 'habilitado':
@@ -65,7 +91,6 @@ final class SoporteUsuarios extends Conexion
 
             case 'todos':
             default:
-                // sin filtro
                 break;
         }
 
@@ -82,8 +107,8 @@ final class SoporteUsuarios extends Conexion
         $stTotal = $db->prepare("
             SELECT COUNT(*)
             FROM usuario u
-            LEFT JOIN usuario_revision ur
-                ON ur.codigo_usuario = u.codigo_usuario
+            {$joinRevision}
+            {$joinResidencia}
             {$whereSql}
         ");
         $stTotal->execute($params);
@@ -106,15 +131,22 @@ final class SoporteUsuarios extends Conexion
 
                 r.tipo_conjunto,
                 r.direccion,
-                r.comprobante_domicilio
+
+                COALESCE(
+                    ur.comprobante_path,
+                    r.comprobante_domicilio
+                ) AS comprobante_domicilio
+
             FROM usuario u
-            LEFT JOIN usuario_revision ur
-                ON ur.codigo_usuario = u.codigo_usuario
-            LEFT JOIN usuario_residencia r
-                ON r.codigo_usuario = u.codigo_usuario
+            {$joinRevision}
+            {$joinResidencia}
             {$whereSql}
             ORDER BY
-                COALESCE(ur.estado_revision, 0) DESC,
+                CASE
+                    WHEN ur.estado_revision = 3 THEN 3
+                    WHEN ur.estado_revision = 1 THEN 2
+                    ELSE 1
+                END DESC,
                 u.codigo_usuario DESC
             LIMIT :limit OFFSET :offset
         ");
@@ -132,20 +164,25 @@ final class SoporteUsuarios extends Conexion
         ];
     }
 
-
-    /**
-     * Cambiar estado usuario (0,1,2)
-     */
     public function actualizarEstadoUsuario(array $p): bool
     {
         $id     = (int)($p['codigo_usuario'] ?? 0);
         $estado = (int)($p['estado'] ?? -1);
 
-        if ($id <= 0 || !in_array($estado, [0,1,2], true)) return false;
+        if ($id <= 0 || !in_array($estado, [0, 1, 2], true)) {
+            return false;
+        }
 
         $db = $this->getDblink();
-        $st = $db->prepare("UPDATE usuario SET estado = :e WHERE codigo_usuario = :id");
-        $st->execute([':e'=>$estado, ':id'=>$id]);
+        $st = $db->prepare("
+            UPDATE usuario
+            SET estado = :e
+            WHERE codigo_usuario = :id
+        ");
+        $st->execute([
+            ':e'  => $estado,
+            ':id' => $id
+        ]);
 
         return $st->rowCount() > 0;
     }

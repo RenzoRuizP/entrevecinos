@@ -108,36 +108,32 @@ function evRenderSesionFinalizada(string $loginUrl): void
 function evUsuarioEstaObservado(int $codigoUsuario): bool
 {
     try {
-        if (!class_exists('Conexion')) {
-            return false;
-        }
+        if (!class_exists('Conexion')) return false;
 
         $cn = new Conexion();
-
-        // ✅ NO acceder a $cn->dblink (es protected). Usar getter.
-        if (!method_exists($cn, 'getDblink')) {
-            return false;
-        }
+        if (!method_exists($cn, 'getDblink')) return false;
 
         /** @var PDO|null $db */
         $db = $cn->getDblink();
         if (!$db) return false;
 
-        $sql = "SELECT estado_revision
-                FROM usuario_revision
-                WHERE codigo_usuario = :id
-                LIMIT 1";
-        $st = $db->prepare($sql);
+        // ✅ Si hay varias filas en usuario_revision, tomamos el estado más “alto”
+        // (3 = observado). Esto evita el fallo del LIMIT 1.
+        $st = $db->prepare("
+            SELECT MAX(COALESCE(estado_revision, 0)) AS mx
+            FROM usuario_revision
+            WHERE codigo_usuario = :id
+        ");
         $st->execute([':id' => $codigoUsuario]);
-        $row = $st->fetch(PDO::FETCH_ASSOC);
+        $mx = (int)$st->fetchColumn();
 
-        if (!$row) return false;
-        return ((int)($row['estado_revision'] ?? 0) === 3);
+        return ($mx === 3);
     } catch (Throwable $e) {
         error_log('[EV][INDEX][evUsuarioEstaObservado] ' . $e->getMessage());
         return false;
     }
 }
+
 
 /**
  * ✅ Check si el vecino está en REVISIÓN INICIAL
@@ -190,9 +186,12 @@ function evRutaPermitidaEnObservacion(string $uri): bool
     return (
         $uri === '/cuenta-observada'
         || str_starts_with($uri, '/api/cuenta-observada')
+        || str_starts_with($uri, '/api/notificaciones')
+        || str_starts_with($uri, '/api/usuario')
         || $uri === '/logout'
     );
 }
+
 
 // ------------------------------
 // 1) Dependencias

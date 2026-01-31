@@ -3,7 +3,10 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../../models/UsuarioRevision.php';
 require_once __DIR__ . '/../../models/CuentaObservada.php';
+
+
 
 final class apiCuentaObservadaController
 {
@@ -51,7 +54,10 @@ final class apiCuentaObservadaController
         }
 
         try {
-            $model = new CuentaObservada();
+            //$model = new CuentaObservada();
+            //$res   = $model->observarDesdeSoporte($codigoUsuario, $mensaje);
+
+            $model = new UsuarioRevision();
             $res   = $model->observarDesdeSoporte($codigoUsuario, $mensaje);
 
             if (!$res['ok']) {
