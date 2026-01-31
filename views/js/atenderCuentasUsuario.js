@@ -327,6 +327,84 @@
   });
 
 
+  // ===================================================
+  // FIX: botón "Aprobar"
+  // ===================================================
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest("#btnModalAprobar");
+    if (!btn) return;
+
+    if (!currentId) {
+      Swal.fire({
+        icon: "warning",
+        title: "Usuario no identificado",
+        text: "No se pudo determinar la cuenta.",
+      });
+      return;
+    }
+
+    const confirm = await Swal.fire({
+      icon: "question",
+      title: "Aprobar cuenta",
+      text: "Esta acción habilitará la cuenta y eliminará cualquier observación.",
+      showCancelButton: true,
+      confirmButtonText: "Sí, aprobar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#EA7C12",
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    try {
+      btn.disabled = true;
+
+      const resp = await fetch(
+        `${baseUrl}/api/soporte/usuarios/${currentId}/aprobar`,
+        {
+          method: "POST",
+          headers: {
+            "X-Partial": "1",
+          },
+          credentials: "include",
+        }
+      );
+
+      const json = await resp.json();
+      if (!resp.ok || json.ok !== true) {
+        throw new Error(json.mensaje || "No se pudo aprobar la cuenta.");
+      }
+
+      Swal.fire({
+        icon: "success",
+        title: "Cuenta aprobada",
+        timer: 1400,
+        showConfirmButton: false,
+      });
+
+      modalInstance.hide();
+
+      // 🔁 refrescar listado
+      load({
+        modo: "usuarios",
+        estado: "revision",
+        q: "",
+        page: 1,
+        limit: 10,
+      });
+
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err.message || "Error al aprobar la cuenta.",
+      });
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+
+
   // =========================
   // Carga
   // =========================
