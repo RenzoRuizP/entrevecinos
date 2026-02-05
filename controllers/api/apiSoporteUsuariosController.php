@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/SoporteUsuarios.php';
+require_once __DIR__ . '/../../models/Billetera.php';
 
 final class apiSoporteUsuariosController
 {
@@ -131,6 +132,7 @@ final class apiSoporteUsuariosController
 
         $estadoNuevo = isset($in['estado']) ? (int)$in['estado'] : -1;
 
+        // Estados válidos para este endpoint
         if (!in_array($estadoNuevo, [0, 1, 2], true)) {
             $this->json(400, ['ok' => false, 'mensaje' => 'Estado inválido.']);
             return;
@@ -149,7 +151,25 @@ final class apiSoporteUsuariosController
                 return;
             }
 
-            $this->json(200, ['ok' => true, 'mensaje' => 'Estado actualizado.']);
+            // =========================================================
+            // ✅ REQUERIMIENTO: al APROBAR (estado=2) aplicar bono S/ 15
+            // =========================================================
+            $bono = null;
+            if ($estadoNuevo === 2) {
+                $wallet = new Billetera();
+                $bono = $wallet->aplicarBonoBienvenida($codigoUsuario, 15.00);
+
+                // No tumbamos la aprobación si falla el bono, pero lo dejamos log
+                if (empty($bono['ok'])) {
+                    error_log('[EV][apiSoporteUsuariosController] Aprobó usuario pero falló bono: u=' . $codigoUsuario . ' err=' . ($bono['error'] ?? ''));
+                }
+            }
+
+            $this->json(200, [
+                'ok'      => true,
+                'mensaje' => 'Estado actualizado.',
+                'bono'    => $bono, // útil para debug (puedes quitarlo si quieres)
+            ]);
         } catch (Throwable $e) {
             error_log('[EV][apiSoporteUsuariosController::actualizarEstado] ' . $e->getMessage());
             $this->json(500, ['ok' => false, 'mensaje' => 'Error interno del servidor.']);
