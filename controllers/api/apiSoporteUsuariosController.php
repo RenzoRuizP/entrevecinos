@@ -98,8 +98,10 @@ final class apiSoporteUsuariosController
     /* =========================
      * POST /api/soporte/usuarios/{id}/estado
      * ========================= */
-    public function actualizarEstado(int $codigoUsuario): void
+    public function actualizarEstado($codigoUsuario): void
     {
+        $codigoUsuario = (int)$codigoUsuario;
+
         if (!$this->puedeAccederSoporte()) {
             $this->json(403, ['ok' => false, 'mensaje' => 'Acceso restringido.']);
             return;
@@ -135,4 +137,5 @@ final class apiSoporteUsuariosController
             $this->json(500, ['ok' => false, 'mensaje' => 'Error interno del servidor.']);
         }
     }
+
 }

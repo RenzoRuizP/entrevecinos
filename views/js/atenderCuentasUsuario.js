@@ -359,15 +359,18 @@
       btn.disabled = true;
 
       const resp = await fetch(
-        `${baseUrl}/api/soporte/usuarios/${currentId}/aprobar`,
-        {
-          method: "POST",
-          headers: {
-            "X-Partial": "1",
-          },
-          credentials: "include",
-        }
-      );
+      `${baseUrl}/api/soporte/usuarios/${currentId}/estado`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Partial": "1",
+        },
+        credentials: "include",
+        body: JSON.stringify({ estado: 2 }),
+      }
+    );
+
 
       const json = await resp.json();
       if (!resp.ok || json.ok !== true) {
