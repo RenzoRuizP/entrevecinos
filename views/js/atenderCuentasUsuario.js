@@ -69,8 +69,10 @@
     if (s === "0") return "inactivo";
     if (["todos", "all"].includes(s)) return "todos";
 
-    if (["revision", "en_revision"].includes(s)) return "revision";
+    if (["revision", "en_revision", "en revisión"].includes(s)) return "revision";
+    if (["habilitado", "habilitados"].includes(s)) return "habilitado";
     if (["observado", "observados"].includes(s)) return "observado";
+    if (["inactivo", "inactivos"].includes(s)) return "inactivo";
 
     return "revision";
   }
@@ -135,6 +137,101 @@
   }
 
   // =========================
+  // Combo Conjunto -> Condominio/Urbanización
+  // =========================
+  function normalizarConjuntoUI(v) {
+    const s = String(v ?? "").trim().toLowerCase();
+    if (!s) return "";
+    if (s.includes("cond")) return "condominio";
+    if (s.includes("urban")) return "urbanizacion";
+    return "";
+  }
+
+  function mapItemToOption(tipo, it) {
+    if (tipo === "condominio") {
+      const id = it.codigo_condominio ?? it.codigo ?? it.id ?? it.value ?? "";
+      const name = it.nombre_condominio ?? it.nombre ?? it.text ?? "";
+      return { id, name };
+    }
+    if (tipo === "urbanizacion") {
+      const id = it.codigo_urbanizacion ?? it.codigo ?? it.id ?? it.value ?? "";
+      const name = it.nombre_urbanizacion ?? it.nombre ?? it.text ?? "";
+      return { id, name };
+    }
+    return { id: "", name: "" };
+  }
+
+  async function cargarListaConjuntos(tipo) {
+    const c = getControls();
+    if (!c.selCondominio) return;
+
+    c.selCondominio.innerHTML = `<option value="">Cargando...</option>`;
+    c.selCondominio.disabled = true;
+
+    let url = "";
+    if (tipo === "condominio") url = `${baseUrl}/condominios`;
+    else if (tipo === "urbanizacion") url = `${baseUrl}/urbanizaciones`;
+    else {
+      c.selCondominio.innerHTML = `<option value="">Selecciona...</option>`;
+      c.selCondominio.disabled = true;
+      return;
+    }
+
+    try {
+      const resp = await fetch(url, {
+        headers: { "X-Partial": "1" },
+        credentials: "include",
+      });
+
+      const json = await resp.json();
+      if (!resp.ok) throw new Error("HTTP");
+
+      const items = Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : []);
+
+      const opts = items
+        .map((it) => mapItemToOption(tipo, it))
+        .filter((x) => String(x.id ?? "") !== "" && String(x.name ?? "") !== "")
+        .map((x) => `<option value="${esc(x.id)}">${esc(x.name)}</option>`)
+        .join("");
+
+      c.selCondominio.innerHTML = `<option value="">Selecciona...</option>` + opts;
+      c.selCondominio.disabled = false;
+    } catch (e) {
+      c.selCondominio.innerHTML = `<option value="">Error al cargar</option>`;
+      c.selCondominio.disabled = true;
+    }
+  }
+
+  function wireConjuntoDependienteOnce() {
+    const c = getControls();
+    if (!c.selConjunto || !c.selCondominio) return;
+
+    // evita duplicar listeners por navegación parcial
+    if (c.selConjunto.dataset.evWired === "1") return;
+    c.selConjunto.dataset.evWired = "1";
+
+    c.selConjunto.addEventListener("change", () => {
+      const tipo = normalizarConjuntoUI(c.selConjunto.value);
+
+      // reset
+      c.selCondominio.innerHTML = `<option value="">Selecciona...</option>`;
+      c.selCondominio.disabled = true;
+
+      if (!tipo) return;
+      cargarListaConjuntos(tipo);
+    });
+
+    // ✅ cargar al iniciar si ya viene seteado (ej. default "Condominio")
+    const tipoInicial = normalizarConjuntoUI(c.selConjunto.value);
+    if (tipoInicial) {
+      cargarListaConjuntos(tipoInicial);
+    } else {
+      c.selCondominio.innerHTML = `<option value="">Selecciona...</option>`;
+      c.selCondominio.disabled = true;
+    }
+  }
+
+  // =========================
   // Render tabla
   // =========================
   function renderRows(tbody, items) {
@@ -176,7 +273,6 @@
               data-observacion="${esc(it.mensaje_observacion || "")}">
               Revisar
             </button>
-
           </td>
         </tr>`;
     }).join("");
@@ -192,14 +288,9 @@
     const modalEl = document.getElementById("modalRevisarCuenta");
     if (!modalEl) return;
 
-    /*if (!modalInstance) {
-      modalInstance = new bootstrap.Modal(modalEl, { backdrop: "static" });
-      }
-    */
-
-      modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl, {
-        backdrop: "static"
-      });
+    modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl, {
+      backdrop: "static"
+    });
 
     currentId = Number(btn.dataset.id || 0);
 
@@ -211,12 +302,10 @@
     byId("mDireccion").textContent = btn.dataset.direccion || "—";
     byId("mBadgeEstado").innerHTML = badgeEstadoUsuario(btn.dataset.estado);
 
-    // ⬇⬇⬇ AGREGA ESTO ⬇⬇⬇
     const obsTextarea = document.getElementById("mObsTexto");
     if (obsTextarea) {
       obsTextarea.value = btn.dataset.observacion || "";
     }
-
 
     const img   = byId("mImgComprobante");
     const pdf   = byId("mPdfComprobante");
@@ -233,7 +322,6 @@
       empty.style.display = "block";
     } else {
       const url = `${baseUrl}/${path.replace(/^\/+/, "")}`;
-      //const url = `/${path.replace(/^\/+/, "")}`;
       link.href = url;
       link.style.display = "inline";
 
@@ -245,7 +333,6 @@
         img.style.display = "block";
       }
     }
-
 
     modalInstance.show();
   });
@@ -306,11 +393,15 @@
 
       modalInstance.hide();
 
-      // 🔁 refrescar listado
+      // refrescar listado manteniendo filtros actuales (se recalcula desde UI en aplicar)
+      const c = getControls();
+      const estado = normalizarEstado(c.selEstado?.value || "revision");
       load({
-        modo: "usuarios",
-        estado: "revision",
-        q: "",
+        modo: c.selModo?.value || "usuarios",
+        estado,
+        q: c.inpBuscar?.value || "",
+        conjunto: normalizarConjuntoUI(c.selConjunto?.value || ""),
+        conjunto_id: c.selCondominio?.value || "",
         page: 1,
         limit: 10,
       });
@@ -325,7 +416,6 @@
       btn.disabled = false;
     }
   });
-
 
   // ===================================================
   // FIX: botón "Aprobar"
@@ -359,18 +449,17 @@
       btn.disabled = true;
 
       const resp = await fetch(
-      `${baseUrl}/api/soporte/usuarios/${currentId}/estado`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Partial": "1",
-        },
-        credentials: "include",
-        body: JSON.stringify({ estado: 2 }),
-      }
-    );
-
+        `${baseUrl}/api/soporte/usuarios/${currentId}/estado`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Partial": "1",
+          },
+          credentials: "include",
+          body: JSON.stringify({ estado: 2 }),
+        }
+      );
 
       const json = await resp.json();
       if (!resp.ok || json.ok !== true) {
@@ -386,11 +475,15 @@
 
       modalInstance.hide();
 
-      // 🔁 refrescar listado
+      // refrescar listado con filtros actuales
+      const c = getControls();
+      const estado = normalizarEstado(c.selEstado?.value || "revision");
       load({
-        modo: "usuarios",
-        estado: "revision",
-        q: "",
+        modo: c.selModo?.value || "usuarios",
+        estado,
+        q: c.inpBuscar?.value || "",
+        conjunto: normalizarConjuntoUI(c.selConjunto?.value || ""),
+        conjunto_id: c.selCondominio?.value || "",
         page: 1,
         limit: 10,
       });
@@ -406,8 +499,6 @@
     }
   });
 
-
-
   // =========================
   // Carga
   // =========================
@@ -419,10 +510,16 @@
 
     try {
       const url = new URL(endpointList(state.modo), window.location.origin);
+
       url.searchParams.set("estado", estadoToApiValue(state.estado));
       url.searchParams.set("q", state.q || "");
       url.searchParams.set("page", state.page);
       url.searchParams.set("limit", state.limit);
+
+      // ✅ NUEVOS PARAMS (solo si aplica)
+      if (state.conjunto) url.searchParams.set("conjunto", state.conjunto);
+      if (state.conjunto_id) url.searchParams.set("conjunto_id", state.conjunto_id);
+
       url.searchParams.set("_", Date.now());
 
       const resp = await fetch(url, {
@@ -431,7 +528,7 @@
       });
 
       const json = await resp.json();
-      if (!resp.ok || json.ok !== true) throw new Error();
+      if (!resp.ok || json.ok !== true) throw new Error("API");
 
       renderRows(tbody, json.data.items);
 
@@ -455,16 +552,21 @@
 
     const c = getControls();
 
+    // ✅ cablear combo dependiente
+    wireConjuntoDependienteOnce();
+
     const state = {
       modo: c.selModo?.value || "usuarios",
       estado: normalizarEstado(c.selEstado?.value || "revision"),
       q: c.inpBuscar?.value || "",
+      conjunto: normalizarConjuntoUI(c.selConjunto?.value || ""),
+      conjunto_id: c.selCondominio?.value || "",
       page: 1,
       limit: 10,
     };
 
     // ===================================================
-    // FIX 1: CHIPS sincronizan estado real + backend
+    // CHIPS
     // ===================================================
     c.chips.forEach((chip) => {
       chip.addEventListener("click", () => {
@@ -481,12 +583,15 @@
     });
 
     // ===================================================
-    // FIX 2: BOTÓN "Aplicar filtros"
+    // BOTÓN "Aplicar filtros" (✅ ahora incluye conjunto/id y modo)
     // ===================================================
     if (c.btnAplicar) {
       c.btnAplicar.addEventListener("click", () => {
+        state.modo = c.selModo?.value || "usuarios";
         state.estado = normalizarEstado(c.selEstado?.value || "revision");
         state.q = c.inpBuscar?.value || "";
+        state.conjunto = normalizarConjuntoUI(c.selConjunto?.value || "");
+        state.conjunto_id = c.selCondominio?.value || "";
         state.page = 1;
         load(state);
       });
@@ -497,11 +602,24 @@
     // ===================================================
     if (c.btnLimpiar) {
       c.btnLimpiar.addEventListener("click", () => {
-        c.inpBuscar.value = "";
-        c.selEstado.value = "revision";
+        if (c.inpBuscar) c.inpBuscar.value = "";
+        if (c.selEstado) c.selEstado.value = "revision";
+        if (c.selModo) c.selModo.value = "usuarios";
+
+        if (c.selConjunto) c.selConjunto.value = "";
+        if (c.selCondominio) {
+          c.selCondominio.innerHTML = `<option value="">Selecciona...</option>`;
+          c.selCondominio.disabled = true;
+          c.selCondominio.value = "";
+        }
+
+        state.modo = "usuarios";
         state.estado = "revision";
         state.q = "";
+        state.conjunto = "";
+        state.conjunto_id = "";
         state.page = 1;
+
         load(state);
       });
     }

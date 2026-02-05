@@ -58,6 +58,18 @@ final class apiSoporteUsuariosController
         };
     }
 
+    /**
+     * Normaliza conjunto desde UI
+     * valores esperados: "condominio", "urbanizacion" o "" (sin filtro)
+     */
+    private function normalizarConjunto($raw): string
+    {
+        $v = strtolower(trim((string)$raw));
+        if ($v === '') return '';
+        if (str_contains($v, 'cond')) return 'condominio';
+        if (str_contains($v, 'urban')) return 'urbanizacion';
+        return '';
+    }
 
     /* =========================
      * GET /api/soporte/usuarios
@@ -75,14 +87,20 @@ final class apiSoporteUsuariosController
         $limit  = (int)($_GET['limit'] ?? 10);
         $limit  = ($limit <= 0) ? 10 : min($limit, 100);
 
+        // ✅ NUEVOS FILTROS
+        $conjunto    = $this->normalizarConjunto($_GET['conjunto'] ?? '');
+        $conjuntoId  = (int)($_GET['conjunto_id'] ?? 0);
+
         try {
             $m = new SoporteUsuarios();
 
             $res = $m->listar([
-                'estado' => $estado,
-                'q'      => $q,
-                'page'   => $page,
-                'limit'  => $limit,
+                'estado'      => $estado,
+                'q'           => $q,
+                'page'        => $page,
+                'limit'       => $limit,
+                'conjunto'    => $conjunto,
+                'conjunto_id' => $conjuntoId,
             ]);
 
             $this->json(200, [
@@ -137,5 +155,4 @@ final class apiSoporteUsuariosController
             $this->json(500, ['ok' => false, 'mensaje' => 'Error interno del servidor.']);
         }
     }
-
 }

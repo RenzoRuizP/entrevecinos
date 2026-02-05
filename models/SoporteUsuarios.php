@@ -30,12 +30,15 @@ final class SoporteUsuarios extends Conexion
         $limit  = max(1, min((int)($f['limit'] ?? 10), 100));
         $offset = ($page - 1) * $limit;
 
+        // ✅ NUEVOS FILTROS
+        $conjunto   = strtolower(trim((string)($f['conjunto'] ?? ''))); // condominio|urbanizacion|''
+        $conjuntoId = (int)($f['conjunto_id'] ?? 0);
+
         $where  = [];
         $params = [];
 
         /**
          * 🔐 Consolidado de revisión (1 fila por usuario)
-         * Incluye mensaje y comprobante reenviado
          */
         $joinRevision = "
             LEFT JOIN (
@@ -94,9 +97,33 @@ final class SoporteUsuarios extends Conexion
                 break;
         }
 
+        // =========================
+        // FILTRO BUSQUEDA
+        // =========================
         if ($q !== '') {
             $where[] = "(u.nombre LIKE :q OR u.email LIKE :q OR u.documento LIKE :q)";
             $params[':q'] = "%{$q}%";
+        }
+
+        // =========================
+        // ✅ FILTRO CONJUNTO (tipo + id)
+        // =========================
+        if ($conjunto === 'condominio') {
+            $where[] = "(LOWER(COALESCE(r.tipo_conjunto,'')) LIKE '%cond%')";
+            if ($conjuntoId > 0) {
+                // Ajusta este campo si tu tabla se llama distinto
+                $where[] = "r.codigo_condominio = :conjunto_id";
+                $params[':conjunto_id'] = $conjuntoId;
+            }
+        } elseif ($conjunto === 'urbanizacion') {
+            $where[] = "(LOWER(COALESCE(r.tipo_conjunto,'')) LIKE '%urban%')";
+            if ($conjuntoId > 0) {
+                // Ajusta este campo si tu tabla se llama distinto
+                $where[] = "r.codigo_urbanizacion = :conjunto_id";
+                $params[':conjunto_id'] = $conjuntoId;
+            }
+        } else {
+            // sin filtro
         }
 
         $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
