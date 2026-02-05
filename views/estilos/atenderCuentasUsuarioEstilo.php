@@ -88,6 +88,30 @@
 }
 .ev-btn-light:hover{ background: #ECFDF5; border-color: rgba(22,163,74,0.35); }
 
+/* =========================================================
+   FIX UI: Botón "Ver" con estilo naranja (igual que Revisar)
+   (el JS usa .ev-btn-outline para "Ver")
+========================================================= */
+.ev-btn-outline{
+  background: linear-gradient(135deg, var(--ev-naranja), #F59E0B) !important;
+  border: none !important;
+  color: #ffffff !important;
+  border-radius: 14px;
+  padding: 10px 18px;
+  box-shadow: 0 12px 26px rgba(234,124,18,0.35);
+  transition: all 0.2s ease;
+  font-weight: 750;
+}
+
+.ev-btn-outline:hover{
+  background: linear-gradient(135deg, var(--ev-naranja-oscuro), #EA580C) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(234,124,18,0.48);
+}
+
+
+
 /* ✅ Chips premium (FIX) */
 .ev-chip{
   display:inline-flex;

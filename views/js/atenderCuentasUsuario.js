@@ -12,16 +12,8 @@
   // Evita doble inicialización por navegación AJAX
   let lastInitKey = "";
 
-  // Estado compartido (para refrescar luego de acciones)
-  const state = {
-    modo: "usuarios",
-    estado: "revision",
-    q: "",
-    conjunto: "",
-    conjunto_id: "",
-    page: 1,
-    limit: 10,
-  };
+  // ✅ Estado de búsqueda global
+  let searchActive = false;
 
   // =========================
   // Helpers
@@ -66,6 +58,15 @@
 
   function getTbody() {
     return byId("evUsuariosBody") || byId("tablaUsuariosBody") || null;
+  }
+
+  // Debounce helper (para búsqueda en vivo)
+  function debounce(fn, wait) {
+    let t = null;
+    return function (...args) {
+      clearTimeout(t);
+      t = setTimeout(() => fn.apply(this, args), wait);
+    };
   }
 
   // =========================
@@ -242,25 +243,164 @@
   // =========================
   // Modal: modo "view" vs "review"
   // =========================
-  function setModalReadOnly(isReadOnly) {
+  function setModalMode(mode) {
+    const m = String(mode || "review").toLowerCase();
+
     const btnObs = byId("btnModalObservar");
     const btnApr = byId("btnModalAprobar");
     const btnIna = byId("btnModalInactivar");
     const obsTxt = byId("mObsTexto");
 
-    // Botones de acción
-    if (btnObs) btnObs.style.display = isReadOnly ? "none" : "";
-    if (btnApr) btnApr.style.display = isReadOnly ? "none" : "";
-    if (btnIna) btnIna.style.display = isReadOnly ? "none" : "";
+    const isView = (m === "view");
 
-    // Observación solo lectura
+    // view (habilitado): SOLO Inactivar visible
+    if (btnObs) btnObs.style.display = isView ? "none" : "";
+    if (btnApr) btnApr.style.display = isView ? "none" : "";
+    if (btnIna) btnIna.style.display = "";
+
     if (obsTxt) {
-      obsTxt.readOnly = !!isReadOnly;
-      obsTxt.disabled = !!isReadOnly;
+      obsTxt.readOnly = isView;
+      obsTxt.disabled = false;
     }
   }
 
-  function fillModalFromButton(btn) {
+  // =========================
+  // Render tabla
+  // =========================
+  function renderRows(tbody, items) {
+    if (!Array.isArray(items) || items.length === 0) {
+      setEmpty(tbody);
+      return;
+    }
+
+    tbody.innerHTML = items.map((it) => {
+      const id = Number(it.codigo_usuario ?? it.id ?? 0);
+
+      const estadoRevision = Number(it.estado_revision ?? 0);
+      const estadoUsuario = Number(it.usuario_estado ?? it.estado ?? 1);
+      const estadoVisual = estadoRevision === 3 ? 3 : estadoUsuario;
+
+      const nombre = esc(it.nombre || "—");
+      const email = esc(it.email || "—");
+      const doc = esc(it.documento || "—");
+      const tel = esc(it.telefono || "—");
+
+      const comprobante = it.comprobante_domicilio || it.comprobante || it.comprobante_url || it.url_comprobante || "";
+
+      const isHabilitado = Number(estadoVisual) === 2;
+      const btnText = isHabilitado ? "Ver" : "Revisar";
+      const btnClass = isHabilitado ? "ev-btn-outline" : "ev-btn-orange";
+      const btnMode = isHabilitado ? "view" : "review";
+
+      return `
+        <tr>
+          <td><div class="fw-bold">${nombre}</div><div class="text-muted small">${doc}</div></td>
+          <td><div class="fw-semibold">${email}</div><div class="text-muted small">${tel}</div></td>
+          <td>${residenciaTxt(it)}</td>
+          <td class="text-center">${badgeEstadoUsuario(estadoVisual)}</td>
+          <td class="text-end">
+            <button type="button" class="btn btn-sm ${btnClass} js-ev-revisar" data-id="${id}"
+              data-mode="${btnMode}"
+              data-nombre="${nombre}"
+              data-email="${email}"
+              data-doc="${doc}"
+              data-tel="${tel}"
+              data-tipo_conjunto="${esc(it.tipo_conjunto || "")}"
+              data-direccion="${esc(it.direccion || "")}"
+              data-estado="${estadoVisual}"
+              data-comprobante="${esc(comprobante)}"
+              data-observacion="${esc(it.mensaje_observacion || "")}">
+              ${btnText}
+            </button>
+          </td>
+        </tr>`;
+    }).join("");
+  }
+
+  // =========================
+  // ✅ Estados de carga
+  // =========================
+  function snapshotStateFromUI() {
+    const c = getControls();
+    return {
+      modo: c.selModo?.value || "usuarios",
+      estado: normalizarEstado(c.selEstado?.value || "revision"),
+      q: (c.inpBuscar?.value || "").trim(),
+      conjunto: normalizarConjuntoUI(c.selConjunto?.value || ""),
+      conjunto_id: c.selCondominio?.value || "",
+      page: 1,
+      limit: 10,
+    };
+  }
+
+  // ✅ Búsqueda GLOBAL (ignora filtros)
+  function makeGlobalSearchState(txt) {
+    return {
+      modo: "usuarios",     // ✅ siempre usuarios
+      estado: "todos",      // ✅ no filtra estado
+      q: txt,               // ✅ lo único que importa
+      conjunto: "",         // ✅ ignora conjunto
+      conjunto_id: "",      // ✅ ignora condominio
+      page: 1,
+      limit: 10,
+      __globalSearch: true,
+    };
+  }
+
+  // =========================
+  // Carga
+  // =========================
+  async function load(state) {
+    const tbody = getTbody();
+    if (!tbody) return;
+
+    setLoading(tbody);
+
+    try {
+      const url = new URL(endpointList(state.modo), window.location.origin);
+
+      url.searchParams.set("estado", estadoToApiValue(state.estado));
+      url.searchParams.set("q", state.q || "");
+      url.searchParams.set("page", state.page);
+      url.searchParams.set("limit", state.limit);
+
+      if (state.conjunto) url.searchParams.set("conjunto", state.conjunto);
+      if (state.conjunto_id) url.searchParams.set("conjunto_id", state.conjunto_id);
+
+      url.searchParams.set("_", Date.now());
+
+      const resp = await fetch(url, {
+        headers: { "X-Partial": "1" },
+        credentials: "include",
+      });
+
+      const json = await resp.json();
+      if (!resp.ok || json.ok !== true) throw new Error("API");
+
+      renderRows(tbody, json.data.items);
+
+      const c = getControls();
+      if (c.lblTotal) c.lblTotal.textContent = String(json.data.total ?? 0);
+
+    } catch (e) {
+      setError(tbody);
+    }
+  }
+
+  // ===================================================
+  // Modal: abrir con botón Revisar/Ver
+  // ===================================================
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".js-ev-revisar");
+    if (!btn) return;
+
+    const modalEl = document.getElementById("modalRevisarCuenta");
+    if (!modalEl) return;
+
+    modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl, {
+      backdrop: "static",
+    });
+
     currentId = Number(btn.dataset.id || 0);
 
     byId("mNombre").textContent = btn.dataset.nombre || "—";
@@ -271,10 +411,10 @@
     byId("mDireccion").textContent = btn.dataset.direccion || "—";
     byId("mBadgeEstado").innerHTML = badgeEstadoUsuario(btn.dataset.estado);
 
+    setModalMode(btn.dataset.mode || "review");
+
     const obsTextarea = byId("mObsTexto");
-    if (obsTextarea) {
-      obsTextarea.value = btn.dataset.observacion || "";
-    }
+    if (obsTextarea) obsTextarea.value = btn.dataset.observacion || "";
 
     const img = byId("mImgComprobante");
     const pdf = byId("mPdfComprobante");
@@ -308,172 +448,122 @@
         }
       }
     }
-  }
-
-  // =========================
-  // Render tabla
-  // =========================
-  function renderRows(tbody, items) {
-    if (!Array.isArray(items) || items.length === 0) {
-      setEmpty(tbody);
-      return;
-    }
-
-    tbody.innerHTML = items.map((it) => {
-      const id = Number(it.codigo_usuario ?? it.id ?? 0);
-
-      const estadoRevision = Number(it.estado_revision ?? 0);
-      const estadoUsuario = Number(it.usuario_estado ?? it.estado ?? 1);
-      const estadoVisual = estadoRevision === 3 ? 3 : estadoUsuario;
-
-      const nombre = esc(it.nombre || "—");
-      const email = esc(it.email || "—");
-      const doc = esc(it.documento || "—");
-      const tel = esc(it.telefono || "—");
-
-      const comprobante = it.comprobante_domicilio || it.comprobante || it.comprobante_url || it.url_comprobante || "";
-
-      // ✅ Si está habilitado => botón "Ver" (solo lectura)
-      const isHabilitado = Number(estadoVisual) === 2;
-      const btnText = isHabilitado ? "Ver" : "Revisar";
-
-      // ✅ MISMO ESTILO (naranja) para ambos
-      const btnClass = "ev-btn-orange";
-
-      const btnMode = isHabilitado ? "view" : "review";
-
-      return `
-        <tr>
-          <td><div class="fw-bold">${nombre}</div><div class="text-muted small">${doc}</div></td>
-          <td><div class="fw-semibold">${email}</div><div class="text-muted small">${tel}</div></td>
-          <td>${residenciaTxt(it)}</td>
-          <td class="text-center">${badgeEstadoUsuario(estadoVisual)}</td>
-          <td class="text-end">
-            <button type="button" class="btn btn-sm ${btnClass} js-ev-revisar" data-id="${id}"
-              data-mode="${btnMode}"
-              data-nombre="${nombre}"
-              data-email="${email}"
-              data-doc="${doc}"
-              data-tel="${tel}"
-              data-tipo_conjunto="${esc(it.tipo_conjunto || "")}"
-              data-direccion="${esc(it.direccion || "")}"
-              data-estado="${estadoVisual}"
-              data-comprobante="${esc(comprobante)}"
-              data-observacion="${esc(it.mensaje_observacion || "")}">
-              ${btnText}
-            </button>
-          </td>
-        </tr>`;
-    }).join("");
-  }
-
-  // ===================================================
-  // Modal: abrir con botón Revisar/Ver
-  // ===================================================
-  document.addEventListener("click", (e) => {
-    const btn = e.target.closest(".js-ev-revisar");
-    if (!btn) return;
-
-    const modalEl = document.getElementById("modalRevisarCuenta");
-    if (!modalEl) return;
-
-    modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl, {
-      backdrop: "static"
-    });
-
-    // ✅ Modo del modal
-    const mode = String(btn.dataset.mode || "review").toLowerCase();
-    const isReadOnly = (mode === "view");
-    setModalReadOnly(isReadOnly);
-
-    fillModalFromButton(btn);
 
     modalInstance.show();
   });
 
   // ===================================================
-  // FIX: botón "Observar"
+  // Acción: INACTIVAR (estado 0)
   // ===================================================
   document.addEventListener("click", async (e) => {
-    const btn = e.target.closest("#btnModalObservar");
+    const btn = e.target.closest("#btnModalInactivar");
     if (!btn) return;
 
     if (!currentId) {
-      Swal.fire({
-        icon: "warning",
-        title: "Usuario no identificado",
-        text: "No se pudo determinar la cuenta.",
-      });
+      Swal.fire({ icon: "warning", title: "Usuario no identificado", text: "No se pudo determinar la cuenta." });
       return;
     }
 
-    const obs = byId("mObsTexto")?.value || "";
-    if (!obs.trim()) {
-      Swal.fire({
-        icon: "warning",
-        title: "Observación requerida",
-        text: "Debes ingresar una observación.",
-      });
-      return;
-    }
+    const confirm = await Swal.fire({
+      icon: "warning",
+      title: "Inactivar cuenta",
+      text: "La cuenta quedará inactiva y el usuario no podrá ingresar.",
+      showCancelButton: true,
+      confirmButtonText: "Sí, inactivar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#DC2626",
+    });
+
+    if (!confirm.isConfirmed) return;
 
     try {
       btn.disabled = true;
 
-      const resp = await fetch(
-        `${baseUrl}/api/cuenta-observada/${currentId}/observar`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Partial": "1",
-          },
-          credentials: "include",
-          body: JSON.stringify({ observacion: obs }),
-        }
-      );
+      const resp = await fetch(`${baseUrl}/api/soporte/usuarios/${currentId}/estado`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Partial": "1" },
+        credentials: "include",
+        body: JSON.stringify({ estado: 0 }),
+      });
 
       const json = await resp.json();
-      if (!resp.ok || json.ok !== true) {
-        throw new Error(json.mensaje || "No se pudo registrar la observación.");
+      if (!resp.ok || json.ok !== true) throw new Error(json.mensaje || "No se pudo inactivar la cuenta.");
+
+      Swal.fire({ icon: "success", title: "Cuenta inactivada", timer: 1400, showConfirmButton: false });
+      modalInstance.hide();
+
+      // ✅ si está en búsqueda global, refresca con la búsqueda; si no, con filtros
+      const c = getControls();
+      const q = (c.inpBuscar?.value || "").trim();
+      if (q.length >= 3) {
+        await load(makeGlobalSearchState(q));
+      } else {
+        await load(snapshotStateFromUI());
       }
-
-      Swal.fire({
-        icon: "success",
-        title: "Observación registrada",
-        timer: 1500,
-        showConfirmButton: false,
-      });
-
-      modalInstance?.hide();
-
-      state.page = 1;
-      load(state);
-
     } catch (err) {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: err.message || "Error al registrar observación.",
-      });
+      Swal.fire({ icon: "error", title: "Error", text: err.message || "Error al inactivar la cuenta." });
     } finally {
       btn.disabled = false;
     }
   });
 
   // ===================================================
-  // FIX: botón "Aprobar"
+  // Acción: OBSERVAR
+  // ===================================================
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest("#btnModalObservar");
+    if (!btn) return;
+
+    if (!currentId) {
+      Swal.fire({ icon: "warning", title: "Usuario no identificado", text: "No se pudo determinar la cuenta." });
+      return;
+    }
+
+    const obs = byId("mObsTexto")?.value || "";
+    if (!obs.trim()) {
+      Swal.fire({ icon: "warning", title: "Observación requerida", text: "Debes ingresar una observación." });
+      return;
+    }
+
+    try {
+      btn.disabled = true;
+
+      const resp = await fetch(`${baseUrl}/api/cuenta-observada/${currentId}/observar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Partial": "1" },
+        credentials: "include",
+        body: JSON.stringify({ observacion: obs }),
+      });
+
+      const json = await resp.json();
+      if (!resp.ok || json.ok !== true) throw new Error(json.mensaje || "No se pudo registrar la observación.");
+
+      Swal.fire({ icon: "success", title: "Observación registrada", timer: 1500, showConfirmButton: false });
+      modalInstance.hide();
+
+      const c = getControls();
+      const q = (c.inpBuscar?.value || "").trim();
+      if (q.length >= 3) {
+        await load(makeGlobalSearchState(q));
+      } else {
+        await load(snapshotStateFromUI());
+      }
+    } catch (err) {
+      Swal.fire({ icon: "error", title: "Error", text: err.message || "Error al registrar observación." });
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ===================================================
+  // Acción: APROBAR (estado 2)
   // ===================================================
   document.addEventListener("click", async (e) => {
     const btn = e.target.closest("#btnModalAprobar");
     if (!btn) return;
 
     if (!currentId) {
-      Swal.fire({
-        icon: "warning",
-        title: "Usuario no identificado",
-        text: "No se pudo determinar la cuenta.",
-      });
+      Swal.fire({ icon: "warning", title: "Usuario no identificado", text: "No se pudo determinar la cuenta." });
       return;
     }
 
@@ -492,158 +582,32 @@
     try {
       btn.disabled = true;
 
-      const resp = await fetch(
-        `${baseUrl}/api/soporte/usuarios/${currentId}/estado`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Partial": "1",
-          },
-          credentials: "include",
-          body: JSON.stringify({ estado: 2 }),
-        }
-      );
-
-      const json = await resp.json();
-      if (!resp.ok || json.ok !== true) {
-        throw new Error(json.mensaje || "No se pudo aprobar la cuenta.");
-      }
-
-      Swal.fire({
-        icon: "success",
-        title: "Cuenta aprobada",
-        timer: 1400,
-        showConfirmButton: false,
-      });
-
-      modalInstance?.hide();
-
-      state.page = 1;
-      load(state);
-
-    } catch (err) {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: err.message || "Error al aprobar la cuenta.",
-      });
-    } finally {
-      btn.disabled = false;
-    }
-  });
-
-  // ===================================================
-  // ✅ FIX: botón "Inactivar" (faltaba)
-  // ===================================================
-  document.addEventListener("click", async (e) => {
-    const btn = e.target.closest("#btnModalInactivar");
-    if (!btn) return;
-
-    if (!currentId) {
-      Swal.fire({
-        icon: "warning",
-        title: "Usuario no identificado",
-        text: "No se pudo determinar la cuenta.",
-      });
-      return;
-    }
-
-    const confirm = await Swal.fire({
-      icon: "warning",
-      title: "Inactivar cuenta",
-      text: "Esta acción inactivará la cuenta del usuario.",
-      showCancelButton: true,
-      confirmButtonText: "Sí, inactivar",
-      cancelButtonText: "Cancelar",
-      confirmButtonColor: "#DC2626",
-    });
-
-    if (!confirm.isConfirmed) return;
-
-    try {
-      btn.disabled = true;
-
-      const resp = await fetch(
-        `${baseUrl}/api/soporte/usuarios/${currentId}/estado`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Partial": "1",
-          },
-          credentials: "include",
-          body: JSON.stringify({ estado: 0 }),
-        }
-      );
-
-      const json = await resp.json();
-      if (!resp.ok || json.ok !== true) {
-        throw new Error(json.mensaje || "No se pudo inactivar la cuenta.");
-      }
-
-      Swal.fire({
-        icon: "success",
-        title: "Cuenta inactivada",
-        timer: 1400,
-        showConfirmButton: false,
-      });
-
-      modalInstance?.hide();
-
-      state.page = 1;
-      load(state);
-
-    } catch (err) {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: err.message || "Error al inactivar cuenta.",
-      });
-    } finally {
-      btn.disabled = false;
-    }
-  });
-
-  // =========================
-  // Carga
-  // =========================
-  async function load(s) {
-    const tbody = getTbody();
-    if (!tbody) return;
-
-    setLoading(tbody);
-
-    try {
-      const url = new URL(endpointList(s.modo), window.location.origin);
-
-      url.searchParams.set("estado", estadoToApiValue(s.estado));
-      url.searchParams.set("q", s.q || "");
-      url.searchParams.set("page", s.page);
-      url.searchParams.set("limit", s.limit);
-
-      if (s.conjunto) url.searchParams.set("conjunto", s.conjunto);
-      if (s.conjunto_id) url.searchParams.set("conjunto_id", s.conjunto_id);
-
-      url.searchParams.set("_", Date.now());
-
-      const resp = await fetch(url, {
-        headers: { "X-Partial": "1" },
+      const resp = await fetch(`${baseUrl}/api/soporte/usuarios/${currentId}/estado`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Partial": "1" },
         credentials: "include",
+        body: JSON.stringify({ estado: 2 }),
       });
 
       const json = await resp.json();
-      if (!resp.ok || json.ok !== true) throw new Error("API");
+      if (!resp.ok || json.ok !== true) throw new Error(json.mensaje || "No se pudo aprobar la cuenta.");
 
-      renderRows(tbody, json.data.items);
+      Swal.fire({ icon: "success", title: "Cuenta aprobada", timer: 1400, showConfirmButton: false });
+      modalInstance.hide();
 
       const c = getControls();
-      if (c.lblTotal) c.lblTotal.textContent = String(json.data.total ?? 0);
-
-    } catch (e) {
-      setError(tbody);
+      const q = (c.inpBuscar?.value || "").trim();
+      if (q.length >= 3) {
+        await load(makeGlobalSearchState(q));
+      } else {
+        await load(snapshotStateFromUI());
+      }
+    } catch (err) {
+      Swal.fire({ icon: "error", title: "Error", text: err.message || "Error al aprobar la cuenta." });
+    } finally {
+      btn.disabled = false;
     }
-  }
+  });
 
   // =========================
   // Init
@@ -656,72 +620,106 @@
     lastInitKey = key;
 
     const c = getControls();
-
     wireConjuntoDependienteOnce();
 
-    // Inicializa state desde UI
-    state.modo = c.selModo?.value || "usuarios";
-    state.estado = normalizarEstado(c.selEstado?.value || "revision");
-    state.q = c.inpBuscar?.value || "";
-    state.conjunto = normalizarConjuntoUI(c.selConjunto?.value || "");
-    state.conjunto_id = c.selCondominio?.value || "";
-    state.page = 1;
-    state.limit = 10;
-
-    // CHIPS
+    // =========================
+    // CHIPS (solo afectan cuando NO estás en búsqueda global)
+    // =========================
     c.chips.forEach((chip) => {
+      if (chip.dataset.evWired === "1") return;
+      chip.dataset.evWired = "1";
+
       chip.addEventListener("click", () => {
+        const q = (c.inpBuscar?.value || "").trim();
+        if (q.length >= 3) {
+          // ✅ búsqueda global manda
+          load(makeGlobalSearchState(q));
+          return;
+        }
+
         c.chips.forEach(x => x.classList.remove("ev-chip-active"));
         chip.classList.add("ev-chip-active");
 
-        const nuevoEstado = normalizarEstado(chip.dataset.estado);
-        state.estado = nuevoEstado;
-        if (c.selEstado) c.selEstado.value = nuevoEstado;
-
-        state.page = 1;
-        load(state);
+        if (c.selEstado) c.selEstado.value = normalizarEstado(chip.dataset.estado);
+        load(snapshotStateFromUI());
       });
     });
 
-    // Aplicar filtros
-    if (c.btnAplicar) {
+    // =========================
+    // ✅ BUSCAR GLOBAL (3+ caracteres) — NO depende de filtros
+    // =========================
+    if (c.inpBuscar && c.inpBuscar.dataset.evWired !== "1") {
+      c.inpBuscar.dataset.evWired = "1";
+
+      const onLiveSearch = debounce(() => {
+        const txt = String(c.inpBuscar.value || "").trim();
+
+        if (txt.length >= 3) {
+          searchActive = true;
+          load(makeGlobalSearchState(txt));
+          return;
+        }
+
+        // Si vuelve a vacío => regresa a filtros
+        if (txt.length === 0) {
+          searchActive = false;
+          load(snapshotStateFromUI());
+        }
+        // Si 1-2 => no hace nada (espera 3)
+      }, 260);
+
+      c.inpBuscar.addEventListener("input", onLiveSearch);
+    }
+
+    // =========================
+    // Aplicar filtros (manual)
+    // =========================
+    if (c.btnAplicar && c.btnAplicar.dataset.evWired !== "1") {
+      c.btnAplicar.dataset.evWired = "1";
+
       c.btnAplicar.addEventListener("click", () => {
-        state.modo = c.selModo?.value || "usuarios";
-        state.estado = normalizarEstado(c.selEstado?.value || "revision");
-        state.q = c.inpBuscar?.value || "";
-        state.conjunto = normalizarConjuntoUI(c.selConjunto?.value || "");
-        state.conjunto_id = c.selCondominio?.value || "";
-        state.page = 1;
-        load(state);
+        const q = (c.inpBuscar?.value || "").trim();
+        if (q.length >= 3) {
+          load(makeGlobalSearchState(q));
+          return;
+        }
+        load(snapshotStateFromUI());
       });
     }
 
+    // =========================
     // Limpiar
-    if (c.btnLimpiar) {
+    // =========================
+    if (c.btnLimpiar && c.btnLimpiar.dataset.evWired !== "1") {
+      c.btnLimpiar.dataset.evWired = "1";
+
       c.btnLimpiar.addEventListener("click", () => {
+        searchActive = false;
+
         if (c.inpBuscar) c.inpBuscar.value = "";
         if (c.selEstado) c.selEstado.value = "revision";
         if (c.selModo) c.selModo.value = "usuarios";
+        if (c.selConjunto) c.selConjunto.value = "todos";
 
-        if (c.selConjunto) c.selConjunto.value = "";
         if (c.selCondominio) {
           c.selCondominio.innerHTML = `<option value="">Selecciona...</option>`;
           c.selCondominio.disabled = true;
           c.selCondominio.value = "";
         }
 
-        state.modo = "usuarios";
-        state.estado = "revision";
-        state.q = "";
-        state.conjunto = "";
-        state.conjunto_id = "";
-        state.page = 1;
-
-        load(state);
+        load(snapshotStateFromUI());
       });
     }
 
-    load(state);
+    // ✅ primera carga (si ya hay texto >=3, entra directo a búsqueda global)
+    const initialQ = (c.inpBuscar?.value || "").trim();
+    if (initialQ.length >= 3) {
+      searchActive = true;
+      load(makeGlobalSearchState(initialQ));
+    } else {
+      load(snapshotStateFromUI());
+    }
+
     return true;
   }
 
