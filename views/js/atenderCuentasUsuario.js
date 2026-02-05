@@ -12,6 +12,17 @@
   // Evita doble inicialización por navegación AJAX
   let lastInitKey = "";
 
+  // Estado compartido (para refrescar luego de acciones)
+  const state = {
+    modo: "usuarios",
+    estado: "revision",
+    q: "",
+    conjunto: "",
+    conjunto_id: "",
+    page: 1,
+    limit: 10,
+  };
+
   // =========================
   // Helpers
   // =========================
@@ -206,14 +217,12 @@
     const c = getControls();
     if (!c.selConjunto || !c.selCondominio) return;
 
-    // evita duplicar listeners por navegación parcial
     if (c.selConjunto.dataset.evWired === "1") return;
     c.selConjunto.dataset.evWired = "1";
 
     c.selConjunto.addEventListener("change", () => {
       const tipo = normalizarConjuntoUI(c.selConjunto.value);
 
-      // reset
       c.selCondominio.innerHTML = `<option value="">Selecciona...</option>`;
       c.selCondominio.disabled = true;
 
@@ -221,13 +230,83 @@
       cargarListaConjuntos(tipo);
     });
 
-    // ✅ cargar al iniciar si ya viene seteado (ej. default "Condominio")
     const tipoInicial = normalizarConjuntoUI(c.selConjunto.value);
     if (tipoInicial) {
       cargarListaConjuntos(tipoInicial);
     } else {
       c.selCondominio.innerHTML = `<option value="">Selecciona...</option>`;
       c.selCondominio.disabled = true;
+    }
+  }
+
+  // =========================
+  // Modal: modo "view" vs "review"
+  // =========================
+  function setModalReadOnly(isReadOnly) {
+    const btnObs = byId("btnModalObservar");
+    const btnApr = byId("btnModalAprobar");
+    const btnIna = byId("btnModalInactivar");
+    const obsTxt = byId("mObsTexto");
+
+    // Botones de acción
+    if (btnObs) btnObs.style.display = isReadOnly ? "none" : "";
+    if (btnApr) btnApr.style.display = isReadOnly ? "none" : "";
+    if (btnIna) btnIna.style.display = isReadOnly ? "none" : "";
+
+    // Observación solo lectura
+    if (obsTxt) {
+      obsTxt.readOnly = !!isReadOnly;
+      obsTxt.disabled = !!isReadOnly;
+    }
+  }
+
+  function fillModalFromButton(btn) {
+    currentId = Number(btn.dataset.id || 0);
+
+    byId("mNombre").textContent = btn.dataset.nombre || "—";
+    byId("mEmail").textContent = btn.dataset.email || "—";
+    byId("mDoc").textContent = btn.dataset.doc || "—";
+    byId("mTel").textContent = btn.dataset.tel || "—";
+    byId("mTipoConjunto").textContent = btn.dataset.tipo_conjunto || "—";
+    byId("mDireccion").textContent = btn.dataset.direccion || "—";
+    byId("mBadgeEstado").innerHTML = badgeEstadoUsuario(btn.dataset.estado);
+
+    const obsTextarea = byId("mObsTexto");
+    if (obsTextarea) {
+      obsTextarea.value = btn.dataset.observacion || "";
+    }
+
+    const img = byId("mImgComprobante");
+    const pdf = byId("mPdfComprobante");
+    const empty = byId("mNoComprobante");
+    const link = byId("mLinkComprobante");
+
+    if (img) img.style.display = "none";
+    if (pdf) pdf.style.display = "none";
+    if (empty) empty.style.display = "none";
+    if (link) link.style.display = "none";
+
+    const path = btn.dataset.comprobante || "";
+    if (!path) {
+      if (empty) empty.style.display = "block";
+    } else {
+      const url = `${baseUrl}/${path.replace(/^\/+/, "")}`;
+      if (link) {
+        link.href = url;
+        link.style.display = "inline";
+      }
+
+      if (/\.pdf$/i.test(url)) {
+        if (pdf) {
+          pdf.src = url;
+          pdf.style.display = "block";
+        }
+      } else {
+        if (img) {
+          img.src = url;
+          img.style.display = "block";
+        }
+      }
     }
   }
 
@@ -254,6 +333,15 @@
 
       const comprobante = it.comprobante_domicilio || it.comprobante || it.comprobante_url || it.url_comprobante || "";
 
+      // ✅ Si está habilitado => botón "Ver" (solo lectura)
+      const isHabilitado = Number(estadoVisual) === 2;
+      const btnText = isHabilitado ? "Ver" : "Revisar";
+
+      // ✅ MISMO ESTILO (naranja) para ambos
+      const btnClass = "ev-btn-orange";
+
+      const btnMode = isHabilitado ? "view" : "review";
+
       return `
         <tr>
           <td><div class="fw-bold">${nombre}</div><div class="text-muted small">${doc}</div></td>
@@ -261,7 +349,8 @@
           <td>${residenciaTxt(it)}</td>
           <td class="text-center">${badgeEstadoUsuario(estadoVisual)}</td>
           <td class="text-end">
-            <button type="button" class="btn btn-sm ev-btn-orange js-ev-revisar" data-id="${id}"
+            <button type="button" class="btn btn-sm ${btnClass} js-ev-revisar" data-id="${id}"
+              data-mode="${btnMode}"
               data-nombre="${nombre}"
               data-email="${email}"
               data-doc="${doc}"
@@ -271,7 +360,7 @@
               data-estado="${estadoVisual}"
               data-comprobante="${esc(comprobante)}"
               data-observacion="${esc(it.mensaje_observacion || "")}">
-              Revisar
+              ${btnText}
             </button>
           </td>
         </tr>`;
@@ -279,7 +368,7 @@
   }
 
   // ===================================================
-  // FIX MODAL: botón "Revisar"
+  // Modal: abrir con botón Revisar/Ver
   // ===================================================
   document.addEventListener("click", (e) => {
     const btn = e.target.closest(".js-ev-revisar");
@@ -292,53 +381,18 @@
       backdrop: "static"
     });
 
-    currentId = Number(btn.dataset.id || 0);
+    // ✅ Modo del modal
+    const mode = String(btn.dataset.mode || "review").toLowerCase();
+    const isReadOnly = (mode === "view");
+    setModalReadOnly(isReadOnly);
 
-    byId("mNombre").textContent = btn.dataset.nombre || "—";
-    byId("mEmail").textContent = btn.dataset.email || "—";
-    byId("mDoc").textContent = btn.dataset.doc || "—";
-    byId("mTel").textContent = btn.dataset.tel || "—";
-    byId("mTipoConjunto").textContent = btn.dataset.tipo_conjunto || "—";
-    byId("mDireccion").textContent = btn.dataset.direccion || "—";
-    byId("mBadgeEstado").innerHTML = badgeEstadoUsuario(btn.dataset.estado);
-
-    const obsTextarea = document.getElementById("mObsTexto");
-    if (obsTextarea) {
-      obsTextarea.value = btn.dataset.observacion || "";
-    }
-
-    const img   = byId("mImgComprobante");
-    const pdf   = byId("mPdfComprobante");
-    const empty = byId("mNoComprobante");
-    const link  = byId("mLinkComprobante");
-
-    img.style.display = "none";
-    pdf.style.display = "none";
-    empty.style.display = "none";
-    link.style.display = "none";
-
-    const path = btn.dataset.comprobante || "";
-    if (!path) {
-      empty.style.display = "block";
-    } else {
-      const url = `${baseUrl}/${path.replace(/^\/+/, "")}`;
-      link.href = url;
-      link.style.display = "inline";
-
-      if (/\.pdf$/i.test(url)) {
-        pdf.src = url;
-        pdf.style.display = "block";
-      } else {
-        img.src = url;
-        img.style.display = "block";
-      }
-    }
+    fillModalFromButton(btn);
 
     modalInstance.show();
   });
 
   // ===================================================
-  // FIX: botón "Observar" (delegación correcta)
+  // FIX: botón "Observar"
   // ===================================================
   document.addEventListener("click", async (e) => {
     const btn = e.target.closest("#btnModalObservar");
@@ -391,20 +445,10 @@
         showConfirmButton: false,
       });
 
-      modalInstance.hide();
+      modalInstance?.hide();
 
-      // refrescar listado manteniendo filtros actuales (se recalcula desde UI en aplicar)
-      const c = getControls();
-      const estado = normalizarEstado(c.selEstado?.value || "revision");
-      load({
-        modo: c.selModo?.value || "usuarios",
-        estado,
-        q: c.inpBuscar?.value || "",
-        conjunto: normalizarConjuntoUI(c.selConjunto?.value || ""),
-        conjunto_id: c.selCondominio?.value || "",
-        page: 1,
-        limit: 10,
-      });
+      state.page = 1;
+      load(state);
 
     } catch (err) {
       Swal.fire({
@@ -473,20 +517,10 @@
         showConfirmButton: false,
       });
 
-      modalInstance.hide();
+      modalInstance?.hide();
 
-      // refrescar listado con filtros actuales
-      const c = getControls();
-      const estado = normalizarEstado(c.selEstado?.value || "revision");
-      load({
-        modo: c.selModo?.value || "usuarios",
-        estado,
-        q: c.inpBuscar?.value || "",
-        conjunto: normalizarConjuntoUI(c.selConjunto?.value || ""),
-        conjunto_id: c.selCondominio?.value || "",
-        page: 1,
-        limit: 10,
-      });
+      state.page = 1;
+      load(state);
 
     } catch (err) {
       Swal.fire({
@@ -499,26 +533,97 @@
     }
   });
 
+  // ===================================================
+  // ✅ FIX: botón "Inactivar" (faltaba)
+  // ===================================================
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest("#btnModalInactivar");
+    if (!btn) return;
+
+    if (!currentId) {
+      Swal.fire({
+        icon: "warning",
+        title: "Usuario no identificado",
+        text: "No se pudo determinar la cuenta.",
+      });
+      return;
+    }
+
+    const confirm = await Swal.fire({
+      icon: "warning",
+      title: "Inactivar cuenta",
+      text: "Esta acción inactivará la cuenta del usuario.",
+      showCancelButton: true,
+      confirmButtonText: "Sí, inactivar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#DC2626",
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    try {
+      btn.disabled = true;
+
+      const resp = await fetch(
+        `${baseUrl}/api/soporte/usuarios/${currentId}/estado`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Partial": "1",
+          },
+          credentials: "include",
+          body: JSON.stringify({ estado: 0 }),
+        }
+      );
+
+      const json = await resp.json();
+      if (!resp.ok || json.ok !== true) {
+        throw new Error(json.mensaje || "No se pudo inactivar la cuenta.");
+      }
+
+      Swal.fire({
+        icon: "success",
+        title: "Cuenta inactivada",
+        timer: 1400,
+        showConfirmButton: false,
+      });
+
+      modalInstance?.hide();
+
+      state.page = 1;
+      load(state);
+
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err.message || "Error al inactivar cuenta.",
+      });
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   // =========================
   // Carga
   // =========================
-  async function load(state) {
+  async function load(s) {
     const tbody = getTbody();
     if (!tbody) return;
 
     setLoading(tbody);
 
     try {
-      const url = new URL(endpointList(state.modo), window.location.origin);
+      const url = new URL(endpointList(s.modo), window.location.origin);
 
-      url.searchParams.set("estado", estadoToApiValue(state.estado));
-      url.searchParams.set("q", state.q || "");
-      url.searchParams.set("page", state.page);
-      url.searchParams.set("limit", state.limit);
+      url.searchParams.set("estado", estadoToApiValue(s.estado));
+      url.searchParams.set("q", s.q || "");
+      url.searchParams.set("page", s.page);
+      url.searchParams.set("limit", s.limit);
 
-      // ✅ NUEVOS PARAMS (solo si aplica)
-      if (state.conjunto) url.searchParams.set("conjunto", state.conjunto);
-      if (state.conjunto_id) url.searchParams.set("conjunto_id", state.conjunto_id);
+      if (s.conjunto) url.searchParams.set("conjunto", s.conjunto);
+      if (s.conjunto_id) url.searchParams.set("conjunto_id", s.conjunto_id);
 
       url.searchParams.set("_", Date.now());
 
@@ -552,22 +657,18 @@
 
     const c = getControls();
 
-    // ✅ cablear combo dependiente
     wireConjuntoDependienteOnce();
 
-    const state = {
-      modo: c.selModo?.value || "usuarios",
-      estado: normalizarEstado(c.selEstado?.value || "revision"),
-      q: c.inpBuscar?.value || "",
-      conjunto: normalizarConjuntoUI(c.selConjunto?.value || ""),
-      conjunto_id: c.selCondominio?.value || "",
-      page: 1,
-      limit: 10,
-    };
+    // Inicializa state desde UI
+    state.modo = c.selModo?.value || "usuarios";
+    state.estado = normalizarEstado(c.selEstado?.value || "revision");
+    state.q = c.inpBuscar?.value || "";
+    state.conjunto = normalizarConjuntoUI(c.selConjunto?.value || "");
+    state.conjunto_id = c.selCondominio?.value || "";
+    state.page = 1;
+    state.limit = 10;
 
-    // ===================================================
     // CHIPS
-    // ===================================================
     c.chips.forEach((chip) => {
       chip.addEventListener("click", () => {
         c.chips.forEach(x => x.classList.remove("ev-chip-active"));
@@ -582,9 +683,7 @@
       });
     });
 
-    // ===================================================
-    // BOTÓN "Aplicar filtros" (✅ ahora incluye conjunto/id y modo)
-    // ===================================================
+    // Aplicar filtros
     if (c.btnAplicar) {
       c.btnAplicar.addEventListener("click", () => {
         state.modo = c.selModo?.value || "usuarios";
@@ -597,9 +696,7 @@
       });
     }
 
-    // ===================================================
     // Limpiar
-    // ===================================================
     if (c.btnLimpiar) {
       c.btnLimpiar.addEventListener("click", () => {
         if (c.inpBuscar) c.inpBuscar.value = "";
