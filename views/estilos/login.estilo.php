@@ -10,8 +10,8 @@
 =================================================== */
 :root {
   --ev-verde-oscuro: #0F592F;
-  --ev-verde: #16A34A;
-  --ev-verde-claro: #bbf7d0;
+  --ev-verde: #0E7A43;
+  --ev-verde-claro: #16A34A;
 
   --ev-naranja: #EA7C12;
   --ev-naranja-oscuro: #C46B05;

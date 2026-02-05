@@ -45,9 +45,9 @@
 <style>
   /* 🌿 Paleta base */
   :root {
-    --verde-principal: #115C41;
-    --verde-oscuro:   #0A422D;
-    --verde-claro:    #18A869;
+    --verde-principal: #0E7A43;
+    --verde-oscuro:   #0F592F;
+    --verde-claro:    #16A34A;
     --naranja-ev:     #F16C20;
     --blanco:         #FFFFFF;
     --gris-claro:     #F4F6F9;

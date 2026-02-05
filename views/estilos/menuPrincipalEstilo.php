@@ -6,9 +6,11 @@
 
 :root{
   --ev-verde-oscuro:#0F592F;
-  --ev-verde:#198754;
-  --ev-verde-suave:#E6F4EC;
-  --ev-naranja:#F16C20;
+  --ev-verde:#0E7A43;
+  --ev-verde-suave:#16A34A;
+  
+  --ev-naranja:#EA7C12;
+  --ev-naranja-oscuro: #C46B05;
 
   --ev-gris-fondo:#F3F4F6;
   --ev-gris-borde:#E5E7EB;
