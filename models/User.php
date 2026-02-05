@@ -4,6 +4,76 @@ require_once __DIR__ . '/../database/Conexion.php';
 
 class User extends Conexion
 {
+    /**
+     * Detecta conflictos de registro por email/documento antes de intentar INSERT.
+     * Retorna:
+     * [
+     *   'has_conflict' => bool,
+     *   'error' => 'EMAIL_INACTIVO' | 'DOCUMENTO_INACTIVO' | 'EMAIL_EXISTE' | 'DOCUMENTO_EXISTE'
+     *            | 'EMAIL_Y_DOCUMENTO_INACTIVO' | 'EMAIL_Y_DOCUMENTO_EXISTE' | 'CONFLICTO'
+     * ]
+     */
+    public function verificarConflictoRegistro(string $email, string $documento): array
+    {
+        $email = strtolower(trim($email));
+        $documento = trim($documento);
+
+        $sql = "
+            SELECT codigo_usuario, email, documento, estado
+            FROM usuario
+            WHERE email = :email OR documento = :documento
+            LIMIT 5
+        ";
+
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindParam(':email', $email, PDO::PARAM_STR);
+        $stmt->bindParam(':documento', $documento, PDO::PARAM_STR);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $emailRow = null;
+        $docRow = null;
+
+        foreach ($rows as $r) {
+            if (isset($r['email']) && strtolower((string)$r['email']) === $email) {
+                $emailRow = $r;
+            }
+            if (isset($r['documento']) && (string)$r['documento'] === $documento) {
+                $docRow = $r;
+            }
+        }
+
+        if (!$emailRow && !$docRow) {
+            return ['has_conflict' => false];
+        }
+
+        // Interpretación de estado (ajusta si tu catálogo cambia)
+        $emailInactivo = $emailRow && (int)($emailRow['estado'] ?? 1) === 0;
+        $docInactivo   = $docRow && (int)($docRow['estado'] ?? 1) === 0;
+
+        // Ambos existen
+        if ($emailRow && $docRow) {
+            if ($emailInactivo && $docInactivo) {
+                return ['has_conflict' => true, 'error' => 'EMAIL_Y_DOCUMENTO_INACTIVO'];
+            }
+            return ['has_conflict' => true, 'error' => 'EMAIL_Y_DOCUMENTO_EXISTE'];
+        }
+
+        // Solo email existe
+        if ($emailRow) {
+            if ($emailInactivo) return ['has_conflict' => true, 'error' => 'EMAIL_INACTIVO'];
+            return ['has_conflict' => true, 'error' => 'EMAIL_EXISTE'];
+        }
+
+        // Solo documento existe
+        if ($docRow) {
+            if ($docInactivo) return ['has_conflict' => true, 'error' => 'DOCUMENTO_INACTIVO'];
+            return ['has_conflict' => true, 'error' => 'DOCUMENTO_EXISTE'];
+        }
+
+        return ['has_conflict' => true, 'error' => 'CONFLICTO'];
+    }
+
     public function registrar($data)
     {
         $stmt = null;

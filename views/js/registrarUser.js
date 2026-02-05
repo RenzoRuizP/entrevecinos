@@ -5,10 +5,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const MAX_BYTES = 2 * 1024 * 1024; // 2MB
   const ALLOWED_EXT = ["jpg", "jpeg", "png", "pdf"];
+  const EV_ORANGE = "#EA7C12";
 
   function getFileExt(name) {
     const parts = (name || "").split(".");
     return (parts.length > 1 ? parts.pop() : "").toLowerCase();
+  }
+
+  async function readJsonSafe(response) {
+    const text = await response.text();
+    if (!text) return null;
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return { _raw: text };
+    }
   }
 
   formCrearUsuario.addEventListener("submit", async (e) => {
@@ -31,59 +42,77 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Validaciones base
     if (clave !== confirmar) {
-      Swal.fire("Error", "Las contraseñas no coinciden", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Contraseña",
+        text: "Las contraseñas no coinciden",
+        confirmButtonColor: EV_ORANGE,
+      });
       return;
     }
 
     // Ubigeo obligatorio
     if (!dep) {
-      Swal.fire("Residencia", "Selecciona un departamento.", "warning");
+      Swal.fire({ icon: "warning", title: "Residencia", text: "Selecciona un departamento.", confirmButtonColor: EV_ORANGE });
       return;
     }
     if (!prov) {
-      Swal.fire("Residencia", "Selecciona una provincia.", "warning");
+      Swal.fire({ icon: "warning", title: "Residencia", text: "Selecciona una provincia.", confirmButtonColor: EV_ORANGE });
       return;
     }
     if (!dist) {
-      Swal.fire("Residencia", "Selecciona un distrito.", "warning");
+      Swal.fire({ icon: "warning", title: "Residencia", text: "Selecciona un distrito.", confirmButtonColor: EV_ORANGE });
       return;
     }
 
     if (!tipo) {
-      Swal.fire("Residencia", "Selecciona el tipo de conjunto residencial (Condominio o Urbanización).", "warning");
+      Swal.fire({
+        icon: "warning",
+        title: "Residencia",
+        text: "Selecciona el tipo de conjunto residencial (Condominio o Urbanización).",
+        confirmButtonColor: EV_ORANGE,
+      });
       return;
     }
 
     if (tipo === "condominio" && (!codigoCondominio || Number(codigoCondominio) <= 0)) {
-      Swal.fire("Residencia", "Selecciona un condominio.", "warning");
+      Swal.fire({ icon: "warning", title: "Residencia", text: "Selecciona un condominio.", confirmButtonColor: EV_ORANGE });
       return;
     }
 
     if (tipo === "urbanizacion" && (!codigoUrbanizacion || Number(codigoUrbanizacion) <= 0)) {
-      Swal.fire("Residencia", "Selecciona una urbanización.", "warning");
+      Swal.fire({ icon: "warning", title: "Residencia", text: "Selecciona una urbanización.", confirmButtonColor: EV_ORANGE });
       return;
     }
 
-    // Dirección viene autocompletada; valida que exista
     if (!direccion || direccion.length < 5) {
-      Swal.fire("Residencia", "No se pudo obtener la dirección. Selecciona nuevamente tu condominio/urbanización.", "warning");
+      Swal.fire({
+        icon: "warning",
+        title: "Residencia",
+        text: "No se pudo obtener la dirección. Selecciona nuevamente tu condominio/urbanización.",
+        confirmButtonColor: EV_ORANGE,
+      });
       return;
     }
 
-    // Archivo obligatorio cuando ya eligió destino
     if (!file) {
-      Swal.fire("Residencia", "Debes subir el comprobante de domicilio (recibo de servicio).", "warning");
+      Swal.fire({
+        icon: "warning",
+        title: "Residencia",
+        text: "Debes subir el comprobante de domicilio (recibo de servicio).",
+        confirmButtonColor: EV_ORANGE,
+      });
       return;
     }
 
     if (file.size > MAX_BYTES) {
-      Swal.fire("Archivo", "El comprobante supera el tamaño máximo permitido (2 MB).", "warning");
+      Swal.fire({ icon: "warning", title: "Archivo", text: "El comprobante supera el tamaño máximo permitido (2 MB).", confirmButtonColor: EV_ORANGE });
       return;
     }
 
     const ext = getFileExt(file.name);
     if (!ALLOWED_EXT.includes(ext)) {
-      Swal.fire("Archivo", "Formato no permitido. Sube JPG, PNG o PDF.", "warning");
+      Swal.fire({ icon: "warning", title: "Archivo", text: "Formato no permitido. Sube JPG, PNG o PDF.", confirmButtonColor: EV_ORANGE });
       return;
     }
 
@@ -96,7 +125,6 @@ document.addEventListener("DOMContentLoaded", () => {
     fd.append("codigo_rol", "2");
     fd.append("clave", clave);
 
-    // Ubigeo (por ahora solo para validación / futuro; backend puede ignorarlo si no lo guarda)
     fd.append("codigo_departamento", String(dep));
     fd.append("codigo_provincia", String(prov));
     fd.append("codigo_distrito", String(dist));
@@ -108,53 +136,71 @@ document.addEventListener("DOMContentLoaded", () => {
 
     fd.append("comprobante_domicilio", file);
 
-    const rawBase = window.BASE_URL || '';
-    const base = rawBase.replace(/\/+$/,'');
-    const endpoint = base + '/usuarios/registrar';
+    const rawBase = window.BASE_URL || "";
+    const base = rawBase.replace(/\/+$/, "");
+    const endpoint = base + "/usuarios/registrar";
 
     try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        body: fd
-      });
+      const response = await fetch(endpoint, { method: "POST", body: fd });
+      const result = await readJsonSafe(response);
+
+      // ✅ Manejo por códigos HTTP
+      if (response.status === 409) {
+        const title = result?.title || "No se pudo registrar";
+        const msg = result?.message || "Ya existe una cuenta con esos datos. Verifica e inténtalo nuevamente.";
+
+        Swal.fire({
+          icon: "error",
+          title,
+          text: msg,
+          confirmButtonText: "OK",
+          confirmButtonColor: EV_ORANGE,
+          allowOutsideClick: false,
+          allowEscapeKey: true,
+        });
+        return;
+      }
 
       if (!response.ok) {
-        const text = await response.text();
-        console.error("HTTP error", response.status, text);
-        Swal.fire("Error", `Error servidor: ${response.status}`, "error");
+        const msg = result?.message || `Ocurrió un error (HTTP ${response.status}). Intenta nuevamente.`;
+        Swal.fire({
+          icon: "error",
+          title: "No se pudo registrar",
+          text: msg,
+          confirmButtonColor: EV_ORANGE,
+        });
         return;
       }
 
-      const text = await response.text();
-      let result;
-      try {
-        result = JSON.parse(text);
-      } catch (err) {
-        console.error("Respuesta no JSON:", text);
-        Swal.fire("Error", "Respuesta inesperada del servidor", "error");
-        return;
-      }
-
+      // OK 200
       if (result && result.success) {
         Swal.fire({
-          title: "Éxito",
-          text: result.message || "Usuario registrado con éxito",
+          title: "¡Registro enviado!",
+          text: result.message || "Tu registro fue enviado correctamente.",
           icon: "success",
           iconColor: "#16A34A",
           confirmButtonText: "OK",
           confirmButtonColor: "#16A34A",
           background: "#FFFFFF",
           allowOutsideClick: false,
-          allowEscapeKey: false
-        }).then(() => window.location.href = base + '/');
-
+          allowEscapeKey: false,
+        }).then(() => (window.location.href = base + "/"));
       } else {
-        Swal.fire("Error", result.message || "No se pudo registrar", "error");
+        Swal.fire({
+          icon: "error",
+          title: "No se pudo registrar",
+          text: result?.message || "No se pudo registrar. Intenta nuevamente.",
+          confirmButtonColor: EV_ORANGE,
+        });
       }
-
     } catch (err) {
       console.error("Fetch error:", err);
-      Swal.fire("Error", "No se pudo conectar con el servidor", "error");
+      Swal.fire({
+        icon: "error",
+        title: "Conexión",
+        text: "No se pudo conectar con el servidor. Intenta nuevamente.",
+        confirmButtonColor: EV_ORANGE,
+      });
     }
   });
 });
