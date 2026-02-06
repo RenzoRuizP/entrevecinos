@@ -71,6 +71,26 @@ require_once __DIR__ . '/../Config/config.php';
 
       <div id="ev_wallet_movimientos" class="ev-wallet-movimientos d-none"></div>
 
+      <hr class="ev-wallet-divider my-3">
+
+      <div class="ev-wallet-recargas">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <h3 class="mb-0" style="font-size: 1.05rem; font-weight: 700;">
+            <i class="bi bi-receipt-cutoff me-2"></i> Mis recargas
+          </h3>
+          <button type="button" class="btn btn-sm btn-ev-outline" id="btnRefrescarRecargas">
+            <i class="bi bi-arrow-clockwise me-1"></i> Refrescar
+          </button>
+        </div>
+
+        <div id="ev_recargas_empty" class="text-center text-muted small py-3">
+          Aún no registras recargas.
+        </div>
+
+        <div id="ev_recargas_table" class="d-none"></div>
+      </div>
+
+
     </div>
   </div>
 

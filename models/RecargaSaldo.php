@@ -10,7 +10,6 @@ class RecargaSaldo extends Conexion
     // Registro de recarga (vecino)
     // ============================
 
-    // Tu método original (lo dejo intacto)
     public function existeOperacion(string $metodo, string $idOperacion): bool
     {
         $sql = "SELECT 1 FROM recarga_saldo WHERE metodo = :metodo AND id_operacion = :id_operacion LIMIT 1";
@@ -37,7 +36,6 @@ class RecargaSaldo extends Conexion
         return (bool)$stmt->fetchColumn();
     }
 
-    // Tu método original (lo dejo intacto)
     public function registrarRecarga(
         int $codigoUsuario,
         float $monto,
@@ -62,7 +60,6 @@ class RecargaSaldo extends Conexion
         return (int)$this->dblink->lastInsertId();
     }
 
-    // NUEVO: alias para que calce con el controlador que te pasé
     public function registrarSolicitud(
         int $codigoUsuario,
         float $monto,
@@ -199,5 +196,37 @@ class RecargaSaldo extends Conexion
         $stmt->bindParam(':codigo_soporte', $codigoSoporte, PDO::PARAM_INT);
         $stmt->bindParam(':codigo_recarga', $codigoRecarga, PDO::PARAM_INT);
         return $stmt->execute();
+    }
+
+    // =========================================================
+    // ✅ NUEVO: listar recargas del usuario (Mi billetera)
+    // GET /api/recargas/mis
+    // =========================================================
+    public function listarMisRecargas(int $codigoUsuario, int $limit = 20): array
+    {
+        $limit = max(1, min(50, $limit));
+
+        $sql = "
+            SELECT
+                r.codigo_recarga AS id,
+                DATE_FORMAT(r.fecha_creacion, '%d/%m/%Y') AS fecha,
+                DATE_FORMAT(r.fecha_creacion, '%h:%i %p') AS hora,
+                r.monto,
+                r.metodo,
+                r.id_operacion,
+                r.estado,
+                r.comentario_soporte
+            FROM recarga_saldo r
+            WHERE r.codigo_usuario = :u
+            ORDER BY r.fecha_creacion DESC, r.codigo_recarga DESC
+            LIMIT :lim
+        ";
+
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
+        $st->bindValue(':lim', $limit, PDO::PARAM_INT);
+        $st->execute();
+
+        return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 }

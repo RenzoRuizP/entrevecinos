@@ -16,6 +16,11 @@
     emptyState: null,
     movimientos: null,
 
+    recargasEmpty: null,
+    recargasTable: null,
+    btnRefrescarRecargas: null,
+
+
     // Refs para el modal de recarga
     recargaForm: null,
     recargaTipo: null,
@@ -51,6 +56,11 @@
   function capturarRefs() {
     refs.wrapper = document.querySelector('.ev-wallet-wrapper');
     if (!refs.wrapper) return false;
+
+    refs.recargasEmpty = document.getElementById('ev_recargas_empty');
+    refs.recargasTable = document.getElementById('ev_recargas_table');
+    refs.btnRefrescarRecargas = document.getElementById('btnRefrescarRecargas');
+
 
     refs.saldo = document.getElementById('ev_wallet_saldo');
     refs.emptyState = document.getElementById('ev_wallet_empty_state');
@@ -298,6 +308,115 @@
     `;
   }
 
+  function badgeEstadoRecarga(estado) {
+    const e = String(estado || '').toLowerCase();
+    const map = {
+      pendiente: 'badge rounded-pill text-bg-warning',
+      observada: 'badge rounded-pill text-bg-info',
+      aprobada: 'badge rounded-pill text-bg-success',
+      rechazada: 'badge rounded-pill text-bg-danger'
+    };
+    return map[e] || 'badge rounded-pill text-bg-secondary';
+  }
+
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (m) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    }[m]));
+  }
+
+  function renderizarRecargas(items) {
+    if (!refs.recargasEmpty || !refs.recargasTable) return;
+
+    if (!items || !items.length) {
+      refs.recargasEmpty.classList.remove('d-none');
+      refs.recargasTable.classList.add('d-none');
+      refs.recargasTable.innerHTML = '';
+      return;
+    }
+
+    refs.recargasEmpty.classList.add('d-none');
+    refs.recargasTable.classList.remove('d-none');
+
+    const rows = items.map((r) => {
+      const est = String(r.estado || '').toLowerCase();
+      const comentario = (r.comentario_soporte || '').trim();
+
+      const comentarioHtml = (est === 'observada' || est === 'rechazada')
+        ? `
+          <div class="mt-2 p-2 rounded bg-light border">
+            <div class="fw-semibold small mb-1">
+              <i class="bi bi-chat-left-text me-1"></i> Mensaje de soporte
+            </div>
+            <div class="small text-muted">${comentario ? esc(comentario) : '—'}</div>
+            <div class="small text-muted mt-1">
+              Corrige tu comprobante/ID y vuelve a registrar la recarga.
+            </div>
+          </div>
+        `
+        : '';
+
+      return `
+        <tr>
+          <td>
+            <div class="small fw-semibold">${esc(r.fecha || '—')}</div>
+            <div class="small text-muted">${esc(r.hora || '')}</div>
+          </td>
+          <td class="text-end fw-semibold">${formatearMonto(r.monto || 0)}</td>
+          <td class="text-center">${esc(String(r.metodo || '').toUpperCase())}</td>
+          <td><span class="ev-mono small">${esc(r.id_operacion || '—')}</span></td>
+          <td class="text-center"><span class="${badgeEstadoRecarga(est)}">${esc(est)}</span></td>
+        </tr>
+        ${comentarioHtml ? `<tr><td colspan="5">${comentarioHtml}</td></tr>` : ''}
+      `;
+    }).join('');
+
+    refs.recargasTable.innerHTML = `
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th class="text-end">Monto</th>
+              <th class="text-center">Método</th>
+              <th>ID operación</th>
+              <th class="text-center">Estado</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  async function cargarMisRecargas() {
+    if (!refs.recargasTable) return;
+
+    const url = `${BASE}/api/recargas/mis?limit=20`;
+
+    try {
+      const resp = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' }, credentials: 'include' });
+
+      if (resp.status === 401) {
+        renderizarRecargas([]);
+        return;
+      }
+
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || !json.ok) {
+        renderizarRecargas([]);
+        return;
+      }
+
+      renderizarRecargas(json.data || []);
+
+    } catch (e) {
+      error('Excepción al cargar mis recargas:', e);
+      renderizarRecargas([]);
+    }
+  }
+
+
   async function cargarMovimientos() {
     if (!refs.movimientos) return;
 
@@ -435,6 +554,8 @@
     log('Refrescando billetera por evento:', payload?.motivo || '(sin motivo)');
     cargarSaldo();
     cargarMovimientos();
+    cargarMisRecargas();
+
   }
 
   function escucharEventosRefresh() {
@@ -483,6 +604,13 @@
 
     cargarSaldo();
     cargarMovimientos();
+
+    cargarMisRecargas();
+
+    refs.btnRefrescarRecargas?.addEventListener('click', () => {
+      cargarMisRecargas();
+    });
+
 
     inicializarQR();
     engancharEventosRecarga();

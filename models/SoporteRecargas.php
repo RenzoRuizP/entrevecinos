@@ -10,94 +10,105 @@ final class SoporteRecargas extends Conexion
 
     public function listar(array $filtros): array
     {
-        $estado  = trim((string)($filtros['estado'] ?? ''));
-        $q       = trim((string)($filtros['q'] ?? ''));
-        $page    = (int)($filtros['page'] ?? 1);
-        $perPage = (int)($filtros['per_page'] ?? 10);
+        $estado = strtolower(trim((string)($filtros['estado'] ?? 'pendiente')));
+        $rango  = (string)($filtros['rango'] ?? '7');
+        $q      = trim((string)($filtros['q'] ?? ''));
+        $page   = (int)($filtros['page'] ?? 1);
+        $size   = (int)($filtros['size'] ?? 10);
 
         if ($page < 1) $page = 1;
-        if ($perPage < 5) $perPage = 5;
-        if ($perPage > 50) $perPage = 50;
+        if ($size < 5) $size = 5;
+        if ($size > 50) $size = 50;
 
         if ($estado !== '' && !in_array($estado, self::ESTADOS_VALIDOS, true)) {
             return ['ok' => false, 'error' => 'VALIDATION', 'mensaje' => 'Estado inválido'];
         }
 
-        $where  = [];
-        $params = [];
+        $where = " WHERE r.estado = :estado ";
+        $params = [':estado' => $estado];
 
-        if ($estado !== '') {
-            $where[] = "r.estado = :estado";
-            $params[':estado'] = $estado;
+        // Rango
+        if ($rango === 'hoy') {
+            $where .= " AND DATE(r.fecha_creacion) = CURDATE() ";
+        } else {
+            $dias = (int)$rango;
+            if ($dias > 0) {
+                $where .= " AND r.fecha_creacion >= (NOW() - INTERVAL {$dias} DAY) ";
+            }
         }
 
+        // Búsqueda
         if ($q !== '') {
-            $where[] = "(r.id_operacion LIKE :q OR u.email LIKE :q OR u.nombre LIKE :q)";
-            $params[':q'] = '%' . $q . '%';
+            $where .= " AND (
+                u.nombre LIKE :q OR
+                u.documento LIKE :q OR
+                r.id_operacion LIKE :q OR
+                u.email LIKE :q
+            ) ";
+            $params[':q'] = "%{$q}%";
         }
 
-        $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
-        $offset   = ($page - 1) * $perPage;
+        $offset = ($page - 1) * $size;
 
         // Total
         $sqlCount = "
             SELECT COUNT(*)
             FROM recarga_saldo r
             INNER JOIN usuario u ON u.codigo_usuario = r.codigo_usuario
-            {$whereSql}
+            {$where}
         ";
         $stc = $this->dblink->prepare($sqlCount);
         foreach ($params as $k => $v) $stc->bindValue($k, $v);
         $stc->execute();
         $total = (int)$stc->fetchColumn();
 
-        // Items
+        // Pendientes globales
+        $sqlPend = "SELECT COUNT(*) FROM recarga_saldo WHERE estado='pendiente'";
+        $pendientes = (int)$this->dblink->query($sqlPend)->fetchColumn();
+
+        // Items (con formato que tu JS YA USA)
         $sql = "
             SELECT
-                r.codigo_recarga,
-                r.codigo_usuario,
+                r.codigo_recarga AS id,
+                DATE_FORMAT(r.fecha_creacion, '%d/%m/%Y') AS fecha,
+                DATE_FORMAT(r.fecha_creacion, '%h:%i %p') AS hora,
+
                 u.nombre AS usuario_nombre,
-                u.email  AS usuario_email,
+                u.documento AS dni,
+
                 r.monto,
                 r.metodo,
                 r.id_operacion,
-                r.comprobante_path,
                 r.estado,
+                r.comprobante_path,
                 r.comentario_soporte,
+
+                r.codigo_usuario,
                 r.codigo_soporte,
                 r.fecha_revision,
                 r.fecha_creacion
+
             FROM recarga_saldo r
             INNER JOIN usuario u ON u.codigo_usuario = r.codigo_usuario
-            {$whereSql}
-            ORDER BY
-                CASE r.estado
-                    WHEN 'pendiente' THEN 1
-                    WHEN 'observada' THEN 2
-                    WHEN 'rechazada' THEN 3
-                    WHEN 'aprobada'  THEN 4
-                    ELSE 5
-                END,
-                r.fecha_creacion DESC
-            LIMIT :limit OFFSET :offset
+            {$where}
+            ORDER BY r.fecha_creacion DESC, r.codigo_recarga DESC
+            LIMIT :lim OFFSET :off
         ";
         $st = $this->dblink->prepare($sql);
         foreach ($params as $k => $v) $st->bindValue($k, $v);
-        $st->bindValue(':limit', $perPage, PDO::PARAM_INT);
-        $st->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $st->bindValue(':lim', $size, PDO::PARAM_INT);
+        $st->bindValue(':off', $offset, PDO::PARAM_INT);
         $st->execute();
-        $items = $st->fetchAll(PDO::FETCH_ASSOC);
+        $items = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         return [
             'ok' => true,
             'data' => [
                 'items' => $items,
-                'pagination' => [
-                    'page' => $page,
-                    'per_page' => $perPage,
-                    'total' => $total,
-                    'total_pages' => (int)ceil($total / $perPage),
-                ]
+                'total' => $total,
+                'page' => $page,
+                'size' => $size,
+                'pendientes' => $pendientes,
             ]
         ];
     }
@@ -107,12 +118,21 @@ final class SoporteRecargas extends Conexion
         if ($codigoRecarga <= 0) {
             return ['ok' => false, 'error' => 'VALIDATION', 'mensaje' => 'Código de recarga inválido'];
         }
-        $nuevoEstado = trim($nuevoEstado);
+
+        $nuevoEstado = trim(strtolower($nuevoEstado));
         if (!in_array($nuevoEstado, self::ESTADOS_VALIDOS, true)) {
             return ['ok' => false, 'error' => 'VALIDATION', 'mensaje' => 'Estado inválido'];
         }
+
         if ($codigoSoporte <= 0) {
             return ['ok' => false, 'error' => 'UNAUTHORIZED', 'mensaje' => 'Sesión inválida'];
+        }
+
+        // comentario obligatorio para observada/rechazada
+        if (($nuevoEstado === 'observada' || $nuevoEstado === 'rechazada')) {
+            if ($comentario === null || mb_strlen(trim($comentario)) < 3) {
+                return ['ok' => false, 'error' => 'VALIDATION', 'mensaje' => 'Debes ingresar un comentario (mín. 3 caracteres).'];
+            }
         }
 
         try {
@@ -213,13 +233,14 @@ final class SoporteRecargas extends Conexion
 
             $this->dblink->commit();
 
-            // 5) Respuesta final
+            // 5) Respuesta
             $out = $this->dblink->prepare("
                 SELECT
-                    r.codigo_recarga,
+                    r.codigo_recarga AS id,
                     r.codigo_usuario,
                     u.nombre AS usuario_nombre,
                     u.email  AS usuario_email,
+                    u.documento AS dni,
                     r.monto,
                     r.metodo,
                     r.id_operacion,

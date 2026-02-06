@@ -1,7 +1,11 @@
 <?php
-// views/AtenderRecargasView.php (PARCIAL FINAL)
+// views/AtenderRecargasView.php
 require_once __DIR__ . '/../Config/config.php';
 ?>
+
+<script>
+  window.BASE_URL = "<?= rtrim(BASE_URL, '/'); ?>";
+</script>
 
 <?php include_once __DIR__ . '/estilos/atenderRecargasEstilo.php'; ?>
 
@@ -124,7 +128,6 @@ require_once __DIR__ . '/../Config/config.php';
       <div class="ev-table-meta" id="lblMeta">Mostrando 0 registros</div>
     </div>
 
-    <!-- IMPORTANTE: envolvemos tabla para que no se “corte” y tenga padding -->
     <div class="ev-table-wrap">
       <div class="table-responsive">
         <table class="table ev-table mb-0">
@@ -184,8 +187,6 @@ require_once __DIR__ . '/../Config/config.php';
             <div class="ev-kv">
               <div class="ev-kv-item"><span>Usuario:</span> <strong id="mUsuario">—</strong></div>
               <div class="ev-kv-item"><span>DNI:</span> <strong id="mDni">—</strong></div>
-              <div class="ev-kv-item"><span>Residencia:</span> <strong id="mResidencia">—</strong></div>
-              <div class="ev-kv-item"><span>Condominio:</span> <strong id="mCondominio">—</strong></div>
               <div class="ev-kv-item"><span>Monto:</span> <strong id="mMonto">—</strong></div>
               <div class="ev-kv-item"><span>Método:</span> <strong id="mMetodo">—</strong></div>
               <div class="ev-kv-item"><span>ID operación:</span> <strong id="mOperacion">—</strong></div>

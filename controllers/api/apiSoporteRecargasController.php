@@ -20,23 +20,37 @@ final class apiSoporteRecargasController
         return (int)($auth['codigo_usuario'] ?? 0);
     }
 
-    private function jsonInput(): array
-    {
-        $raw = file_get_contents('php://input');
-        if (!$raw) return [];
-        $data = json_decode($raw, true);
-        return is_array($data) ? $data : [];
-    }
-
     private function ok(array $payload): void
     {
-        echo json_encode(['ok' => true] + $payload);
+        echo json_encode(['ok' => true] + $payload, JSON_UNESCAPED_UNICODE);
     }
 
     private function fail(int $code, string $error, string $mensaje, array $extra = []): void
     {
         http_response_code($code);
-        echo json_encode(['ok' => false, 'error' => $error, 'mensaje' => $mensaje] + $extra);
+        echo json_encode(['ok' => false, 'error' => $error, 'mensaje' => $mensaje] + $extra, JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Lee data del request tanto si viene:
+     * - application/json  (fetch con JSON)
+     * - multipart/form-data (FormData)
+     * - application/x-www-form-urlencoded
+     */
+    private function requestData(): array
+    {
+        $ct = strtolower($_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? '');
+
+        if (str_contains($ct, 'application/json')) {
+            $raw = file_get_contents('php://input') ?: '';
+            $data = json_decode($raw, true);
+            return is_array($data) ? $data : [];
+        }
+
+        // FormData / urlencoded
+        if (!empty($_POST)) return $_POST;
+
+        return [];
     }
 
     // GET /api/soporte/recargas
@@ -48,12 +62,26 @@ final class apiSoporteRecargasController
                 return;
             }
 
+            $estado = (string)($_GET['estado'] ?? '');
+            $rango  = (string)($_GET['rango'] ?? '7');
+            $q      = (string)($_GET['q'] ?? '');
+
+            // JS manda page/size
+            $page = (int)($_GET['page'] ?? 1);
+            $size = (int)($_GET['size'] ?? 10);
+
+            // Compatibilidad si alguien manda per_page
+            if (isset($_GET['per_page']) && !isset($_GET['size'])) {
+                $size = (int)$_GET['per_page'];
+            }
+
             $model = new SoporteRecargas();
             $resp  = $model->listar([
-                'estado'   => $_GET['estado'] ?? '',
-                'q'        => $_GET['q'] ?? '',
-                'page'     => $_GET['page'] ?? 1,
-                'per_page' => $_GET['per_page'] ?? 10,
+                'estado' => $estado,
+                'rango'  => $rango,
+                'q'      => $q,
+                'page'   => $page,
+                'size'   => $size,
             ]);
 
             if (!($resp['ok'] ?? false)) {
@@ -75,7 +103,8 @@ final class apiSoporteRecargasController
     }
 
     // POST /api/soporte/recargas/{id}/estado
-    public function actualizarEstado(int $codigo_recarga): void
+    // OJO: SIN type-hint estricto en parámetro para evitar TypeError (router manda string)
+    public function actualizarEstado($codigo_recarga): void
     {
         try {
             if (!$this->isSoporteOrAdmin()) {
@@ -83,14 +112,21 @@ final class apiSoporteRecargasController
                 return;
             }
 
-            $in = $this->jsonInput();
-            $estado = (string)($in['estado'] ?? '');
-            $comentario = isset($in['comentario']) ? (string)$in['comentario'] : null;
+            $codigoRecarga = (int)$codigo_recarga;
+            if ($codigoRecarga <= 0) {
+                $this->fail(422, 'VALIDATION', 'Código de recarga inválido');
+                return;
+            }
+
+            $in = $this->requestData();
+
+            $estado = strtolower(trim((string)($in['estado'] ?? '')));
+            $comentario = isset($in['comentario']) ? trim((string)$in['comentario']) : null;
 
             $soporteId = $this->authUserId();
 
             $model = new SoporteRecargas();
-            $resp  = $model->actualizarEstado((int)$codigo_recarga, $estado, $comentario, $soporteId);
+            $resp  = $model->actualizarEstado($codigoRecarga, $estado, $comentario, $soporteId);
 
             if (!($resp['ok'] ?? false)) {
                 $error = (string)($resp['error'] ?? 'ERROR');
@@ -106,7 +142,7 @@ final class apiSoporteRecargasController
                 return;
             }
 
-            $this->ok(['data' => $resp['data']]);
+            $this->ok(['data' => $resp['data'], 'mensaje' => 'Estado actualizado.']);
         } catch (\Throwable $e) {
             error_log('[EV][apiSoporteRecargasController::actualizarEstado] ' . $e->getMessage());
             $this->fail(500, 'SERVER_ERROR', 'Error interno al actualizar estado');

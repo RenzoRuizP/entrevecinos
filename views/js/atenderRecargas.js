@@ -5,53 +5,26 @@
   const BASE = (window.BASE_URL || '').replace(/\/$/, '');
   const LOG_PREFIX = '[ATENDER_RECARGAS]';
 
-  // Icons (ajusta nombres si tus archivos se llaman distinto)
   const METODO_ICON = {
     yape: `${BASE}/resources/images/yape_logo.png`,
     plin: `${BASE}/resources/images/plin_logo.png`,
   };
 
-  // BroadcastChannel (cross-tab)
   const BC_NAME = 'EV_CHANNEL';
   let bc = null;
   try { bc = ('BroadcastChannel' in window) ? new BroadcastChannel(BC_NAME) : null; } catch (_) { bc = null; }
 
   const refs = {
-    form: null,
-    fEstado: null,
-    fRango: null,
-    fTexto: null,
-    tbody: null,
-    lblMeta: null,
-    lblPendientes: null,
-    lblFooterLeft: null,
-    btnPrev: null,
-    btnNext: null,
-    lblPagina: null,
-    btnRefrescar: null,
-    btnExportar: null,
-    btnVerPendientes: null,
-    btnVerObservadas: null,
-    btnVerAprobadas: null,
-    btnVerRechazadas: null,
+    form: null, fEstado: null, fRango: null, fTexto: null,
+    tbody: null, lblMeta: null, lblPendientes: null,
+    lblFooterLeft: null, btnPrev: null, btnNext: null, lblPagina: null,
+    btnRefrescar: null, btnExportar: null,
+    btnVerPendientes: null, btnVerObservadas: null, btnVerAprobadas: null, btnVerRechazadas: null,
 
-    // Modal
-    modalEl: null,
-    modal: null,
-    mUsuario: null,
-    mDni: null,
-    mResidencia: null,
-    mCondominio: null,
-    mMonto: null,
-    mMetodo: null,
-    mOperacion: null,
-    mEstadoBadge: null,
-    mComentario: null,
-    mImagen: null,
-    mNoImagen: null,
-    btnAprobar: null,
-    btnObservar: null,
-    btnRechazar: null,
+    modalEl: null, modal: null,
+    mUsuario: null, mDni: null, mMonto: null, mMetodo: null, mOperacion: null, mEstadoBadge: null,
+    mComentario: null, mImagen: null, mNoImagen: null,
+    btnAprobar: null, btnObservar: null, btnRechazar: null,
   };
 
   let state = {
@@ -101,8 +74,6 @@
     refs.modalEl = document.getElementById('modalRecarga');
     refs.mUsuario = document.getElementById('mUsuario');
     refs.mDni = document.getElementById('mDni');
-    refs.mResidencia = document.getElementById('mResidencia');
-    refs.mCondominio = document.getElementById('mCondominio');
     refs.mMonto = document.getElementById('mMonto');
     refs.mMetodo = document.getElementById('mMetodo');
     refs.mOperacion = document.getElementById('mOperacion');
@@ -145,7 +116,7 @@
 
   function endpointListar() {
     const estado = refs.fEstado?.value || 'pendiente';
-    const rango = refs.fRango?.value || '7';
+    const rango  = refs.fRango?.value || '7';
     const q = (refs.fTexto?.value || '').trim();
 
     const params = new URLSearchParams();
@@ -189,16 +160,15 @@
     const src = isYape ? METODO_ICON.yape : (isPlin ? METODO_ICON.plin : '');
     const cls = isYape ? 'ev-metodo ev-metodo-yape' : (isPlin ? 'ev-metodo ev-metodo-plin' : 'ev-metodo');
 
-    // Si no hay src, fallback a texto
     if (!src) {
       return `<span class="ev-metodo ev-metodo-fallback">${escapeHtml(String(metodoRaw || '—').toUpperCase())}</span>`;
     }
 
-    // onerror -> fallback (sin romper)
     const alt = escapeHtml(String(metodoRaw || '').toUpperCase());
     return `
       <span class="${cls}" title="${alt}">
         <img src="${src}" alt="${alt}" onerror="this.onerror=null;this.parentElement.outerHTML='<span class=&quot;ev-metodo ev-metodo-fallback&quot;>${alt}</span>';">
+
       </span>
     `;
   }
@@ -276,17 +246,9 @@
         return;
       }
 
-      if (!resp.ok) {
-        error('HTTP', resp.status, json);
-        swalErr(json.mensaje || 'Error al consultar recargas (backend). Revisa logs.');
-        renderEmpty();
-        refs.lblMeta.textContent = 'Mostrando 0 registros';
-        return;
-      }
-
-      if (!json.ok) {
-        error('Respuesta ok=false', json);
-        swalErr(json.mensaje || 'No se pudo cargar la lista de recargas.');
+      if (!resp.ok || !json.ok) {
+        error('Error listar:', resp.status, json);
+        swalErr(json.mensaje || 'Error al consultar recargas.');
         renderEmpty();
         refs.lblMeta.textContent = 'Mostrando 0 registros';
         return;
@@ -301,7 +263,6 @@
 
       renderTabla(state.items);
       renderMeta();
-
     } catch (e) {
       error(e);
       renderEmpty();
@@ -317,11 +278,6 @@
 
     refs.mUsuario.textContent = rec.usuario_nombre || '—';
     refs.mDni.textContent = rec.dni || '—';
-
-    const residencia = `${rec.torre || '—'} · Dpto ${rec.departamento || '—'}`;
-    refs.mResidencia.textContent = residencia;
-    refs.mCondominio.textContent = rec.condominio || '—';
-
     refs.mMonto.textContent = formatearMonto(rec.monto);
     refs.mMetodo.textContent = (rec.metodo || '—').toUpperCase();
     refs.mOperacion.textContent = rec.id_operacion || '—';
@@ -330,7 +286,7 @@
     refs.mEstadoBadge.className = badgeEstado(est);
     refs.mEstadoBadge.textContent = est;
 
-    refs.mComentario.value = '';
+    refs.mComentario.value = (rec.comentario_soporte || '');
 
     const path = rec.comprobante_path ? `${BASE}/${String(rec.comprobante_path).replace(/^\/+/, '')}` : '';
     if (path) {
@@ -348,25 +304,16 @@
 
   function emitirEventoRefreshBilletera(detalle) {
     const payload = Object.assign({ at: Date.now() }, detalle || {});
-
-    // 1) CustomEvent (misma pestaña)
     try {
       window.dispatchEvent(new CustomEvent('EV_BILLETERA_REFRESH', { detail: payload }));
       document.dispatchEvent(new CustomEvent('EV_BILLETERA_REFRESH', { detail: payload }));
     } catch (_) {}
 
-    // 2) BroadcastChannel (otra pestaña/ventana)
-    try {
-      if (bc) bc.postMessage({ type: 'EV_BILLETERA_REFRESH', detail: payload });
-    } catch (_) {}
+    try { if (bc) bc.postMessage({ type: 'EV_BILLETERA_REFRESH', detail: payload }); } catch (_) {}
 
-    // 3) Fallback localStorage event (otra pestaña/ventana)
     try {
       localStorage.setItem('EV_BILLETERA_REFRESH', JSON.stringify(payload));
-      // limpieza rápida para que dispare eventos sucesivos
-      setTimeout(() => {
-        try { localStorage.removeItem('EV_BILLETERA_REFRESH'); } catch (_) {}
-      }, 150);
+      setTimeout(() => { try { localStorage.removeItem('EV_BILLETERA_REFRESH'); } catch (_) {} }, 150);
     } catch (_) {}
   }
 
@@ -382,6 +329,8 @@
     }
 
     const url = `${BASE}/api/soporte/recargas/${id}/estado`;
+
+    // Enviamos FormData (backend ya lo soporta)
     const fd = new FormData();
     fd.set('estado', nuevoEstado);
     fd.set('comentario', comentario);
@@ -403,13 +352,11 @@
       swalOk(json.mensaje || 'Estado actualizado.');
       refs.modal?.hide();
 
-      // Emitir refresh de billetera SOLO si fue aprobada
       if (String(nuevoEstado).toLowerCase() === 'aprobada') {
         emitirEventoRefreshBilletera({ motivo: 'RECARGA_APROBADA', recarga_id: id });
       }
 
       loadList();
-
     } catch (e) {
       error(e);
       swalErr('No se pudo conectar para actualizar estado.');
@@ -456,7 +403,6 @@
   function init() {
     if (!document.querySelector('.ev-recargas-page')) return;
     if (!capturarRefs()) return;
-
     bindEvents();
     loadList();
   }
@@ -465,12 +411,9 @@
 
   const obs = new MutationObserver(() => {
     const form = document.getElementById('formFiltros');
-    if (form && form.dataset.evHooked !== '1') {
-      init();
-    }
+    if (form && form.dataset.evHooked !== '1') init();
   });
   obs.observe(document.body, { childList: true, subtree: true });
 
   window.EVRecargas = { init };
-
 })();
