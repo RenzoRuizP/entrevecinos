@@ -4,6 +4,11 @@
   'use strict';
 
   const EV_API_BASE = (window.BASE_URL || '').replace(/\/$/, '');
+  if (!EV_API_BASE) return;
+
+  // Cache + filtro para “Buscar”
+  window.evProductosCache  = window.evProductosCache  || [];
+  window.evProductosFiltro = window.evProductosFiltro || { q: '' };
 
   function evNotify(icon, title, text) {
     if (window.Swal?.fire) {
@@ -57,9 +62,7 @@
   document.addEventListener('shown.bs.modal', setEvVh);
 
   /* =========================================================
-     FIX RAÍZ: Modales SIEMPRE en <body>
-     - Evita que "transform" de contenedores (fade-in / wrappers)
-       rompa el centrado de Bootstrap modal.
+     FIX: Modales SIEMPRE en <body>
   ========================================================= */
   function evMountModalToBody(modalId) {
     const el = document.getElementById(modalId);
@@ -732,7 +735,7 @@
 
       const modalEl = document.getElementById("modalEditarPublicacion");
       if (modalEl) {
-        evMountAllModalsToBody(); // ✅ aseguramos que esté en body antes de mostrar
+        evMountAllModalsToBody();
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
         requestAnimationFrame(() => {
           modal.show();
@@ -782,6 +785,8 @@
       }
 
       evNotify('success', 'Producto anulado', data.mensaje || 'El producto ha sido anulado correctamente.');
+
+      // refrescar y repintar sin que se vea “feo”
       window.evCargarProductos?.();
 
     } catch (err) {
@@ -792,7 +797,6 @@
 
   /* ==============================
      Acciones: publicar (0 -> 1)
-     Opción A: botón sigue "Publicar", pero UX dice "Enviar a revisión"
   ============================== */
   async function confirmarYPublicar(id) {
     if (!id) return;
@@ -858,7 +862,6 @@
 
     if (!comboTipo) { evNotify('warning','Validación','Debes seleccionar un tipo.'); return; }
     if (!categoria) { evNotify('warning','Validación','Debes seleccionar una categoría.'); return; }
-
     if (!descripcion) { evNotify('warning','Validación','Debes ingresar una descripción.'); return; }
 
     const estadoImgs = typeof window.evGetEstadoImagenesAgregar === 'function'
@@ -1003,6 +1006,8 @@
 
   /* ==============================
      Listado tabla ✅ 8 columnas
+     + ✅ FIX: estado "ANULADO" ya no muestra botones redundantes
+     + ✅ FIX: filtro de búsqueda funcional (client-side)
   ============================== */
   function escAttr(v) {
     return String(v ?? '').replace(/"/g, '&quot;');
@@ -1010,10 +1015,10 @@
 
   function uiEstadoVisible(visibleNum) {
     // 0 borrador, 1 pendiente, 2 aprobado, 3 anulado
-    if (visibleNum === 0) return { text: 'Borrador', cls: 'ev-chip ev-chip-gray', disabled: true };
-    if (visibleNum === 1) return { text: 'Pendiente', cls: 'ev-chip ev-chip-amber', disabled: true };
-    if (visibleNum === 2) return { text: 'Aprobado',  cls: 'ev-chip ev-chip-green', disabled: true };
-    return { text: 'Anulado', cls: 'ev-chip ev-chip-red', disabled: true };
+    if (visibleNum === 0) return { text: 'Borrador', cls: 'ev-chip ev-chip-gray' };
+    if (visibleNum === 1) return { text: 'Pendiente', cls: 'ev-chip ev-chip-amber' };
+    if (visibleNum === 2) return { text: 'Aprobado',  cls: 'ev-chip ev-chip-green' };
+    return { text: 'Anulado', cls: 'ev-chip ev-chip-red' };
   }
 
   function uiAccionPublicar(visibleNum) {
@@ -1021,6 +1026,19 @@
       return { show: true, text: 'Publicar', cls: 'ev-chip ev-chip-orange', disabled: false };
     }
     return { show: false };
+  }
+
+  function filtrarItems(items) {
+    const q = String(window.evProductosFiltro?.q || '').trim().toLowerCase();
+    if (!q) return items;
+
+    return items.filter(p => {
+      const t  = String(p.titulo || '').toLowerCase();
+      const d  = String(p.descripcion || '').toLowerCase();
+      const c  = String(p.categoria_nombre || p.categoria || '').toLowerCase();
+      const tp = String(p.tipo_nombre || p.tipo || '').toLowerCase();
+      return (t.includes(q) || d.includes(q) || c.includes(q) || tp.includes(q));
+    });
   }
 
   async function cargarProductos() {
@@ -1046,12 +1064,21 @@
       }
 
       const items = Array.isArray(data.data) ? data.data : [];
+      window.evProductosCache = items.slice();
+
+      const filtrados = filtrarItems(items);
+
       if (!items.length) {
         tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Aún no tienes productos registrados.</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = items.map((p) => {
+      if (!filtrados.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">No hay resultados para tu búsqueda.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtrados.map((p) => {
         const id = Number(p.codigo_producto ?? 0);
         const cod = String(id || '').padStart(6, '0');
 
@@ -1085,8 +1112,11 @@
         const disableEditar = (visible === 1 || visible === 2 || visible === 3) ? 'disabled' : '';
         const disableAnular = (visible === 2 || visible === 3) ? 'disabled' : '';
 
+        const isAnulado = (visible === 3);
+        const trStyle = isAnulado ? 'style="opacity:.62;filter:saturate(.85);"' : '';
+
         return `
-          <tr>
+          <tr ${trStyle}>
             <td><span class="ev-code">${cod}</span></td>
             <td class="td-trunc" title="${titulo}">${titulo || '-'}</td>
             <td>S/ ${precio}</td>
@@ -1096,13 +1126,18 @@
             <td class="td-trunc" title="${escAttr(descFull)}">${descSafe}</td>
             <td class="text-center">
               <div class="ev-actions">
-                <button type="button" class="ev-chip ev-chip-green" data-action="editar" data-id="${id}" ${disableEditar}>Editar</button>
-                <button type="button" class="ev-chip ev-chip-red" data-action="anular" data-id="${id}" ${disableAnular}>Anular</button>
-
                 ${
-                  pubUI.show
-                    ? `<button type="button" class="${pubUI.cls}" data-action="publicar" data-id="${id}">${pubUI.text}</button>`
-                    : `<button type="button" class="${visUI.cls}" disabled>${visUI.text}</button>`
+                  isAnulado
+                    ? `<button type="button" class="${visUI.cls}" disabled>${visUI.text}</button>`
+                    : `
+                      <button type="button" class="ev-chip ev-chip-green" data-action="editar" data-id="${id}" ${disableEditar}>Editar</button>
+                      <button type="button" class="ev-chip ev-chip-red" data-action="anular" data-id="${id}" ${disableAnular}>Anular</button>
+                      ${
+                        pubUI.show
+                          ? `<button type="button" class="${pubUI.cls}" data-action="publicar" data-id="${id}">${pubUI.text}</button>`
+                          : `<button type="button" class="${visUI.cls}" disabled>${visUI.text}</button>`
+                      }
+                    `
                 }
               </div>
             </td>
@@ -1131,14 +1166,14 @@
 
     document.addEventListener('click', (e) => {
       if (e.target.closest('#btnBuscarPublicacion')) {
-        evMountAllModalsToBody(); // ✅
+        evMountAllModalsToBody();
         const el = document.getElementById('modalBuscarPublicacion');
         if (el) bootstrap.Modal.getOrCreateInstance(el).show();
         return;
       }
 
       if (e.target.closest('#btnAgregarPublicacion')) {
-        evMountAllModalsToBody(); // ✅
+        evMountAllModalsToBody();
         const modalEl = document.getElementById('modalAgregarPublicacion');
         if (!modalEl) return;
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
@@ -1175,16 +1210,28 @@
       }
     });
 
-    document.getElementById('formBuscarPublicacion')?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      console.log('[BUSCAR]', Object.fromEntries(new FormData(e.target)));
-    });
+    // ✅ FIX: Buscar REAL (aplica filtro y repinta tabla)
+    const formBuscar = document.getElementById('formBuscarPublicacion');
+    if (formBuscar) {
+      formBuscar.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        window.evProductosFiltro.q = String(fd.get('q') || '').trim();
+
+        const modalEl = document.getElementById('modalBuscarPublicacion');
+        if (modalEl) {
+          const m = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+          m.hide();
+        }
+
+        // Recargar para traer items y repintar filtrados
+        window.evCargarProductos?.();
+      });
+    }
   }
 
   function initIfNeeded() {
     bindOnceGlobalEvents();
-
-    // ✅ clave: cada vez que la vista está presente, montamos modales al body
     evMountAllModalsToBody();
 
     const tabla = document.getElementById('tablaPublicaciones');

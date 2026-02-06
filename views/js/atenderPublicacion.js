@@ -2,405 +2,439 @@
 (function () {
   "use strict";
 
-  // ✅ Blindaje: si NO estamos en la vista At. Publicación, no inicializar
-  // (usa un ancla real de tu vista; aquí lo más crítico es tbodyItems)
-  const $ = (s) => document.querySelector(s);
-  const tbody = $("#tbodyItems");
-  if (!tbody) return;
+  const baseUrl = (window.BASE_URL || "").replace(/\/+$/, "");
+  if (!baseUrl) return;
 
-  // ===== BASE robusto (compatibilidad con tu app) =====
-  const rawBase =
-    (window.BASE_URL || window.EV_BASE_URL || "/entrevecinos").toString().trim();
+  // =========================================================
+  // Boot global (se carga 1 vez en el SHELL)
+  // - Re-inicializa el módulo cuando el parcial aparece en DOM
+  // =========================================================
+  const BOOT_KEY = "EV_BOOT_ATENDER_PUBLICACION";
+  if (window[BOOT_KEY]) return;
+  window[BOOT_KEY] = true;
 
-  const BASE = rawBase.replace(/\/+$/, ""); // sin slash final
-
-  // Endpoints
-  const API_LIST = `${BASE}/api/soporte/productos`;
-  const API_DET = (id) => `${BASE}/api/soporte/productos/${id}`;
-  const API_ESTADO = (id) => `${BASE}/api/soporte/productos/${id}/estado`;
-
-  // Otros refs (opcionales)
-  const lblMeta = $("#lblMeta");
-  const lblPend = $("#lblPendientes");
-  const lblFooterLeft = $("#lblFooterLeft");
-  const lblPagina = $("#lblPagina");
-  const btnPrev = $("#btnPrev");
-  const btnNext = $("#btnNext");
-
-  const form = $("#formFiltros");
-  const fEstado = $("#fEstado");
-  const fTexto = $("#fTexto");
-
-  const modalEl = $("#modalPub");
-  const modal = (modalEl && window.bootstrap) ? new bootstrap.Modal(modalEl) : null;
-
-  const mTitulo = $("#mTitulo");
-  const mPrecio = $("#mPrecio");
-  const mEstadoBadge = $("#mEstadoBadge");
-  const mUsuario = $("#mUsuario");
-  const mEmail = $("#mEmail");
-  const mDescripcion = $("#mDescripcion");
-  const mComentario = $("#mComentario");
-  const mGaleria = $("#mGaleria");
-  const mNoImgs = $("#mNoImgs");
-
-  const btnAprobar = $("#btnAprobar");
-  const btnRechazar = $("#btnRechazar");
-
-  let state = {
-    page: 1,
-    size: 10,
-    total: 0,
-    currentId: null,
-  };
-
-  const badgeClass = (visible) => {
-    // 0 borrador, 1 pendiente, 2 aprobada, 3 rechazada
-    if (visible === 2) return ["aprobada", "ev-badge-aprobada"];
-    if (visible === 3) return ["rechazada", "ev-badge-rechazada"];
-    if (visible === 0) return ["borrador", "ev-badge-borrador"];
-    return ["pendiente", "ev-badge-pendiente"];
-  };
-
-  const money = (n) => {
-    const v = Number(n || 0);
-    return v.toLocaleString("es-PE", { style: "currency", currency: "PEN" });
-  };
-
-  const fmtFecha = (iso) => {
-    if (!iso) return "—";
-    const d = new Date(String(iso).replace(" ", "T"));
-    if (isNaN(d.getTime())) return iso;
-    return d.toLocaleString("es-PE");
-  };
-
-  function escapeHtml(str) {
-    return String(str ?? "").replace(/[&<>"']/g, (m) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;",
-    }[m]));
+  // =========================================================
+  // Utils
+  // =========================================================
+  function $(sel, root) {
+    return (root || document).querySelector(sel);
   }
 
-  function renderEmpty() {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="6" class="text-center py-4 ev-empty">
-          <div class="ev-empty-wrap">
-            <i class="bi bi-inbox ev-empty-ico"></i>
-            <div class="ev-empty-text">No hay publicaciones para los filtros seleccionados.</div>
-          </div>
-        </td>
-      </tr>
-    `;
+  function qs(v) {
+    return encodeURIComponent(String(v ?? ""));
   }
 
-  // ===== API helpers (exigir JSON) =====
-  async function apiGet(url) {
-    const r = await fetch(url, {
-      method: "GET",
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-        "X-Partial": "1",
-        "Accept": "application/json",
-      },
-      credentials: "include",
-    });
-
-    const ct = (r.headers.get("content-type") || "").toLowerCase();
-
-    if (!ct.includes("application/json")) {
-      const txt = await r.text().catch(() => "");
-      const snippet = txt ? txt.slice(0, 180) : "";
-      throw new Error(
-        `La API no devolvió JSON (Content-Type: ${ct || "N/A"}). ` +
-        `Probable BASE_URL mal armado o respuesta HTML. ` +
-        (snippet ? `Snippet: ${snippet}` : "")
-      );
-    }
-
-    const data = await r.json().catch(() => null);
-
-    if (!r.ok) {
-      const msg =
-        (data && (data.mensaje || data.message || data.error))
-          ? (data.mensaje || data.message || data.error)
-          : `HTTP ${r.status}`;
-      throw new Error(msg);
-    }
-
-    if (data && data.ok === false) {
-      const msg = data.mensaje || data.message || data.error || "Error de API";
-      throw new Error(msg);
-    }
-
-    return data;
+  function safeStr(v, def = "-") {
+    const s = String(v ?? "").trim();
+    return s ? s : def;
   }
 
-  async function apiPost(url, bodyObj) {
-    const fd = new FormData();
-    Object.entries(bodyObj || {}).forEach(([k, v]) => fd.append(k, v));
-
-    const r = await fetch(url, {
-      method: "POST",
-      body: fd,
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-        "X-Partial": "1",
-        "Accept": "application/json",
-      },
-      credentials: "include",
-    });
-
-    const ct = (r.headers.get("content-type") || "").toLowerCase();
-
-    if (!ct.includes("application/json")) {
-      const txt = await r.text().catch(() => "");
-      const snippet = txt ? txt.slice(0, 180) : "";
-      throw new Error(
-        `La API no devolvió JSON (Content-Type: ${ct || "N/A"}). ` +
-        (snippet ? `Snippet: ${snippet}` : "")
-      );
-    }
-
-    const data = await r.json().catch(() => null);
-
-    if (!r.ok || !data || data.ok === false) {
-      const msg =
-        (data && (data.mensaje || data.message || data.error))
-          ? (data.mensaje || data.message || data.error)
-          : `HTTP ${r.status}`;
-      throw new Error(msg);
-    }
-
-    return data;
+  function money(v) {
+    const n = Number(v);
+    if (Number.isFinite(n)) return "S/ " + n.toFixed(2);
+    return safeStr(v, "-");
   }
 
-  function buildListUrl() {
-    const params = new URLSearchParams();
-    params.set("estado", ((fEstado && fEstado.value) ? fEstado.value : "pendiente").toLowerCase());
-    params.set("q", (fTexto && fTexto.value ? fTexto.value : "").trim());
-    params.set("page", String(state.page));
-    params.set("size", String(state.size));
-    return `${API_LIST}?${params.toString()}`;
+  function formatFecha(v) {
+    const s = String(v ?? "").trim();
+    return s ? s : "-"; // "YYYY-MM-DD HH:mm:ss"
   }
 
-  function renderRows(items) {
-    if (!items || !items.length) return renderEmpty();
-
-    tbody.innerHTML = items.map((it) => {
-      const [label, cls] = badgeClass(Number(it.visible));
-      const user = it.usuario_nombre || "—";
-      const title = it.titulo || "—";
-      const price = money(it.precio);
-      const fecha = fmtFecha(it.updated_at || it.created_at);
-
-      return `
-        <tr>
-          <td>${escapeHtml(fecha)}</td>
-          <td class="text-truncate" style="max-width:520px">${escapeHtml(title)}</td>
-          <td class="text-end"><strong>${escapeHtml(price)}</strong></td>
-          <td class="text-truncate" style="max-width:360px">${escapeHtml(user)}</td>
-          <td><span class="ev-badge ${cls}">${escapeHtml(label)}</span></td>
-          <td class="text-end">
-            <button class="btn btn-sm ev-btn-light" data-action="ver" data-id="${it.codigo_producto}">
-              <i class="bi bi-eye me-1"></i> Ver
-            </button>
-          </td>
-        </tr>
-      `;
-    }).join("");
+  function toastError(msg) {
+    if (window.Swal) Swal.fire({ icon: "error", title: "Error", text: msg });
+    else alert(msg);
   }
 
-  // ===== Cargar lista (acepta 2 formatos de respuesta) =====
-  async function cargarLista() {
+  function toastInfo(msg) {
+    if (window.Swal) Swal.fire({ icon: "info", title: "Info", text: msg });
+    else alert(msg);
+  }
+
+  async function safeJson(res) {
     try {
-      const data = await apiGet(buildListUrl());
+      return await res.json();
+    } catch (_) {
+      return null;
+    }
+  }
 
-      const payload = (data && data.data && typeof data.data === "object")
-        ? data.data
-        : data;
+  function estadoLabelFromVisible(visible) {
+    const n = Number(visible);
+    if (n === 0) return "Borrador";
+    if (n === 1) return "Pendiente";
+    if (n === 2) return "Aprobada";
+    if (n === 3) return "Rechazada";
 
-      const total = Number(payload?.total || 0);
-      const page = Number(payload?.page || 1);
-      const size = Number(payload?.size || 10);
-      const pendientes = Number(payload?.pendientes || 0);
-      const items = Array.isArray(payload?.items) ? payload.items : [];
+    const s = String(visible ?? "").toLowerCase();
+    if (s === "borrador") return "Borrador";
+    if (s === "pendiente") return "Pendiente";
+    if (s === "aprobada") return "Aprobada";
+    if (s === "rechazada") return "Rechazada";
+    return safeStr(visible, "-");
+  }
 
-      state.total = total;
-      state.page = page;
-      state.size = size;
+  // =========================================================
+  // Módulo (se instancia por cada parcial insertado)
+  // =========================================================
+  function initModule(root) {
+    // Evitar doble init en el mismo parcial
+    if (!root || root.dataset.evInitAp === "1") return;
+    root.dataset.evInitAp = "1";
 
-      if (lblPend) lblPend.textContent = String(pendientes);
-      if (lblMeta) lblMeta.textContent = `Mostrando ${items.length} registros`;
-      if (lblFooterLeft) lblFooterLeft.textContent = `Mostrando ${items.length} de ${total}`;
-      if (lblPagina) lblPagina.textContent = String(page);
+    // Estado del módulo
+    let aborter = null;
+    let page = 1;
+    let size = 10;
+    let estado = "pendiente"; // pendiente|aprobada|rechazada|borrador|todas
+    let q = "";
 
-      const maxPage = Math.max(1, Math.ceil(total / size));
-      if (btnPrev) btnPrev.disabled = page <= 1;
-      if (btnNext) btnNext.disabled = page >= maxPage;
+    // DOM (IDs reales de AtenderPublicacionView.php)
+    const elForm = $("#formFiltros", root);
+    const elEstado = $("#fEstado", root);
+    const elTexto = $("#fTexto", root);
 
-      renderRows(items);
+    const elBody = $("#tbodyItems", root);
+    const elLblMeta = $("#lblMeta", root);
+    const elLblFooterLeft = $("#lblFooterLeft", root);
+    const elLblPagina = $("#lblPagina", root);
+    const elBtnPrev = $("#btnPrev", root);
+    const elBtnNext = $("#btnNext", root);
 
-    } catch (e) {
-      console.error("[EV][ATENDER_PUBLICACION]", e);
+    const elLblPendientes = $("#lblPendientes", root);
 
-      tbody.innerHTML = `
+    const btnVerPend = $("#btnVerPendientes", root);
+    const btnVerApr = $("#btnVerAprobadas", root);
+    const btnVerRech = $("#btnVerRechazadas", root);
+    const btnVerBor = $("#btnVerBorradores", root);
+
+    const btnRefrescar = $("#btnRefrescar", root);
+
+    // Si no existe el tbody, no es esta vista.
+    if (!elBody) return;
+
+    // Tomar valor inicial del select si existe
+    if (elEstado && elEstado.value) estado = String(elEstado.value).toLowerCase();
+
+    function cancelFetchPrevio() {
+      if (aborter) {
+        aborter.abort();
+        aborter = null;
+      }
+    }
+
+    function setActiveQuickButtons() {
+      const map = [
+        [btnVerPend, "pendiente"],
+        [btnVerApr, "aprobada"],
+        [btnVerRech, "rechazada"],
+        [btnVerBor, "borrador"],
+      ];
+      map.forEach(([el, st]) => {
+        if (!el) return;
+        el.classList.toggle("active", estado === st);
+        el.setAttribute("aria-pressed", estado === st ? "true" : "false");
+      });
+    }
+
+    function renderEmptyRow() {
+      elBody.innerHTML = `
         <tr>
-          <td colspan="6">
-            <div class="alert alert-danger border-0 shadow-sm rounded-4 m-3">
-              <b>Error:</b> No se pudo cargar la lista.<br>
-              <small class="text-muted">${escapeHtml(e.message || "Error desconocido")}</small>
-              <div class="mt-2"><small class="text-muted">API_LIST: ${escapeHtml(API_LIST)}</small></div>
+          <td colspan="6" class="text-center py-4 ev-empty">
+            <div class="ev-empty-wrap">
+              <i class="bi bi-inbox ev-empty-ico"></i>
+              <div class="ev-empty-text">No hay publicaciones para los filtros seleccionados.</div>
             </div>
           </td>
         </tr>
       `;
     }
-  }
 
-  async function abrirDetalle(id) {
-    state.currentId = Number(id);
-    if (mComentario) mComentario.value = "";
-    if (mGaleria) mGaleria.innerHTML = "";
-    if (mNoImgs) mNoImgs.style.display = "block";
+    function render(items) {
+      elBody.innerHTML = "";
 
-    const data = await apiGet(API_DET(state.currentId));
-    const det = (data && data.data) ? data.data : data;
-
-    if (!det) throw new Error("No se encontró la publicación.");
-
-    if (mTitulo) mTitulo.textContent = det.titulo || "—";
-    if (mPrecio) mPrecio.textContent = money(det.precio);
-    if (mUsuario) mUsuario.textContent = det.usuario_nombre || "—";
-    if (mEmail) mEmail.textContent = det.usuario_email || "—";
-    if (mDescripcion) mDescripcion.textContent = det.descripcion || "—";
-
-    const [label, cls] = badgeClass(Number(det.visible));
-    if (mEstadoBadge) {
-      mEstadoBadge.className = `ev-badge ${cls}`;
-      mEstadoBadge.textContent = label;
-    }
-
-    const imgs = Array.isArray(det.imagenes) ? det.imagenes : [];
-    if (imgs.length && mGaleria) {
-      if (mNoImgs) mNoImgs.style.display = "none";
-      mGaleria.innerHTML = imgs.map((x) => {
-        const src = x.ruta || "";
-        return `<img src="${escapeHtml(src)}" alt="Imagen">`;
-      }).join("");
-    }
-
-    modal && modal.show();
-  }
-
-  async function cambiarEstado(nuevo) {
-    const id = state.currentId;
-    if (!id) return;
-
-    const comentario = (mComentario?.value || "").trim();
-
-    if (nuevo === "rechazada" && comentario.length < 3) {
-      if (window.Swal) {
-        Swal.fire({
-          icon: "warning",
-          title: "Comentario requerido",
-          text: "Debes ingresar un comentario para rechazar.",
-          confirmButtonText: "Entendido",
-          confirmButtonColor: "#0F592F",
-        });
+      if (!items || items.length === 0) {
+        renderEmptyRow();
+        return;
       }
-      return;
+
+      for (const it of items) {
+        // campos reales del response
+        const id = it.codigo_producto ?? "";
+        const fecha = formatFecha(it.updated_at || it.created_at);
+        const titulo = safeStr(it.titulo);
+        const precio = money(it.precio);
+
+        // OJO: tu response trae usuario_nombre / usuario_email
+        const usuarioNombre = safeStr(it.usuario_nombre, "");
+        const usuarioEmail = safeStr(it.usuario_email, "");
+        const usuario =
+          (usuarioNombre || usuarioEmail)
+            ? `${usuarioNombre}${usuarioEmail ? " (" + usuarioEmail + ")" : ""}`.trim()
+            : "-";
+
+        const est = estadoLabelFromVisible(it.visible);
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${fecha}</td>
+          <td>${titulo}</td>
+          <td class="text-end">${precio}</td>
+          <td>${usuario}</td>
+          <td>${est}</td>
+          <td class="text-end">
+            <button type="button" class="btn btn-sm btn-outline-success js-observar" data-id="${String(id)}">
+              Observar
+            </button>
+          </td>
+        `;
+        elBody.appendChild(tr);
+      }
     }
 
-    await apiPost(API_ESTADO(id), { estado: nuevo, comentario });
-    modal && modal.hide();
+    function renderMeta(total) {
+      const t = Number(total || 0);
+      const from = t === 0 ? 0 : (page - 1) * size + 1;
+      const to = Math.min(page * size, t);
 
-    if (window.Swal) {
-      Swal.fire({
-        icon: "success",
-        title: "Listo",
-        text: "Estado actualizado correctamente.",
-        confirmButtonText: "Entendido",
-        confirmButtonColor: "#0F592F",
+      if (elLblMeta) elLblMeta.textContent = `Mostrando ${t} registros`;
+      if (elLblFooterLeft) elLblFooterLeft.textContent = `Mostrando ${from} a ${to} de ${t}`;
+      if (elLblPagina) elLblPagina.textContent = String(page);
+
+      const hasPrev = page > 1;
+      const hasNext = to < t;
+
+      if (elBtnPrev) elBtnPrev.disabled = !hasPrev;
+      if (elBtnNext) elBtnNext.disabled = !hasNext;
+    }
+
+    function renderCounts(counts) {
+      if (!counts) return;
+      if (elLblPendientes) elLblPendientes.textContent = String(Number(counts.pendientes || 0));
+    }
+
+    function getApiUrl() {
+      // Según tu modelo ProductoSoporte: estado + q + page + size
+      return (
+        baseUrl +
+        "/api/soporte/productos" +
+        "?estado=" + qs(estado) +
+        "&q=" + qs(q) +
+        "&page=" + qs(page) +
+        "&size=" + qs(size)
+      );
+    }
+
+    async function listar() {
+      cancelFetchPrevio();
+      aborter = new AbortController();
+
+      try {
+        const url = getApiUrl();
+        const res = await fetch(url, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+          signal: aborter.signal,
+          cache: "no-store",
+        });
+
+        if (res.status === 401) {
+          const j = await safeJson(res);
+          toastInfo(j?.mensaje || "Sesión finalizada. Inicia sesión nuevamente.");
+          window.location.href = baseUrl + "/login";
+          return;
+        }
+
+        const data = await safeJson(res);
+        if (!res.ok || !data || data.ok === false) {
+          toastError(data?.mensaje || data?.error || "No se pudo listar.");
+          renderEmptyRow();
+          renderMeta(0);
+          return;
+        }
+
+        const items = Array.isArray(data.items) ? data.items : [];
+        const total = Number(data.total || 0);
+
+        setActiveQuickButtons();
+        renderCounts(data.counts);
+
+        render(items);
+        renderMeta(total);
+      } catch (e) {
+        if (e && e.name === "AbortError") return;
+        toastError("Error de red al listar.");
+        renderEmptyRow();
+        renderMeta(0);
+      } finally {
+        aborter = null;
+      }
+    }
+
+    async function abrirDetalle(id) {
+      cancelFetchPrevio();
+      aborter = new AbortController();
+
+      try {
+        const url = baseUrl + "/api/soporte/productos/" + encodeURIComponent(id);
+        const res = await fetch(url, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+          signal: aborter.signal,
+          cache: "no-store",
+        });
+
+        if (res.status === 401) {
+          const j = await safeJson(res);
+          toastInfo(j?.mensaje || "Sesión finalizada. Inicia sesión nuevamente.");
+          window.location.href = baseUrl + "/login";
+          return;
+        }
+
+        const data = await safeJson(res);
+        if (!res.ok || data?.ok === false) {
+          toastError(data?.mensaje || data?.error || "No se pudo obtener el detalle.");
+          return;
+        }
+
+        const it = data.item || {};
+        const usuario =
+          (it.usuario_nombre || it.usuario_email)
+            ? `${safeStr(it.usuario_nombre, "")}${it.usuario_email ? " (" + safeStr(it.usuario_email, "") + ")" : ""}`.trim()
+            : "-";
+
+        if (window.Swal) {
+          Swal.fire({
+            title: it.titulo || "Detalle",
+            html: `
+              <div style="text-align:left">
+                <div><b>Precio:</b> ${money(it.precio)}</div>
+                <div><b>Usuario:</b> ${usuario}</div>
+                <div><b>Estado:</b> ${estadoLabelFromVisible(it.visible)}</div>
+                <div style="margin-top:10px"><b>Descripción:</b><br>${safeStr(it.descripcion, "-")}</div>
+              </div>
+            `,
+            confirmButtonText: "Cerrar",
+            confirmButtonColor: "#EA7C12",
+          });
+        }
+      } catch (e) {
+        if (e && e.name === "AbortError") return;
+        toastError("Error de red al obtener detalle.");
+      } finally {
+        aborter = null;
+      }
+    }
+
+    // =========================
+    // Eventos (solo 1 vez por parcial)
+    // =========================
+    if (elForm) {
+      elForm.addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        estado = String(elEstado?.value || "pendiente").toLowerCase();
+        q = String(elTexto?.value || "").trim();
+        page = 1;
+        listar();
       });
     }
 
-    await cargarLista();
+    if (elEstado) {
+      elEstado.addEventListener(
+        "change",
+        function () {
+          estado = String(elEstado.value || "pendiente").toLowerCase();
+          page = 1;
+          listar();
+        },
+        { passive: true }
+      );
+    }
+
+    if (elTexto) {
+      elTexto.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          estado = String(elEstado?.value || "pendiente").toLowerCase();
+          q = String(elTexto.value || "").trim();
+          page = 1;
+          listar();
+        }
+      });
+    }
+
+    const quickMap = [
+      [btnVerPend, "pendiente"],
+      [btnVerApr, "aprobada"],
+      [btnVerRech, "rechazada"],
+      [btnVerBor, "borrador"],
+    ];
+    quickMap.forEach(([btn, st]) => {
+      if (!btn) return;
+      btn.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        estado = st;
+        if (elEstado) elEstado.value = st;
+        page = 1;
+        listar();
+      });
+    });
+
+    if (btnRefrescar) {
+      btnRefrescar.addEventListener("click", function () {
+        listar();
+      });
+    }
+
+    if (elBtnPrev) {
+      elBtnPrev.addEventListener("click", function () {
+        if (page > 1) {
+          page--;
+          listar();
+        }
+      });
+    }
+
+    if (elBtnNext) {
+      elBtnNext.addEventListener("click", function () {
+        page++;
+        listar();
+      });
+    }
+
+    // Delegación observar (dentro del parcial)
+    root.addEventListener("click", function (ev) {
+      const btn = ev.target && ev.target.closest ? ev.target.closest(".js-observar") : null;
+      if (!btn) return;
+      const id = btn.getAttribute("data-id");
+      if (!id) return;
+      abrirDetalle(id);
+    });
+
+    // Init del módulo (cuando el parcial existe)
+    setActiveQuickButtons();
+    listar();
   }
 
-  // ===== Eventos =====
-  form?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    state.page = 1;
-    cargarLista();
+  // =========================================================
+  // Observador: detecta cuando el parcial se inserta (AJAX)
+  // =========================================================
+  function scanAndInit() {
+    // Tu vista tiene wrapper: .ev-ap-page
+    const root = document.querySelector(".ev-ap-page") || document;
+    // Si el parcial aún no está, no hace nada.
+    if (document.querySelector(".ev-ap-page")) initModule(root);
+  }
+
+  // 1) intento inmediato
+  scanAndInit();
+
+  // 2) reintentos por si el parcial llega después
+  const mo = new MutationObserver(function () {
+    scanAndInit();
   });
+  mo.observe(document.documentElement, { childList: true, subtree: true });
 
-  $("#btnRefrescar")?.addEventListener("click", () => cargarLista());
-
-  $("#btnVerPendientes")?.addEventListener("click", () => {
-    if (fEstado) fEstado.value = "pendiente";
-    state.page = 1;
-    cargarLista();
-  });
-
-  $("#btnVerAprobadas")?.addEventListener("click", () => {
-    if (fEstado) fEstado.value = "aprobada";
-    state.page = 1;
-    cargarLista();
-  });
-
-  $("#btnVerRechazadas")?.addEventListener("click", () => {
-    if (fEstado) fEstado.value = "rechazada";
-    state.page = 1;
-    cargarLista();
-  });
-
-  $("#btnVerBorradores")?.addEventListener("click", () => {
-    if (fEstado) fEstado.value = "borrador";
-    state.page = 1;
-    cargarLista();
-  });
-
-  btnPrev?.addEventListener("click", () => {
-    if (state.page > 1) {
-      state.page--;
-      cargarLista();
-    }
-  });
-
-  btnNext?.addEventListener("click", () => {
-    state.page++;
-    cargarLista();
-  });
-
-  tbody.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-action='ver']");
-    if (!btn) return;
-    const id = btn.getAttribute("data-id");
-    abrirDetalle(id).catch((err) => {
-      if (window.Swal) {
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: err.message || "No se pudo abrir el detalle.",
-          confirmButtonText: "Entendido",
-          confirmButtonColor: "#0F592F",
-        });
-      }
-    });
-  });
-
-  btnAprobar?.addEventListener("click", () =>
-    cambiarEstado("aprobada").catch(console.error)
-  );
-
-  btnRechazar?.addEventListener("click", () =>
-    cambiarEstado("rechazada").catch(console.error)
-  );
-
-  // Init
-  cargarLista();
+  // 3) por si tu loader dispara eventos (no rompe si no existen)
+  document.addEventListener("ev:partial-loaded", scanAndInit);
+  document.addEventListener("ev:content-loaded", scanAndInit);
 })();

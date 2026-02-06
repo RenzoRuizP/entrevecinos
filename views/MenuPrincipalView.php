@@ -125,6 +125,12 @@ function ev_ver($pathAbs) {
 
   <div id="sidebar-backdrop"></div>
 
+  <script>
+    window.BASE_URL = <?php echo json_encode(rtrim(BASE_URL, '/')); ?>;
+    window.EV_BASE_URL = window.BASE_URL; // opcional
+  </script>
+
+
   <?php include_once __DIR__ . '/scripts/menuPrincipalScripts.php'; ?>
 
 </body>

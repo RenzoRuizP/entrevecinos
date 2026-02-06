@@ -189,6 +189,10 @@ safeRequire(__DIR__ . '/models/Conexion.php');
 if (!defined('EV_ADMIN_ROLE_ID')) {
     define('EV_ADMIN_ROLE_ID', 1);
 }
+// ✅ IMPORTANTE: define soporte si no existe (tu router abajo lo usa)
+if (!defined('EV_SOPORTE_ROLE_ID')) {
+    define('EV_SOPORTE_ROLE_ID', 3);
+}
 
 safeRequire(__DIR__ . '/controllers/AuthController.php');
 safeRequire(__DIR__ . '/controllers/MenuPrincipalController.php');
@@ -339,9 +343,20 @@ $routes = [
     ['GET',  '#^/api/soporte/recargas$#',              [apiSoporteRecargasController::class, 'listar'],           'json'],
     ['POST', '#^/api/soporte/recargas/(\d+)/estado$#', [apiSoporteRecargasController::class, 'actualizarEstado'], 'json'],
 
+    // ==========================================================
+    // SOPORTE PRODUCTOS - RUTAS OFICIALES (las que ya tenías)
+    // ==========================================================
     ['GET',  '#^/api/soporte/productos$#',              [apiSoporteProductosController::class, 'listar'], 'json'],
     ['GET',  '#^/api/soporte/productos/(\d+)$#',        [apiSoporteProductosController::class, 'detalle'], 'json'],
     ['POST', '#^/api/soporte/productos/(\d+)/estado$#', [apiSoporteProductosController::class, 'actualizarEstado'], 'json'],
+
+    // ==========================================================
+    // ✅ ALIAS COMPATIBILIDAD (tu front llama /api/soporte-productos/...)
+    //    Esto elimina RUTA_NO_ENCONTRADA sin romper nada.
+    // ==========================================================
+    ['GET',  '#^/api/soporte-productos/listar$#',       [apiSoporteProductosController::class, 'listar'], 'json'],
+    ['GET',  '#^/api/soporte-productos/(\d+)$#',        [apiSoporteProductosController::class, 'detalle'], 'json'],
+    ['POST', '#^/api/soporte-productos/(\d+)/estado$#', [apiSoporteProductosController::class, 'actualizarEstado'], 'json'],
 
     ['GET',  '#^/api/soporte/usuarios$#',              [apiSoporteUsuariosController::class, 'listar'], 'json'],
     ['POST', '#^/api/soporte/usuarios/(\d+)/estado$#', [apiSoporteUsuariosController::class, 'actualizarEstado'], 'json'],

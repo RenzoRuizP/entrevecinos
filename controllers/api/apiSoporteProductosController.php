@@ -1,162 +1,258 @@
 <?php
 // controllers/api/apiSoporteProductosController.php
+declare(strict_types=1);
 
-require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/ProductoSoporte.php';
 
 class apiSoporteProductosController
 {
-    private function obtenerUsuarioAuth(): ?array
+    // =========================
+    // Core helpers
+    // =========================
+    private function json(int $status, array $payload): void
     {
-        $token = $_COOKIE['auth_token'] ?? null;
-        if (!$token) return null;
-        $u = SesionJWT::verificarToken($token);
-        return is_array($u) ? $u : null;
+        http_response_code($status);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+        exit;
     }
 
-    private function esAdmin(array $u): bool
+    private function auth(): array
     {
-        $codigoRol = (int)($u['codigo_rol'] ?? 0);
+        $u = $GLOBALS['EV_AUTH'] ?? [];
+        return is_array($u) ? $u : [];
+    }
+
+    private function requireAuth(): array
+    {
+        $u = $this->auth();
+        $id = (int)($u['codigo_usuario'] ?? 0);
+        if ($id <= 0) {
+            $this->json(401, [
+                'ok' => false,
+                'error' => 'UNAUTHORIZED',
+                'motivo' => 'sin token'
+            ]);
+        }
+        return $u;
+    }
+
+    private function puedeAtenderPublicaciones(array $u): bool
+    {
+        $rol = (int)($u['codigo_rol'] ?? 0);
+
         $adminId   = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
-        return ($codigoRol > 0 && $codigoRol === $adminId);
+        $soporteId = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
+
+        return ($rol === $adminId || $rol === $soporteId);
     }
 
+    private function requireSoporte(array $u): void
+    {
+        if (!$this->puedeAtenderPublicaciones($u)) {
+            $this->json(403, [
+                'ok' => false,
+                'error' => 'FORBIDDEN',
+                'motivo' => 'sin permiso',
+                'mensaje' => 'No tienes permisos para atender publicaciones.'
+            ]);
+        }
+    }
+
+    private function getString(string $key, string $default = ''): string
+    {
+        $v = $_GET[$key] ?? $default;
+        return trim((string)$v);
+    }
+
+    private function getInt(string $key, int $default = 0): int
+    {
+        $v = $_GET[$key] ?? null;
+        if ($v === null || $v === '') return $default;
+        return (int)$v;
+    }
+
+    private function readJsonBody(): array
+    {
+        $raw = file_get_contents('php://input');
+        $data = json_decode($raw ?: '{}', true);
+        return is_array($data) ? $data : [];
+    }
+
+    private function mapEstadoToVisible(string $estado): ?int
+    {
+        // mapping según tu ProductoSoporte
+        // borrador=0, pendiente=1, aprobada=2, rechazada=3
+        $estado = strtolower(trim($estado));
+
+        return match ($estado) {
+            'borrador', 'borradores' => 0,
+            'pendiente', 'pendientes' => 1,
+            'aprobada', 'aprobadas' => 2,
+            'rechazada', 'rechazadas' => 3,
+            default => null
+        };
+    }
+
+    // =========================
+    // Endpoints
+    // =========================
+
+    /**
+     * GET /api/soporte/productos?estado=pendiente|aprobada|rechazada|borrador|todas&q=&page=1&size=10
+     */
     public function listar(): void
     {
-        header('Content-Type: application/json; charset=utf-8');
-
         try {
-            $u = $this->obtenerUsuarioAuth();
-            if (!$u || empty($u['codigo_usuario'])) {
-                http_response_code(401);
-                echo json_encode(['ok' => false, 'error' => 'UNAUTHORIZED', 'motivo' => 'sin_token']);
-                return;
+            $u = $this->requireAuth();
+            $this->requireSoporte($u);
+
+            $estado = strtolower($this->getString('estado', 'pendiente'));
+            $q      = $this->getString('q', '');
+            $page   = max(1, $this->getInt('page', 1));
+            $size   = max(1, min(50, $this->getInt('size', 10)));
+
+            // Compat: si en front todavía envían "search", lo aceptamos
+            if ($q === '') {
+                $q = $this->getString('search', '');
             }
 
-            if (!$this->esAdmin($u)) {
-                http_response_code(403);
-                echo json_encode([
+            // Normaliza estado permitido
+            $permitidos = ['borrador', 'pendiente', 'aprobada', 'rechazada', 'todas'];
+            if (!in_array($estado, $permitidos, true)) {
+                $estado = 'pendiente';
+            }
+
+            $m = new ProductoSoporte();
+            $r = $m->listarSoporte([
+                'estado' => $estado,
+                'q'      => $q,
+                'page'   => $page,
+                'size'   => $size,
+            ]);
+
+            $this->json(200, [
+                'ok'     => true,
+                'total'  => (int)($r['total'] ?? 0),
+                'page'   => (int)($r['page'] ?? $page),
+                'size'   => (int)($r['size'] ?? $size),
+                'counts' => $r['counts'] ?? [
+                    'borradores' => 0,
+                    'pendientes' => 0,
+                    'aprobadas'  => 0,
+                    'rechazadas' => 0,
+                ],
+                'items'  => $r['items'] ?? [],
+            ]);
+        } catch (Throwable $e) {
+            error_log('[EV][apiSoporteProductosController][listar] ' . $e->getMessage());
+            $this->json(500, [
+                'ok' => false,
+                'error' => 'SERVER_ERROR',
+                'mensaje' => 'Error interno al listar productos.'
+            ]);
+        }
+    }
+
+    /**
+     * GET /api/soporte/productos/{id}
+     */
+    public function detalle(int $id): void
+    {
+        try {
+            $u = $this->requireAuth();
+            $this->requireSoporte($u);
+
+            $id = (int)$id;
+            if ($id <= 0) {
+                $this->json(400, [
                     'ok' => false,
-                    'error' => 'FORBIDDEN',
-                    'motivo' => 'solo_admin',
-                    'mensaje' => 'Solo el administrador puede acceder a Atender publicación.'
+                    'error' => 'BAD_REQUEST',
+                    'mensaje' => 'ID inválido.'
                 ]);
-                return;
             }
 
-            $filtros = [
-                'estado' => $_GET['estado'] ?? 'pendiente', // borrador|pendiente|aprobada|rechazada|todas
-                'q'      => $_GET['q'] ?? '',
-                'page'   => $_GET['page'] ?? 1,
-                'size'   => $_GET['size'] ?? 10,
-            ];
-
             $m = new ProductoSoporte();
-            $data = $m->listarSoporte($filtros);
+            $row = $m->obtenerDetalle($id);
 
-            echo json_encode(['ok' => true, 'data' => $data]);
-            return;
+            if (!$row) {
+                $this->json(404, [
+                    'ok' => false,
+                    'error' => 'NOT_FOUND',
+                    'mensaje' => 'No existe el producto.'
+                ]);
+            }
 
+            $this->json(200, [
+                'ok' => true,
+                'item' => $row
+            ]);
         } catch (Throwable $e) {
-            error_log('[EV][apiSoporteProductosController::listar] ' . $e->getMessage());
-            http_response_code(500);
-            echo json_encode(['ok' => false, 'error' => 'ERROR_SERVIDOR', 'detalle' => $e->getMessage()]);
-            return;
+            error_log('[EV][apiSoporteProductosController][detalle] ' . $e->getMessage());
+            $this->json(500, [
+                'ok' => false,
+                'error' => 'SERVER_ERROR',
+                'mensaje' => 'Error interno al obtener detalle.'
+            ]);
         }
     }
 
-    public function detalle($id): void
+    /**
+     * POST /api/soporte/productos/{id}/estado
+     * Body JSON: { "estado": "aprobada|rechazada|pendiente|borrador" }
+     */
+    public function actualizarEstado(int $id): void
     {
-        header('Content-Type: application/json; charset=utf-8');
-
         try {
-            $u = $this->obtenerUsuarioAuth();
-            if (!$u || empty($u['codigo_usuario'])) {
-                http_response_code(401);
-                echo json_encode(['ok' => false, 'error' => 'UNAUTHORIZED']);
-                return;
+            $u = $this->requireAuth();
+            $this->requireSoporte($u);
+
+            $id = (int)$id;
+            if ($id <= 0) {
+                $this->json(400, [
+                    'ok' => false,
+                    'error' => 'BAD_REQUEST',
+                    'mensaje' => 'ID inválido.'
+                ]);
             }
 
-            if (!$this->esAdmin($u)) {
-                http_response_code(403);
-                echo json_encode(['ok' => false, 'error' => 'FORBIDDEN', 'motivo' => 'solo_admin']);
-                return;
+            $body = $this->readJsonBody();
+            $estado = (string)($body['estado'] ?? '');
+
+            $nuevoVisible = $this->mapEstadoToVisible($estado);
+            if ($nuevoVisible === null) {
+                $this->json(400, [
+                    'ok' => false,
+                    'error' => 'BAD_REQUEST',
+                    'mensaje' => 'Estado inválido.',
+                    'permitidos' => ['borrador', 'pendiente', 'aprobada', 'rechazada']
+                ]);
             }
-
-            $codigoProducto = (int)$id;
-            $m = new ProductoSoporte();
-            $det = $m->obtenerDetalle($codigoProducto);
-
-            if (!$det) {
-                http_response_code(404);
-                echo json_encode(['ok' => false, 'error' => 'NO_ENCONTRADO', 'mensaje' => 'No se encontró la publicación.']);
-                return;
-            }
-
-            echo json_encode(['ok' => true, 'data' => $det]);
-            return;
-
-        } catch (Throwable $e) {
-            error_log('[EV][apiSoporteProductosController::detalle] ' . $e->getMessage());
-            http_response_code(500);
-            echo json_encode(['ok' => false, 'error' => 'ERROR_SERVIDOR', 'detalle' => $e->getMessage()]);
-            return;
-        }
-    }
-
-    public function actualizarEstado($id): void
-    {
-        header('Content-Type: application/json; charset=utf-8');
-
-        try {
-            $u = $this->obtenerUsuarioAuth();
-            if (!$u || empty($u['codigo_usuario'])) {
-                http_response_code(401);
-                echo json_encode(['ok' => false, 'error' => 'UNAUTHORIZED']);
-                return;
-            }
-
-            if (!$this->esAdmin($u)) {
-                http_response_code(403);
-                echo json_encode(['ok' => false, 'error' => 'FORBIDDEN', 'motivo' => 'solo_admin']);
-                return;
-            }
-
-            $codigoProducto = (int)$id;
-
-            $estado = strtolower(trim((string)($_POST['estado'] ?? '')));
-            $map = [
-                'borrador'  => 0,
-                'pendiente' => 1,
-                'aprobada'  => 2,
-                'rechazada' => 3,
-            ];
-
-            if (!array_key_exists($estado, $map)) {
-                http_response_code(400);
-                echo json_encode(['ok' => false, 'error' => 'ESTADO_INVALIDO']);
-                return;
-            }
-
-            $nuevoVisible = (int)$map[$estado];
 
             $m = new ProductoSoporte();
-            $ok = $m->actualizarEstadoSoporte($codigoProducto, $nuevoVisible);
+            $ok = $m->actualizarEstadoSoporte($id, $nuevoVisible);
 
             if (!$ok) {
-                http_response_code(500);
-                echo json_encode(['ok' => false, 'error' => 'NO_SE_PUDO_ACTUALIZAR']);
-                return;
+                $this->json(500, [
+                    'ok' => false,
+                    'error' => 'UPDATE_FAILED',
+                    'mensaje' => 'No se pudo actualizar el estado.'
+                ]);
             }
 
-            echo json_encode(['ok' => true, 'mensaje' => 'Estado actualizado.']);
-            return;
-
+            $this->json(200, [
+                'ok' => true,
+                'mensaje' => 'Estado actualizado correctamente.',
+                'codigo_producto' => $id,
+                'visible' => $nuevoVisible
+            ]);
         } catch (Throwable $e) {
-            error_log('[EV][apiSoporteProductosController::actualizarEstado] ' . $e->getMessage());
-            http_response_code(500);
-            echo json_encode(['ok' => false, 'error' => 'ERROR_SERVIDOR', 'detalle' => $e->getMessage()]);
-            return;
+            error_log('[EV][apiSoporteProductosController][actualizarEstado] ' . $e->getMessage());
+            $this->json(500, [
+                'ok' => false,
+                'error' => 'SERVER_ERROR',
+                'mensaje' => 'Error interno al actualizar estado.'
+            ]);
         }
     }
 }
