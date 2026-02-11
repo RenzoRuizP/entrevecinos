@@ -78,6 +78,26 @@
     evMountModalToBody('modalEditarPublicacion');
   }
 
+  /* =========================================================
+     FIX MODALES: no cerrar al click fuera (static backdrop)
+========================================================= */
+  function evGetStaticModal(modalId) {
+    evMountModalToBody(modalId);
+
+    const el = document.getElementById(modalId);
+    if (!el || !window.bootstrap?.Modal) return null;
+
+    // asegura comportamiento aunque el HTML no tenga data-bs-*
+    el.setAttribute('data-bs-backdrop', 'static');
+    el.setAttribute('data-bs-keyboard', 'false');
+
+    return bootstrap.Modal.getOrCreateInstance(el, {
+      backdrop: 'static',
+      keyboard: false,
+      focus: true
+    });
+  }
+
   /* ==============================
      Helpers fotos
   ============================== */
@@ -735,10 +755,9 @@
 
       const modalEl = document.getElementById("modalEditarPublicacion");
       if (modalEl) {
-        evMountAllModalsToBody();
-        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        const modal = evGetStaticModal('modalEditarPublicacion');
         requestAnimationFrame(() => {
-          modal.show();
+          modal?.show();
           requestAnimationFrame(setEvVh);
         });
       }
@@ -904,11 +923,8 @@
 
       evNotify('success', 'Producto registrado', data.mensaje || 'Producto registrado como borrador. Presiona "Publicar" para enviarlo a revisión.');
 
-      const modalEl = document.getElementById('modalAgregarPublicacion');
-      if (modalEl) {
-        const modal = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
-        modal.hide();
-      }
+      const modal = evGetStaticModal('modalAgregarPublicacion');
+      modal?.hide();
 
       window.evCargarProductos?.();
       try { form.reset(); } catch (_) {}
@@ -986,11 +1002,8 @@
 
       evNotify('success', 'Producto actualizado', 'Los cambios se guardaron correctamente.');
 
-      const modalEl = document.getElementById('modalEditarPublicacion');
-      if (modalEl) {
-        const modal = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
-        modal.hide();
-      }
+      const modal = evGetStaticModal('modalEditarPublicacion');
+      modal?.hide();
 
       window.evCargarProductos?.();
 
@@ -1079,8 +1092,6 @@
       const filtrados = filtrarItems(items);
 
       // ✅ Header dinámico: "Opciones" vs "Publicación"
-      // - Si TODOS los filtrados están aprobados => "Publicación"
-      // - Si hay mezcla => "Opciones"
       const thLast = table.querySelector('thead th:last-child');
       if (thLast) {
         const allApproved = filtrados.length > 0 && filtrados.every(x => Number(x.visible ?? 0) === 2);
@@ -1125,7 +1136,6 @@
         if (estado === 'NUEVO') badge = 'ev-badge ev-badge--nuevo';
         else if (estado === 'USADO') badge = 'ev-badge ev-badge--usado';
 
-        // ✅ usa la última revisión para calcular “Observado”
         const visUI = uiEstadoVisible(visible, p.ultima_revision);
         const pubUI = uiAccionPublicar(visible);
 
@@ -1155,7 +1165,6 @@
                   isAnulado
                     ? `<button type="button" class="${visUI.cls}" disabled ${obsTitle}>${visUI.text}</button>`
                     : isAprobado
-                      // ✅ Aprobado: NO mostrar Editar/Anular
                       ? `<button type="button" class="${visUI.cls}" disabled>Aprobado</button>`
                       : `
                           <button type="button" class="ev-chip ev-chip-green" data-action="editar" data-id="${id}" ${disableEditar}>Editar</button>
@@ -1194,17 +1203,14 @@
 
     document.addEventListener('click', (e) => {
       if (e.target.closest('#btnBuscarPublicacion')) {
-        evMountAllModalsToBody();
-        const el = document.getElementById('modalBuscarPublicacion');
-        if (el) bootstrap.Modal.getOrCreateInstance(el).show();
+        const m = evGetStaticModal('modalBuscarPublicacion');
+        m?.show();
         return;
       }
 
       if (e.target.closest('#btnAgregarPublicacion')) {
-        evMountAllModalsToBody();
-        const modalEl = document.getElementById('modalAgregarPublicacion');
-        if (!modalEl) return;
-        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        const modal = evGetStaticModal('modalAgregarPublicacion');
+        if (!modal) return;
         requestAnimationFrame(() => {
           modal.show();
           requestAnimationFrame(setEvVh);
@@ -1222,6 +1228,7 @@
       if (btnPublicar && !btnPublicar.disabled) { confirmarYPublicar(btnPublicar.getAttribute('data-id')); return; }
     });
 
+    // Delegación de submit (robusto para vistas inyectadas)
     document.addEventListener('submit', (e) => {
       const form = e.target;
 
@@ -1236,25 +1243,21 @@
         actualizarProducto(form);
         return;
       }
-    });
 
-    // ✅ FIX: Buscar REAL (aplica filtro y repinta tabla)
-    const formBuscar = document.getElementById('formBuscarPublicacion');
-    if (formBuscar) {
-      formBuscar.addEventListener('submit', (e) => {
+      // ✅ Buscar REAL (siempre funciona aunque el DOM se inyecte)
+      if (form && form.id === 'formBuscarPublicacion') {
         e.preventDefault();
-        const fd = new FormData(e.target);
+
+        const fd = new FormData(form);
         window.evProductosFiltro.q = String(fd.get('q') || '').trim();
 
-        const modalEl = document.getElementById('modalBuscarPublicacion');
-        if (modalEl) {
-          const m = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
-          m.hide();
-        }
+        const m = evGetStaticModal('modalBuscarPublicacion');
+        m?.hide();
 
         window.evCargarProductos?.();
-      });
-    }
+        return;
+      }
+    });
   }
 
   function initIfNeeded() {

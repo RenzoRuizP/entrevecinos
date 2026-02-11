@@ -117,29 +117,31 @@ require_once __DIR__ . '/../Config/config.php';
     </div>
 
     <div class="ev-table-wrap">
-      <div class="table-responsive">
-        <table class="table ev-table mb-0">
-          <thead>
-            <tr>
-              <th class="ev-col-fecha">Fecha</th>
-              <th class="ev-col-titulo">Título</th>
-              <th class="text-end ev-col-precio">Precio</th>
-              <th class="ev-col-usuario">Usuario</th>
-              <th class="ev-col-estado">Estado</th>
-              <th class="text-end ev-col-acciones">Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="tbodyItems">
-            <tr>
-              <td colspan="6" class="text-center py-4 ev-empty">
-                <div class="ev-empty-wrap">
-                  <i class="bi bi-inbox ev-empty-ico"></i>
-                  <div class="ev-empty-text">No hay publicaciones para los filtros seleccionados.</div>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="ev-table-frame">
+        <div class="table-responsive">
+          <table class="table ev-table mb-0">
+            <thead>
+              <tr>
+                <th class="ev-col-fecha">Fecha</th>
+                <th class="ev-col-titulo">Título</th>
+                <th class="text-end ev-col-precio">Precio</th>
+                <th class="ev-col-usuario">Usuario</th>
+                <th class="ev-col-estado">Estado</th>
+                <th class="text-end ev-col-acciones">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyItems">
+              <tr>
+                <td colspan="6" class="text-center py-4 ev-empty">
+                  <div class="ev-empty-wrap">
+                    <i class="bi bi-inbox ev-empty-ico"></i>
+                    <div class="ev-empty-text">No hay publicaciones para los filtros seleccionados.</div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -211,7 +213,7 @@ require_once __DIR__ . '/../Config/config.php';
           <button type="button" class="btn ev-btn-danger" id="btnRechazar">
             <i class="bi bi-x-circle me-1"></i> Rechazar
           </button>
-          <button type="button" class="btn ev-btn-light" id="btnObservar">
+          <button type="button" class="btn ev-btn-warning" id="btnObservar">
             <i class="bi bi-exclamation-circle me-1"></i> Observar
           </button>
           <button type="button" class="btn ev-btn-success" id="btnAprobar">

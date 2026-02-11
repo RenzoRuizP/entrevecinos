@@ -122,30 +122,36 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 11px;
+  padding: 6px 10px;
   border-radius: 999px;
   font-size: .74rem;
   font-weight: 900;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-  border: 1px solid rgba(148,163,184,.22);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.75);
+  letter-spacing: .02em;
+
+  /* 🔥 premium */
+  border:1px solid rgba(148,163,184,.24);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.78);
   backdrop-filter: blur(6px);
 }
 
+
 /* ✅ NUEVO: más mate + menos “verde idéntico” al aprobado */
 .ev-badge--nuevo{
-  background: linear-gradient(180deg, rgba(230,244,236,.92) 0%, rgba(230,244,236,.72) 100%);
+  /* ✅ neutro premium, NO “verde relleno” para no competir con Aprobado */
+  background: linear-gradient(180deg, rgba(248,250,252,.98) 0%, rgba(241,245,249,.88) 100%);
   color: rgba(15,89,47,.92);
-  border-color: rgba(15,89,47,.14);
+  border:1px solid rgba(148,163,184,.24);
 }
+
 
 /* USADO: cálido premium */
 .ev-badge--usado{
-  background: linear-gradient(180deg, rgba(255,193,7,.20) 0%, rgba(255,193,7,.12) 100%);
-  color: #7a5a00;
-  border-color: rgba(255,193,7,.22);
+  /* ✅ neutro premium con acento ámbar */
+  background: linear-gradient(180deg, rgba(248,250,252,.98) 0%, rgba(241,245,249,.88) 100%);
+  color: rgba(122,90,0,.92);
+  border:1px solid rgba(148,163,184,.24);
 }
+
 
 /* NO APLICA */
 .ev-badge--noaplica{
@@ -244,7 +250,15 @@
 }
 
 /* Variantes */
-.ev-chip-green{ border-color: rgba(15,89,47,.28); color: rgba(15,89,47,.92); }
+.ev-chip-green{
+  color: rgba(15,89,47,.95);
+  border: 1px solid rgba(15,89,47,.26);
+  background: linear-gradient(180deg, rgba(230,244,236,.95) 0%, rgba(255,255,255,.92) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.80),
+    0 10px 22px rgba(15, 23, 42, 0.08);
+}
+
 .ev-chip-green:hover{ background: rgba(230,244,236,.55); border-color: rgba(15,89,47,.42); }
 
 .ev-chip-red{ border-color: rgba(220,38,38,.34); color: var(--ev-rojo); }
