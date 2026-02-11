@@ -1,5 +1,7 @@
 (function () {
   const BASE = (window.BASE_URL || '').replace(/\/$/, '');
+  if (!BASE) return;
+
   const cont = document.getElementById('evDestacadasPagadas');
   const msg  = document.getElementById('evDestacadasPagadasMensaje');
   const btnMarketplace = document.getElementById("btnMarketplace");
@@ -37,6 +39,9 @@
     if (path.startsWith('/')) return `${BASE}${path}`;
     return `${BASE}/${path}`;
   }
+
+  // ✅ Si no existe el contenedor, NO intentes pintar nada (evita: Cannot set properties of null)
+  if (!cont) return;
 
   fetch(`${BASE}/controllers/menuListarDestacadasPagadasController.php`)
     .then(r => r.json())

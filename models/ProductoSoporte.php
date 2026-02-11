@@ -12,7 +12,6 @@ class ProductoSoporte extends Conexion
         $page   = max(1, (int)($filtros['page'] ?? 1));
         $size   = max(1, min(50, (int)($filtros['size'] ?? 10)));
 
-        // visible mapping
         $map = [
             'borrador'  => 0,
             'pendiente' => 1,
@@ -20,7 +19,7 @@ class ProductoSoporte extends Conexion
             'rechazada' => 3,
         ];
 
-        $where = [];
+        $where  = [];
         $params = [];
 
         if ($estado !== 'todas') {
@@ -50,7 +49,10 @@ class ProductoSoporte extends Conexion
 
         $offset = ($page - 1) * $size;
 
-        // Items
+        /**
+         * ✅ FIX: Traer última revisión por producto en la MISMA consulta.
+         * Usamos MAX(codigo_revision) por producto.
+         */
         $sql = "
             SELECT
                 p.codigo_producto,
@@ -65,9 +67,22 @@ class ProductoSoporte extends Conexion
                 p.created_at,
                 p.updated_at,
                 u.nombre AS usuario_nombre,
-                u.email  AS usuario_email
+                u.email  AS usuario_email,
+
+                pr.codigo_revision      AS rev_codigo_revision,
+                pr.estado_anterior      AS rev_estado_anterior,
+                pr.estado_nuevo         AS rev_estado_nuevo,
+                pr.comentario           AS rev_comentario,
+                pr.codigo_soporte       AS rev_codigo_soporte,
+                pr.created_at           AS rev_created_at
             FROM producto p
             LEFT JOIN usuario u ON u.codigo_usuario = p.codigo_usuario
+            LEFT JOIN (
+                SELECT codigo_producto, MAX(codigo_revision) AS max_rev
+                FROM producto_revision
+                GROUP BY codigo_producto
+            ) prm ON prm.codigo_producto = p.codigo_producto
+            LEFT JOIN producto_revision pr ON pr.codigo_revision = prm.max_rev
             {$whereSql}
             ORDER BY p.updated_at DESC
             LIMIT :limit OFFSET :offset
@@ -79,9 +94,37 @@ class ProductoSoporte extends Conexion
         $st->bindValue(':offset', $offset, \PDO::PARAM_INT);
         $st->execute();
 
-        $items = $st->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+        $rows = $st->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+        $items = [];
 
-        // Contadores
+        foreach ($rows as $r) {
+            $ultima = null;
+
+            if (!empty($r['rev_codigo_revision'])) {
+                $ultima = [
+                    'codigo_revision' => (int)$r['rev_codigo_revision'],
+                    'codigo_producto' => (int)$r['codigo_producto'],
+                    'estado_anterior' => (int)($r['rev_estado_anterior'] ?? 0),
+                    'estado_nuevo'    => (int)($r['rev_estado_nuevo'] ?? 0),
+                    'comentario'      => $r['rev_comentario'],
+                    'codigo_soporte'  => (int)($r['rev_codigo_soporte'] ?? 0),
+                    'created_at'      => $r['rev_created_at'],
+                ];
+            }
+
+            unset(
+                $r['rev_codigo_revision'],
+                $r['rev_estado_anterior'],
+                $r['rev_estado_nuevo'],
+                $r['rev_comentario'],
+                $r['rev_codigo_soporte'],
+                $r['rev_created_at']
+            );
+
+            $r['ultima_revision'] = $ultima;
+            $items[] = $r;
+        }
+
         $counts = [
             'borradores' => (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 0")->fetchColumn() ?: 0),
             'pendientes' => (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 1")->fetchColumn() ?: 0),
@@ -90,11 +133,11 @@ class ProductoSoporte extends Conexion
         ];
 
         return [
-            'total'   => $total,
-            'page'    => $page,
-            'size'    => $size,
-            'counts'  => $counts,
-            'items'   => $items,
+            'total'  => $total,
+            'page'   => $page,
+            'size'   => $size,
+            'counts' => $counts,
+            'items'  => $items,
         ];
     }
 
@@ -110,9 +153,72 @@ class ProductoSoporte extends Conexion
         return (bool)$st->execute();
     }
 
+    public function obtenerVisibleActual(int $codigoProducto): ?int
+    {
+        $sql = "SELECT visible FROM producto WHERE codigo_producto = :id LIMIT 1";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':id', $codigoProducto, \PDO::PARAM_INT);
+        $st->execute();
+        $v = $st->fetchColumn();
+        if ($v === false) return null;
+        return (int)$v;
+    }
+
+    public function registrarRevisionTablaExistente(
+        int $codigoProducto,
+        int $codigoSoporte,
+        int $estadoAnterior,
+        int $estadoNuevo,
+        string $comentario
+    ): void {
+        $comentario = trim($comentario);
+        if (mb_strlen($comentario) > 500) {
+            $comentario = mb_substr($comentario, 0, 500);
+        }
+
+        $sql = "
+            INSERT INTO producto_revision
+                (codigo_producto, estado_anterior, estado_nuevo, comentario, codigo_soporte)
+            VALUES
+                (:p, :ea, :en, :c, :s)
+        ";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':p',  $codigoProducto, \PDO::PARAM_INT);
+        $st->bindValue(':ea', $estadoAnterior, \PDO::PARAM_INT);
+        $st->bindValue(':en', $estadoNuevo, \PDO::PARAM_INT);
+
+        if ($comentario !== '') $st->bindValue(':c', $comentario, \PDO::PARAM_STR);
+        else $st->bindValue(':c', null, \PDO::PARAM_NULL);
+
+        $st->bindValue(':s',  $codigoSoporte, \PDO::PARAM_INT);
+        $st->execute();
+    }
+
+    public function obtenerUltimaRevisionTablaExistente(int $codigoProducto): ?array
+    {
+        $sql = "
+            SELECT
+                codigo_revision,
+                codigo_producto,
+                estado_anterior,
+                estado_nuevo,
+                comentario,
+                codigo_soporte,
+                created_at
+            FROM producto_revision
+            WHERE codigo_producto = :id
+            ORDER BY created_at DESC, codigo_revision DESC
+            LIMIT 1
+        ";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':id', $codigoProducto, \PDO::PARAM_INT);
+        $st->execute();
+        $row = $st->fetch(\PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
     public function obtenerDetalle(int $codigoProducto): ?array
     {
-        // Producto + usuario + imágenes
         $sql = "
             SELECT
                 p.*,
@@ -129,7 +235,7 @@ class ProductoSoporte extends Conexion
         $row = $st->fetch(\PDO::FETCH_ASSOC);
         if (!$row) return null;
 
-        // imágenes (si tienes producto_imagen)
+        // Imágenes
         $imgs = [];
         try {
             $sqlImg = "
@@ -143,11 +249,14 @@ class ProductoSoporte extends Conexion
             $st2->execute();
             $imgs = $st2->fetchAll(\PDO::FETCH_ASSOC) ?: [];
         } catch (\Throwable $e) {
-            // Si no existe tabla o algo, no rompemos
             $imgs = [];
         }
 
         $row['imagenes'] = $imgs;
+
+        // ✅ Última revisión (comentario)
+        $row['ultima_revision'] = $this->obtenerUltimaRevisionTablaExistente($codigoProducto);
+
         return $row;
     }
 }

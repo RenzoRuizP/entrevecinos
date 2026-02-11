@@ -785,8 +785,6 @@
       }
 
       evNotify('success', 'Producto anulado', data.mensaje || 'El producto ha sido anulado correctamente.');
-
-      // refrescar y repintar sin que se vea “feo”
       window.evCargarProductos?.();
 
     } catch (err) {
@@ -1006,23 +1004,35 @@
 
   /* ==============================
      Listado tabla ✅ 8 columnas
-     + ✅ FIX: estado "ANULADO" ya no muestra botones redundantes
-     + ✅ FIX: filtro de búsqueda funcional (client-side)
+     + ✅ FIX: OBSERVADO desde ultima_revision
+     + ✅ FIX: Aprobado sin Editar/Anular
+     + ✅ UX: Header dinámico "Opciones" / "Publicación"
   ============================== */
   function escAttr(v) {
     return String(v ?? '').replace(/"/g, '&quot;');
   }
 
-  function uiEstadoVisible(visibleNum) {
+  function uiEstadoVisible(visibleNum, ultimaRevision) {
     // 0 borrador, 1 pendiente, 2 aprobado, 3 anulado
-    if (visibleNum === 0) return { text: 'Borrador', cls: 'ev-chip ev-chip-gray' };
-    if (visibleNum === 1) return { text: 'Pendiente', cls: 'ev-chip ev-chip-amber' };
-    if (visibleNum === 2) return { text: 'Aprobado',  cls: 'ev-chip ev-chip-green' };
+    const rev = ultimaRevision || null;
+
+    const hasObs = (
+      Number(visibleNum) === 1 &&
+      rev &&
+      String(rev.comentario || '').trim().length > 0 &&
+      Number(rev.estado_nuevo ?? -1) === 1
+    );
+
+    if (hasObs) return { text: 'Observado', cls: 'ev-chip ev-chip-amber' };
+
+    if (Number(visibleNum) === 0) return { text: 'Borrador', cls: 'ev-chip ev-chip-gray' };
+    if (Number(visibleNum) === 1) return { text: 'Pendiente', cls: 'ev-chip ev-chip-amber' };
+    if (Number(visibleNum) === 2) return { text: 'Aprobado',  cls: 'ev-chip ev-chip-green' };
     return { text: 'Anulado', cls: 'ev-chip ev-chip-red' };
   }
 
   function uiAccionPublicar(visibleNum) {
-    if (visibleNum === 0) {
+    if (Number(visibleNum) === 0) {
       return { show: true, text: 'Publicar', cls: 'ev-chip ev-chip-orange', disabled: false };
     }
     return { show: false };
@@ -1068,6 +1078,15 @@
 
       const filtrados = filtrarItems(items);
 
+      // ✅ Header dinámico: "Opciones" vs "Publicación"
+      // - Si TODOS los filtrados están aprobados => "Publicación"
+      // - Si hay mezcla => "Opciones"
+      const thLast = table.querySelector('thead th:last-child');
+      if (thLast) {
+        const allApproved = filtrados.length > 0 && filtrados.every(x => Number(x.visible ?? 0) === 2);
+        thLast.textContent = allApproved ? 'Publicación' : 'Opciones';
+      }
+
       if (!items.length) {
         tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Aún no tienes productos registrados.</td></tr>`;
         return;
@@ -1106,14 +1125,20 @@
         if (estado === 'NUEVO') badge = 'ev-badge ev-badge--nuevo';
         else if (estado === 'USADO') badge = 'ev-badge ev-badge--usado';
 
-        const visUI = uiEstadoVisible(visible);
+        // ✅ usa la última revisión para calcular “Observado”
+        const visUI = uiEstadoVisible(visible, p.ultima_revision);
         const pubUI = uiAccionPublicar(visible);
 
         const disableEditar = (visible === 1 || visible === 2 || visible === 3) ? 'disabled' : '';
         const disableAnular = (visible === 2 || visible === 3) ? 'disabled' : '';
 
-        const isAnulado = (visible === 3);
+        const isAprobado = (visible === 2);
+        const isAnulado  = (visible === 3);
+
         const trStyle = isAnulado ? 'style="opacity:.62;filter:saturate(.85);"' : '';
+
+        const obsTxt = String(p?.ultima_revision?.comentario || '').trim();
+        const obsTitle = obsTxt ? `title="${escAttr(obsTxt)}"` : '';
 
         return `
           <tr ${trStyle}>
@@ -1128,16 +1153,19 @@
               <div class="ev-actions">
                 ${
                   isAnulado
-                    ? `<button type="button" class="${visUI.cls}" disabled>${visUI.text}</button>`
-                    : `
-                      <button type="button" class="ev-chip ev-chip-green" data-action="editar" data-id="${id}" ${disableEditar}>Editar</button>
-                      <button type="button" class="ev-chip ev-chip-red" data-action="anular" data-id="${id}" ${disableAnular}>Anular</button>
-                      ${
-                        pubUI.show
-                          ? `<button type="button" class="${pubUI.cls}" data-action="publicar" data-id="${id}">${pubUI.text}</button>`
-                          : `<button type="button" class="${visUI.cls}" disabled>${visUI.text}</button>`
-                      }
-                    `
+                    ? `<button type="button" class="${visUI.cls}" disabled ${obsTitle}>${visUI.text}</button>`
+                    : isAprobado
+                      // ✅ Aprobado: NO mostrar Editar/Anular
+                      ? `<button type="button" class="${visUI.cls}" disabled>Aprobado</button>`
+                      : `
+                          <button type="button" class="ev-chip ev-chip-green" data-action="editar" data-id="${id}" ${disableEditar}>Editar</button>
+                          <button type="button" class="ev-chip ev-chip-red" data-action="anular" data-id="${id}" ${disableAnular}>Anular</button>
+                          ${
+                            pubUI.show
+                              ? `<button type="button" class="${pubUI.cls}" data-action="publicar" data-id="${id}">${pubUI.text}</button>`
+                              : `<button type="button" class="${visUI.cls}" disabled ${obsTitle}>${visUI.text}</button>`
+                          }
+                        `
                 }
               </div>
             </td>
@@ -1224,7 +1252,6 @@
           m.hide();
         }
 
-        // Recargar para traer items y repintar filtrados
         window.evCargarProductos?.();
       });
     }

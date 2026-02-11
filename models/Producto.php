@@ -3,9 +3,9 @@
     Modelo Producto (EV)
     Estados (visible):
       0 = borrador (recién creado por vendedor; puede "Publicar")
-      1 = pendiente (vendedor ya publicó; espera aprobación admin)
+      1 = pendiente (vendedor ya publicó; espera aprobación admin)  [y también OBSERVADO se mantiene en 1]
       2 = aprobado  (aparece en marketplace)
-      3 = anulado   (no disponible)
+      3 = rechazado (no disponible / rechazado por soporte/admin)
 */
 
 require_once __DIR__ . '/../Config/EnvConfig.php';
@@ -243,6 +243,42 @@ class Producto extends Conexion
     }
 
     /* ==========================================================
+       ✅ NUEVO: helper para traer última revisión por varios IDs
+       Evita N+1 en listarPorUsuario()
+    ========================================================== */
+    private function obtenerUltimasRevisionesPorProductos(array $ids): array
+    {
+        $ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
+        if (!$ids) return [];
+
+        $in = implode(',', array_fill(0, count($ids), '?'));
+
+        $sql = "
+            SELECT pr.*
+            FROM producto_revision pr
+            INNER JOIN (
+                SELECT codigo_producto, MAX(codigo_revision) AS max_id
+                FROM producto_revision
+                WHERE codigo_producto IN ($in)
+                GROUP BY codigo_producto
+            ) x ON x.max_id = pr.codigo_revision
+        ";
+
+        $st = $this->dblink->prepare($sql);
+        foreach ($ids as $i => $id) {
+            $st->bindValue($i + 1, $id, PDO::PARAM_INT);
+        }
+        $st->execute();
+
+        $map = [];
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        foreach ($rows as $r) {
+            $map[(int)$r['codigo_producto']] = $r;
+        }
+        return $map;
+    }
+
+    /* ==========================================================
        LISTADOS / DETALLE
     ========================================================== */
     public function listarPorUsuario(int $codigoUsuario): array
@@ -273,7 +309,20 @@ class Producto extends Conexion
         $sentencia->bindParam(':p_codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
         $sentencia->execute();
 
-        return $sentencia->fetchAll(PDO::FETCH_ASSOC);
+        $items = $sentencia->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if (!$items) return [];
+
+        // ✅ Adjuntar ultima_revision a cada producto (para Mis Productos)
+        $ids = array_map(fn($r) => (int)$r['codigo_producto'], $items);
+        $revMap = $this->obtenerUltimasRevisionesPorProductos($ids);
+
+        foreach ($items as &$it) {
+            $id = (int)($it['codigo_producto'] ?? 0);
+            $it['ultima_revision'] = $revMap[$id] ?? null;
+        }
+        unset($it);
+
+        return $items;
     }
 
     public function obtenerPorId(int $codigoProducto, int $codigoUsuario): ?array
@@ -303,7 +352,13 @@ class Producto extends Conexion
         $stmt->execute();
 
         $fila = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $fila ?: null;
+        if (!$fila) return null;
+
+        // ✅ Adjuntar ultima_revision también al detalle (por si lo usas luego)
+        $revMap = $this->obtenerUltimasRevisionesPorProductos([(int)$codigoProducto]);
+        $fila['ultima_revision'] = $revMap[(int)$codigoProducto] ?? null;
+
+        return $fila;
     }
 
     public function actualizarProductoBase(int $codigoProducto, int $codigoUsuario): void
@@ -374,7 +429,7 @@ class Producto extends Conexion
         return $stmt->rowCount() > 0;
     }
 
-    // Anular -> 3
+    // Anular -> 3 (vendedor)
     public function anularProducto(int $codigoProducto, int $codigoUsuario): bool
     {
         $sql = "
@@ -470,5 +525,261 @@ class Producto extends Conexion
         $stmt = $this->dblink->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /* ==========================================================
+       ====== SOPORTE / ADMIN: REVISIONES ======
+       Tabla: producto_revision
+       (codigo_revision, codigo_producto, estado_anterior, estado_nuevo, comentario, codigo_soporte, created_at)
+    ========================================================== */
+
+    private function visibleFromEstadoString(string $estado): int
+    {
+        $e = strtolower(trim($estado));
+        if ($e === 'borrador') return 0;
+        if ($e === 'pendiente') return 1;
+        if ($e === 'aprobada' || $e === 'aprobado') return 2;
+        if ($e === 'rechazada' || $e === 'rechazado') return 3;
+        return 1; // default
+    }
+
+    public function obtenerUltimaRevision(int $codigoProducto): ?array
+    {
+        $sql = "
+            SELECT
+                pr.codigo_revision,
+                pr.codigo_producto,
+                pr.estado_anterior,
+                pr.estado_nuevo,
+                pr.comentario,
+                pr.codigo_soporte,
+                pr.created_at
+            FROM producto_revision pr
+            WHERE pr.codigo_producto = :p
+            ORDER BY pr.created_at DESC, pr.codigo_revision DESC
+            LIMIT 1
+        ";
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindParam(':p', $codigoProducto, PDO::PARAM_INT);
+        $stmt->execute();
+        $r = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $r ?: null;
+    }
+
+    public function contarPorVisibles(): array
+    {
+        $sql = "
+            SELECT
+                SUM(CASE WHEN visible = 0 THEN 1 ELSE 0 END) AS borradores,
+                SUM(CASE WHEN visible = 1 THEN 1 ELSE 0 END) AS pendientes,
+                SUM(CASE WHEN visible = 2 THEN 1 ELSE 0 END) AS aprobadas,
+                SUM(CASE WHEN visible = 3 THEN 1 ELSE 0 END) AS rechazadas
+            FROM producto
+        ";
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return [
+            'borradores' => (int)($row['borradores'] ?? 0),
+            'pendientes' => (int)($row['pendientes'] ?? 0),
+            'aprobadas'  => (int)($row['aprobadas'] ?? 0),
+            'rechazadas' => (int)($row['rechazadas'] ?? 0),
+        ];
+    }
+
+    public function listarSoporte(string $estado, string $q, int $page, int $size): array
+    {
+        $visible = $this->visibleFromEstadoString($estado);
+        $page = max(1, (int)$page);
+        $size = max(1, min(50, (int)$size));
+        $offset = ($page - 1) * $size;
+
+        $q = trim((string)$q);
+        $hasQ = ($q !== '');
+
+        // Total
+        $sqlTotal = "
+            SELECT COUNT(*) AS total
+            FROM producto p
+            INNER JOIN usuario u ON u.codigo_usuario = p.codigo_usuario
+            WHERE p.visible = :v
+        ";
+        if ($hasQ) {
+            $sqlTotal .= " AND (
+                p.titulo LIKE :q OR p.descripcion LIKE :q OR
+                u.nombre LIKE :q OR u.apellido LIKE :q OR u.email LIKE :q
+            )";
+        }
+        $stmtT = $this->dblink->prepare($sqlTotal);
+        $stmtT->bindValue(':v', $visible, PDO::PARAM_INT);
+        if ($hasQ) $stmtT->bindValue(':q', '%' . $q . '%', PDO::PARAM_STR);
+        $stmtT->execute();
+        $total = (int)($stmtT->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
+
+        // Items (incluye ultima_revision como objeto simple)
+        $sql = "
+            SELECT
+                p.codigo_producto,
+                p.titulo,
+                p.descripcion,
+                p.estado,
+                p.precio,
+                p.visible,
+                p.imagen_portada,
+                p.created_at,
+                p.updated_at,
+                u.codigo_usuario,
+                CONCAT(TRIM(COALESCE(u.nombre,'')), ' ', TRIM(COALESCE(u.apellido,''))) AS usuario_nombre,
+                u.email AS usuario_email,
+
+                pr.codigo_revision AS rev_id,
+                pr.estado_anterior AS rev_estado_anterior,
+                pr.estado_nuevo AS rev_estado_nuevo,
+                pr.comentario AS rev_comentario,
+                pr.codigo_soporte AS rev_codigo_soporte,
+                pr.created_at AS rev_created_at
+            FROM producto p
+            INNER JOIN usuario u ON u.codigo_usuario = p.codigo_usuario
+
+            LEFT JOIN (
+                SELECT pr1.*
+                FROM producto_revision pr1
+                INNER JOIN (
+                    SELECT codigo_producto, MAX(codigo_revision) AS max_id
+                    FROM producto_revision
+                    GROUP BY codigo_producto
+                ) x ON x.codigo_producto = pr1.codigo_producto AND x.max_id = pr1.codigo_revision
+            ) pr ON pr.codigo_producto = p.codigo_producto
+
+            WHERE p.visible = :v
+        ";
+        if ($hasQ) {
+            $sql .= " AND (
+                p.titulo LIKE :q OR p.descripcion LIKE :q OR
+                u.nombre LIKE :q OR u.apellido LIKE :q OR u.email LIKE :q
+            )";
+        }
+        $sql .= " ORDER BY p.updated_at DESC, p.created_at DESC LIMIT :lim OFFSET :off";
+
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindValue(':v', $visible, PDO::PARAM_INT);
+        if ($hasQ) $stmt->bindValue(':q', '%' . $q . '%', PDO::PARAM_STR);
+        $stmt->bindValue(':lim', $size, PDO::PARAM_INT);
+        $stmt->bindValue(':off', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $items = [];
+        foreach ($rows as $r) {
+            $it = [
+                'codigo_producto' => (int)$r['codigo_producto'],
+                'titulo'          => $r['titulo'],
+                'descripcion'     => $r['descripcion'],
+                'estado'          => $r['estado'],
+                'precio'          => $r['precio'],
+                'visible'         => (int)$r['visible'],
+                'imagen_portada'  => $r['imagen_portada'],
+                'created_at'      => $r['created_at'],
+                'updated_at'      => $r['updated_at'],
+                'usuario_nombre'  => $r['usuario_nombre'],
+                'usuario_email'   => $r['usuario_email'],
+            ];
+
+            if (!empty($r['rev_id'])) {
+                $it['ultima_revision'] = [
+                    'codigo_revision' => (int)$r['rev_id'],
+                    'estado_anterior' => (int)$r['rev_estado_anterior'],
+                    'estado_nuevo'    => (int)$r['rev_estado_nuevo'],
+                    'comentario'      => $r['rev_comentario'],
+                    'codigo_soporte'  => (int)$r['rev_codigo_soporte'],
+                    'created_at'      => $r['rev_created_at'],
+                ];
+            } else {
+                $it['ultima_revision'] = null;
+            }
+
+            $items[] = $it;
+        }
+
+        return [
+            'total' => $total,
+            'page'  => $page,
+            'size'  => $size,
+            'items' => $items
+        ];
+    }
+
+    public function obtenerDetalleSoporte(int $codigoProducto): ?array
+    {
+        $sql = "
+            SELECT
+                p.codigo_producto,
+                p.titulo,
+                p.descripcion,
+                p.estado,
+                p.precio,
+                p.visible,
+                p.imagen_portada,
+                p.created_at,
+                p.updated_at,
+                u.codigo_usuario,
+                CONCAT(TRIM(COALESCE(u.nombre,'')), ' ', TRIM(COALESCE(u.apellido,''))) AS usuario_nombre,
+                u.email AS usuario_email
+            FROM producto p
+            INNER JOIN usuario u ON u.codigo_usuario = p.codigo_usuario
+            WHERE p.codigo_producto = :p
+            LIMIT 1
+        ";
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindParam(':p', $codigoProducto, PDO::PARAM_INT);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) return null;
+
+        $item = [
+            'codigo_producto' => (int)$row['codigo_producto'],
+            'titulo'          => $row['titulo'],
+            'descripcion'     => $row['descripcion'],
+            'estado'          => $row['estado'],
+            'precio'          => $row['precio'],
+            'visible'         => (int)$row['visible'],
+            'imagen_portada'  => $row['imagen_portada'],
+            'created_at'      => $row['created_at'],
+            'updated_at'      => $row['updated_at'],
+            'usuario_nombre'  => $row['usuario_nombre'],
+            'usuario_email'   => $row['usuario_email'],
+            'imagenes'        => $this->obtenerImagenes($codigoProducto),
+            'ultima_revision' => $this->obtenerUltimaRevision($codigoProducto),
+        ];
+
+        return $item;
+    }
+
+    public function registrarRevisionSoporte(int $codigoProducto, int $estadoAnterior, int $estadoNuevo, string $comentario, int $codigoSoporte): int
+    {
+        $sql = "
+            INSERT INTO producto_revision
+                (codigo_producto, estado_anterior, estado_nuevo, comentario, codigo_soporte)
+            VALUES
+                (:p, :ea, :en, :c, :cs)
+        ";
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindParam(':p', $codigoProducto, PDO::PARAM_INT);
+        $stmt->bindParam(':ea', $estadoAnterior, PDO::PARAM_INT);
+        $stmt->bindParam(':en', $estadoNuevo, PDO::PARAM_INT);
+        $stmt->bindParam(':c', $comentario, PDO::PARAM_STR);
+        $stmt->bindParam(':cs', $codigoSoporte, PDO::PARAM_INT);
+        $stmt->execute();
+        return (int)$this->dblink->lastInsertId();
+    }
+
+    public function actualizarVisibleSoporte(int $codigoProducto, int $visibleNuevo): bool
+    {
+        $sql = "UPDATE producto SET visible = :v WHERE codigo_producto = :p";
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindParam(':v', $visibleNuevo, PDO::PARAM_INT);
+        $stmt->bindParam(':p', $codigoProducto, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->rowCount() > 0;
     }
 }

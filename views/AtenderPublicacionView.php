@@ -155,7 +155,7 @@ require_once __DIR__ . '/../Config/config.php';
 
 </div>
 
-<!-- MODAL DETALLE -->
+<!-- MODAL: REVISAR (modo lectura + comentario + acciones) -->
 <div class="modal fade" id="modalPub" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-centered modal-xl">
     <div class="modal-content ev-modal">
@@ -176,7 +176,7 @@ require_once __DIR__ . '/../Config/config.php';
             </div>
 
             <div class="mt-3">
-              <label class="form-label">Comentario (obligatorio para Rechazada)</label>
+              <label class="form-label">Comentario (obligatorio para Observar o Rechazar)</label>
               <textarea class="form-control ev-input" id="mComentario" rows="4"
                         placeholder="Ej. Falta precio / Imagen no corresponde / Publicación duplicada..."></textarea>
               <div class="form-text">Este comentario se mostrará al usuario.</div>
@@ -186,7 +186,6 @@ require_once __DIR__ . '/../Config/config.php';
               <label class="form-label mb-1">Descripción</label>
               <div class="ev-desc" id="mDescripcion">—</div>
             </div>
-
           </div>
 
           <div class="col-12 col-lg-6">
@@ -211,6 +210,9 @@ require_once __DIR__ . '/../Config/config.php';
         <div class="ms-auto d-flex gap-2">
           <button type="button" class="btn ev-btn-danger" id="btnRechazar">
             <i class="bi bi-x-circle me-1"></i> Rechazar
+          </button>
+          <button type="button" class="btn ev-btn-light" id="btnObservar">
+            <i class="bi bi-exclamation-circle me-1"></i> Observar
           </button>
           <button type="button" class="btn ev-btn-success" id="btnAprobar">
             <i class="bi bi-check-circle me-1"></i> Aprobar

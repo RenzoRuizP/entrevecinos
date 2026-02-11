@@ -7,7 +7,6 @@
 
   // =========================================================
   // Boot global (se carga 1 vez en el SHELL)
-  // - Re-inicializa el módulo cuando el parcial aparece en DOM
   // =========================================================
   const BOOT_KEY = "EV_BOOT_ATENDER_PUBLICACION";
   if (window[BOOT_KEY]) return;
@@ -37,11 +36,16 @@
 
   function formatFecha(v) {
     const s = String(v ?? "").trim();
-    return s ? s : "-"; // "YYYY-MM-DD HH:mm:ss"
+    return s ? s : "-";
   }
 
   function toastError(msg) {
     if (window.Swal) Swal.fire({ icon: "error", title: "Error", text: msg });
+    else alert(msg);
+  }
+
+  function toastOk(msg) {
+    if (window.Swal) Swal.fire({ icon: "success", title: "Listo", text: msg });
     else alert(msg);
   }
 
@@ -73,22 +77,35 @@
     return safeStr(visible, "-");
   }
 
+  function badgeClassFromVisible(visible) {
+    const n = Number(visible);
+    if (n === 0) return "ev-badge ev-badge-borrador";
+    if (n === 1) return "ev-badge ev-badge-pendiente";
+    if (n === 2) return "ev-badge ev-badge-aprobada";
+    if (n === 3) return "ev-badge ev-badge-rechazada";
+    return "ev-badge ev-badge-pendiente";
+  }
+
+  function isComentarioValidoFor(accion, comentario) {
+    const c = String(comentario ?? "").trim();
+    if (accion === "rechazar" || accion === "observar") return c.length >= 3;
+    return true;
+  }
+
   // =========================================================
   // Módulo (se instancia por cada parcial insertado)
   // =========================================================
   function initModule(root) {
-    // Evitar doble init en el mismo parcial
     if (!root || root.dataset.evInitAp === "1") return;
     root.dataset.evInitAp = "1";
 
-    // Estado del módulo
     let aborter = null;
     let page = 1;
     let size = 10;
-    let estado = "pendiente"; // pendiente|aprobada|rechazada|borrador|todas
+    let estado = "pendiente";
     let q = "";
 
-    // DOM (IDs reales de AtenderPublicacionView.php)
+    // DOM tabla
     const elForm = $("#formFiltros", root);
     const elEstado = $("#fEstado", root);
     const elTexto = $("#fTexto", root);
@@ -109,10 +126,29 @@
 
     const btnRefrescar = $("#btnRefrescar", root);
 
-    // Si no existe el tbody, no es esta vista.
+    // DOM modal
+    function getModalEls() {
+      const modalEl = document.getElementById("modalPub");
+      return {
+        modalEl,
+        mTitulo: document.getElementById("mTitulo"),
+        mPrecio: document.getElementById("mPrecio"),
+        mEstadoBadge: document.getElementById("mEstadoBadge"),
+        mUsuario: document.getElementById("mUsuario"),
+        mEmail: document.getElementById("mEmail"),
+        mDescripcion: document.getElementById("mDescripcion"),
+        mComentario: document.getElementById("mComentario"),
+        mGaleria: document.getElementById("mGaleria"),
+        mNoImgs: document.getElementById("mNoImgs"),
+      };
+    }
+
+    let modalInstance = null;
+    let currentId = null;
+    let currentVisible = null;
+
     if (!elBody) return;
 
-    // Tomar valor inicial del select si existe
     if (elEstado && elEstado.value) estado = String(elEstado.value).toLowerCase();
 
     function cancelFetchPrevio() {
@@ -158,13 +194,11 @@
       }
 
       for (const it of items) {
-        // campos reales del response
         const id = it.codigo_producto ?? "";
         const fecha = formatFecha(it.updated_at || it.created_at);
         const titulo = safeStr(it.titulo);
         const precio = money(it.precio);
 
-        // OJO: tu response trae usuario_nombre / usuario_email
         const usuarioNombre = safeStr(it.usuario_nombre, "");
         const usuarioEmail = safeStr(it.usuario_email, "");
         const usuario =
@@ -182,8 +216,8 @@
           <td>${usuario}</td>
           <td>${est}</td>
           <td class="text-end">
-            <button type="button" class="btn btn-sm btn-outline-success js-observar" data-id="${String(id)}">
-              Observar
+            <button type="button" class="btn btn-sm btn-outline-success js-revisar" data-id="${String(id)}">
+              Revisar
             </button>
           </td>
         `;
@@ -213,7 +247,6 @@
     }
 
     function getApiUrl() {
-      // Según tu modelo ProductoSoporte: estado + q + page + size
       return (
         baseUrl +
         "/api/soporte/productos" +
@@ -270,9 +303,94 @@
       }
     }
 
-    async function abrirDetalle(id) {
+    function ensureModal() {
+      const { modalEl } = getModalEls();
+      if (!modalEl) return null;
+      if (!modalInstance && window.bootstrap?.Modal) {
+        modalInstance = new bootstrap.Modal(modalEl);
+      }
+      return modalInstance;
+    }
+
+    function clearModal() {
+      const { mTitulo, mPrecio, mUsuario, mEmail, mDescripcion, mComentario, mGaleria, mNoImgs, mEstadoBadge } = getModalEls();
+
+      if (mTitulo) mTitulo.textContent = "—";
+      if (mPrecio) mPrecio.textContent = "—";
+      if (mUsuario) mUsuario.textContent = "—";
+      if (mEmail) mEmail.textContent = "—";
+      if (mDescripcion) mDescripcion.textContent = "—";
+      if (mComentario) mComentario.value = "";
+      if (mGaleria) mGaleria.innerHTML = "";
+      if (mNoImgs) mNoImgs.style.display = "block";
+      if (mEstadoBadge) {
+        mEstadoBadge.textContent = "pendiente";
+        mEstadoBadge.className = "ev-badge ev-badge-pendiente";
+      }
+      currentId = null;
+      currentVisible = null;
+    }
+
+    function fillModal(it) {
+      const { mTitulo, mPrecio, mUsuario, mEmail, mDescripcion, mComentario, mGaleria, mNoImgs, mEstadoBadge } = getModalEls();
+
+      const usuarioNombre = safeStr(it.usuario_nombre, "");
+      const usuarioEmail = safeStr(it.usuario_email, "");
+
+      if (mTitulo) mTitulo.textContent = safeStr(it.titulo);
+      if (mPrecio) mPrecio.textContent = money(it.precio);
+      if (mUsuario) mUsuario.textContent = (usuarioNombre || usuarioEmail) ? safeStr(usuarioNombre, "—") : "—";
+      if (mEmail) mEmail.textContent = usuarioEmail ? usuarioEmail : "—";
+      if (mDescripcion) mDescripcion.textContent = safeStr(it.descripcion, "—");
+
+      const estTxt = estadoLabelFromVisible(it.visible);
+      if (mEstadoBadge) {
+        mEstadoBadge.textContent = estTxt.toLowerCase();
+        mEstadoBadge.className = badgeClassFromVisible(it.visible);
+      }
+
+      // ✅ FIX: Mostrar comentario previo (última revisión) si existe
+      const prev = it?.ultima_revision?.comentario;
+      if (mComentario) {
+        const c = String(prev ?? "").trim();
+        mComentario.value = c; // si no hay, queda vacío
+      }
+
+      const imgs = Array.isArray(it.imagenes) ? it.imagenes : [];
+      const urls = [];
+
+      for (const img of imgs) {
+        const ruta = String(img?.ruta ?? "").trim();
+        if (ruta) urls.push(ruta);
+      }
+
+      if (urls.length === 0) {
+        const portada = String(it.imagen_portada ?? "").trim();
+        if (portada) urls.push(portada);
+      }
+
+      if (mGaleria) mGaleria.innerHTML = "";
+      if (urls.length > 0) {
+        if (mNoImgs) mNoImgs.style.display = "none";
+        for (const u of urls) {
+          const img = document.createElement("img");
+          const src = u.startsWith("http") ? u : (u.startsWith("/") ? (baseUrl + u) : (baseUrl + "/" + u));
+          img.src = src;
+          img.alt = "Imagen";
+          img.loading = "lazy";
+          mGaleria && mGaleria.appendChild(img);
+        }
+      } else {
+        if (mNoImgs) mNoImgs.style.display = "block";
+      }
+    }
+
+    async function abrirRevisar(id) {
       cancelFetchPrevio();
       aborter = new AbortController();
+
+      clearModal();
+      currentId = id;
 
       try {
         const url = baseUrl + "/api/soporte/productos/" + encodeURIComponent(id);
@@ -297,26 +415,12 @@
         }
 
         const it = data.item || {};
-        const usuario =
-          (it.usuario_nombre || it.usuario_email)
-            ? `${safeStr(it.usuario_nombre, "")}${it.usuario_email ? " (" + safeStr(it.usuario_email, "") + ")" : ""}`.trim()
-            : "-";
+        currentVisible = Number(it.visible);
 
-        if (window.Swal) {
-          Swal.fire({
-            title: it.titulo || "Detalle",
-            html: `
-              <div style="text-align:left">
-                <div><b>Precio:</b> ${money(it.precio)}</div>
-                <div><b>Usuario:</b> ${usuario}</div>
-                <div><b>Estado:</b> ${estadoLabelFromVisible(it.visible)}</div>
-                <div style="margin-top:10px"><b>Descripción:</b><br>${safeStr(it.descripcion, "-")}</div>
-              </div>
-            `,
-            confirmButtonText: "Cerrar",
-            confirmButtonColor: "#EA7C12",
-          });
-        }
+        fillModal(it);
+
+        const mi = ensureModal();
+        mi && mi.show();
       } catch (e) {
         if (e && e.name === "AbortError") return;
         toastError("Error de red al obtener detalle.");
@@ -325,8 +429,73 @@
       }
     }
 
+    async function enviarRevision(accion) {
+      if (!currentId) return;
+
+      const { mComentario } = getModalEls();
+      const comentario = String(mComentario?.value ?? "").trim();
+
+      if (!isComentarioValidoFor(accion, comentario)) {
+        toastInfo("Debes ingresar un comentario (mín. 3 caracteres) para Observar o Rechazar.");
+        mComentario && mComentario.focus();
+        return;
+      }
+
+      if (window.Swal) {
+        const txt = accion === "aprobar"
+          ? "¿Confirmas aprobar esta publicación?"
+          : accion === "rechazar"
+            ? "¿Confirmas rechazar esta publicación?"
+            : "¿Confirmas observar esta publicación?";
+
+        const r = await Swal.fire({
+          icon: "question",
+          title: "Confirmar",
+          text: txt,
+          showCancelButton: true,
+          confirmButtonText: "Sí, continuar",
+          cancelButtonText: "Cancelar",
+          confirmButtonColor: "#EA7C12",
+        });
+
+        if (!r.isConfirmed) return;
+      }
+
+      try {
+        const url = baseUrl + "/api/soporte/productos/" + encodeURIComponent(currentId) + "/revisar";
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          cache: "no-store",
+          body: JSON.stringify({ accion, comentario }),
+        });
+
+        if (res.status === 401) {
+          const j = await safeJson(res);
+          toastInfo(j?.mensaje || "Sesión finalizada. Inicia sesión nuevamente.");
+          window.location.href = baseUrl + "/login";
+          return;
+        }
+
+        const data = await safeJson(res);
+        if (!res.ok || data?.ok === false) {
+          toastError(data?.mensaje || data?.error || "No se pudo registrar la revisión.");
+          return;
+        }
+
+        toastOk(data?.mensaje || "Acción realizada.");
+
+        const mi = ensureModal();
+        mi && mi.hide();
+
+        listar();
+      } catch (e) {
+        toastError("Error de red al registrar revisión.");
+      }
+    }
+
     // =========================
-    // Eventos (solo 1 vez por parcial)
+    // Eventos filtros / tabla
     // =========================
     if (elForm) {
       elForm.addEventListener("submit", function (ev) {
@@ -401,16 +570,38 @@
       });
     }
 
-    // Delegación observar (dentro del parcial)
+    // Delegación: Revisar (fila)
     root.addEventListener("click", function (ev) {
-      const btn = ev.target && ev.target.closest ? ev.target.closest(".js-observar") : null;
+      const btn = ev.target && ev.target.closest ? ev.target.closest(".js-revisar") : null;
       if (!btn) return;
       const id = btn.getAttribute("data-id");
       if (!id) return;
-      abrirDetalle(id);
+      abrirRevisar(id);
     });
 
-    // Init del módulo (cuando el parcial existe)
+    // Delegación: botones del modal
+    document.addEventListener("click", function (ev) {
+      const t = ev.target;
+      if (!t || !t.closest) return;
+
+      if (t.closest("#btnAprobar")) {
+        ev.preventDefault();
+        enviarRevision("aprobar");
+        return;
+      }
+      if (t.closest("#btnRechazar")) {
+        ev.preventDefault();
+        enviarRevision("rechazar");
+        return;
+      }
+      if (t.closest("#btnObservar")) {
+        ev.preventDefault();
+        enviarRevision("observar");
+        return;
+      }
+    }, true);
+
+    // Init
     setActiveQuickButtons();
     listar();
   }
@@ -419,22 +610,17 @@
   // Observador: detecta cuando el parcial se inserta (AJAX)
   // =========================================================
   function scanAndInit() {
-    // Tu vista tiene wrapper: .ev-ap-page
     const root = document.querySelector(".ev-ap-page") || document;
-    // Si el parcial aún no está, no hace nada.
     if (document.querySelector(".ev-ap-page")) initModule(root);
   }
 
-  // 1) intento inmediato
   scanAndInit();
 
-  // 2) reintentos por si el parcial llega después
   const mo = new MutationObserver(function () {
     scanAndInit();
   });
   mo.observe(document.documentElement, { childList: true, subtree: true });
 
-  // 3) por si tu loader dispara eventos (no rompe si no existen)
   document.addEventListener("ev:partial-loaded", scanAndInit);
   document.addEventListener("ev:content-loaded", scanAndInit);
 })();

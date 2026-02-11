@@ -349,6 +349,9 @@ $routes = [
     ['GET',  '#^/api/soporte/productos$#',              [apiSoporteProductosController::class, 'listar'], 'json'],
     ['GET',  '#^/api/soporte/productos/(\d+)$#',        [apiSoporteProductosController::class, 'detalle'], 'json'],
     ['POST', '#^/api/soporte/productos/(\d+)/estado$#', [apiSoporteProductosController::class, 'actualizarEstado'], 'json'],
+    // ✅ NUEVO: revisión de publicación (aprobar / rechazar / observar)
+    ['POST', '#^/api/soporte/productos/(\d+)/revisar$#', [apiSoporteProductosController::class, 'revisar'], 'json'],
+
 
     // ==========================================================
     // ✅ ALIAS COMPATIBILIDAD (tu front llama /api/soporte-productos/...)
@@ -357,6 +360,8 @@ $routes = [
     ['GET',  '#^/api/soporte-productos/listar$#',       [apiSoporteProductosController::class, 'listar'], 'json'],
     ['GET',  '#^/api/soporte-productos/(\d+)$#',        [apiSoporteProductosController::class, 'detalle'], 'json'],
     ['POST', '#^/api/soporte-productos/(\d+)/estado$#', [apiSoporteProductosController::class, 'actualizarEstado'], 'json'],
+    ['POST', '#^/api/soporte-productos/(\d+)/revisar$#', [apiSoporteProductosController::class, 'revisar'], 'json'],
+
 
     ['GET',  '#^/api/soporte/usuarios$#',              [apiSoporteUsuariosController::class, 'listar'], 'json'],
     ['POST', '#^/api/soporte/usuarios/(\d+)/estado$#', [apiSoporteUsuariosController::class, 'actualizarEstado'], 'json'],

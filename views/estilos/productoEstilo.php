@@ -18,6 +18,12 @@
 
   --ev-vh: 1vh;
   --ev-header-grad: linear-gradient(90deg, #0F592F 0%, #137A43 55%, #0F592F 100%);
+
+  /* ✅ Premium tokens */
+  --ev-glass: rgba(255,255,255,.72);
+  --ev-glass-strong: rgba(255,255,255,.86);
+  --ev-stroke: rgba(15,23,42,.10);
+  --ev-stroke-soft: rgba(15,23,42,.08);
 }
 
 /* WRAPPER / CARD */
@@ -72,12 +78,12 @@
 .ev-pubs-table{ margin: 0; }
 .ev-pubs-table thead th{
   border-bottom: 1px solid var(--ev-gris-borde);
-  font-weight: 700;
-  color: var(--ev-texto-suave);
+  font-weight: 800;
+  color: rgba(100,116,139,.92);
   text-transform: uppercase;
   font-size: 0.78rem;
-  letter-spacing: 0.05em;
-  background: #F9FAFB;
+  letter-spacing: 0.06em;
+  background: linear-gradient(180deg, #FCFDFE 0%, #F9FAFB 100%);
 }
 .ev-pubs-table tbody td{
   border-color: rgba(229, 231, 235, 0.9);
@@ -86,9 +92,9 @@
 .ev-pubs-table tbody tr:hover{ background-color: #F9FAFB; }
 
 .ev-code{
-  font-weight: 800;
+  font-weight: 900;
   color: var(--ev-verde-oscuro);
-  letter-spacing: .02em;
+  letter-spacing: .04em;
 }
 .td-trunc{
   max-width: 520px;
@@ -97,31 +103,55 @@
   text-overflow: ellipsis;
 }
 
-/* BADGES */
+/* ✅ Columna final (PUBLICACIÓN) */
+.ev-pubs-table thead th:last-child,
+.ev-pubs-table tbody td:last-child{
+  text-align: center;
+  width: 210px;
+  white-space: nowrap;
+}
+@media (max-width: 992px){
+  .ev-pubs-table thead th:last-child,
+  .ev-pubs-table tbody td:last-child{ width: 180px; }
+}
+
+/* =========================================================
+   BADGES (ESTADO) — ahora más “soft” y elegante
+========================================================= */
 .ev-badge{
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 10px;
+  padding: 6px 11px;
   border-radius: 999px;
   font-size: .74rem;
-  font-weight: 800;
-  letter-spacing: .02em;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  border: 1px solid rgba(148,163,184,.22);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.75);
+  backdrop-filter: blur(6px);
 }
+
+/* ✅ NUEVO: más mate + menos “verde idéntico” al aprobado */
 .ev-badge--nuevo{
-  background: rgba(25,135,84,.14);
-  color: var(--ev-verde-oscuro);
-  border:1px solid rgba(25,135,84,.22);
+  background: linear-gradient(180deg, rgba(230,244,236,.92) 0%, rgba(230,244,236,.72) 100%);
+  color: rgba(15,89,47,.92);
+  border-color: rgba(15,89,47,.14);
 }
+
+/* USADO: cálido premium */
 .ev-badge--usado{
-  background: rgba(255, 193, 7, .22);
+  background: linear-gradient(180deg, rgba(255,193,7,.20) 0%, rgba(255,193,7,.12) 100%);
   color: #7a5a00;
-  border:1px solid rgba(255, 193, 7, .35);
+  border-color: rgba(255,193,7,.22);
 }
+
+/* NO APLICA */
 .ev-badge--noaplica{
-  background: #F3F4F6;
-  color: #64748b;
-  border:1px solid rgba(148,163,184,.35);
+  background: linear-gradient(180deg, rgba(243,244,246,.95) 0%, rgba(243,244,246,.78) 100%);
+  color: rgba(71,85,105,.92);
+  border-color: rgba(148,163,184,.22);
 }
 
 /* BOTONES */
@@ -129,7 +159,7 @@
   background-image: linear-gradient(180deg, #FF9B3A, #FF7A1A);
   border: none;
   color: #ffffff;
-  font-weight: 700;
+  font-weight: 800;
   border-radius: 999px;
   padding: 0.48rem 1.9rem;
   font-size: 0.96rem;
@@ -151,7 +181,7 @@
   border-radius: 999px;
   border: 1px solid var(--ev-gris-borde);
   color: var(--ev-texto);
-  font-weight: 600;
+  font-weight: 700;
   padding: 0.45rem 1.4rem;
   font-size: 0.93rem;
   display: inline-flex;
@@ -165,58 +195,100 @@
   transform: translateY(-1px);
 }
 
-/* ACCIONES TABLA */
+/* =========================================================
+   ACCIONES TABLA (MEJORADO)
+========================================================= */
 .ev-actions{
-  display: grid;
-  grid-template-columns: repeat(3, 104px);
-  gap: 10px;
-  justify-content: center;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-height: 40px;
 }
+
+/* CHIP (botón/pill) */
 .ev-chip{
-  width: 104px;
+  min-width: 104px;
+  width: auto;
   justify-content: center;
   text-align: center;
   border-radius: 999px;
-  padding: 0.40rem 0.95rem;
-  font-weight: 800;
+  padding: 0.42rem 0.98rem;
+  font-weight: 900;
   font-size: .86rem;
   line-height: 1;
-  background:#fff;
-  border:1px solid rgba(148,163,184,.45);
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06);
+  background: #fff;
+  border: 1px solid rgba(148,163,184,.34);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.06);
   transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease, border-color .15s ease;
-  user-select:none;
-  white-space:nowrap;
+  user-select: none;
+  white-space: nowrap;
   display: inline-flex;
-  align-items:center;
+  align-items: center;
 }
 .ev-chip:hover{
   transform: translateY(-1px);
-  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 14px 22px rgba(15, 23, 42, 0.08);
 }
 .ev-chip:focus-visible{
   outline: 0;
-  box-shadow: 0 0 0 .2rem rgba(25,135,84,.18), 0 10px 18px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 0 0 .2rem rgba(25,135,84,.18), 0 14px 22px rgba(15, 23, 42, 0.08);
 }
+
+/* Deshabilitado (estado) */
 .ev-chip:disabled,
 .ev-chip[disabled]{
-  opacity: .65;
-  box-shadow: none;
+  cursor: default;
   transform: none;
-  cursor: not-allowed;
 }
-.ev-chip-green{ border-color: rgba(15,89,47,.55); color: var(--ev-verde-oscuro); }
-.ev-chip-green:hover{ background: rgba(230,244,236,.8); border-color: rgba(15,89,47,.75); }
-.ev-chip-red{ border-color: rgba(220,38,38,.55); color: var(--ev-rojo); }
-.ev-chip-red:hover{ background: rgba(220,38,38,.06); border-color: rgba(220,38,38,.75); }
-.ev-chip-amber{ border-color: rgba(255,122,26,.65); color: var(--ev-naranja); }
-.ev-chip-amber:hover{ background: rgba(255,122,26,.08); border-color: rgba(255,122,26,.85); }
+
+/* Variantes */
+.ev-chip-green{ border-color: rgba(15,89,47,.28); color: rgba(15,89,47,.92); }
+.ev-chip-green:hover{ background: rgba(230,244,236,.55); border-color: rgba(15,89,47,.42); }
+
+.ev-chip-red{ border-color: rgba(220,38,38,.34); color: var(--ev-rojo); }
+.ev-chip-red:hover{ background: rgba(220,38,38,.06); border-color: rgba(220,38,38,.48); }
+
+.ev-chip-amber{ border-color: rgba(255,122,26,.36); color: var(--ev-naranja); }
+.ev-chip-amber:hover{ background: rgba(255,122,26,.08); border-color: rgba(255,122,26,.52); }
+
 .ev-chip-amber[disabled],
 .ev-chip[data-status="publicado"]{
   background: rgba(255,122,26,.06);
   border-color: rgba(255,122,26,.22);
   color: rgba(255,122,26,.55);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.75);
+}
+
+/* =========================================================
+   ✅ PUBLICACIÓN: APROBADO — glass premium (diferente a “Nuevo”)
+   - Más jerarquía
+   - Más “pro”
+========================================================= */
+.ev-chip.ev-chip-green:disabled,
+.ev-chip.ev-chip-green[disabled]{
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.92) 0%, rgba(230,244,236,.82) 55%, rgba(230,244,236,.70) 100%);
+  border: 1px solid rgba(15,89,47,.18);
+  color: rgba(15,89,47,.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.85),
+    0 14px 26px rgba(15, 23, 42, 0.06);
+  position: relative;
+}
+
+/* brillo sutil (sheen) */
+.ev-chip.ev-chip-green:disabled::after,
+.ev-chip.ev-chip-green[disabled]::after{
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: 999px;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(255,255,255,.0) 0%, rgba(255,255,255,.38) 45%, rgba(255,255,255,.0) 100%);
+  opacity: .45;
+  filter: blur(.2px);
 }
 
 /* SECCIONES */
@@ -259,12 +331,6 @@
 #evTiles:empty,
 #evTilesEdit:empty{ display:none; }
 
-/* =========================================================
-   ✅ Fallback robusto para ocultar dropzone
-   - Mantiene :has() para navegadores compatibles
-   - Agrega fallback por clase .ev-has-tiles (JS la aplica)
-========================================================= */
-
 /* Moderno */
 @supports selector(:has(*)) {
   .ev-section:has(#evTiles:not(:empty)) .ev-dropzone,
@@ -272,7 +338,6 @@
     display: none !important;
   }
 }
-
 /* Fallback */
 .ev-section.ev-has-tiles .ev-dropzone{
   display:none !important;
@@ -503,11 +568,8 @@
 
   .td-trunc{ max-width: 220px; }
 
-  .ev-actions{
-    grid-template-columns: repeat(2, 1fr);
-    justify-content: end;
-  }
-  .ev-chip{ width: 100%; }
+  .ev-actions{ display:flex; justify-content:center; }
+  .ev-chip{ min-width: 104px; }
 
   .ev-tile-remove{ width: 28px; height: 28px; font-size: 17px; }
   .ev-tile-add .t2{ font-size: .76rem; }
