@@ -1,45 +1,62 @@
-/* marketplace.js — Marketplace Entre Vecinos (EV)
-   ✅ Fix integral:
-   - /api/producto/marketplace y /api/producto/{id}
-   - Soporta shape real del detalle: {data:{producto:{...}, imagenes:[...]}}
-   - Evita duplicar BASE_URL en imágenes (/entrevecinos/entrevecinos)
-   - Modal detalle: título / precio / descripción con fallbacks
-*/
+/* views/js/marketplace.js
+   Marketplace EV — 2 secciones: Servicios + Productos
+   - Scope: todos/servicios/productos
+   - Categoría productos: desde /tipos/{id}/categoria_grupo
+   - Mantiene modal detalle y robustez de URLs
 
+   ✅ FIX 2026:
+   - Cards pequeñas (grid real) aunque solo haya 1 publicación
+   - Inyecta CSS defensivo (sin tocar tu CSS global)
+   - Combo Categoría carga (fetch con credentials + normalización de payload)
+   - Al elegir Productos, se oculta Servicios (y viceversa)
+*/
 (function () {
   'use strict';
 
-  const BASE = (window.BASE_URL || '').toString().replace(/\/+$/, ''); // "/entrevecinos"
+  const BASE = (window.BASE_URL || '').toString().replace(/\/+$/, '');
   const LOG_PREFIX = '[MARKETPLACE]';
 
   const CONDO_NOMBRE_RESUMEN = (typeof window !== 'undefined' && window.EV_CONDOMINIO_NOMBRE)
     ? window.EV_CONDOMINIO_NOMBRE
     : 'tu condominio';
 
+  // Refs
   let refs = {
-    grid: null,
+    gridAllWrapper: null,
+    gridServicios: null,
+    gridProductos: null,
     resumenResultados: null,
     searchInput: null,
     emptyState: null,
     selectOrdenar: null,
-    chips: []
+    scopeButtons: [],
+    selectCategoriaProductos: null,
+    countServicios: null,
+    countProductos: null,
+
+    // wrappers (para ocultar secciones completas si existen)
+    wrapServicios: null,
+    wrapProductos: null,
+    wrapCategoriaProductos: null
   };
 
-  let publicaciones = [];
-  let filtroCategoria = 'todos';
-  let textoBusqueda   = '';
-  let criterioOrden   = 'recientes';
+  // Data
+  let publicaciones = []; // normalizadas
+  let textoBusqueda = '';
+  let criterioOrden = 'recientes';
+  let scope = 'todos'; // todos|servicios|productos
+  let categoriaProductoId = 0;
 
-  // -------------------------
+  // Tipos IDs reales
+  let tipoIdProducto = 0;
+  let tipoIdServicio = 0;
+
   // Logs
-  // -------------------------
   function log()  { if (console && console.log)  console.log(LOG_PREFIX, ...arguments); }
   function warn() { if (console && console.warn) console.warn(LOG_PREFIX, ...arguments); }
   function err()  { if (console && console.error) console.error(LOG_PREFIX, ...arguments); }
 
-  // -------------------------
   // Notificaciones
-  // -------------------------
   const notify = (icon, title, text) => {
     if (typeof window.evNotify === 'function') {
       window.evNotify(icon, title, text);
@@ -59,9 +76,7 @@
     alert(title ? `${title}\n\n${text}` : text);
   };
 
-  // -------------------------
   // Helpers
-  // -------------------------
   function normalizar(str) {
     return (str || '')
       .toString()
@@ -93,7 +108,7 @@
   }
 
   function normalizeRelPath(relPath) {
-    const basePath = getBasePath(); // "/entrevecinos"
+    const basePath = getBasePath();
     let p = (relPath || '').toString().trim();
     if (!p) return '';
 
@@ -128,93 +143,52 @@
     return { resp, text, json };
   }
 
-  function normalizarListaDesdeAPI(payload) {
-    if (!payload || typeof payload !== 'object') return [];
+  // ✅ soporta payloads: array directo, {data:[...]}, {ok:true,data:[...]}, {items:[...]}
+  function getArrayFromPayload(payload) {
+    if (!payload) return [];
+    if (Array.isArray(payload)) return payload;
 
-    const d = payload.data;
-    if (Array.isArray(d)) return d;
-
-    if (Array.isArray(payload.productos)) return payload.productos;
-    if (Array.isArray(payload.publicaciones)) return payload.publicaciones;
-    if (Array.isArray(payload.items)) return payload.items;
-
-    if (d && Array.isArray(d.items)) return d.items;
-    if (d && Array.isArray(d.productos)) return d.productos;
-    if (d && Array.isArray(d.publicaciones)) return d.publicaciones;
-
+    if (typeof payload === 'object') {
+      if (Array.isArray(payload.data)) return payload.data;
+      if (Array.isArray(payload.items)) return payload.items;
+      if (payload.data && Array.isArray(payload.data.items)) return payload.data.items;
+    }
     return [];
+  }
+
+  function normalizarListaDesdeAPI(payload) {
+    return getArrayFromPayload(payload);
   }
 
   function normalizarItem(raw) {
     const o = raw && typeof raw === 'object' ? raw : {};
 
-    const id =
-      o.codigo_producto ??
-      o.codigo_publicacion ??
-      o.id_producto ??
-      o.id_publicacion ??
-      o.id ??
-      '';
+    const id = o.codigo_producto ?? o.id ?? '';
+    const titulo = o.titulo ?? o.nombre ?? '';
+    const descripcion = o.descripcion ?? o.detalle ?? '';
+    const precio = o.precio ?? 0;
 
-    const titulo =
-      o.titulo ??
-      o.nombre ??
-      o.nombre_producto ??
-      o.titulo_producto ??
-      '';
+    const codigo_tipo = Number(o.codigo_tipo || 0) || 0;
+    const codigo_categoria = Number(o.codigo_categoria || 0) || 0;
 
-    const descripcion =
-      o.descripcion ??
-      o.descripcion_producto ??
-      o.detalle ??
-      '';
+    const tipo_nombre = o.tipo_nombre ?? o.tipo ?? '';
+    const tipo_slug = o.tipo_slug ?? '';
+    const categoria_nombre = o.categoria_nombre ?? o.categoria ?? '';
+    const categoria_slug = o.categoria_slug ?? '';
 
-    const precio =
-      o.precio ??
-      o.precio_producto ??
-      o.monto ??
-      0;
-
-    const categoria_nombre =
-      o.categoria_nombre ??
-      o.nombre_categoria ??
-      o.categoria ??
-      '';
-
-    const categoria_slug =
-      o.categoria_slug ??
-      o.slug_categoria ??
-      '';
-
-    const tipo_nombre =
-      o.tipo_nombre ??
-      o.nombre_tipo ??
-      o.tipo ??
-      'Producto';
-
-    const tipo_slug =
-      o.tipo_slug ??
-      o.slug_tipo ??
-      '';
-
-    const es_potenciado =
-      o.es_potenciado ??
-      o.potenciado ??
-      o.destacado ??
-      0;
+    const es_potenciado = o.es_potenciado ?? o.potenciado ?? o.destacado ?? 0;
 
     const imagen_portada =
+      o.imagen_portada_url ??
       o.imagen_portada ??
       o.ruta_portada ??
-      o.foto_portada ??
       o.imagen ??
-      o.ruta ??
       '';
 
     const orden_reciente =
+      o.created_ts ??
       o.orden_reciente ??
       o.created_at ??
-      o.fecha_publicacion ??
       id ??
       0;
 
@@ -224,10 +198,12 @@
       __titulo: titulo,
       __descripcion: descripcion,
       __precio: precio,
-      __categoria_nombre: categoria_nombre,
-      __categoria_slug: categoria_slug,
+      __codigo_tipo: codigo_tipo,
+      __codigo_categoria: codigo_categoria,
       __tipo_nombre: tipo_nombre,
       __tipo_slug: tipo_slug,
+      __categoria_nombre: categoria_nombre,
+      __categoria_slug: categoria_slug,
       __es_potenciado: es_potenciado,
       __imagen_portada: imagen_portada,
       __orden_reciente: orden_reciente
@@ -239,7 +215,8 @@
   }
 
   function showEmpty(msg) {
-    if (refs.grid) refs.grid.innerHTML = '';
+    if (refs.gridServicios) refs.gridServicios.innerHTML = '';
+    if (refs.gridProductos) refs.gridProductos.innerHTML = '';
     if (refs.emptyState) {
       refs.emptyState.style.display = '';
       refs.emptyState.textContent = msg || 'No encontramos publicaciones con los filtros actuales.';
@@ -250,24 +227,110 @@
     if (refs.emptyState) refs.emptyState.style.display = 'none';
   }
 
-  function capturarRefs() {
-    refs.grid              = document.getElementById('mp_grid_publicaciones');
-    refs.resumenResultados = document.getElementById('mp_resumen_resultados');
-    refs.searchInput       = document.getElementById('mp_busqueda');
-    refs.emptyState        = document.getElementById('mp_empty_state');
-    refs.selectOrdenar     = document.getElementById('mp_orden');
-    refs.chips             = Array.from(document.querySelectorAll('.ev-mp-chip'));
-    return !!refs.grid;
+  // ✅ Inyecta CSS para que SIEMPRE sea grid y cards pequeñas (aunque haya 1)
+  function ensureGridCSS() {
+    const ID = 'ev-mp-grid-fix';
+    if (document.getElementById(ID)) return;
+
+    const css = `
+/* ===== EV Marketplace Grid Fix (injected) ===== */
+#mp_grid_servicios, #mp_grid_productos{
+  display:grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+  gap:16px !important;
+  align-items:start !important;
+  justify-items:start !important;
+  width:100% !important;
+}
+#mp_grid_servicios .ev-mp-card,
+#mp_grid_productos .ev-mp-card{
+  width:100% !important;
+  max-width:340px !important;      /* ✅ evita card gigante */
+  justify-self:start !important;   /* ✅ no centrado full */
+}
+#mp_grid_servicios .ev-mp-card-media img,
+#mp_grid_productos .ev-mp-card-media img{
+  width:100% !important;
+  height:170px !important;         /* ✅ mantiene proporción visual tipo tarjeta */
+  object-fit:cover !important;
+  display:block !important;
+}
+#mp_grid_servicios .ev-mp-card-body,
+#mp_grid_productos .ev-mp-card-body{
+  padding:14px !important;
+}
+#mp_grid_servicios .ev-mp-card-actions,
+#mp_grid_productos .ev-mp-card-actions{
+  display:flex !important;
+  gap:10px !important;
+}
+#mp_grid_servicios .ev-mp-card-actions .btn,
+#mp_grid_productos .ev-mp-card-actions .btn{
+  flex:1 1 auto !important;
+  white-space:nowrap !important;
+}
+/* ===== End Fix ===== */
+    `.trim();
+
+    const style = document.createElement('style');
+    style.id = ID;
+    style.type = 'text/css';
+    style.appendChild(document.createTextNode(css));
+    document.head.appendChild(style);
   }
 
-  // -------------------------
-  // ✅ DETALLE (FIX shape real)
-  // -------------------------
+  function capturarRefs() {
+    refs.gridAllWrapper       = document.getElementById('mp_grid_publicaciones');
+    refs.gridServicios        = document.getElementById('mp_grid_servicios');
+    refs.gridProductos        = document.getElementById('mp_grid_productos');
+    refs.countServicios       = document.getElementById('mp_count_servicios');
+    refs.countProductos       = document.getElementById('mp_count_productos');
+
+    refs.resumenResultados    = document.getElementById('mp_resumen_resultados');
+    refs.searchInput          = document.getElementById('mp_busqueda');
+    refs.emptyState           = document.getElementById('mp_empty_state');
+    refs.selectOrdenar        = document.getElementById('mp_orden');
+
+    refs.scopeButtons         = Array.from(document.querySelectorAll('.ev-mp-seg-btn'));
+    refs.selectCategoriaProductos = document.getElementById('mp_categoria_producto');
+
+    // wrappers: intenta encontrar contenedores de sección
+    refs.wrapServicios = refs.gridServicios ? (refs.gridServicios.closest('.ev-mp-section') || refs.gridServicios.parentElement) : null;
+    refs.wrapProductos = refs.gridProductos ? (refs.gridProductos.closest('.ev-mp-section') || refs.gridProductos.parentElement) : null;
+
+    // wrapper del combo categoría (si existe un contenedor cercano)
+    if (refs.selectCategoriaProductos) {
+      refs.wrapCategoriaProductos =
+        refs.selectCategoriaProductos.closest('.ev-mp-cat-wrap') ||
+        refs.selectCategoriaProductos.closest('.col') ||
+        refs.selectCategoriaProductos.parentElement;
+    }
+
+    return !!refs.gridAllWrapper;
+  }
+
+  function applyScopeVisibility() {
+    // Todos => ambos visibles
+    const showServ = (scope === 'todos' || scope === 'servicios');
+    const showProd = (scope === 'todos' || scope === 'productos');
+
+    if (refs.wrapServicios) refs.wrapServicios.style.display = showServ ? '' : 'none';
+    if (refs.wrapProductos) refs.wrapProductos.style.display = showProd ? '' : 'none';
+
+    // Combo categoría solo cuando aplica productos/todos
+    if (refs.wrapCategoriaProductos) {
+      refs.wrapCategoriaProductos.style.display = (scope === 'todos' || scope === 'productos') ? '' : 'none';
+    }
+
+    // Si estoy en Servicios, el filtro de categoría no debe afectar
+    if (scope === 'servicios') {
+      categoriaProductoId = 0;
+      if (refs.selectCategoriaProductos) refs.selectCategoriaProductos.value = '0';
+    }
+  }
+
+  // Detalle modal
   function extraerDetalleDesdeRespuesta(json) {
-    // Soporta:
-    // 1) {ok:true, data:{producto:{...}, imagenes:[...]}}
-    // 2) {ok:true, data:{...producto plano...}}
-    // 3) {ok:true, producto:{...}, imagenes:[...]}
     const root = (json && typeof json === 'object') ? json : {};
     const d = root.data && typeof root.data === 'object' ? root.data : null;
 
@@ -330,11 +393,10 @@
         return;
       }
 
-      // ✅ Aquí está el fix
       const { producto, imagenes } = extraerDetalleDesdeRespuesta(json);
       const pub = normalizarItem(producto);
 
-      const titulo = pub.__titulo || 'Producto';
+      const titulo = pub.__titulo || 'Publicación';
       const precio = pub.__precio || 0;
       const desc   = pub.__descripcion || '—';
 
@@ -342,18 +404,15 @@
       precioEl.textContent    = formatPrecio(precio);
       descEl.textContent      = desc;
 
-      // Si no tienes categoría/tipo aún, mantenemos placeholders estables
       catEl.textContent  = pub.__categoria_nombre || '—';
-      tipoEl.textContent = pub.__tipo_nombre || 'Producto';
+      tipoEl.textContent = pub.__tipo_nombre || '—';
 
-      // Normalizar imágenes
       const imgs = (Array.isArray(imagenes) ? imagenes : []).map((x) => {
         if (!x) return null;
         if (typeof x === 'string') return { url: x };
-        return { url: x.url || x.ruta || x.path || x.imagen || x.src || x.nombre || '' };
+        return { url: x.url || x.ruta || x.path || x.imagen || x.src || '' };
       }).filter(Boolean);
 
-      // Portada: si el producto no trae imagen_portada, usamos primera de imagenes
       let portada = pub.__imagen_portada || '';
       if (!portada && imgs.length > 0) portada = imgs[0].url;
 
@@ -398,22 +457,159 @@
     }
   }
 
-  // -------------------------
-  // Filtros + pintado
-  // -------------------------
-  function aplicarFiltrosYRedibujar() {
-    if (!refs.grid) return;
+  // Render cards
+  function cardHtml(p) {
+    const id     = p.__id;
+    const titulo = escapeHtml(p.__titulo || '');
+    const desc   = escapeHtml(p.__descripcion || '');
+    const precio = formatPrecio(p.__precio || 0);
+    const imgUrl = buildImgUrl(p.__imagen_portada);
 
-    let lista = Array.isArray(publicaciones) ? [...publicaciones] : [];
+    const esPotenciado = Number(p.__es_potenciado || 0) === 1;
 
-    if (filtroCategoria && filtroCategoria !== 'todos') {
-      if (filtroCategoria === 'recomendados') {
-        lista = lista.filter((p) => Number(p.__es_potenciado || 0) === 1);
-      } else if (filtroCategoria === 'productos') {
-        lista = lista.filter((p) => normalizar(p.__tipo_nombre || p.__tipo_slug || '').includes('producto'));
-      } else if (filtroCategoria === 'servicios') {
-        lista = lista.filter((p) => normalizar(p.__tipo_nombre || p.__tipo_slug || '').includes('servicio'));
+    let badgesHtml = '';
+    if (esPotenciado) badgesHtml += `<span class="ev-mp-badge ev-mp-badge-potenciado">Recomendado</span>`;
+
+    return `
+      <div class="ev-mp-card" data-id="${escapeHtml(String(id))}">
+        <div class="ev-mp-card-media">
+          <img src="${imgUrl}" alt="${titulo}">
+          <div class="ev-mp-card-badges">${badgesHtml}</div>
+        </div>
+        <div class="ev-mp-card-body">
+          <h5 class="ev-mp-card-title">${titulo}</h5>
+          <p class="ev-mp-card-price">${precio}</p>
+          <p style="font-size:13px;color:var(--ev-texto-suave);margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">
+            ${desc}
+          </p>
+
+          <div class="ev-mp-card-meta">
+            <div class="ev-mp-card-vecino">
+              <div class="ev-mp-avatar">${(titulo || '?').charAt(0).toUpperCase()}</div>
+              <div>
+                <div class="ev-mp-vecino-nombre">Vecino</div>
+                <div class="ev-mp-vecino-condominio">Tu condominio</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ev-mp-card-actions">
+            <button type="button" class="btn btn-outline-success ev-mp-btn-detalle">Ver detalle</button>
+            <button type="button" class="btn btn-success ev-mp-btn-pedir">Pedir ahora</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function bindCardActions(container) {
+    if (!container) return;
+    Array.from(container.querySelectorAll('.ev-mp-card')).forEach((card) => {
+      const id = card.getAttribute('data-id');
+      const btnDetalle = card.querySelector('.ev-mp-btn-detalle');
+      if (btnDetalle && id) btnDetalle.addEventListener('click', () => abrirModalDetalle(id));
+    });
+  }
+
+  // Tipos + Categorías (Productos)
+  async function cargarTiposYDetectar() {
+    try {
+      const url = `${BASE}/tipos`;
+      const { resp, json, text } = await fetchJsonRobusto(url, {
+        method:'GET',
+        headers:{'Accept':'application/json'},
+        credentials:'same-origin' // ✅ IMPORTANTE
+      });
+
+      if (!resp.ok || !json) {
+        warn('No se pudo cargar /tipos:', (text || '').slice(0, 200));
+        return;
       }
+
+      const tipos = getArrayFromPayload(json);
+      const mapByName = new Map();
+
+      tipos.forEach(t => {
+        const id = Number(t.codigo_tipo || 0) || 0;
+        const name = (t.nombre || '').toString();
+        mapByName.set(normalizar(name), id);
+      });
+
+      tipoIdProducto = mapByName.get('producto') || mapByName.get('productos') || 0;
+      tipoIdServicio = mapByName.get('servicio') || mapByName.get('servicios') || 0;
+
+      if (!tipoIdProducto) {
+        for (const [k, v] of mapByName.entries()) {
+          if (k.includes('product')) { tipoIdProducto = v; break; }
+        }
+      }
+      if (!tipoIdServicio) {
+        for (const [k, v] of mapByName.entries()) {
+          if (k.includes('servic')) { tipoIdServicio = v; break; }
+        }
+      }
+
+      log('Tipos detectados:', { tipoIdProducto, tipoIdServicio });
+
+      if (tipoIdProducto) {
+        await cargarCategoriasProductos(tipoIdProducto);
+      } else {
+        // si no detecta, deja combo en modo vacío
+        if (refs.selectCategoriaProductos) {
+          refs.selectCategoriaProductos.innerHTML = `<option value="0">Todas las categorías</option>`;
+        }
+      }
+    } catch (e) {
+      warn('Error cargando tipos/categorías:', e);
+    }
+  }
+
+  async function cargarCategoriasProductos(tipoId) {
+    if (!refs.selectCategoriaProductos) return;
+
+    try {
+      const url = `${BASE}/tipos/${encodeURIComponent(tipoId)}/categoria_grupo`;
+      const { resp, json, text } = await fetchJsonRobusto(url, {
+        method:'GET',
+        headers:{'Accept':'application/json'},
+        credentials:'same-origin' // ✅ IMPORTANTE
+      });
+
+      if (!resp.ok || !json) {
+        warn('No se pudo cargar categorias:', (text || '').slice(0, 200));
+        refs.selectCategoriaProductos.innerHTML = `<option value="0">Todas las categorías</option>`;
+        return;
+      }
+
+      const rows = getArrayFromPayload(json); // ✅ por si mañana lo envuelves en {ok,data}
+
+      const opt0 = `<option value="0">Todas las categorías</option>`;
+      const options = rows.map(r => {
+        const id = Number(r.codigo_categoria || 0) || 0;
+        const grupo = (r.grupo || '').toString().trim();
+        const cat = (r.categoria || '').toString().trim();
+        const label = (grupo ? `${grupo} — ${cat}` : cat);
+        return `<option value="${id}">${escapeHtml(label)}</option>`;
+      }).join('');
+
+      refs.selectCategoriaProductos.innerHTML = opt0 + options;
+
+    } catch (e) {
+      warn('Error cargando categorias productos:', e);
+      refs.selectCategoriaProductos.innerHTML = `<option value="0">Todas las categorías</option>`;
+    }
+  }
+
+  // Filtros
+  function aplicarFiltros(listaBase) {
+    let lista = Array.isArray(listaBase) ? [...listaBase] : [];
+
+    if (scope === 'productos') {
+      if (tipoIdProducto) lista = lista.filter(p => Number(p.__codigo_tipo || 0) === tipoIdProducto);
+      else lista = lista.filter(p => normalizar(p.__tipo_nombre || p.__tipo_slug || '').includes('producto'));
+    } else if (scope === 'servicios') {
+      if (tipoIdServicio) lista = lista.filter(p => Number(p.__codigo_tipo || 0) === tipoIdServicio);
+      else lista = lista.filter(p => normalizar(p.__tipo_nombre || p.__tipo_slug || '').includes('servicio'));
     }
 
     if (textoBusqueda.trim() !== '') {
@@ -421,6 +617,20 @@
       lista = lista.filter((p) => {
         const hay = normalizar((p.__titulo || '') + ' ' + (p.__descripcion || ''));
         return hay.includes(needle);
+      });
+    }
+
+    // ✅ categoría SOLO aplica si scope permite productos (todos o productos)
+    if ((scope === 'todos' || scope === 'productos') && Number(categoriaProductoId || 0) > 0) {
+      lista = lista.filter((p) => {
+        const isProducto = tipoIdProducto
+          ? Number(p.__codigo_tipo || 0) === tipoIdProducto
+          : normalizar(p.__tipo_nombre || p.__tipo_slug || '').includes('producto');
+
+        // si no es producto, en scope "todos" lo dejamos pasar
+        if (!isProducto) return true;
+
+        return Number(p.__codigo_categoria || 0) === Number(categoriaProductoId);
       });
     }
 
@@ -438,94 +648,77 @@
       }
     });
 
-    pintarGrid(lista);
+    return lista;
   }
 
-  function pintarGrid(lista) {
-    if (!refs.grid) return;
+  function splitServiciosProductos(lista) {
+    const servicios = [];
+    const productos = [];
 
-    if (!Array.isArray(lista) || lista.length === 0) {
+    lista.forEach(p => {
+      const t = Number(p.__codigo_tipo || 0);
+      const tn = normalizar(p.__tipo_nombre || p.__tipo_slug || '');
+
+      const esProd = tipoIdProducto ? (t === tipoIdProducto) : tn.includes('producto');
+      const esServ = tipoIdServicio ? (t === tipoIdServicio) : tn.includes('servicio');
+
+      if (esServ) servicios.push(p);
+      else if (esProd) productos.push(p);
+      else productos.push(p);
+    });
+
+    return { servicios, productos };
+  }
+
+  function pintarSecciones(listaFiltrada) {
+    if (!refs.gridServicios || !refs.gridProductos) return;
+
+    const { servicios, productos } = splitServiciosProductos(listaFiltrada);
+
+    if (refs.countServicios) refs.countServicios.textContent = String(servicios.length);
+    if (refs.countProductos) refs.countProductos.textContent = String(productos.length);
+
+    // ✅ pintar solo lo que corresponde al scope (pero sin romper "todos")
+    refs.gridServicios.innerHTML = (scope === 'todos' || scope === 'servicios')
+      ? servicios.map(cardHtml).join('')
+      : '';
+
+    refs.gridProductos.innerHTML = (scope === 'todos' || scope === 'productos')
+      ? productos.map(cardHtml).join('')
+      : '';
+
+    bindCardActions(refs.gridServicios);
+    bindCardActions(refs.gridProductos);
+
+    const total = (scope === 'servicios') ? servicios.length
+               : (scope === 'productos') ? productos.length
+               : (servicios.length + productos.length);
+
+    setResumen(`Mostrando ${total} resultado${total === 1 ? '' : 's'} en ${CONDO_NOMBRE_RESUMEN}`);
+  }
+
+  function aplicarYRedibujar() {
+    applyScopeVisibility();
+
+    const lista = aplicarFiltros(publicaciones);
+    const total = Array.isArray(lista) ? lista.length : 0;
+
+    if (!total) {
       showEmpty('No encontramos publicaciones con los filtros actuales.');
       setResumen(`Mostrando 0 resultados en ${CONDO_NOMBRE_RESUMEN}`);
+      if (refs.countServicios) refs.countServicios.textContent = '0';
+      if (refs.countProductos) refs.countProductos.textContent = '0';
       return;
     }
 
     hideEmpty();
-
-    const cardsHtml = lista.map((p, idx) => {
-      const id     = p.__id;
-      const titulo = escapeHtml(p.__titulo || '');
-      const desc   = escapeHtml(p.__descripcion || '');
-      const precio = formatPrecio(p.__precio || 0);
-      const imgUrl = buildImgUrl(p.__imagen_portada);
-
-      const catSlug = String(
-        p.__categoria_slug ||
-        p.__tipo_slug ||
-        p.__categoria_nombre ||
-        p.__tipo_nombre ||
-        'todos'
-      ).toLowerCase();
-
-      const precioNum     = Number(p.__precio || 0) || 0;
-      const ordenReciente = Number(p.__orden_reciente || p.__id || (idx + 1));
-
-      const esPotenciado = Number(p.__es_potenciado || 0) === 1;
-
-      let badgesHtml = `<span class="ev-mp-badge ev-mp-badge-nuevo">Publicado</span>`;
-      if (esPotenciado) badgesHtml += `<span class="ev-mp-badge ev-mp-badge-potenciado">Recomendado</span>`;
-
-      return `
-        <div class="ev-mp-card"
-             data-category="${escapeHtml(catSlug)}"
-             data-precio="${precioNum}"
-             data-reciente="${ordenReciente}"
-             data-id="${escapeHtml(String(id))}">
-          <div class="ev-mp-card-media">
-            <img src="${imgUrl}" alt="${titulo}">
-            <div class="ev-mp-card-badges">${badgesHtml}</div>
-          </div>
-          <div class="ev-mp-card-body">
-            <h5 class="ev-mp-card-title">${titulo}</h5>
-            <p class="ev-mp-card-price">${precio}</p>
-            <p style="font-size:13px;color:var(--ev-texto-suave);margin-bottom:6px;">${desc}</p>
-
-            <div class="ev-mp-card-meta">
-              <div class="ev-mp-card-vecino">
-                <div class="ev-mp-avatar">${(titulo || '?').charAt(0).toUpperCase()}</div>
-                <div>
-                  <div class="ev-mp-vecino-nombre">Vecino</div>
-                  <div class="ev-mp-vecino-condominio">Tu condominio</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="ev-mp-card-actions">
-              <button type="button" class="btn btn-outline-success ev-mp-btn-detalle">Ver detalle</button>
-              <button type="button" class="btn btn-success ev-mp-btn-pedir">Pedir ahora</button>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    refs.grid.innerHTML = cardsHtml;
-    setResumen(`Mostrando ${lista.length} resultado${lista.length === 1 ? '' : 's'} en ${CONDO_NOMBRE_RESUMEN}`);
-
-    Array.from(refs.grid.querySelectorAll('.ev-mp-card')).forEach((card) => {
-      const id = card.getAttribute('data-id');
-      const btnDetalle = card.querySelector('.ev-mp-btn-detalle');
-      if (btnDetalle && id) btnDetalle.addEventListener('click', () => abrirModalDetalle(id));
-    });
+    pintarSecciones(lista);
   }
 
-  // -------------------------
   // Carga API
-  // -------------------------
   async function cargarPublicaciones() {
-    if (!refs.grid) return;
+    if (!refs.gridAllWrapper) return;
 
-    refs.grid.innerHTML = '';
     hideEmpty();
     setResumen('Cargando publicaciones…');
 
@@ -569,7 +762,7 @@
         return;
       }
 
-      aplicarFiltrosYRedibujar();
+      aplicarYRedibujar();
 
     } catch (e) {
       err('EXCEPTION cargarPublicaciones', e);
@@ -579,20 +772,12 @@
     }
   }
 
+  // Events
   function bindEvents() {
-    refs.chips.forEach((chip) => {
-      chip.addEventListener('click', () => {
-        refs.chips.forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        filtroCategoria = chip.dataset.filtro || 'todos';
-        aplicarFiltrosYRedibujar();
-      });
-    });
-
     if (refs.searchInput) {
       refs.searchInput.addEventListener('input', () => {
         textoBusqueda = refs.searchInput.value || '';
-        aplicarFiltrosYRedibujar();
+        aplicarYRedibujar();
       });
     }
 
@@ -600,25 +785,51 @@
       criterioOrden = refs.selectOrdenar.value || 'recientes';
       refs.selectOrdenar.addEventListener('change', () => {
         criterioOrden = refs.selectOrdenar.value || 'recientes';
-        aplicarFiltrosYRedibujar();
+        aplicarYRedibujar();
+      });
+    }
+
+    refs.scopeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        refs.scopeButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        scope = btn.dataset.scope || 'todos';
+
+        // ✅ si entro a productos y el tipo ya está detectado pero categorías no cargaron aún
+        if ((scope === 'productos' || scope === 'todos') && tipoIdProducto && refs.selectCategoriaProductos) {
+          // si solo existe la opción 0, reintenta cargar
+          const opts = refs.selectCategoriaProductos.querySelectorAll('option');
+          if (!opts || opts.length <= 1) cargarCategoriasProductos(tipoIdProducto);
+        }
+
+        aplicarYRedibujar();
+      });
+    });
+
+    if (refs.selectCategoriaProductos) {
+      refs.selectCategoriaProductos.addEventListener('change', () => {
+        categoriaProductoId = Number(refs.selectCategoriaProductos.value || 0) || 0;
+        aplicarYRedibujar();
       });
     }
   }
 
-  function initMarketplace() {
+  async function initMarketplace() {
     if (!capturarRefs()) return;
+
+    ensureGridCSS();        // ✅ fuerza cards pequeñas
     bindEvents();
-    cargarPublicaciones();
+    await cargarTiposYDetectar();
+    await cargarPublicaciones();
   }
 
   document.addEventListener('DOMContentLoaded', initMarketplace);
 
   const observer = new MutationObserver(() => {
-    const gridActual = document.getElementById('mp_grid_publicaciones');
-    if (gridActual && gridActual !== refs.grid) {
-      capturarRefs();
-      bindEvents();
-      cargarPublicaciones();
+    const gridWrapper = document.getElementById('mp_grid_publicaciones');
+    if (gridWrapper && gridWrapper !== refs.gridAllWrapper) {
+      initMarketplace();
     }
   });
 

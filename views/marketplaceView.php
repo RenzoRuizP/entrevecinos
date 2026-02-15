@@ -1,4 +1,5 @@
 <?php
+// views/marketplaceView.php
 require_once __DIR__ . '/../Config/config.php';
 
 $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
@@ -14,7 +15,6 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
 <div class="ev-mp-wrapper fade-in">
   <div class="container-fluid px-2 px-lg-3 py-2 py-lg-3">
 
-    <!-- ✅ NUEVO: contenedor propio para controlar el “gutter” izquierdo -->
     <div class="ev-mp-content">
 
       <div class="card ev-mp-header mb-3">
@@ -24,7 +24,7 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
             <div>
               <h1 class="ev-mp-title mb-1">Marketplace</h1>
               <p class="ev-mp-subtitle mb-0">
-                Compra y vende productos entre vecinos de tu condominio.
+                Compra y vende productos y servicios entre vecinos de tu condominio.
               </p>
             </div>
 
@@ -60,13 +60,32 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
                   <option value="recientes">Más recientes</option>
                   <option value="precio_menor">Precio: menor a mayor</option>
                   <option value="precio_mayor">Precio: mayor a menor</option>
-                  <option value="mejor_valorados">Mejor valorados</option>
                 </select>
               </div>
             </div>
           </div>
 
-          <div class="ev-mp-chips">
+          <!-- ✅ NUEVO: scope + categoría productos -->
+          <div class="ev-mp-filters-advanced">
+            <div class="ev-mp-scope">
+              <span class="ev-mp-scope-label">Buscar en:</span>
+              <div class="ev-mp-seg">
+                <button type="button" class="ev-mp-seg-btn active" data-scope="todos">Todos</button>
+                <button type="button" class="ev-mp-seg-btn" data-scope="servicios">Servicios</button>
+                <button type="button" class="ev-mp-seg-btn" data-scope="productos">Productos</button>
+              </div>
+            </div>
+
+            <div class="ev-mp-cat-producto">
+              <span class="ev-mp-scope-label">Categoría (Productos):</span>
+              <select id="mp_categoria_producto" class="form-select ev-mp-cat-select">
+                <option value="0">Todas las categorías</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Compatibilidad visual (opcional) -->
+          <div class="ev-mp-chips d-none">
             <button type="button" class="ev-mp-chip active" data-filtro="todos">Todos</button>
             <button type="button" class="ev-mp-chip" data-filtro="recomendados">Recomendados</button>
             <button type="button" class="ev-mp-chip" data-filtro="productos">Productos</button>
@@ -84,13 +103,50 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
         No encontramos publicaciones con los filtros actuales.
       </div>
 
-      <div id="mp_grid_publicaciones" class="ev-mp-grid"></div>
+      <!-- Wrapper -->
+      <div id="mp_grid_publicaciones" class="ev-mp-split">
 
-    </div><!-- /ev-mp-content -->
+        <!-- ==========================
+             SECCIÓN 1: SERVICIOS
+        =========================== -->
+        <div class="ev-mp-section">
+          <div class="ev-mp-section-head">
+            <div>
+              <div class="ev-mp-section-kicker">Sección</div>
+              <h2 class="ev-mp-section-title"><i class="bi bi-stars"></i> Servicios</h2>
+              <div class="ev-mp-section-sub">Encuentra servicios ofrecidos por vecinos.</div>
+            </div>
+            <div class="ev-mp-section-pill" id="mp_count_servicios">0</div>
+          </div>
 
+          <div id="mp_grid_servicios" class="ev-mp-grid"></div>
+        </div>
+
+        <!-- ==========================
+             SECCIÓN 2: PRODUCTOS
+        =========================== -->
+        <div class="ev-mp-section">
+          <div class="ev-mp-section-head">
+            <div>
+              <div class="ev-mp-section-kicker">Sección</div>
+              <h2 class="ev-mp-section-title"><i class="bi bi-bag-check"></i> Productos</h2>
+              <div class="ev-mp-section-sub">Compra productos publicados por vecinos.</div>
+            </div>
+            <div class="ev-mp-section-pill" id="mp_count_productos">0</div>
+          </div>
+
+          <div id="mp_grid_productos" class="ev-mp-grid"></div>
+        </div>
+
+      </div>
+
+    </div>
   </div>
 </div>
 
+<!-- ==========================
+     MODAL DETALLE (se mantiene)
+========================== -->
 <div class="modal fade" id="mp_modal_detalle" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog ev-mp-modal-dialog modal-dialog-centered">
     <div class="modal-content ev-mp-modal-content">

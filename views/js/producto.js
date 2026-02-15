@@ -6,9 +6,9 @@
   const EV_API_BASE = (window.BASE_URL || '').replace(/\/$/, '');
   if (!EV_API_BASE) return;
 
-  // Cache + filtro para “Buscar”
+  // Cache + filtro para “Buscar” + Tabs
   window.evProductosCache  = window.evProductosCache  || [];
-  window.evProductosFiltro = window.evProductosFiltro || { q: '' };
+  window.evProductosFiltro = window.evProductosFiltro || { q: '', tab: 'all' };
 
   function evNotify(icon, title, text) {
     if (window.Swal?.fire) {
@@ -67,9 +67,7 @@
   function evMountModalToBody(modalId) {
     const el = document.getElementById(modalId);
     if (!el) return;
-    if (el.parentElement !== document.body) {
-      document.body.appendChild(el);
-    }
+    if (el.parentElement !== document.body) document.body.appendChild(el);
   }
 
   function evMountAllModalsToBody() {
@@ -80,7 +78,7 @@
 
   /* =========================================================
      FIX MODALES: no cerrar al click fuera (static backdrop)
-========================================================= */
+  ========================================================= */
   function evGetStaticModal(modalId) {
     evMountModalToBody(modalId);
 
@@ -1017,9 +1015,10 @@
 
   /* ==============================
      Listado tabla ✅ 8 columnas
-     + ✅ FIX: OBSERVADO desde ultima_revision
-     + ✅ FIX: Aprobado sin Editar/Anular
-     + ✅ UX: Header dinámico "Opciones" / "Publicación"
+     + ✅ OBSERVADO desde ultima_revision
+     + ✅ APROBADO sin Editar/Anular
+     + ✅ Header dinámico
+     + ✅ Tabs: Aprobado/Observado/Rechazado/Pendiente
   ============================== */
   function escAttr(v) {
     return String(v ?? '').replace(/"/g, '&quot;');
@@ -1049,6 +1048,54 @@
       return { show: true, text: 'Publicar', cls: 'ev-chip ev-chip-orange', disabled: false };
     }
     return { show: false };
+  }
+
+  // ===== Tabs: clasificación =====
+  function evGetStatusKey(p) {
+    const visible = Number(p?.visible ?? 0);
+    const rev = p?.ultima_revision || null;
+
+    const comentario = rev ? String(rev.comentario || '').trim() : '';
+
+    // Observado: pendiente (1) + comentario + estado_nuevo=1
+    const isObs = (visible === 1 && comentario && Number(rev.estado_nuevo ?? -1) === 1);
+    if (isObs) return 'observado';
+
+    // Rechazado: pendiente (1) + comentario + estado_nuevo=0
+    const isRech = (visible === 1 && comentario && Number(rev.estado_nuevo ?? -1) === 0);
+    if (isRech) return 'rechazado';
+
+    if (visible === 2) return 'aprobado';
+    if (visible === 1) return 'pendiente';
+    if (visible === 0) return 'borrador';
+    if (visible === 3) return 'anulado';
+    return 'all';
+  }
+
+  function evMatchTab(p) {
+    const tab = String(window.evProductosFiltro?.tab || 'all');
+    if (!tab || tab === 'all') return true;
+    return evGetStatusKey(p) === tab;
+  }
+
+  function evUpdateTabsUI(counts) {
+    const set = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(val ?? 0);
+    };
+
+    set('evTabCountAll', counts.all);
+    set('evTabCountAprobado', counts.aprobado);
+    set('evTabCountObservado', counts.observado);
+    set('evTabCountRechazado', counts.rechazado);
+    set('evTabCountPendiente', counts.pendiente);
+
+    const tab = String(window.evProductosFiltro?.tab || 'all');
+    document.querySelectorAll('.ev-tab[data-tab]').forEach(btn => {
+      const isActive = btn.getAttribute('data-tab') === tab;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
   }
 
   function filtrarItems(items) {
@@ -1089,9 +1136,21 @@
       const items = Array.isArray(data.data) ? data.data : [];
       window.evProductosCache = items.slice();
 
-      const filtrados = filtrarItems(items);
+      // Conteos tabs (siempre sobre el total)
+      const counts = { all: items.length, aprobado: 0, observado: 0, rechazado: 0, pendiente: 0 };
+      items.forEach(p => {
+        const k = evGetStatusKey(p);
+        if (k === 'aprobado') counts.aprobado++;
+        else if (k === 'observado') counts.observado++;
+        else if (k === 'rechazado') counts.rechazado++;
+        else if (k === 'pendiente') counts.pendiente++;
+      });
+      evUpdateTabsUI(counts);
 
-      // ✅ Header dinámico: "Opciones" vs "Publicación"
+      // Filtrado: texto + tab
+      const filtrados = filtrarItems(items).filter(evMatchTab);
+
+      // Header dinámico: "Opciones" vs "Publicación"
       const thLast = table.querySelector('thead th:last-child');
       if (thLast) {
         const allApproved = filtrados.length > 0 && filtrados.every(x => Number(x.visible ?? 0) === 2);
@@ -1104,7 +1163,12 @@
       }
 
       if (!filtrados.length) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">No hay resultados para tu búsqueda.</td></tr>`;
+        const tab = String(window.evProductosFiltro?.tab || 'all');
+        const q = String(window.evProductosFiltro?.q || '').trim();
+        const msg = q
+          ? 'No hay resultados para tu búsqueda.'
+          : (tab !== 'all' ? 'No hay productos en esta pestaña.' : 'No hay resultados.');
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">${msg}</td></tr>`;
         return;
       }
 
@@ -1202,6 +1266,14 @@
     document.body.dataset.evProductosBound = '1';
 
     document.addEventListener('click', (e) => {
+      // Tabs filtro publicación
+      const tabBtn = e.target.closest('.ev-tab[data-tab]');
+      if (tabBtn) {
+        window.evProductosFiltro.tab = tabBtn.getAttribute('data-tab') || 'all';
+        window.evCargarProductos?.();
+        return;
+      }
+
       if (e.target.closest('#btnBuscarPublicacion')) {
         const m = evGetStaticModal('modalBuscarPublicacion');
         m?.show();
@@ -1250,6 +1322,9 @@
 
         const fd = new FormData(form);
         window.evProductosFiltro.q = String(fd.get('q') || '').trim();
+
+        // UX: al buscar, volvemos a "Todos"
+        window.evProductosFiltro.tab = 'all';
 
         const m = evGetStaticModal('modalBuscarPublicacion');
         m?.hide();

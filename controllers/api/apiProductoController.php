@@ -7,12 +7,11 @@ require_once __DIR__ . '/../../models/Producto.php';
 
 class apiProductoController
 {
-    private function json(int $statusCode, array $payload)
+    private function json(int $statusCode, array $payload): void
     {
         http_response_code($statusCode);
         header('Content-Type: application/json; charset=utf-8');
-        echo json_encode($payload);
-        return;
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     /**
@@ -41,14 +40,62 @@ class apiProductoController
         return (int)$r['data']['codigo_usuario'];
     }
 
+    private function toIntOrNull($v): ?int
+    {
+        if ($v === null) return null;
+        $v = trim((string)$v);
+        if ($v === '') return null;
+        $n = (int)$v;
+        return ($n > 0) ? $n : null;
+    }
+
+    private function getMimeReal(string $tmpFile): ?string
+    {
+        if (!is_file($tmpFile)) return null;
+
+        // Preferir fileinfo
+        if (function_exists('finfo_open')) {
+            $f = finfo_open(FILEINFO_MIME_TYPE);
+            if ($f) {
+                $mime = finfo_file($f, $tmpFile);
+                finfo_close($f);
+                return $mime ?: null;
+            }
+        }
+
+        // Fallback
+        $info = @getimagesize($tmpFile);
+        if ($info && !empty($info['mime'])) return $info['mime'];
+
+        return null;
+    }
+
+    private function extFromMime(?string $mime, string $fallbackExt = 'jpg'): string
+    {
+        $mime = strtolower((string)$mime);
+        return match ($mime) {
+            'image/jpeg', 'image/jpg' => 'jpg',
+            'image/png'              => 'png',
+            'image/webp'             => 'webp',
+            default                  => strtolower($fallbackExt ?: 'jpg')
+        };
+    }
+
+    private function isAllowedImageMime(?string $mime): bool
+    {
+        $mime = strtolower((string)$mime);
+        return in_array($mime, ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'], true);
+    }
+
     /* ======================================================================================
        REGISTRAR PRODUCTO (visible=0 BORRADOR)
        POST /api/producto/registrar
     ====================================================================================== */
-    public function registrarProducto()
+    public function registrarProducto(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            return $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
+            $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
+            return;
         }
 
         try {
@@ -62,12 +109,14 @@ class apiProductoController
             $categoria   = $_POST['categoria'] ?? null;
 
             if ($titulo === '' || $descripcion === '') {
-                return $this->json(400, ['ok' => false, 'mensaje' => 'Título y descripción son obligatorios.']);
+                $this->json(400, ['ok' => false, 'mensaje' => 'Título y descripción son obligatorios.']);
+                return;
             }
 
             $precio = is_numeric($precioRaw) ? (float)$precioRaw : 0;
             if ($precio <= 0) {
-                return $this->json(400, ['ok' => false, 'mensaje' => 'El precio debe ser mayor a 0.']);
+                $this->json(400, ['ok' => false, 'mensaje' => 'El precio debe ser mayor a 0.']);
+                return;
             }
 
             $estadoValido = ['Nuevo', 'Usado', 'NoAplica'];
@@ -80,7 +129,7 @@ class apiProductoController
             $prod->setEstado($estado);
             $prod->setCodigoUsuario($codigoUsuario);
 
-            // ✅ MATRIZ: 0=borrador (al crear)
+            // 0=borrador (al crear)
             $prod->setVisible(0);
 
             $prod->setCodigoTipo($tipo);
@@ -89,7 +138,9 @@ class apiProductoController
 
             $codigoProducto = $prod->crearProducto();
 
-            // ============== SUBIDA DE IMÁGENES ==============
+            // ==========================
+            // SUBIDA DE IMÁGENES
+            // ==========================
             $imagenesIntentadas = 0;
             $imagenesSubidas    = 0;
             $primeraRuta        = null;
@@ -101,11 +152,14 @@ class apiProductoController
                 $tmp    = $_FILES['imagenes']['tmp_name'];
                 $errors = $_FILES['imagenes']['error'];
                 $sizes  = $_FILES['imagenes']['size'];
-                $types  = $_FILES['imagenes']['type'];
 
                 $rootPath   = realpath(__DIR__ . '/../../');
+                if ($rootPath === false) {
+                    throw new Exception('No se pudo resolver el path raíz del proyecto.');
+                }
+
                 $baseDirRel = 'uploads/productos/' . $codigoUsuario . '/' . $codigoProducto;
-                $baseDirAbs = $rootPath . '/' . $baseDirRel;
+                $baseDirAbs = $rootPath . DIRECTORY_SEPARATOR . $baseDirRel;
 
                 if (!is_dir($baseDirAbs)) {
                     if (!mkdir($baseDirAbs, 0775, true) && !is_dir($baseDirAbs)) {
@@ -113,9 +167,16 @@ class apiProductoController
                     }
                 }
 
+                // Limitar a 10 imágenes por seguridad (tu UI dice máximo 10)
+                $max = 10;
                 $orden = 1;
 
                 foreach ($names as $i => $nombreOriginal) {
+                    if ($orden > $max) {
+                        $erroresUpload[] = "Se ignoró {$nombreOriginal}: máximo {$max} imágenes.";
+                        continue;
+                    }
+
                     $imagenesIntentadas++;
 
                     $errorCode = (int)($errors[$i] ?? UPLOAD_ERR_NO_FILE);
@@ -135,10 +196,15 @@ class apiProductoController
                         continue;
                     }
 
-                    $tmpName = $tmp[$i];
-                    $size    = (int)$sizes[$i];
-                    $mime    = $types[$i] ?? null;
+                    $tmpName = $tmp[$i] ?? '';
+                    $size    = (int)($sizes[$i] ?? 0);
 
+                    if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+                        $erroresUpload[] = "El archivo {$nombreOriginal} no es un upload válido.";
+                        continue;
+                    }
+
+                    // Validación real de imagen
                     $infoImg = @getimagesize($tmpName);
                     if ($infoImg === false) {
                         $erroresUpload[] = "El archivo {$nombreOriginal} no es una imagen válida.";
@@ -147,13 +213,19 @@ class apiProductoController
 
                     $ancho    = $infoImg[0] ?? null;
                     $alto     = $infoImg[1] ?? null;
-                    $mimeReal = $infoImg['mime'] ?? $mime;
+                    $mimeReal = $this->getMimeReal($tmpName) ?? ($infoImg['mime'] ?? null);
 
-                    $ext = pathinfo($nombreOriginal, PATHINFO_EXTENSION);
-                    $ext = $ext ? strtolower($ext) : 'jpg';
+                    if (!$this->isAllowedImageMime($mimeReal)) {
+                        $erroresUpload[] = "Formato no permitido en {$nombreOriginal}. Solo JPG, PNG o WEBP.";
+                        continue;
+                    }
+
+                    // Ext por MIME (no confiar en extensión del cliente)
+                    $fallbackExt = pathinfo((string)$nombreOriginal, PATHINFO_EXTENSION);
+                    $ext = $this->extFromMime($mimeReal, $fallbackExt ?: 'jpg');
 
                     $nombreLimpio = 'img_' . $orden . '_' . time() . '_' . mt_rand(1000, 9999) . '.' . $ext;
-                    $destinoAbs   = $baseDirAbs . '/' . $nombreLimpio;
+                    $destinoAbs   = $baseDirAbs . DIRECTORY_SEPARATOR . $nombreLimpio;
                     $destinoRel   = $baseDirRel . '/' . $nombreLimpio;
 
                     if (!move_uploaded_file($tmpName, $destinoAbs)) {
@@ -179,32 +251,37 @@ class apiProductoController
                 }
             }
 
+            // Si envió archivos pero no se pudo subir ninguno => error (mantengo tu lógica, pero devolviendo detalle)
             if ($imagenesIntentadas > 0 && $imagenesSubidas === 0) {
-                return $this->json(400, [
+                $this->json(400, [
                     'ok'      => false,
                     'mensaje' => 'No se pudo guardar ninguna de las imágenes enviadas.',
                     'errores' => $erroresUpload
                 ]);
+                return;
             }
 
             if ($primeraRuta) {
                 $prod->actualizarImagenPortada($codigoProducto, $primeraRuta);
             }
 
-            return $this->json(201, [
+            $this->json(201, [
                 'ok'               => true,
                 'mensaje'          => 'Producto registrado como borrador. Presiona "Publicar" para enviarlo a revisión.',
                 'codigo_producto'  => $codigoProducto,
                 'visible'          => 0,
-                'imagenes_subidas' => $imagenesSubidas
+                'imagenes_subidas' => $imagenesSubidas,
+                'warnings'         => $erroresUpload
             ]);
+            return;
 
         } catch (Exception $e) {
-            return $this->json(500, [
+            $this->json(500, [
                 'ok'      => false,
                 'mensaje' => 'Error al registrar el producto.',
                 'error'   => $e->getMessage()
             ]);
+            return;
         }
     }
 
@@ -213,10 +290,11 @@ class apiProductoController
        POST /api/producto/{id}/publicar
        BORRADOR (0) -> PENDIENTE (1)
     ====================================================================================== */
-    public function publicarProducto($id)
+    public function publicarProducto($id): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            return $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
+            $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
+            return;
         }
 
         try {
@@ -224,14 +302,16 @@ class apiProductoController
             $codigoProducto = (int)$id;
 
             if ($codigoProducto <= 0) {
-                return $this->json(400, ['ok' => false, 'mensaje' => 'Código de producto inválido.']);
+                $this->json(400, ['ok' => false, 'mensaje' => 'Código de producto inválido.']);
+                return;
             }
 
             $model   = new Producto();
             $detalle = $model->obtenerPorId($codigoProducto, $codigoUsuario);
 
             if (!$detalle) {
-                return $this->json(404, ['ok' => false, 'mensaje' => 'Producto no encontrado para este usuario.']);
+                $this->json(404, ['ok' => false, 'mensaje' => 'Producto no encontrado para este usuario.']);
+                return;
             }
 
             $visibleActual = (int)($detalle['visible'] ?? -1);
@@ -244,41 +324,38 @@ class apiProductoController
                     default => 'El producto no está en estado publicable.'
                 };
 
-                return $this->json(409, [
+                $this->json(409, [
                     'ok' => false,
                     'mensaje' => $msg,
                     'visible' => $visibleActual
                 ]);
-            }
-
-            if (!method_exists($model, 'publicarProducto')) {
-                return $this->json(500, [
-                    'ok' => false,
-                    'mensaje' => 'Falta implementar publicarProducto() en el modelo Producto.'
-                ]);
+                return;
             }
 
             $ok = $model->publicarProducto($codigoProducto, $codigoUsuario);
 
             if (!$ok) {
-                return $this->json(400, [
+                $this->json(400, [
                     'ok' => false,
                     'mensaje' => 'No se pudo publicar el producto. Verifica que esté en borrador.'
                 ]);
+                return;
             }
 
-            return $this->json(200, [
+            $this->json(200, [
                 'ok' => true,
                 'mensaje' => 'Producto publicado. Ahora está en revisión (Pendiente).',
                 'visible' => 1
             ]);
+            return;
 
         } catch (Exception $e) {
-            return $this->json(500, [
+            $this->json(500, [
                 'ok'      => false,
                 'mensaje' => 'Error al publicar el producto.',
                 'error'   => $e->getMessage()
             ]);
+            return;
         }
     }
 
@@ -286,10 +363,11 @@ class apiProductoController
        LISTAR MIS PRODUCTOS
        GET /api/producto/listar
     ====================================================================================== */
-    public function listarProductos()
+    public function listarProductos(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-            return $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
+            $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
+            return;
         }
 
         try {
@@ -298,10 +376,12 @@ class apiProductoController
             $model = new Producto();
             $lista = $model->listarPorUsuario($codigoUsuario);
 
-            return $this->json(200, ['ok' => true, 'data' => $lista]);
+            $this->json(200, ['ok' => true, 'data' => $lista]);
+            return;
 
         } catch (Exception $e) {
-            return $this->json(500, ['ok' => false, 'error' => $e->getMessage()]);
+            $this->json(500, ['ok' => false, 'error' => $e->getMessage()]);
+            return;
         }
     }
 
@@ -309,45 +389,55 @@ class apiProductoController
        OBTENER PRODUCTO (privado)
        GET /api/producto/{id}
     ====================================================================================== */
-    public function obtenerProducto($id)
+    public function obtenerProducto($id): void
     {
         try {
             if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-                return $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
+                $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
+                return;
             }
 
             $codigoUsuario  = $this->obtenerUsuarioAuth();
             $codigoProducto = (int)$id;
 
+            if ($codigoProducto <= 0) {
+                $this->json(400, ['ok' => false, 'mensaje' => 'Código de producto inválido.']);
+                return;
+            }
+
             $model   = new Producto();
             $detalle = $model->obtenerPorId($codigoProducto, $codigoUsuario);
 
             if (!$detalle) {
-                return $this->json(404, ['ok' => false, 'mensaje' => 'Producto no encontrado para este usuario.']);
+                $this->json(404, ['ok' => false, 'mensaje' => 'Producto no encontrado para este usuario.']);
+                return;
             }
 
             $imagenes = $model->obtenerImagenes($codigoProducto);
 
             $baseUrl = rtrim(BASE_URL, '/');
             foreach ($imagenes as &$img) {
-                $ruta = $img['ruta'] ?? '';
-                $img['url'] = $ruta !== '' ? $baseUrl . '/' . ltrim($ruta, '/') : '';
+                $ruta = (string)($img['ruta'] ?? '');
+                $img['url'] = ($ruta !== '') ? ($baseUrl . '/' . ltrim($ruta, '/')) : '';
 
+                // Compatibilidad legacy
                 $img['codigo_imagen'] = $img['codigo_producto_imagen'] ?? null;
                 $img['id_imagen']     = $img['codigo_producto_imagen'] ?? null;
             }
             unset($img);
 
-            return $this->json(200, [
+            $this->json(200, [
                 'ok'   => true,
                 'data' => [
                     'producto' => $detalle,
                     'imagenes' => $imagenes
                 ]
             ]);
+            return;
 
         } catch (Exception $e) {
-            return $this->json(500, ['ok' => false, 'error' => $e->getMessage()]);
+            $this->json(500, ['ok' => false, 'error' => $e->getMessage()]);
+            return;
         }
     }
 
@@ -355,22 +445,30 @@ class apiProductoController
        ACTUALIZAR PRODUCTO
        POST /api/producto/{id}/actualizar
     ====================================================================================== */
-    public function actualizarProducto($id)
+    public function actualizarProducto($id): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            return $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
+            $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
+            return;
         }
 
         try {
             $codigoUsuario  = $this->obtenerUsuarioAuth();
             $codigoProducto = (int)$id;
 
+            if ($codigoProducto <= 0) {
+                $this->json(400, ['ok' => false, 'mensaje' => 'Código de producto inválido.']);
+                return;
+            }
+
             $model   = new Producto();
             $detalle = $model->obtenerPorId($codigoProducto, $codigoUsuario);
             if (!$detalle) {
-                return $this->json(404, ['ok' => false, 'mensaje' => 'Producto no encontrado para este usuario.']);
+                $this->json(404, ['ok' => false, 'mensaje' => 'Producto no encontrado para este usuario.']);
+                return;
             }
 
+            // OJO: tu JS debería mandar keys: titulo/descripcion/precio/estado/comboTipo/categoria
             $titulo      = trim($_POST['titulo'] ?? '');
             $descripcion = trim($_POST['descripcion'] ?? '');
             $precioRaw   = $_POST['precio'] ?? null;
@@ -379,12 +477,14 @@ class apiProductoController
             $categoria   = $_POST['categoria'] ?? null;
 
             if ($titulo === '' || $descripcion === '') {
-                return $this->json(400, ['ok' => false, 'mensaje' => 'Título y descripción son obligatorios.']);
+                $this->json(400, ['ok' => false, 'mensaje' => 'Título y descripción son obligatorios.']);
+                return;
             }
 
             $precio = is_numeric($precioRaw) ? (float)$precioRaw : 0;
             if ($precio <= 0) {
-                return $this->json(400, ['ok' => false, 'mensaje' => 'El precio debe ser mayor a 0.']);
+                $this->json(400, ['ok' => false, 'mensaje' => 'El precio debe ser mayor a 0.']);
+                return;
             }
 
             $estadoValido = ['Nuevo', 'Usado', 'NoAplica'];
@@ -400,6 +500,7 @@ class apiProductoController
 
             $model->actualizarProductoBase($codigoProducto, $codigoUsuario);
 
+            // Eliminar imágenes por IDs
             $eliminadasRaw = $_POST['imagenes_eliminadas'] ?? '[]';
             $idsEliminar   = json_decode($eliminadasRaw, true);
             if (!is_array($idsEliminar)) $idsEliminar = [];
@@ -413,6 +514,9 @@ class apiProductoController
                 $model->eliminarImagenes($codigoProducto, $idsEliminar);
             }
 
+            // ==========================
+            // Subida de imágenes nuevas
+            // ==========================
             $imagenesIntentadas = 0;
             $imagenesSubidas    = 0;
             $erroresUpload      = [];
@@ -423,11 +527,14 @@ class apiProductoController
                 $tmp    = $_FILES['imagenes_nuevas']['tmp_name'];
                 $errors = $_FILES['imagenes_nuevas']['error'];
                 $sizes  = $_FILES['imagenes_nuevas']['size'];
-                $types  = $_FILES['imagenes_nuevas']['type'];
 
                 $rootPath   = realpath(__DIR__ . '/../../');
+                if ($rootPath === false) {
+                    throw new Exception('No se pudo resolver el path raíz del proyecto.');
+                }
+
                 $baseDirRel = 'uploads/productos/' . $codigoUsuario . '/' . $codigoProducto;
-                $baseDirAbs = $rootPath . '/' . $baseDirRel;
+                $baseDirAbs = $rootPath . DIRECTORY_SEPARATOR . $baseDirRel;
 
                 if (!is_dir($baseDirAbs)) {
                     if (!mkdir($baseDirAbs, 0775, true) && !is_dir($baseDirAbs)) {
@@ -435,9 +542,19 @@ class apiProductoController
                     }
                 }
 
+                // Respetar max 10 total: el front debería controlar, pero aquí protegemos también.
+                $maxTotal = 10;
+                $existentes = $model->obtenerImagenes($codigoProducto);
+                $countExist = is_array($existentes) ? count($existentes) : 0;
+
                 $orden = $model->obtenerSiguienteOrdenImagen($codigoProducto);
 
                 foreach ($names as $i => $nombreOriginal) {
+                    if (($countExist + $imagenesSubidas) >= $maxTotal) {
+                        $erroresUpload[] = "Se ignoró {$nombreOriginal}: máximo {$maxTotal} imágenes por producto.";
+                        continue;
+                    }
+
                     $imagenesIntentadas++;
 
                     $errorCode = (int)($errors[$i] ?? UPLOAD_ERR_NO_FILE);
@@ -456,9 +573,13 @@ class apiProductoController
                         continue;
                     }
 
-                    $tmpName = $tmp[$i];
-                    $size    = (int)$sizes[$i];
-                    $mime    = $types[$i] ?? null;
+                    $tmpName = $tmp[$i] ?? '';
+                    $size    = (int)($sizes[$i] ?? 0);
+
+                    if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+                        $erroresUpload[] = "El archivo {$nombreOriginal} no es un upload válido.";
+                        continue;
+                    }
 
                     $infoImg = @getimagesize($tmpName);
                     if ($infoImg === false) {
@@ -468,13 +589,18 @@ class apiProductoController
 
                     $ancho    = $infoImg[0] ?? null;
                     $alto     = $infoImg[1] ?? null;
-                    $mimeReal = $infoImg['mime'] ?? $mime;
+                    $mimeReal = $this->getMimeReal($tmpName) ?? ($infoImg['mime'] ?? null);
 
-                    $ext = pathinfo($nombreOriginal, PATHINFO_EXTENSION);
-                    $ext = $ext ? strtolower($ext) : 'jpg';
+                    if (!$this->isAllowedImageMime($mimeReal)) {
+                        $erroresUpload[] = "Formato no permitido en {$nombreOriginal}. Solo JPG, PNG o WEBP.";
+                        continue;
+                    }
+
+                    $fallbackExt = pathinfo((string)$nombreOriginal, PATHINFO_EXTENSION);
+                    $ext = $this->extFromMime($mimeReal, $fallbackExt ?: 'jpg');
 
                     $nombreLimpio = 'img_' . $orden . '_' . time() . '_' . mt_rand(1000, 9999) . '.' . $ext;
-                    $destinoAbs   = $baseDirAbs . '/' . $nombreLimpio;
+                    $destinoAbs   = $baseDirAbs . DIRECTORY_SEPARATOR . $nombreLimpio;
                     $destinoRel   = $baseDirRel . '/' . $nombreLimpio;
 
                     if (!move_uploaded_file($tmpName, $destinoAbs)) {
@@ -498,16 +624,24 @@ class apiProductoController
                 }
             }
 
+            // recalcula portada según regla (es_portada DESC, orden ASC)
             $model->recalcularPortada($codigoProducto);
 
-            return $this->json(200, ['ok' => true, 'mensaje' => 'Producto actualizado correctamente.']);
+            $this->json(200, [
+                'ok' => true,
+                'mensaje' => 'Producto actualizado correctamente.',
+                'imagenes_subidas' => $imagenesSubidas,
+                'warnings' => $erroresUpload
+            ]);
+            return;
 
         } catch (Exception $e) {
-            return $this->json(500, [
+            $this->json(500, [
                 'ok'      => false,
                 'mensaje' => 'Error al actualizar el producto.',
                 'error'   => $e->getMessage()
             ]);
+            return;
         }
     }
 
@@ -516,77 +650,106 @@ class apiProductoController
        POST /api/producto/{id}/anular
        MATRIZ: -> 3 (ANULADO)
     ====================================================================================== */
-    public function anularProducto($id)
+    public function anularProducto($id): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            return $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
+            $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
+            return;
         }
 
         try {
             $codigoUsuario  = $this->obtenerUsuarioAuth();
             $codigoProducto = (int)$id;
 
+            if ($codigoProducto <= 0) {
+                $this->json(400, ['ok' => false, 'mensaje' => 'Código de producto inválido.']);
+                return;
+            }
+
             $model   = new Producto();
             $detalle = $model->obtenerPorId($codigoProducto, $codigoUsuario);
             if (!$detalle) {
-                return $this->json(404, ['ok' => false, 'mensaje' => 'Producto no encontrado para este usuario.']);
+                $this->json(404, ['ok' => false, 'mensaje' => 'Producto no encontrado para este usuario.']);
+                return;
             }
 
             $ok = $model->anularProducto($codigoProducto, $codigoUsuario);
             if (!$ok) {
-                return $this->json(400, ['ok' => false, 'mensaje' => 'No se pudo anular el producto.']);
+                $this->json(400, ['ok' => false, 'mensaje' => 'No se pudo anular el producto.']);
+                return;
             }
 
-            return $this->json(200, ['ok' => true, 'mensaje' => 'Producto anulado correctamente.', 'visible' => 3]);
+            $this->json(200, ['ok' => true, 'mensaje' => 'Producto anulado correctamente.', 'visible' => 3]);
+            return;
 
         } catch (Exception $e) {
-            return $this->json(500, [
+            $this->json(500, [
                 'ok'      => false,
                 'mensaje' => 'Error al anular el producto.',
                 'error'   => $e->getMessage()
             ]);
+            return;
         }
     }
 
     /* ======================================================================================
-       MARKETPLACE: LISTAR APROBADOS
-       GET /api/producto/marketplace
+       MARKETPLACE: LISTAR APROBADOS (con filtros y paginación)
+       GET /api/producto/marketplace?tipo=1&categoria=10&q=texto&page=1&size=12
        MATRIZ: visible=2 (APROBADO)
-       ✅ FIX: normaliza URL de imagen_portada para que el front no descarte cards.
+       ✅ Normaliza URL de portada y soporta filtros sin romper compatibilidad.
     ====================================================================================== */
-    public function listarMarketplace()
+    public function listarMarketplace(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-            return $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
+            $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
+            return;
         }
 
         try {
+            $tipo      = $this->toIntOrNull($_GET['tipo'] ?? null);
+            $categoria = $this->toIntOrNull($_GET['categoria'] ?? null);
+            $q         = trim((string)($_GET['q'] ?? ''));
+
+            $page = (int)($_GET['page'] ?? 1);
+            $size = (int)($_GET['size'] ?? 12);
+            $page = max(1, $page);
+            $size = max(1, min(50, $size));
+
             $model = new Producto();
-            $lista = $model->listarAprobadosMarketplace();
+
+            // ✅ Nuevo método (no rompe tu listarAprobadosMarketplace)
+            $res = $model->listarMarketplaceFiltrado($tipo, $categoria, $q, $page, $size);
+
+            $items = $res['items'] ?? [];
+            $total = (int)($res['total'] ?? count($items));
 
             $baseUrl = rtrim(BASE_URL, '/');
 
-            // ✅ Normalización defensiva (evita “no aparece” por rutas relativas o null)
-            foreach ($lista as &$p) {
+            foreach ($items as &$p) {
                 $ruta = (string)($p['imagen_portada'] ?? '');
                 $url  = ($ruta !== '') ? ($baseUrl . '/' . ltrim($ruta, '/')) : '';
 
-                // Campo nuevo seguro
                 $p['imagen_portada_url'] = $url;
 
-                // Campo legacy (muchos fronts usan imagen_portada directo)
-                if ($ruta !== '') $p['imagen_portada'] = $url;
+                // Compatibilidad: algunos fronts usan imagen_portada como url final
+                if ($ruta !== '') {
+                    $p['imagen_portada'] = $url;
+                }
             }
             unset($p);
 
-            return $this->json(200, [
+            $this->json(200, [
                 'ok'    => true,
-                'total' => count($lista),
-                'data'  => $lista
+                'total' => $total,
+                'page'  => $page,
+                'size'  => $size,
+                'data'  => $items
             ]);
+            return;
 
         } catch (Exception $e) {
-            return $this->json(500, ['ok' => false, 'error' => $e->getMessage()]);
+            $this->json(500, ['ok' => false, 'error' => $e->getMessage()]);
+            return;
         }
     }
 }

@@ -154,7 +154,7 @@ class Producto extends Conexion
         $stmt->bindParam(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
         $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     public function eliminarImagenes(int $codigoProducto, array $idsEliminar): void
@@ -477,7 +477,88 @@ class Producto extends Conexion
 
         $stmt = $this->dblink->prepare($sql);
         $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /* ==========================================================
+       ✅ NUEVO: MARKETPLACE FILTRABLE + PAGINADO (visible=2)
+       Usado por /api/producto/marketplace?tipo=&categoria=&q=&page=&size=
+    ========================================================== */
+    public function listarMarketplaceFiltrado(?int $tipo, ?int $categoria, string $q, int $page, int $size): array
+    {
+        $page = max(1, (int)$page);
+        $size = max(1, min(50, (int)$size));
+        $off  = ($page - 1) * $size;
+
+        $q = trim((string)$q);
+        $hasQ = ($q !== '');
+
+        $where = " WHERE p.visible = 2 ";
+        $params = [];
+
+        if ($tipo !== null && $tipo > 0) {
+            $where .= " AND p.codigo_tipo = :tipo ";
+            $params[':tipo'] = $tipo;
+        }
+
+        if ($categoria !== null && $categoria > 0) {
+            $where .= " AND p.codigo_categoria = :cat ";
+            $params[':cat'] = $categoria;
+        }
+
+        if ($hasQ) {
+            $where .= " AND (p.titulo LIKE :q OR p.descripcion LIKE :q) ";
+            $params[':q'] = '%' . $q . '%';
+        }
+
+        // Total
+        $sqlTotal = "SELECT COUNT(*) AS total FROM producto p " . $where;
+        $stT = $this->dblink->prepare($sqlTotal);
+        foreach ($params as $k => $v) {
+            $stT->bindValue($k, $v, ($k === ':tipo' || $k === ':cat') ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stT->execute();
+        $total = (int)($stT->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
+
+        // Items
+        $sql = "
+            SELECT
+                p.codigo_producto,
+                p.titulo,
+                p.descripcion,
+                p.estado,
+                p.precio,
+                p.visible,
+                p.codigo_usuario,
+                p.codigo_tipo,
+                p.codigo_categoria,
+                p.imagen_portada,
+                t.nombre AS tipo_nombre,
+                c.nombre AS categoria_nombre,
+                DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS create_at
+            FROM producto p
+            LEFT JOIN tipo t ON t.codigo_tipo = p.codigo_tipo
+            LEFT JOIN categoria c ON c.codigo_categoria = p.codigo_categoria
+            {$where}
+            ORDER BY p.created_at DESC
+            LIMIT :lim OFFSET :off
+        ";
+
+        $stmt = $this->dblink->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue($k, $v, ($k === ':tipo' || $k === ':cat') ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':lim', $size, PDO::PARAM_INT);
+        $stmt->bindValue(':off', $off, PDO::PARAM_INT);
+        $stmt->execute();
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'total' => $total,
+            'page'  => $page,
+            'size'  => $size,
+            'items' => $items
+        ];
     }
 
     /* ==========================================================
@@ -524,7 +605,7 @@ class Producto extends Conexion
 
         $stmt = $this->dblink->prepare($sql);
         $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     /* ==========================================================
@@ -667,7 +748,7 @@ class Producto extends Conexion
         $stmt->bindValue(':lim', $size, PDO::PARAM_INT);
         $stmt->bindValue(':off', $offset, PDO::PARAM_INT);
         $stmt->execute();
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         $items = [];
         foreach ($rows as $r) {
