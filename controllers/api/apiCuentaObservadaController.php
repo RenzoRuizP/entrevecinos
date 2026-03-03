@@ -3,10 +3,10 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/UsuarioRevision.php';
 require_once __DIR__ . '/../../models/CuentaObservada.php';
-
-
+require_once __DIR__ . '/../../models/Usuario.php';
 
 final class apiCuentaObservadaController
 {
@@ -14,7 +14,6 @@ final class apiCuentaObservadaController
     {
         header('Content-Type: application/json; charset=utf-8');
 
-        // 🔒 Cast explícito (SOLUCIÓN)
         $codigoUsuario = (int)$codigoUsuario;
 
         if ($codigoUsuario <= 0) {
@@ -22,7 +21,7 @@ final class apiCuentaObservadaController
             echo json_encode([
                 'ok' => false,
                 'mensaje' => 'Usuario inválido.'
-            ]);
+            ], JSON_UNESCAPED_UNICODE);
             return;
         }
 
@@ -37,7 +36,7 @@ final class apiCuentaObservadaController
             echo json_encode([
                 'ok' => false,
                 'mensaje' => 'No autorizado.'
-            ]);
+            ], JSON_UNESCAPED_UNICODE);
             return;
         }
 
@@ -49,22 +48,43 @@ final class apiCuentaObservadaController
             echo json_encode([
                 'ok' => false,
                 'mensaje' => 'La observación es obligatoria.'
-            ]);
+            ], JSON_UNESCAPED_UNICODE);
             return;
         }
 
         try {
-            //$model = new CuentaObservada();
-            //$res   = $model->observarDesdeSoporte($codigoUsuario, $mensaje);
-
+            // 1) Marca OBSERVADO en usuario_revision (estado_revision=3 + mensaje)
             $model = new UsuarioRevision();
             $res   = $model->observarDesdeSoporte($codigoUsuario, $mensaje);
 
-            if (!$res['ok']) {
+            if (empty($res['ok'])) {
                 http_response_code(400);
+                echo json_encode($res, JSON_UNESCAPED_UNICODE);
+                return;
             }
 
-            echo json_encode($res);
+            // =========================================================
+            // ✅ CORRECCIÓN DE RAÍZ:
+            // Si Soporte OBSERVA, el vecino debe poder iniciar sesión
+            // para ver el mensaje y reenviar el comprobante.
+            // Por eso lo dejamos en estado=1 (En revisión).
+            // =========================================================
+            try {
+                $u = new Usuario();
+                $estadoActual = (int)$u->obtenerEstado($codigoUsuario);
+
+                // Si está inactivo (0) o habilitado (2), lo pasamos a revisión (1)
+                // (No afecta roles soporte/admin porque solo se usa con el usuario observado)
+                if ($estadoActual !== 1) {
+                    $u->actualizarEstado($codigoUsuario, 1);
+                }
+            } catch (Throwable $e2) {
+                // No tumbamos el flujo principal, pero lo dejamos en log
+                error_log('[EV][apiCuentaObservada::observar] No se pudo setear estado=1: ' . $e2->getMessage());
+            }
+
+            echo json_encode($res, JSON_UNESCAPED_UNICODE);
+            return;
 
         } catch (Throwable $e) {
             error_log('[EV][apiCuentaObservada::observar] ' . $e->getMessage());
@@ -72,11 +92,10 @@ final class apiCuentaObservadaController
             echo json_encode([
                 'ok' => false,
                 'mensaje' => 'Error interno.'
-            ]);
+            ], JSON_UNESCAPED_UNICODE);
+            return;
         }
     }
-
-
 
     /**
      * REENVIAR COMPROBANTE (vecino)
@@ -95,7 +114,7 @@ final class apiCuentaObservadaController
 
         if ($codigoUsuario <= 0) {
             http_response_code(401);
-            echo json_encode(['ok' => false, 'mensaje' => 'No autorizado.']);
+            echo json_encode(['ok' => false, 'mensaje' => 'No autorizado.'], JSON_UNESCAPED_UNICODE);
             return;
         }
 
@@ -110,7 +129,7 @@ final class apiCuentaObservadaController
             echo json_encode([
                 'ok' => false,
                 'mensaje' => 'Acción no permitida para este rol.'
-            ]);
+            ], JSON_UNESCAPED_UNICODE);
             return;
         }
 
@@ -122,7 +141,7 @@ final class apiCuentaObservadaController
             echo json_encode([
                 'ok' => false,
                 'mensaje' => 'Archivo no recibido.'
-            ]);
+            ], JSON_UNESCAPED_UNICODE);
             return;
         }
 
@@ -133,13 +152,14 @@ final class apiCuentaObservadaController
             $model = new CuentaObservada();
             $res   = $model->subsanar($codigoUsuario, $_FILES['comprobante']);
 
-            if (!$res['ok']) {
+            if (empty($res['ok'])) {
                 http_response_code(422);
-                echo json_encode($res);
+                echo json_encode($res, JSON_UNESCAPED_UNICODE);
                 return;
             }
 
-            echo json_encode($res);
+            echo json_encode($res, JSON_UNESCAPED_UNICODE);
+            return;
 
         } catch (Throwable $e) {
             error_log('[EV][apiCuentaObservada::reenviar] ' . $e->getMessage());
@@ -147,7 +167,8 @@ final class apiCuentaObservadaController
             echo json_encode([
                 'ok' => false,
                 'mensaje' => 'Error interno al procesar el comprobante.'
-            ]);
+            ], JSON_UNESCAPED_UNICODE);
+            return;
         }
     }
 }

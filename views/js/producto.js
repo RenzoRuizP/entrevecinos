@@ -1203,8 +1203,19 @@
         const visUI = uiEstadoVisible(visible, p.ultima_revision);
         const pubUI = uiAccionPublicar(visible);
 
-        const disableEditar = (visible === 1 || visible === 2 || visible === 3) ? 'disabled' : '';
-        const disableAnular = (visible === 2 || visible === 3) ? 'disabled' : '';
+        // ✅ CLAVE: usar statusKey, NO visible
+        const statusKey = evGetStatusKey(p);
+
+        // Requerimiento:
+        // - Pendiente: no editar ni anular
+        // - Observado: sí editar y anular
+        // - Aprobado/anulado: no editar ni anular
+        // (Rechazado: lo tratamos como editable/anulable para corrección)
+        const canEdit  = (statusKey === 'borrador' || statusKey === 'observado' || statusKey === 'rechazado');
+        const canAnular= (statusKey === 'borrador' || statusKey === 'observado' || statusKey === 'rechazado');
+
+        const disableEditar = canEdit ? '' : 'disabled';
+        const disableAnular = canAnular ? '' : 'disabled';
 
         const isAprobado = (visible === 2);
         const isAnulado  = (visible === 3);

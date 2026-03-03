@@ -25,6 +25,46 @@ class SesionJWT extends Conexion {
         $this->clave = $clave;
     }
 
+    /**
+     * ✅ Detecta si el usuario está OBSERVADO (estado_revision=3)
+     */
+    private function usuarioEstaObservado(int $codigoUsuario): bool
+    {
+        try {
+            $st = $this->dblink->prepare("
+                SELECT 1
+                FROM usuario_revision
+                WHERE codigo_usuario = :id
+                  AND estado_revision = 3
+                LIMIT 1
+            ");
+            $st->execute([':id' => $codigoUsuario]);
+            return (bool)$st->fetchColumn();
+        } catch (Throwable $e) {
+            error_log('[EV][SesionJWT][usuarioEstaObservado] ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * ✅ Si está OBSERVADO y estaba INACTIVO, lo dejamos en REVISIÓN (estado=1)
+     * para que pueda iniciar sesión y ver /cuenta-observada.
+     */
+    private function forzarEstadoRevision(int $codigoUsuario): void
+    {
+        try {
+            $st = $this->dblink->prepare("
+                UPDATE usuario
+                SET estado = 1
+                WHERE codigo_usuario = :id
+                LIMIT 1
+            ");
+            $st->execute([':id' => $codigoUsuario]);
+        } catch (Throwable $e) {
+            error_log('[EV][SesionJWT][forzarEstadoRevision] ' . $e->getMessage());
+        }
+    }
+
     public function iniciarSesionJWT() {
         try {
             // 1) Validar email
@@ -41,11 +81,28 @@ class SesionJWT extends Conexion {
             if (!password_verify($this->clave, $usuario['clave']))
                 return ['status' => 'CI']; // Contraseña incorrecta
 
-            if ($usuario['estado'] == '0')
-                return ['status' => 'IN']; // Usuario inactivo
+            $codigoUsuario = (int)($usuario['codigo_usuario'] ?? 0);
+            $estadoUsuario = (int)($usuario['estado'] ?? 0);
 
-            // ✅ 2) Obtener rol (NOMBRE) + (opcional) validar codigo_rol
-            // Nota: usuario ya tiene codigo_rol, lo usamos directo.
+            // =========================================================
+            // ✅ CORRECCIÓN DE RAÍZ:
+            // Si está INACTIVO (0) pero está OBSERVADO (estado_revision=3),
+            // NO bloqueamos login. Le permitimos entrar para ver el mensaje
+            // en /cuenta-observada y forzamos estado=1 para consistencia.
+            // =========================================================
+            if ($estadoUsuario === 0) {
+                $observado = ($codigoUsuario > 0) ? $this->usuarioEstaObservado($codigoUsuario) : false;
+
+                if ($observado) {
+                    // Permitir login y dejarlo en revisión (estado=1)
+                    $this->forzarEstadoRevision($codigoUsuario);
+                    $estadoUsuario = 1;
+                } else {
+                    return ['status' => 'IN']; // Usuario inactivo real (no observado)
+                }
+            }
+
+            // ✅ 2) Obtener rol (NOMBRE)
             $sqlRoles = "
                 SELECT r.nombre AS nombre_rol
                 FROM usuario u
@@ -54,11 +111,11 @@ class SesionJWT extends Conexion {
                 LIMIT 1
             ";
             $stmtRoles = $this->dblink->prepare($sqlRoles);
-            $stmtRoles->bindParam(':codigo_usuario', $usuario['codigo_usuario']);
+            $stmtRoles->bindParam(':codigo_usuario', $codigoUsuario);
             $stmtRoles->execute();
             $rolNombre = $stmtRoles->fetch(PDO::FETCH_COLUMN);
 
-            // ✅ 3) Residencia
+            // ✅ 3) Residencia (legacy: usuario_departamento)
             $sqlResidencia = "
                 SELECT
                     c.nombre_condominio,
@@ -79,7 +136,7 @@ class SesionJWT extends Conexion {
             ";
 
             $stmtRes = $this->dblink->prepare($sqlResidencia);
-            $stmtRes->bindParam(':codigo_usuario', $usuario['codigo_usuario']);
+            $stmtRes->bindParam(':codigo_usuario', $codigoUsuario);
             $stmtRes->execute();
             $residencia = $stmtRes->fetch(PDO::FETCH_ASSOC);
 
@@ -87,16 +144,16 @@ class SesionJWT extends Conexion {
             $torreNombre      = $residencia['nombre_torre'] ?? null;
             $depaNumero       = $residencia['numero_departamento'] ?? null;
 
-            // ✅ 4) Datos del token (AQUÍ estaba el bug: faltaba codigo_rol)
+            // ✅ 4) Datos del token
             $datosToken = [
-                'codigo_usuario'       => (int)$usuario['codigo_usuario'],
-                'nombre'               => (string)$usuario['nombre'],
-                'email'                => (string)$usuario['email'],
+                'codigo_usuario'       => $codigoUsuario,
+                'nombre'               => (string)($usuario['nombre'] ?? ''),
+                'email'                => (string)($usuario['email'] ?? ''),
 
-                // ✅ CLAVE: roles para autorización
-                'codigo_rol'           => (int)$usuario['codigo_rol'],     // <- ADMIN=1
-                'rol'                  => (string)($rolNombre ?: ''),      // compatibilidad (string)
-                'nombre_rol'           => (string)($rolNombre ?: ''),      // alias explícito
+                // roles para autorización
+                'codigo_rol'           => (int)($usuario['codigo_rol'] ?? 0),
+                'rol'                  => (string)($rolNombre ?: ''),
+                'nombre_rol'           => (string)($rolNombre ?: ''),
 
                 // residencia (si existe)
                 'condominio_nombre'    => $condominioNombre,
@@ -160,13 +217,12 @@ class SesionJWT extends Conexion {
     }
 
     public static function cookiePath(): string {
-        // BASE_URL suele venir como "/entrevecinos" o "/entrevecinos/"
         $p = defined('BASE_URL') ? (string)BASE_URL : '/';
         $p = trim($p);
         if ($p === '') $p = '/';
         if ($p[0] !== '/') $p = '/' . $p;
         $p = rtrim($p, '/');
-        return ($p === '') ? '/' : ($p . '/'); // cookie path debe terminar en /
+        return ($p === '') ? '/' : ($p . '/');
     }
 
     public static function eliminarToken(): bool {
@@ -200,7 +256,7 @@ class SesionJWT extends Conexion {
                 WHERE r.nombre LIKE :p_nombre_rol;
             ";
             $sentencia = $this->dblink->prepare($sql);
-            $sentencia->bindParam(":p_nombre_rol", $nombre_rol);
+            $sentencia->bindParam(':p_nombre_rol', $nombre_rol);
             $sentencia->execute();
             return $sentencia->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $exc) {
@@ -221,8 +277,8 @@ class SesionJWT extends Conexion {
                   AND m.codigo_menu = :p_codigo_menu;
             ";
             $sentencia = $this->dblink->prepare($sql);
-            $sentencia->bindParam(":p_nombreRol", $nombreRol);
-            $sentencia->bindParam(":p_codigo_menu", $codigo_menu);
+            $sentencia->bindParam(':p_nombreRol', $nombreRol);
+            $sentencia->bindParam(':p_codigo_menu', $codigo_menu);
             $sentencia->execute();
             return $sentencia->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $exc) {

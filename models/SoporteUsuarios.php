@@ -30,16 +30,12 @@ final class SoporteUsuarios extends Conexion
         $limit  = max(1, min((int)($f['limit'] ?? 10), 100));
         $offset = ($page - 1) * $limit;
 
-        // ✅ NUEVOS FILTROS
-        $conjunto   = strtolower(trim((string)($f['conjunto'] ?? ''))); // condominio|urbanizacion|''
+        $conjunto   = strtolower(trim((string)($f['conjunto'] ?? '')));
         $conjuntoId = (int)($f['conjunto_id'] ?? 0);
 
         $where  = [];
         $params = [];
 
-        /**
-         * 🔐 Consolidado de revisión (1 fila por usuario)
-         */
         $joinRevision = "
             LEFT JOIN (
                 SELECT
@@ -52,9 +48,6 @@ final class SoporteUsuarios extends Conexion
             ) ur ON ur.codigo_usuario = u.codigo_usuario
         ";
 
-        /**
-         * 🔐 Última residencia del usuario
-         */
         $joinResidencia = "
             LEFT JOIN (
                 SELECT r1.*
@@ -78,6 +71,8 @@ final class SoporteUsuarios extends Conexion
                 break;
 
             case 'revision':
+                // DDL: 1=En revision, 2=Habilitado, 3=Observado
+                // (Toleramos 0 por compatibilidad de data antigua si existiera)
                 $where[] = '(
                     u.estado = 1
                     AND (ur.estado_revision IS NULL OR ur.estado_revision IN (0,1))
@@ -89,7 +84,9 @@ final class SoporteUsuarios extends Conexion
                 break;
 
             case 'inactivo':
-                $where[] = 'u.estado = 0';
+                // ✅ CLAVE (evita doble aparición):
+                // Si está OBSERVADO (estado_revision=3), no entra en "Inactivos".
+                $where[] = '(u.estado = 0 AND (ur.estado_revision IS NULL OR ur.estado_revision <> 3))';
                 break;
 
             case 'todos':
@@ -106,24 +103,20 @@ final class SoporteUsuarios extends Conexion
         }
 
         // =========================
-        // ✅ FILTRO CONJUNTO (tipo + id)
+        // FILTRO CONJUNTO
         // =========================
         if ($conjunto === 'condominio') {
             $where[] = "(LOWER(COALESCE(r.tipo_conjunto,'')) LIKE '%cond%')";
             if ($conjuntoId > 0) {
-                // Ajusta este campo si tu tabla se llama distinto
                 $where[] = "r.codigo_condominio = :conjunto_id";
                 $params[':conjunto_id'] = $conjuntoId;
             }
         } elseif ($conjunto === 'urbanizacion') {
             $where[] = "(LOWER(COALESCE(r.tipo_conjunto,'')) LIKE '%urban%')";
             if ($conjuntoId > 0) {
-                // Ajusta este campo si tu tabla se llama distinto
                 $where[] = "r.codigo_urbanizacion = :conjunto_id";
                 $params[':conjunto_id'] = $conjuntoId;
             }
-        } else {
-            // sin filtro
         }
 
         $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
@@ -212,5 +205,117 @@ final class SoporteUsuarios extends Conexion
         ]);
 
         return $st->rowCount() > 0;
+    }
+
+    /**
+     * ✅ OPCIÓN A (RAÍZ):
+     * Si el usuario estaba OBSERVADO (estado_revision=3) y lo INACTIVAS,
+     * aquí lo desmarcamos para que no quede en doble estado.
+     *
+     * No borramos el registro (evita impactos), solo cambiamos 3 -> 1 (En revisión).
+     */
+    public function quitarObservado(int $codigoUsuario): bool
+    {
+        $codigoUsuario = (int)$codigoUsuario;
+        if ($codigoUsuario <= 0) return false;
+
+        $db = $this->getDblink();
+        if (!$db) return false;
+
+        try {
+            $st = $db->prepare("
+                UPDATE usuario_revision
+                SET estado_revision = 1
+                WHERE codigo_usuario = :id AND estado_revision = 3
+            ");
+            $st->execute([':id' => $codigoUsuario]);
+            return true;
+        } catch (Throwable $e) {
+            error_log('[EV][SoporteUsuarios::quitarObservado] ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * ✅ Guarda observación en usuario_revision SIN marcar observado.
+     * Para el caso: "Desactivar" con mensaje.
+     *
+     * - Si existe registro: actualiza mensaje_observacion (no toca estado_revision).
+     * - Si no existe: inserta con estado_revision=1 (En revisión) respetando tu DDL.
+     */
+    public function guardarObservacionRevision(int $codigoUsuario, string $observacion): bool
+    {
+        $codigoUsuario = (int)$codigoUsuario;
+        $observacion = trim($observacion);
+
+        if ($codigoUsuario <= 0 || $observacion === '') {
+            return false;
+        }
+
+        $db = $this->getDblink();
+        if (!$db) return false;
+
+        try {
+            $db->beginTransaction();
+
+            $stExists = $db->prepare("SELECT 1 FROM usuario_revision WHERE codigo_usuario = :id LIMIT 1");
+            $stExists->execute([':id' => $codigoUsuario]);
+            $exists = (bool)$stExists->fetchColumn();
+
+            if ($exists) {
+                $stUp = $db->prepare("
+                    UPDATE usuario_revision
+                    SET mensaje_observacion = :obs
+                    WHERE codigo_usuario = :id
+                ");
+                $stUp->execute([
+                    ':obs' => $observacion,
+                    ':id'  => $codigoUsuario
+                ]);
+            } else {
+                $stIns = $db->prepare("
+                    INSERT INTO usuario_revision (codigo_usuario, estado_revision, mensaje_observacion)
+                    VALUES (:id, 1, :obs)
+                ");
+                $stIns->execute([
+                    ':id'  => $codigoUsuario,
+                    ':obs' => $observacion
+                ]);
+            }
+
+            $db->commit();
+            return true;
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            error_log('[EV][SoporteUsuarios::guardarObservacionRevision] ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * ✅ Limpia revisión/observación al aprobar:
+     * deja estado_revision=2 (Habilitado) y mensaje_observacion NULL.
+     */
+    public function limpiarRevision(int $codigoUsuario): bool
+    {
+        $codigoUsuario = (int)$codigoUsuario;
+        if ($codigoUsuario <= 0) return false;
+
+        $db = $this->getDblink();
+        if (!$db) return false;
+
+        try {
+            $st = $db->prepare("
+                UPDATE usuario_revision
+                SET estado_revision = 2,
+                    mensaje_observacion = NULL
+                WHERE codigo_usuario = :id
+            ");
+            $st->execute([':id' => $codigoUsuario]);
+            return true;
+        } catch (Throwable $e) {
+            error_log('[EV][SoporteUsuarios::limpiarRevision] ' . $e->getMessage());
+            return false;
+        }
     }
 }

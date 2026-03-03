@@ -249,19 +249,13 @@
     const btnObs = byId("btnModalObservar");
     const btnApr = byId("btnModalAprobar");
     const btnIna = byId("btnModalInactivar");
-    const obsTxt = byId("mObsTexto");
 
     const isView = (m === "view");
 
-    // view (habilitado): SOLO Inactivar visible
+    // view (habilitado): SOLO boton Inactivar visible
     if (btnObs) btnObs.style.display = isView ? "none" : "";
     if (btnApr) btnApr.style.display = isView ? "none" : "";
     if (btnIna) btnIna.style.display = "";
-
-    if (obsTxt) {
-      obsTxt.readOnly = isView;
-      obsTxt.disabled = false;
-    }
   }
 
   // =========================
@@ -453,7 +447,7 @@
   });
 
   // ===================================================
-  // Acción: INACTIVAR (estado 0)
+  // Acción: INACTIVAR (estado 0)  ✅ AHORA GUARDA OBSERVACIÓN
   // ===================================================
   document.addEventListener("click", async (e) => {
     const btn = e.target.closest("#btnModalInactivar");
@@ -463,6 +457,8 @@
       Swal.fire({ icon: "warning", title: "Usuario no identificado", text: "No se pudo determinar la cuenta." });
       return;
     }
+
+    const obs = String(byId("mObsTexto")?.value || "").trim();
 
     const confirm = await Swal.fire({
       icon: "warning",
@@ -479,11 +475,14 @@
     try {
       btn.disabled = true;
 
+      const payload = { estado: 0 };
+      if (obs) payload.observacion = obs; // ✅ clave: enviar observación si existe
+
       const resp = await fetch(`${baseUrl}/api/soporte/usuarios/${currentId}/estado`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Partial": "1" },
         credentials: "include",
-        body: JSON.stringify({ estado: 0 }),
+        body: JSON.stringify(payload),
       });
 
       const json = await resp.json();
@@ -556,7 +555,7 @@
   });
 
   // ===================================================
-  // Acción: APROBAR (estado 2)
+  // Acción: APROBAR (estado 2) ✅ AHORA LIMPIA OBSERVACIÓN
   // ===================================================
   document.addEventListener("click", async (e) => {
     const btn = e.target.closest("#btnModalAprobar");

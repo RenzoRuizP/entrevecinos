@@ -4,6 +4,7 @@
 require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/Producto.php';
+require_once __DIR__ . '/../../models/ProductoSoporte.php'; // ✅ NUEVO: para registrar reenvío trazable
 
 class apiProductoController
 {
@@ -14,10 +15,6 @@ class apiProductoController
         echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
-    /**
-     * Devuelve el código de usuario autenticado o corta con 401.
-     * Importante: NO usamos AuthMiddleware (eliminado), usamos SesionJWT.
-     */
     private function obtenerUsuarioAuth(): int
     {
         $token = $_COOKIE['auth_token'] ?? null;
@@ -53,7 +50,6 @@ class apiProductoController
     {
         if (!is_file($tmpFile)) return null;
 
-        // Preferir fileinfo
         if (function_exists('finfo_open')) {
             $f = finfo_open(FILEINFO_MIME_TYPE);
             if ($f) {
@@ -63,7 +59,6 @@ class apiProductoController
             }
         }
 
-        // Fallback
         $info = @getimagesize($tmpFile);
         if ($info && !empty($info['mime'])) return $info['mime'];
 
@@ -88,8 +83,7 @@ class apiProductoController
     }
 
     /* ======================================================================================
-       REGISTRAR PRODUCTO (visible=0 BORRADOR)
-       POST /api/producto/registrar
+       REGISTRAR PRODUCTO
     ====================================================================================== */
     public function registrarProducto(): void
     {
@@ -128,10 +122,7 @@ class apiProductoController
             $prod->setPrecio($precio);
             $prod->setEstado($estado);
             $prod->setCodigoUsuario($codigoUsuario);
-
-            // 0=borrador (al crear)
             $prod->setVisible(0);
-
             $prod->setCodigoTipo($tipo);
             $prod->setCodigoCategoria($categoria);
             $prod->setImagen_portada(null);
@@ -167,7 +158,6 @@ class apiProductoController
                     }
                 }
 
-                // Limitar a 10 imágenes por seguridad (tu UI dice máximo 10)
                 $max = 10;
                 $orden = 1;
 
@@ -204,7 +194,6 @@ class apiProductoController
                         continue;
                     }
 
-                    // Validación real de imagen
                     $infoImg = @getimagesize($tmpName);
                     if ($infoImg === false) {
                         $erroresUpload[] = "El archivo {$nombreOriginal} no es una imagen válida.";
@@ -220,7 +209,6 @@ class apiProductoController
                         continue;
                     }
 
-                    // Ext por MIME (no confiar en extensión del cliente)
                     $fallbackExt = pathinfo((string)$nombreOriginal, PATHINFO_EXTENSION);
                     $ext = $this->extFromMime($mimeReal, $fallbackExt ?: 'jpg');
 
@@ -251,7 +239,6 @@ class apiProductoController
                 }
             }
 
-            // Si envió archivos pero no se pudo subir ninguno => error (mantengo tu lógica, pero devolviendo detalle)
             if ($imagenesIntentadas > 0 && $imagenesSubidas === 0) {
                 $this->json(400, [
                     'ok'      => false,
@@ -287,8 +274,6 @@ class apiProductoController
 
     /* ======================================================================================
        PUBLICAR PRODUCTO
-       POST /api/producto/{id}/publicar
-       BORRADOR (0) -> PENDIENTE (1)
     ====================================================================================== */
     public function publicarProducto($id): void
     {
@@ -361,7 +346,6 @@ class apiProductoController
 
     /* ======================================================================================
        LISTAR MIS PRODUCTOS
-       GET /api/producto/listar
     ====================================================================================== */
     public function listarProductos(): void
     {
@@ -387,7 +371,6 @@ class apiProductoController
 
     /* ======================================================================================
        OBTENER PRODUCTO (privado)
-       GET /api/producto/{id}
     ====================================================================================== */
     public function obtenerProducto($id): void
     {
@@ -420,7 +403,6 @@ class apiProductoController
                 $ruta = (string)($img['ruta'] ?? '');
                 $img['url'] = ($ruta !== '') ? ($baseUrl . '/' . ltrim($ruta, '/')) : '';
 
-                // Compatibilidad legacy
                 $img['codigo_imagen'] = $img['codigo_producto_imagen'] ?? null;
                 $img['id_imagen']     = $img['codigo_producto_imagen'] ?? null;
             }
@@ -443,7 +425,7 @@ class apiProductoController
 
     /* ======================================================================================
        ACTUALIZAR PRODUCTO
-       POST /api/producto/{id}/actualizar
+       ✅ NUEVO: si estaba OBSERVADO, registramos REENVIO_CORRECCION en producto_revision
     ====================================================================================== */
     public function actualizarProducto($id): void
     {
@@ -468,7 +450,9 @@ class apiProductoController
                 return;
             }
 
-            // OJO: tu JS debería mandar keys: titulo/descripcion/precio/estado/comboTipo/categoria
+            // Detectar visible antes del update (para lógica de reenvío)
+            $visibleAntes = (int)($detalle['visible'] ?? -1);
+
             $titulo      = trim($_POST['titulo'] ?? '');
             $descripcion = trim($_POST['descripcion'] ?? '');
             $precioRaw   = $_POST['precio'] ?? null;
@@ -542,7 +526,6 @@ class apiProductoController
                     }
                 }
 
-                // Respetar max 10 total: el front debería controlar, pero aquí protegemos también.
                 $maxTotal = 10;
                 $existentes = $model->obtenerImagenes($codigoProducto);
                 $countExist = is_array($existentes) ? count($existentes) : 0;
@@ -624,14 +607,39 @@ class apiProductoController
                 }
             }
 
-            // recalcula portada según regla (es_portada DESC, orden ASC)
+            // recalcula portada según regla
             $model->recalcularPortada($codigoProducto);
+
+            // =========================================================
+            // ✅ NUEVO: Si el producto estaba OBSERVADO, registrar REENVIO_CORRECCION
+            // Condición:
+            // - visible antes == 1
+            // - última revisión era una observación (comentario + estado_nuevo=1)
+            // - y no era ya un reenvío
+            // =========================================================
+            $reenviado = false;
+            try {
+                if ($visibleAntes === 1) {
+                    $ps = new ProductoSoporte();
+
+                    // valida si última revisión sugiere observación previa
+                    if ($ps->ultimaRevisionEsObservacionSoporte($codigoProducto, $visibleAntes)) {
+                        // registrar evento reenvío (actor = vecino)
+                        $ps->registrarReenvioCorreccion($codigoProducto, $codigoUsuario, 1, 1);
+                        $reenviado = true;
+                    }
+                }
+            } catch (Throwable $e) {
+                // No tumbamos la actualización si falla el tracking
+                error_log('[EV][apiProductoController][reenvio_correccion] ' . $e->getMessage());
+            }
 
             $this->json(200, [
                 'ok' => true,
                 'mensaje' => 'Producto actualizado correctamente.',
                 'imagenes_subidas' => $imagenesSubidas,
-                'warnings' => $erroresUpload
+                'warnings' => $erroresUpload,
+                'reenviado_correccion' => $reenviado
             ]);
             return;
 
@@ -647,8 +655,6 @@ class apiProductoController
 
     /* ======================================================================================
        ANULAR PRODUCTO
-       POST /api/producto/{id}/anular
-       MATRIZ: -> 3 (ANULADO)
     ====================================================================================== */
     public function anularProducto($id): void
     {
@@ -693,10 +699,7 @@ class apiProductoController
     }
 
     /* ======================================================================================
-       MARKETPLACE: LISTAR APROBADOS (con filtros y paginación)
-       GET /api/producto/marketplace?tipo=1&categoria=10&q=texto&page=1&size=12
-       MATRIZ: visible=2 (APROBADO)
-       ✅ Normaliza URL de portada y soporta filtros sin romper compatibilidad.
+       MARKETPLACE
     ====================================================================================== */
     public function listarMarketplace(): void
     {
@@ -716,8 +719,6 @@ class apiProductoController
             $size = max(1, min(50, $size));
 
             $model = new Producto();
-
-            // ✅ Nuevo método (no rompe tu listarAprobadosMarketplace)
             $res = $model->listarMarketplaceFiltrado($tipo, $categoria, $q, $page, $size);
 
             $items = $res['items'] ?? [];
@@ -731,7 +732,6 @@ class apiProductoController
 
                 $p['imagen_portada_url'] = $url;
 
-                // Compatibilidad: algunos fronts usan imagen_portada como url final
                 if ($ruta !== '') {
                     $p['imagen_portada'] = $url;
                 }

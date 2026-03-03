@@ -39,7 +39,7 @@ final class apiSoporteUsuariosController
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
         header('Pragma: no-cache');
-        echo json_encode($payload);
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE);
     }
 
     /**
@@ -88,7 +88,7 @@ final class apiSoporteUsuariosController
         $limit  = (int)($_GET['limit'] ?? 10);
         $limit  = ($limit <= 0) ? 10 : min($limit, 100);
 
-        // ✅ NUEVOS FILTROS
+        // ✅ FILTROS
         $conjunto    = $this->normalizarConjunto($_GET['conjunto'] ?? '');
         $conjuntoId  = (int)($_GET['conjunto_id'] ?? 0);
 
@@ -131,6 +131,7 @@ final class apiSoporteUsuariosController
         if (!is_array($in)) $in = [];
 
         $estadoNuevo = isset($in['estado']) ? (int)$in['estado'] : -1;
+        $observacion = isset($in['observacion']) ? trim((string)$in['observacion']) : '';
 
         // Estados válidos para este endpoint
         if (!in_array($estadoNuevo, [0, 1, 2], true)) {
@@ -140,6 +141,8 @@ final class apiSoporteUsuariosController
 
         try {
             $m = new SoporteUsuarios();
+
+            // 1) Actualiza estado del usuario
             $ok = $m->actualizarEstadoUsuario([
                 'codigo_usuario' => $codigoUsuario,
                 'estado'         => $estadoNuevo,
@@ -152,6 +155,26 @@ final class apiSoporteUsuariosController
             }
 
             // =========================================================
+            // ✅ REGLA OPCIÓN A (RAÍZ):
+            // Si se INACTIVA (estado=0), se LIMPIA el "OBSERVADO" (estado_revision=3)
+            // para que NO quede en doble estado (observado + inactivo).
+            // =========================================================
+            if ($estadoNuevo === 0) {
+                $m->quitarObservado($codigoUsuario);
+
+                // Si además viene observación desde el modal "Desactivar", se guarda,
+                // pero SIN marcar observado (queda como revisión neutra).
+                if ($observacion !== '') {
+                    $m->guardarObservacionRevision($codigoUsuario, $observacion);
+                }
+            }
+
+            // Si se APRUEBA (estado=2), se limpia observación/revisión previa
+            if ($estadoNuevo === 2) {
+                $m->limpiarRevision($codigoUsuario);
+            }
+
+            // =========================================================
             // ✅ REQUERIMIENTO: al APROBAR (estado=2) aplicar bono S/ 15
             // =========================================================
             $bono = null;
@@ -159,7 +182,6 @@ final class apiSoporteUsuariosController
                 $wallet = new Billetera();
                 $bono = $wallet->aplicarBonoBienvenida($codigoUsuario, 15.00);
 
-                // No tumbamos la aprobación si falla el bono, pero lo dejamos log
                 if (empty($bono['ok'])) {
                     error_log('[EV][apiSoporteUsuariosController] Aprobó usuario pero falló bono: u=' . $codigoUsuario . ' err=' . ($bono['error'] ?? ''));
                 }
@@ -168,7 +190,7 @@ final class apiSoporteUsuariosController
             $this->json(200, [
                 'ok'      => true,
                 'mensaje' => 'Estado actualizado.',
-                'bono'    => $bono, // útil para debug (puedes quitarlo si quieres)
+                'bono'    => $bono,
             ]);
         } catch (Throwable $e) {
             error_log('[EV][apiSoporteUsuariosController::actualizarEstado] ' . $e->getMessage());

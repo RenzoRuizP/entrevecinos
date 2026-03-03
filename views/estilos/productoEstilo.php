@@ -26,18 +26,44 @@
   --ev-stroke-soft: rgba(15,23,42,.08);
 }
 
-/* WRAPPER / CARD */
-.ev-pubs-wrapper{ max-width: 1100px; margin: 0 auto; }
+/* ====================================================
+   FIX DEFINITIVO – CENTRADO REAL + CARD MÁS ANCHO
+   ✅ Ajuste: más ancho + mejor padding para que “respire”
+==================================================== */
+.content-wrapper,
+.content,
+.container-fluid{
+  max-width: 100% !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.ev-pubs-wrapper{
+  width: 100%;
+  max-width: none;
+  display: flex;
+  justify-content: center;
+  padding: 28px 22px;   /* ✅ un poco menos agresivo */
+  box-sizing: border-box;
+  margin: 0 auto;
+}
+
 .ev-pubs-card{
+  width: 100%;
+  max-width: 1600px;     /* ✅ más ancho para desktop */
+  margin: 0 auto;
   border-radius: var(--ev-radius-card);
   border: 1px solid var(--ev-gris-borde);
   background: #fff;
   box-shadow: var(--ev-shadow-card);
-  margin: 24px auto 40px auto;
   overflow: hidden;
 }
-.ev-pubs-card .card-body{ padding: 24px 32px; }
+.ev-pubs-card .card-body{ padding: 22px 28px; }
 
+/* WRAPPER legacy (no afecta) */
+.ev-pubs-wrapper.fade-in{ max-width: none; }
+
+/* Header */
 .ev-pubs-title{
   font-size: 1.65rem;
   font-weight: 800;
@@ -63,11 +89,11 @@
 }
 .ev-pubs-divider{
   border-top: 1px solid rgba(148, 163, 184, 0.35);
-  margin-left: -32px;
-  margin-right: -32px;
+  margin-left: -28px;
+  margin-right: -28px;
 }
 
-/* TABLE */
+/* TABLE wrapper */
 .ev-pubs-table-wrapper{
   border: 1px solid rgba(229, 231, 235, 0.9);
   border-radius: 16px;
@@ -75,7 +101,15 @@
   background: #ffffff;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
 }
-.ev-pubs-table{ margin: 0; }
+
+/* ✅ CLAVE: tabla con layout fijo para evitar scroll “por estiramiento” */
+.ev-pubs-table{
+  margin: 0;
+  width: 100%;
+  table-layout: fixed;          /* ✅ controla anchos por columna */
+}
+
+/* Head */
 .ev-pubs-table thead th{
   border-bottom: 1px solid var(--ev-gris-borde);
   font-weight: 800;
@@ -85,39 +119,56 @@
   letter-spacing: 0.06em;
   background: linear-gradient(180deg, #FCFDFE 0%, #F9FAFB 100%);
 }
+
+/* Body */
 .ev-pubs-table tbody td{
   border-color: rgba(229, 231, 235, 0.9);
   vertical-align: middle;
 }
 .ev-pubs-table tbody tr:hover{ background-color: #F9FAFB; }
 
+/* Código */
 .ev-code{
   font-weight: 900;
   color: var(--ev-verde-oscuro);
   letter-spacing: .04em;
 }
+
+/* Truncado elegante */
 .td-trunc{
-  max-width: 520px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* ✅ Columna final (PUBLICACIÓN) */
+/* ✅ Anchos por columna (8 cols)
+   Ajustados para que “Opciones” respire y Descripción no empuje.
+*/
+.ev-pubs-table th:nth-child(1),
+.ev-pubs-table td:nth-child(1){ width: 92px; }          /* Código */
+.ev-pubs-table th:nth-child(2),
+.ev-pubs-table td:nth-child(2){ width: 200px; }         /* Título */
+.ev-pubs-table th:nth-child(3),
+.ev-pubs-table td:nth-child(3){ width: 92px; }          /* Precio */
+.ev-pubs-table th:nth-child(4),
+.ev-pubs-table td:nth-child(4){ width: 92px; }          /* Estado */
+.ev-pubs-table th:nth-child(5),
+.ev-pubs-table td:nth-child(5){ width: 110px; }         /* Tipo */
+.ev-pubs-table th:nth-child(6),
+.ev-pubs-table td:nth-child(6){ width: 170px; }         /* Categoría */
+.ev-pubs-table th:nth-child(7),
+.ev-pubs-table td:nth-child(7){ width: auto; }          /* Descripción (flex) */
+.ev-pubs-table th:nth-child(8),
+.ev-pubs-table td:nth-child(8){ width: 340px; }         /* Opciones ✅ */
+
+/* Opciones centradas */
 .ev-pubs-table thead th:last-child,
 .ev-pubs-table tbody td:last-child{
   text-align: center;
-  width: 210px;
   white-space: nowrap;
 }
-@media (max-width: 992px){
-  .ev-pubs-table thead th:last-child,
-  .ev-pubs-table tbody td:last-child{ width: 180px; }
-}
 
-/* =========================================================
-   BADGES (ESTADO) — ahora más “soft” y elegante
-========================================================= */
+/* BADGES */
 .ev-badge{
   display: inline-flex;
   align-items: center;
@@ -127,40 +178,28 @@
   font-size: .74rem;
   font-weight: 900;
   letter-spacing: .02em;
-
-  /* 🔥 premium */
   border:1px solid rgba(148,163,184,.24);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.78);
   backdrop-filter: blur(6px);
 }
 
-
-/* ✅ NUEVO: más mate + menos “verde idéntico” al aprobado */
 .ev-badge--nuevo{
-  /* ✅ neutro premium, NO “verde relleno” para no competir con Aprobado */
   background: linear-gradient(180deg, rgba(248,250,252,.98) 0%, rgba(241,245,249,.88) 100%);
   color: rgba(15,89,47,.92);
   border:1px solid rgba(148,163,184,.24);
 }
-
-
-/* USADO: cálido premium */
 .ev-badge--usado{
-  /* ✅ neutro premium con acento ámbar */
   background: linear-gradient(180deg, rgba(248,250,252,.98) 0%, rgba(241,245,249,.88) 100%);
   color: rgba(122,90,0,.92);
   border:1px solid rgba(148,163,184,.24);
 }
-
-
-/* NO APLICA */
 .ev-badge--noaplica{
   background: linear-gradient(180deg, rgba(243,244,246,.95) 0%, rgba(243,244,246,.78) 100%);
   color: rgba(71,85,105,.92);
   border-color: rgba(148,163,184,.22);
 }
 
-/* BOTONES */
+/* BOTONES HEADER */
 .btn-ev-orange{
   background-image: linear-gradient(180deg, #FF9B3A, #FF7A1A);
   border: none;
@@ -202,25 +241,25 @@
 }
 
 /* =========================================================
-   ACCIONES TABLA (MEJORADO)
+   ACCIONES TABLA
+   ✅ Ahora horizontal y con “aire”
 ========================================================= */
 .ev-actions{
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 10px;          /* ✅ más aire */
+  flex-wrap: nowrap;
   min-height: 40px;
 }
 
-/* CHIP (botón/pill) */
+/* CHIP */
 .ev-chip{
-  min-width: 104px;
-  width: auto;
+  min-width: 98px;        /* ✅ más cómodo (no tan compacto) */
   justify-content: center;
   text-align: center;
   border-radius: 999px;
-  padding: 0.42rem 0.98rem;
+  padding: 0.44rem 0.95rem; /* ✅ respira */
   font-weight: 900;
   font-size: .86rem;
   line-height: 1;
@@ -237,12 +276,6 @@
   transform: translateY(-1px);
   box-shadow: 0 14px 22px rgba(15, 23, 42, 0.08);
 }
-.ev-chip:focus-visible{
-  outline: 0;
-  box-shadow: 0 0 0 .2rem rgba(25,135,84,.18), 0 14px 22px rgba(15, 23, 42, 0.08);
-}
-
-/* Deshabilitado (estado) */
 .ev-chip:disabled,
 .ev-chip[disabled]{
   cursor: default;
@@ -258,7 +291,6 @@
     inset 0 1px 0 rgba(255,255,255,.80),
     0 10px 22px rgba(15, 23, 42, 0.08);
 }
-
 .ev-chip-green:hover{ background: rgba(230,244,236,.55); border-color: rgba(15,89,47,.42); }
 
 .ev-chip-red{ border-color: rgba(220,38,38,.34); color: var(--ev-rojo); }
@@ -275,11 +307,7 @@
   box-shadow: inset 0 1px 0 rgba(255,255,255,.75);
 }
 
-/* =========================================================
-   ✅ PUBLICACIÓN: APROBADO — glass premium (diferente a “Nuevo”)
-   - Más jerarquía
-   - Más “pro”
-========================================================= */
+/* Aprobado glass */
 .ev-chip.ev-chip-green:disabled,
 .ev-chip.ev-chip-green[disabled]{
   background:
@@ -291,8 +319,6 @@
     0 14px 26px rgba(15, 23, 42, 0.06);
   position: relative;
 }
-
-/* brillo sutil (sheen) */
 .ev-chip.ev-chip-green:disabled::after,
 .ev-chip.ev-chip-green[disabled]::after{
   content: "";
@@ -305,7 +331,9 @@
   filter: blur(.2px);
 }
 
-/* SECCIONES */
+/* SECCIONES / DROPZONE / TILES / PREVIEW / MODALES (se mantiene tu base) */
+/* --- (desde aquí tu CSS original sin cambios funcionales importantes) --- */
+
 .ev-section{
   border: 1px solid rgba(229,231,235,.9);
   border-radius: 16px;
@@ -316,7 +344,6 @@
 .ev-section-title{ font-weight: 800; color: var(--ev-texto); margin-bottom: 4px; }
 .ev-section-subtitle{ color: var(--ev-texto-suave); font-size: .9rem; }
 
-/* Dropzone */
 .ev-dropzone{
   border: 2px dashed rgba(148,163,184,.55);
   border-radius: 16px;
@@ -338,21 +365,17 @@
   transform: translateY(-1px);
 }
 
-/* Tiles */
 .ev-tiles{ display:flex; flex-wrap:wrap; gap:10px; }
 
-/* ✅ No mostrar contenedor si está vacío */
 #evTiles:empty,
 #evTilesEdit:empty{ display:none; }
 
-/* Moderno */
 @supports selector(:has(*)) {
   .ev-section:has(#evTiles:not(:empty)) .ev-dropzone,
   .ev-section:has(#evTilesEdit:not(:empty)) .ev-dropzone{
     display: none !important;
   }
 }
-/* Fallback */
 .ev-section.ev-has-tiles .ev-dropzone{
   display:none !important;
 }
@@ -397,56 +420,7 @@
   box-shadow: 0 12px 22px rgba(15, 23, 42, 0.30);
   transform: translateY(-1px);
 }
-.ev-tile-remove:focus-visible{
-  outline: 0;
-  box-shadow:
-    0 0 0 .2rem rgba(25,135,84,.22),
-    0 12px 22px rgba(15, 23, 42, 0.30);
-}
 
-/* Tile agregar */
-.ev-tile-add{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-  gap: 4px;
-  background:#F9FAFB;
-  border: 2px dashed rgba(148,163,184,.55);
-  border-radius: 14px;
-  cursor:pointer;
-  padding: 8px 6px;
-  line-height: 1.15;
-  transition: background-color .15s ease, transform .15s ease, border-color .15s ease;
-}
-.ev-tile-add:hover{
-  background: rgba(230,244,236,.85);
-  border-color: rgba(25,135,84,.55);
-  transform: translateY(-1px);
-}
-.ev-tile-add .ico{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  background: rgba(25,135,84,.10);
-  color: var(--ev-verde);
-  font-size: 1.1rem;
-}
-.ev-tile-add .t1,
-.ev-tile-add .t2{ width: 100%; text-align:center; }
-.ev-tile-add .t1{ font-weight:800; color: var(--ev-texto); font-size:.86rem; }
-.ev-tile-add .t2{
-  color: var(--ev-texto-suave);
-  font-size:.78rem;
-  line-height: 1.15;
-  white-space: normal;
-}
-
-/* Preview derecha */
 .ev-preview-area{
   border: 1px dashed rgba(148,163,184,.55);
   border-radius: 16px;
@@ -481,7 +455,6 @@
 .ev-preview-thumb.active{ outline: 2px solid rgba(25,135,84,.55); }
 .ev-preview-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
 
-/* MODALES */
 .ev-modal{ --bs-modal-margin: 12px; }
 .ev-modal .modal-dialog{
   width: calc(100% - (var(--bs-modal-margin) * 2));
@@ -566,12 +539,18 @@
 }
 
 /* RESPONSIVE */
-@media (max-width: 575.98px){
-  .ev-pubs-wrapper{ padding-left:12px !important; padding-right:12px !important; }
-  .ev-pubs-card{ margin:16px auto 28px auto; }
+@media (max-width: 992px){
+  .ev-pubs-wrapper{ padding: 18px 14px; }
+  .ev-pubs-card{ max-width: 100%; }
   .ev-pubs-card .card-body{ padding: 18px 14px; }
   .ev-pubs-divider{ margin-left:-14px; margin-right:-14px; }
 
+  /* En tablet: tabla puede requerir scroll, pero ya no “explota” por estiramiento */
+  .ev-actions{ gap: 8px; }
+  .ev-chip{ min-width: 96px; }
+}
+
+@media (max-width: 575.98px){
   .ev-modal-body{ padding: 18px 16px; }
   .ev-modal-footer{
     padding: 12px 16px 16px 16px;
@@ -580,47 +559,7 @@
   }
   .ev-modal-footer .btn{ width:100%; justify-content:center; }
 
-  .td-trunc{ max-width: 220px; }
-
-  .ev-actions{ display:flex; justify-content:center; }
-  .ev-chip{ min-width: 104px; }
-
-  .ev-tile-remove{ width: 28px; height: 28px; font-size: 17px; }
-  .ev-tile-add .t2{ font-size: .76rem; }
-}
-
-/* ====================================================
-   FIX DEFINITIVO – CENTRADO REAL + CARD MÁS ANCHO
-==================================================== */
-.content-wrapper,
-.content,
-.container-fluid{
-  max-width: 100% !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-
-.ev-pubs-wrapper{
-  width: 100%;
-  max-width: none;
-  display: flex;
-  justify-content: center;
-  padding: 32px 24px;
-  box-sizing: border-box;
-  margin: 0 auto;
-}
-
-.ev-pubs-card{
-  width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-@media (max-width: 992px){
-  .ev-pubs-wrapper{ padding: 20px 16px; }
-}
-@media (max-width: 576px){
-  .ev-pubs-wrapper{ padding: 16px 12px; }
-  .ev-pubs-card{ max-width: 100%; }
+  /* ✅ En móvil sí permitimos wrap */
+  .ev-actions{ flex-wrap: wrap; }
 }
 </style>

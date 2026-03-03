@@ -5,6 +5,9 @@ require_once __DIR__ . '/../database/Conexion.php';
 
 class ProductoSoporte extends Conexion
 {
+    // Prefijo para identificar reenvíos por corrección (vecino)
+    private const REENVIO_PREFIX = 'REENVIO_CORRECCION|';
+
     public function listarSoporte(array $filtros): array
     {
         $estado = strtolower(trim((string)($filtros['estado'] ?? 'pendiente')));
@@ -50,8 +53,7 @@ class ProductoSoporte extends Conexion
         $offset = ($page - 1) * $size;
 
         /**
-         * ✅ FIX: Traer última revisión por producto en la MISMA consulta.
-         * Usamos MAX(codigo_revision) por producto.
+         * ✅ Última revisión por producto
          */
         $sql = "
             SELECT
@@ -215,6 +217,57 @@ class ProductoSoporte extends Conexion
         $st->execute();
         $row = $st->fetch(\PDO::FETCH_ASSOC);
         return $row ?: null;
+    }
+
+    /**
+     * ✅ Determina si una revisión es "reenviado por corrección"
+     */
+    public function esRevisionReenvioCorreccion(?string $comentario): bool
+    {
+        $c = trim((string)$comentario);
+        if ($c === '') return false;
+        return str_starts_with($c, self::REENVIO_PREFIX);
+    }
+
+    /**
+     * ✅ Registra evento "reenviado por corrección" (actor = vecino)
+     * Nota: por constraints de tu tabla, guardamos el actor en codigo_soporte (FK a usuario).
+     */
+    public function registrarReenvioCorreccion(int $codigoProducto, int $codigoActorVecino, int $estadoAnterior, int $estadoNuevo): void
+    {
+        $msg = self::REENVIO_PREFIX . ' El usuario corrigió la publicación y la reenviò para revisión.';
+        $this->registrarRevisionTablaExistente(
+            $codigoProducto,
+            $codigoActorVecino, // actor (vecino)
+            $estadoAnterior,
+            $estadoNuevo,
+            $msg
+        );
+    }
+
+    /**
+     * ✅ Verifica si la última revisión sugiere "OBSERVADO por soporte"
+     * Regla:
+     * - visible=1
+     * - comentario no vacío
+     * - estado_nuevo=1
+     * - y NO es un reenvío
+     */
+    public function ultimaRevisionEsObservacionSoporte(int $codigoProducto, int $visibleActual): bool
+    {
+        if ($visibleActual !== 1) return false;
+
+        $rev = $this->obtenerUltimaRevisionTablaExistente($codigoProducto);
+        if (!$rev) return false;
+
+        $comentario = trim((string)($rev['comentario'] ?? ''));
+        $estadoNuevo = (int)($rev['estado_nuevo'] ?? -1);
+
+        if ($comentario === '') return false;
+        if ($this->esRevisionReenvioCorreccion($comentario)) return false;
+
+        // observado (tu convención): estado_nuevo=1 + comentario
+        return ($estadoNuevo === 1);
     }
 
     public function obtenerDetalle(int $codigoProducto): ?array

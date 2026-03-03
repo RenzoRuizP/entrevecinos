@@ -5,16 +5,13 @@
   const baseUrl = (window.BASE_URL || "").replace(/\/+$/, "");
   if (!baseUrl) return;
 
-  // =========================================================
-  // Boot global (se carga 1 vez en el SHELL)
-  // =========================================================
   const BOOT_KEY = "EV_BOOT_ATENDER_PUBLICACION";
   if (window[BOOT_KEY]) return;
   window[BOOT_KEY] = true;
 
-  // =========================================================
-  // Utils
-  // =========================================================
+  // Prefijo del backend
+  const REENVIO_PREFIX = "REENVIO_CORRECCION|";
+
   function $(sel, root) {
     return (root || document).querySelector(sel);
   }
@@ -62,27 +59,64 @@
     }
   }
 
-  function estadoLabelFromVisible(visible) {
-    const n = Number(visible);
-    if (n === 0) return "Borrador";
-    if (n === 1) return "Pendiente";
-    if (n === 2) return "Aprobada";
-    if (n === 3) return "Rechazada";
-
-    const s = String(visible ?? "").toLowerCase();
-    if (s === "borrador") return "Borrador";
-    if (s === "pendiente") return "Pendiente";
-    if (s === "aprobada") return "Aprobada";
-    if (s === "rechazada") return "Rechazada";
-    return safeStr(visible, "-");
+  function getUltimaRevision(it) {
+    if (!it) return null;
+    if (it.ultima_revision && typeof it.ultima_revision === "object") {
+      return {
+        comentario: String(it.ultima_revision.comentario ?? "").trim(),
+        estado_nuevo: Number(it.ultima_revision.estado_nuevo ?? NaN),
+      };
+    }
+    return null;
   }
 
-  function badgeClassFromVisible(visible) {
-    const n = Number(visible);
-    if (n === 0) return "ev-badge ev-badge-borrador";
-    if (n === 1) return "ev-badge ev-badge-pendiente";
-    if (n === 2) return "ev-badge ev-badge-aprobada";
-    if (n === 3) return "ev-badge ev-badge-rechazada";
+  function getEstadoKey(it) {
+    const vis = Number(it?.visible ?? NaN);
+    const rev = getUltimaRevision(it);
+
+    // ✅ 1) Si es REENVIO_CORRECCION => CORREGIDO
+    if (vis === 1 && rev && rev.comentario && rev.comentario.startsWith(REENVIO_PREFIX)) {
+      return "corregido";
+    }
+
+    // ✅ 2) Observado/Rechazado “sin cambiar visible”
+    if (vis === 1 && rev && rev.comentario) {
+      if (Number.isFinite(rev.estado_nuevo) && rev.estado_nuevo === 0) return "rechazada";
+      if (Number.isFinite(rev.estado_nuevo) && rev.estado_nuevo === 1) return "observada";
+      return "observada";
+    }
+
+    if (vis === 0) return "borrador";
+    if (vis === 1) return "pendiente";
+    if (vis === 2) return "aprobada";
+    if (vis === 3) return "rechazada";
+
+    return "pendiente";
+  }
+
+  function estadoLabel(it) {
+    const k = getEstadoKey(it);
+    if (k === "borrador") return "Borrador";
+    if (k === "pendiente") return "Pendiente";
+    if (k === "aprobada") return "Aprobada";
+    if (k === "rechazada") return "Rechazada";
+    if (k === "observada") return "Observada";
+    if (k === "corregido") return "Corregido";
+    return "Pendiente";
+  }
+
+  function badgeClass(it) {
+    const k = getEstadoKey(it);
+
+    // Si aún no tienes clase CSS para corregido, usamos la de pendiente para no romper estilos.
+    if (k === "corregido") return "ev-badge ev-badge-pendiente";
+
+    if (k === "borrador") return "ev-badge ev-badge-borrador";
+    if (k === "pendiente") return "ev-badge ev-badge-pendiente";
+    if (k === "aprobada") return "ev-badge ev-badge-aprobada";
+    if (k === "rechazada") return "ev-badge ev-badge-rechazada";
+    if (k === "observada") return "ev-badge ev-badge-pendiente";
+
     return "ev-badge ev-badge-pendiente";
   }
 
@@ -92,9 +126,6 @@
     return true;
   }
 
-  // =========================================================
-  // Módulo (se instancia por cada parcial insertado)
-  // =========================================================
   function initModule(root) {
     if (!root || root.dataset.evInitAp === "1") return;
     root.dataset.evInitAp = "1";
@@ -105,7 +136,6 @@
     let estado = "pendiente";
     let q = "";
 
-    // DOM tabla
     const elForm = $("#formFiltros", root);
     const elEstado = $("#fEstado", root);
     const elTexto = $("#fTexto", root);
@@ -126,7 +156,6 @@
 
     const btnRefrescar = $("#btnRefrescar", root);
 
-    // DOM modal
     function getModalEls() {
       const modalEl = document.getElementById("modalPub");
       return {
@@ -145,10 +174,8 @@
 
     let modalInstance = null;
     let currentId = null;
-    let currentVisible = null;
 
     if (!elBody) return;
-
     if (elEstado && elEstado.value) estado = String(elEstado.value).toLowerCase();
 
     function cancelFetchPrevio() {
@@ -187,7 +214,6 @@
 
     function render(items) {
       elBody.innerHTML = "";
-
       if (!items || items.length === 0) {
         renderEmptyRow();
         return;
@@ -206,7 +232,7 @@
             ? `${usuarioNombre}${usuarioEmail ? " (" + usuarioEmail + ")" : ""}`.trim()
             : "-";
 
-        const est = estadoLabelFromVisible(it.visible);
+        const estTxt = estadoLabel(it);
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
@@ -214,7 +240,7 @@
           <td>${titulo}</td>
           <td class="text-end">${precio}</td>
           <td>${usuario}</td>
-          <td>${est}</td>
+          <td><span class="${badgeClass(it)}">${estTxt}</span></td>
           <td class="text-end">
             <button type="button" class="btn btn-sm btn-outline-success js-revisar" data-id="${String(id)}">
               Revisar
@@ -328,7 +354,6 @@
         mEstadoBadge.className = "ev-badge ev-badge-pendiente";
       }
       currentId = null;
-      currentVisible = null;
     }
 
     function fillModal(it) {
@@ -343,17 +368,16 @@
       if (mEmail) mEmail.textContent = usuarioEmail ? usuarioEmail : "—";
       if (mDescripcion) mDescripcion.textContent = safeStr(it.descripcion, "—");
 
-      const estTxt = estadoLabelFromVisible(it.visible);
+      const estTxt = estadoLabel(it);
       if (mEstadoBadge) {
         mEstadoBadge.textContent = estTxt.toLowerCase();
-        mEstadoBadge.className = badgeClassFromVisible(it.visible);
+        mEstadoBadge.className = badgeClass(it);
       }
 
-      // ✅ FIX: Mostrar comentario previo (última revisión) si existe
       const prev = it?.ultima_revision?.comentario;
       if (mComentario) {
         const c = String(prev ?? "").trim();
-        mComentario.value = c; // si no hay, queda vacío
+        mComentario.value = c;
       }
 
       const imgs = Array.isArray(it.imagenes) ? it.imagenes : [];
@@ -415,8 +439,6 @@
         }
 
         const it = data.item || {};
-        currentVisible = Number(it.visible);
-
         fillModal(it);
 
         const mi = ensureModal();
@@ -494,9 +516,6 @@
       }
     }
 
-    // =========================
-    // Eventos filtros / tabla
-    // =========================
     if (elForm) {
       elForm.addEventListener("submit", function (ev) {
         ev.preventDefault();
@@ -508,15 +527,11 @@
     }
 
     if (elEstado) {
-      elEstado.addEventListener(
-        "change",
-        function () {
-          estado = String(elEstado.value || "pendiente").toLowerCase();
-          page = 1;
-          listar();
-        },
-        { passive: true }
-      );
+      elEstado.addEventListener("change", function () {
+        estado = String(elEstado.value || "pendiente").toLowerCase();
+        page = 1;
+        listar();
+      }, { passive: true });
     }
 
     if (elTexto) {
@@ -548,29 +563,10 @@
       });
     });
 
-    if (btnRefrescar) {
-      btnRefrescar.addEventListener("click", function () {
-        listar();
-      });
-    }
+    if (btnRefrescar) btnRefrescar.addEventListener("click", () => listar());
+    if (elBtnPrev) elBtnPrev.addEventListener("click", () => { if (page > 1) { page--; listar(); } });
+    if (elBtnNext) elBtnNext.addEventListener("click", () => { page++; listar(); });
 
-    if (elBtnPrev) {
-      elBtnPrev.addEventListener("click", function () {
-        if (page > 1) {
-          page--;
-          listar();
-        }
-      });
-    }
-
-    if (elBtnNext) {
-      elBtnNext.addEventListener("click", function () {
-        page++;
-        listar();
-      });
-    }
-
-    // Delegación: Revisar (fila)
     root.addEventListener("click", function (ev) {
       const btn = ev.target && ev.target.closest ? ev.target.closest(".js-revisar") : null;
       if (!btn) return;
@@ -579,36 +575,19 @@
       abrirRevisar(id);
     });
 
-    // Delegación: botones del modal
     document.addEventListener("click", function (ev) {
       const t = ev.target;
       if (!t || !t.closest) return;
 
-      if (t.closest("#btnAprobar")) {
-        ev.preventDefault();
-        enviarRevision("aprobar");
-        return;
-      }
-      if (t.closest("#btnRechazar")) {
-        ev.preventDefault();
-        enviarRevision("rechazar");
-        return;
-      }
-      if (t.closest("#btnObservar")) {
-        ev.preventDefault();
-        enviarRevision("observar");
-        return;
-      }
+      if (t.closest("#btnAprobar")) { ev.preventDefault(); enviarRevision("aprobar"); return; }
+      if (t.closest("#btnRechazar")) { ev.preventDefault(); enviarRevision("rechazar"); return; }
+      if (t.closest("#btnObservar")) { ev.preventDefault(); enviarRevision("observar"); return; }
     }, true);
 
-    // Init
     setActiveQuickButtons();
     listar();
   }
 
-  // =========================================================
-  // Observador: detecta cuando el parcial se inserta (AJAX)
-  // =========================================================
   function scanAndInit() {
     const root = document.querySelector(".ev-ap-page") || document;
     if (document.querySelector(".ev-ap-page")) initModule(root);
@@ -616,9 +595,7 @@
 
   scanAndInit();
 
-  const mo = new MutationObserver(function () {
-    scanAndInit();
-  });
+  const mo = new MutationObserver(function () { scanAndInit(); });
   mo.observe(document.documentElement, { childList: true, subtree: true });
 
   document.addEventListener("ev:partial-loaded", scanAndInit);

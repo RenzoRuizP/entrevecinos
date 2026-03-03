@@ -256,8 +256,8 @@ $baseUrl = rtrim(BASE_URL, '/');
       </div>
 
       <div class="modal-footer ev-modal-footer">
-        <button type="button" class="btn btn-outline-danger" id="btnModalInactivar">Inactivar</button>
-        <button type="button" class="btn ev-btn-orange" id="btnModalAprobar">Aprobar</button>
+        <button type="button" class="btn btn-outline-danger" id="btnModalInactivar">Desactivar</button>
+        <button type="button" class="btn ev-btn-orange" id="btnModalAprobar">Activar</button>
       </div>
     </div>
   </div>
