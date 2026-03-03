@@ -74,14 +74,17 @@
     const vis = Number(it?.visible ?? NaN);
     const rev = getUltimaRevision(it);
 
-    // ✅ 1) Si es REENVIO_CORRECCION => CORREGIDO
+    // ✅ 1) Si es REENVIO_CORRECCION => CORREGIDO (sigue siendo revisable)
     if (vis === 1 && rev && rev.comentario && rev.comentario.startsWith(REENVIO_PREFIX)) {
       return "corregido";
     }
 
     // ✅ 2) Observado/Rechazado “sin cambiar visible”
+    // (visible=1 y hay comentario)
     if (vis === 1 && rev && rev.comentario) {
+      // Si tu backend usa 0 para “rechazo lógico” (solo comentario) lo respetamos
       if (Number.isFinite(rev.estado_nuevo) && rev.estado_nuevo === 0) return "rechazada";
+      // estado_nuevo=1 => observado lógico
       if (Number.isFinite(rev.estado_nuevo) && rev.estado_nuevo === 1) return "observada";
       return "observada";
     }
@@ -108,14 +111,14 @@
   function badgeClass(it) {
     const k = getEstadoKey(it);
 
-    // Si aún no tienes clase CSS para corregido, usamos la de pendiente para no romper estilos.
+    // Si aún no tienes clases CSS dedicadas, mapeamos sin romper
     if (k === "corregido") return "ev-badge ev-badge-pendiente";
+    if (k === "observada") return "ev-badge ev-badge-pendiente";
 
     if (k === "borrador") return "ev-badge ev-badge-borrador";
     if (k === "pendiente") return "ev-badge ev-badge-pendiente";
     if (k === "aprobada") return "ev-badge ev-badge-aprobada";
     if (k === "rechazada") return "ev-badge ev-badge-rechazada";
-    if (k === "observada") return "ev-badge ev-badge-pendiente";
 
     return "ev-badge ev-badge-pendiente";
   }
@@ -124,6 +127,34 @@
     const c = String(comentario ?? "").trim();
     if (accion === "rechazar" || accion === "observar") return c.length >= 3;
     return true;
+  }
+
+  // ✅ Reglas modal:
+  // Revisable: pendiente/observada/corregido (son visible=1 en tu lógica)
+  // Solo lectura: aprobada/rechazada/borrador
+  function aplicarReglasModalPorEstadoKey(estadoKey) {
+    const btnAprobar = document.getElementById("btnAprobar");
+    const btnRechazar = document.getElementById("btnRechazar");
+    const btnObservar = document.getElementById("btnObservar");
+    const txt = document.getElementById("mComentario");
+
+    const esRevisable = (estadoKey === "pendiente" || estadoKey === "observada" || estadoKey === "corregido");
+    const esSoloLectura = !esRevisable;
+
+    if (btnAprobar) btnAprobar.style.display = esRevisable ? "" : "none";
+    if (btnRechazar) btnRechazar.style.display = esRevisable ? "" : "none";
+    if (btnObservar) btnObservar.style.display = esRevisable ? "" : "none";
+
+    if (txt) {
+      txt.readOnly = esSoloLectura;
+    }
+
+    // Guardamos en dataset para validar antes de enviar acciones
+    const modalEl = document.getElementById("modalPub");
+    if (modalEl) {
+      modalEl.dataset.evEstadoKey = estadoKey || "";
+      modalEl.dataset.evRevisable = esRevisable ? "1" : "0";
+    }
   }
 
   function initModule(root) {
@@ -339,7 +370,7 @@
     }
 
     function clearModal() {
-      const { mTitulo, mPrecio, mUsuario, mEmail, mDescripcion, mComentario, mGaleria, mNoImgs, mEstadoBadge } = getModalEls();
+      const { mTitulo, mPrecio, mUsuario, mEmail, mDescripcion, mComentario, mGaleria, mNoImgs, mEstadoBadge, modalEl } = getModalEls();
 
       if (mTitulo) mTitulo.textContent = "—";
       if (mPrecio) mPrecio.textContent = "—";
@@ -354,6 +385,14 @@
         mEstadoBadge.className = "ev-badge ev-badge-pendiente";
       }
       currentId = null;
+
+      if (modalEl) {
+        modalEl.dataset.evEstadoKey = "";
+        modalEl.dataset.evRevisable = "1";
+      }
+
+      // default revisable
+      aplicarReglasModalPorEstadoKey("pendiente");
     }
 
     function fillModal(it) {
@@ -379,6 +418,10 @@
         const c = String(prev ?? "").trim();
         mComentario.value = c;
       }
+
+      // ✅ Aplicar reglas de botones
+      const k = getEstadoKey(it);
+      aplicarReglasModalPorEstadoKey(k);
 
       const imgs = Array.isArray(it.imagenes) ? it.imagenes : [];
       const urls = [];
@@ -453,6 +496,14 @@
 
     async function enviarRevision(accion) {
       if (!currentId) return;
+
+      // ✅ Si el modal está en modo lectura, NO permitir enviar
+      const modalEl = document.getElementById("modalPub");
+      const revisable = modalEl && modalEl.dataset.evRevisable === "1";
+      if (!revisable) {
+        toastInfo("Esta publicación está en modo lectura y no admite acciones.");
+        return;
+      }
 
       const { mComentario } = getModalEls();
       const comentario = String(mComentario?.value ?? "").trim();

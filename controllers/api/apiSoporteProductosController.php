@@ -153,7 +153,6 @@ class apiSoporteProductosController
 
     /**
      * GET /api/soporte/productos/{id}
-     * IMPORTANT: El router pasa "string", por eso NO tipamos el parámetro.
      */
     public function detalle($id): void
     {
@@ -257,6 +256,12 @@ class apiSoporteProductosController
     /**
      * POST /api/soporte/productos/{id}/revisar
      * Body JSON: { "accion": "aprobar|rechazar|observar", "comentario": "..." }
+     *
+     * ✅ REGLA DE RAÍZ:
+     * Solo se puede revisar si el producto está visible = 1 (Pendiente).
+     * - 0 (Borrador): no corresponde
+     * - 2 (Aprobada): no corresponde
+     * - 3 (Rechazada): estado terminal (solo lectura)
      */
     public function revisar($id): void
     {
@@ -306,17 +311,34 @@ class apiSoporteProductosController
                 ]);
             }
 
+            // ✅ BLOQUEO DE RAÍZ
+            if ((int)$estadoAnterior !== 1) {
+                $msg = match ((int)$estadoAnterior) {
+                    0 => 'La publicación está en Borrador. No se revisa por soporte.',
+                    2 => 'La publicación ya está Aprobada. No requiere revisión.',
+                    3 => 'La publicación está Rechazada. Es un estado final (solo lectura).',
+                    default => 'La publicación no está en estado Pendiente.'
+                };
+
+                $this->json(409, [
+                    'ok' => false,
+                    'error' => 'ESTADO_NO_PERMITE_REVISION',
+                    'mensaje' => $msg,
+                    'estado_actual' => (int)$estadoAnterior
+                ]);
+            }
+
             // observar: NO cambia visible, solo deja trazabilidad
             if ($accion === 'aprobar')      $estadoNuevo = 2;
             elseif ($accion === 'rechazar') $estadoNuevo = 3;
-            else                            $estadoNuevo = (int)$estadoAnterior;
+            else                            $estadoNuevo = (int)$estadoAnterior; // 1
 
             $codigoSoporte = (int)($u['codigo_usuario'] ?? 0);
             if ($codigoSoporte <= 0) {
                 $this->json(401, ['ok' => false, 'error' => 'UNAUTHORIZED', 'mensaje' => 'Usuario soporte inválido.']);
             }
 
-            // registra siempre en producto_revision (TU tabla)
+            // registra siempre en producto_revision
             $m->registrarRevisionTablaExistente(
                 $id,
                 $codigoSoporte,
