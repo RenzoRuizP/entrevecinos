@@ -1,4 +1,4 @@
-/* producto.js – EV (robusto + sin rebote + no rompe menú) */
+/* producto.js – EV (premium filtros + tabs + responsive + no rompe menú) */
 
 (() => {
   'use strict';
@@ -6,9 +6,17 @@
   const EV_API_BASE = (window.BASE_URL || '').replace(/\/$/, '');
   if (!EV_API_BASE) return;
 
-  // Cache + filtro para “Buscar” + Tabs
+  // Cache + filtro global
   window.evProductosCache  = window.evProductosCache  || [];
-  window.evProductosFiltro = window.evProductosFiltro || { q: '', tab: 'all' };
+  window.evProductosFiltro = window.evProductosFiltro || {
+    q: '',
+    tab: 'all',
+    tipo: '',
+    categoria: '',
+    min: '',
+    max: '',
+    orden: 'recientes'
+  };
 
   function evNotify(icon, title, text) {
     if (window.Swal?.fire) {
@@ -85,7 +93,6 @@
     const el = document.getElementById(modalId);
     if (!el || !window.bootstrap?.Modal) return null;
 
-    // asegura comportamiento aunque el HTML no tenga data-bs-*
     el.setAttribute('data-bs-backdrop', 'static');
     el.setAttribute('data-bs-keyboard', 'false');
 
@@ -115,6 +122,144 @@
     if (!section) return;
     const hasTiles = !!tilesEl.querySelector('.ev-tile');
     section.classList.toggle('ev-has-tiles', hasTiles);
+  }
+
+  /* =========================================================
+     UTIL: escape (seguro para atributos)
+  ========================================================= */
+  function escAttr(v) {
+    return String(v ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  /* =========================================================
+     ✅ FILTROS PREMIUM: debounce + cargar tipos/categorías
+  ========================================================= */
+  function debounce(fn, wait = 250) {
+    let t = null;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), wait);
+    };
+  }
+
+  async function evFetchJson(url) {
+    const resp = await fetch(url, { method: 'GET' });
+    if (resp.status === 401) {
+      evNotify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
+      setTimeout(() => { window.location.href = `${EV_API_BASE}/`; }, 1200);
+      return null;
+    }
+    return await resp.json().catch(() => null);
+  }
+
+  function mapIdNombre(row, idKeys, nameKeys) {
+    let id = '';
+    let name = '';
+    for (const k of idKeys) {
+      if (row && row[k] != null && String(row[k]).trim() !== '') { id = String(row[k]); break; }
+    }
+    for (const k of nameKeys) {
+      if (row && row[k] != null && String(row[k]).trim() !== '') { name = String(row[k]); break; }
+    }
+    return { id, name };
+  }
+
+  async function cargarTiposFiltro() {
+    const selTipo = document.getElementById('fTipo');
+    if (!selTipo) return;
+
+    const data = await evFetchJson(`${EV_API_BASE}/tipos`);
+    if (!data || !data.ok || !Array.isArray(data.data)) return;
+
+    const prev = String(window.evProductosFiltro?.tipo || '');
+    selTipo.innerHTML = `<option value="">Todos</option>`;
+
+    data.data.forEach(r => {
+      const m = mapIdNombre(r, ['codigo_tipo', 'id', 'codigo'], ['nombre', 'tipo', 'descripcion']);
+      if (!m.id) return;
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name || `Tipo ${m.id}`;
+      selTipo.appendChild(opt);
+    });
+
+    if (prev) selTipo.value = prev;
+  }
+
+  async function cargarCategoriasFiltro(tipoId) {
+    const selCat = document.getElementById('fCategoria');
+    if (!selCat) return;
+
+    selCat.innerHTML = `<option value="">Todas</option>`;
+    selCat.disabled = true;
+
+    const tid = String(tipoId || '').trim();
+    if (!tid) return;
+
+    const data = await evFetchJson(`${EV_API_BASE}/tipos/${encodeURIComponent(tid)}/categoria_grupo`);
+    if (!data || !data.ok || !Array.isArray(data.data)) return;
+
+    data.data.forEach(r => {
+      const m = mapIdNombre(r, ['codigo_categoria', 'id', 'codigo'], ['nombre', 'categoria', 'descripcion']);
+      if (!m.id) return;
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name || `Categoría ${m.id}`;
+      selCat.appendChild(opt);
+    });
+
+    selCat.disabled = false;
+
+    const prev = String(window.evProductosFiltro?.categoria || '');
+    if (prev) selCat.value = prev;
+  }
+
+  function syncFiltrosFromUI() {
+    const q = document.getElementById('fTexto')?.value ?? '';
+    const tipo = document.getElementById('fTipo')?.value ?? '';
+    const cat = document.getElementById('fCategoria')?.value ?? '';
+    const min = document.getElementById('fPrecioMin')?.value ?? '';
+    const max = document.getElementById('fPrecioMax')?.value ?? '';
+    const orden = document.getElementById('fOrden')?.value ?? 'recientes';
+
+    window.evProductosFiltro.q = String(q).trim();
+    window.evProductosFiltro.tipo = String(tipo).trim();
+    window.evProductosFiltro.categoria = String(cat).trim();
+    window.evProductosFiltro.min = String(min).trim();
+    window.evProductosFiltro.max = String(max).trim();
+    window.evProductosFiltro.orden = String(orden).trim() || 'recientes';
+  }
+
+  function resetFiltrosUI() {
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = val;
+    };
+
+    setVal('fTexto', '');
+    setVal('fTipo', '');
+    setVal('fPrecioMin', '');
+    setVal('fPrecioMax', '');
+    setVal('fOrden', 'recientes');
+
+    const selCat = document.getElementById('fCategoria');
+    if (selCat) {
+      selCat.innerHTML = `<option value="">Todas</option>`;
+      selCat.value = '';
+      selCat.disabled = true;
+    }
+
+    window.evProductosFiltro.q = '';
+    window.evProductosFiltro.tipo = '';
+    window.evProductosFiltro.categoria = '';
+    window.evProductosFiltro.min = '';
+    window.evProductosFiltro.max = '';
+    window.evProductosFiltro.orden = 'recientes';
   }
 
   /* =========================================================
@@ -1014,18 +1159,9 @@
   }
 
   /* ==============================
-     Listado tabla ✅ 8 columnas
-     + ✅ OBSERVADO desde ultima_revision
-     + ✅ APROBADO sin Editar/Anular
-     + ✅ Header dinámico
-     + ✅ Tabs: Aprobado/Observado/Rechazado/Pendiente
+     Estado visible y tabs
   ============================== */
-  function escAttr(v) {
-    return String(v ?? '').replace(/"/g, '&quot;');
-  }
-
   function uiEstadoVisible(visibleNum, ultimaRevision) {
-    // 0 borrador, 1 pendiente, 2 aprobado, 3 anulado
     const rev = ultimaRevision || null;
 
     const hasObs = (
@@ -1050,18 +1186,14 @@
     return { show: false };
   }
 
-  // ===== Tabs: clasificación =====
   function evGetStatusKey(p) {
     const visible = Number(p?.visible ?? 0);
     const rev = p?.ultima_revision || null;
-
     const comentario = rev ? String(rev.comentario || '').trim() : '';
 
-    // Observado: pendiente (1) + comentario + estado_nuevo=1
     const isObs = (visible === 1 && comentario && Number(rev.estado_nuevo ?? -1) === 1);
     if (isObs) return 'observado';
 
-    // Rechazado: pendiente (1) + comentario + estado_nuevo=0
     const isRech = (visible === 1 && comentario && Number(rev.estado_nuevo ?? -1) === 0);
     if (isRech) return 'rechazado';
 
@@ -1085,10 +1217,13 @@
     };
 
     set('evTabCountAll', counts.all);
+    set('evTabCountAll2', counts.all);
     set('evTabCountAprobado', counts.aprobado);
     set('evTabCountObservado', counts.observado);
     set('evTabCountRechazado', counts.rechazado);
     set('evTabCountPendiente', counts.pendiente);
+    set('evTabCountBorrador', counts.borrador);
+    set('evTabCountAnulado', counts.anulado);
 
     const tab = String(window.evProductosFiltro?.tab || 'all');
     document.querySelectorAll('.ev-tab[data-tab]').forEach(btn => {
@@ -1099,18 +1234,62 @@
   }
 
   function filtrarItems(items) {
-    const q = String(window.evProductosFiltro?.q || '').trim().toLowerCase();
-    if (!q) return items;
+    const f = window.evProductosFiltro || {};
+    const q = String(f.q || '').trim().toLowerCase();
+    const tipo = String(f.tipo || '').trim();
+    const cat  = String(f.categoria || '').trim();
 
-    return items.filter(p => {
-      const t  = String(p.titulo || '').toLowerCase();
-      const d  = String(p.descripcion || '').toLowerCase();
-      const c  = String(p.categoria_nombre || p.categoria || '').toLowerCase();
-      const tp = String(p.tipo_nombre || p.tipo || '').toLowerCase();
-      return (t.includes(q) || d.includes(q) || c.includes(q) || tp.includes(q));
-    });
+    const min = Number(String(f.min || '').trim());
+    const max = Number(String(f.max || '').trim());
+    const hasMin = !Number.isNaN(min) && String(f.min || '').trim() !== '';
+    const hasMax = !Number.isNaN(max) && String(f.max || '').trim() !== '';
+
+    let out = items.slice();
+
+    if (q) {
+      out = out.filter(p => {
+        const t  = String(p.titulo || '').toLowerCase();
+        const d  = String(p.descripcion || '').toLowerCase();
+        const c  = String(p.categoria_nombre || p.categoria || '').toLowerCase();
+        const tp = String(p.tipo_nombre || p.tipo || '').toLowerCase();
+        return (t.includes(q) || d.includes(q) || c.includes(q) || tp.includes(q));
+      });
+    }
+
+    if (tipo) out = out.filter(p => String(p.codigo_tipo ?? '') === tipo);
+    if (cat)  out = out.filter(p => String(p.codigo_categoria ?? '') === cat);
+
+    if (hasMin) out = out.filter(p => Number(p.precio || 0) >= min);
+    if (hasMax) out = out.filter(p => Number(p.precio || 0) <= max);
+
+    return out;
   }
 
+  function ordenarItems(items) {
+    const ord = String(window.evProductosFiltro?.orden || 'recientes');
+    const arr = items.slice();
+
+    const byTitulo = (a, b) => String(a.titulo || '').localeCompare(String(b.titulo || ''), 'es', { sensitivity: 'base' });
+    const byPrecio = (a, b) => Number(a.precio || 0) - Number(b.precio || 0);
+
+    const byRecientes = (a, b) => {
+      const da = new Date(a.updated_at || a.created_at || 0).getTime();
+      const db = new Date(b.updated_at || b.created_at || 0).getTime();
+      return db - da;
+    };
+
+    if (ord === 'precio_asc') arr.sort(byPrecio);
+    else if (ord === 'precio_desc') arr.sort((a, b) => byPrecio(b, a));
+    else if (ord === 'titulo_asc') arr.sort(byTitulo);
+    else if (ord === 'titulo_desc') arr.sort((a, b) => byTitulo(b, a));
+    else arr.sort(byRecientes);
+
+    return arr;
+  }
+
+  /* ==============================
+     Cargar productos (con filtros + orden + data-label)
+  ============================== */
   async function cargarProductos() {
     const table = document.getElementById('tablaPublicaciones');
     const tbody = table?.querySelector('tbody');
@@ -1129,33 +1308,34 @@
       }
 
       if (!resp.ok || !data.ok) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">${data.mensaje || data.error || 'No se pudo obtener el listado.'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">${escAttr(data.mensaje || data.error || 'No se pudo obtener el listado.')}</td></tr>`;
         return;
       }
 
       const items = Array.isArray(data.data) ? data.data : [];
       window.evProductosCache = items.slice();
 
-      // Conteos tabs (siempre sobre el total)
-      const counts = { all: items.length, aprobado: 0, observado: 0, rechazado: 0, pendiente: 0 };
+      // Conteos tabs (sobre el total)
+      const counts = { all: items.length, aprobado: 0, observado: 0, rechazado: 0, pendiente: 0, borrador: 0, anulado: 0 };
       items.forEach(p => {
         const k = evGetStatusKey(p);
         if (k === 'aprobado') counts.aprobado++;
         else if (k === 'observado') counts.observado++;
         else if (k === 'rechazado') counts.rechazado++;
         else if (k === 'pendiente') counts.pendiente++;
+        else if (k === 'borrador') counts.borrador++;
+        else if (k === 'anulado') counts.anulado++;
       });
       evUpdateTabsUI(counts);
 
-      // Filtrado: texto + tab
-      const filtrados = filtrarItems(items).filter(evMatchTab);
+      // Filtrado: texto+tipo+cat+rango + tab + orden
+      const filtrados = ordenarItems(filtrarItems(items).filter(evMatchTab));
 
-      // Header dinámico: "Opciones" vs "Publicación"
-      const thLast = table.querySelector('thead th:last-child');
-      if (thLast) {
-        const allApproved = filtrados.length > 0 && filtrados.every(x => Number(x.visible ?? 0) === 2);
-        thLast.textContent = allApproved ? 'Publicación' : 'Opciones';
-      }
+      // Metas
+      const lblMeta = document.getElementById('evLblMeta');
+      const lblFooterLeft = document.getElementById('evLblFooterLeft');
+      if (lblMeta) lblMeta.textContent = `Mostrando ${filtrados.length} registros`;
+      if (lblFooterLeft) lblFooterLeft.textContent = `Mostrando ${filtrados.length} de ${items.length}`;
 
       if (!items.length) {
         tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Aún no tienes productos registrados.</td></tr>`;
@@ -1163,12 +1343,7 @@
       }
 
       if (!filtrados.length) {
-        const tab = String(window.evProductosFiltro?.tab || 'all');
-        const q = String(window.evProductosFiltro?.q || '').trim();
-        const msg = q
-          ? 'No hay resultados para tu búsqueda.'
-          : (tab !== 'all' ? 'No hay productos en esta pestaña.' : 'No hay resultados.');
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">${msg}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">No hay productos para los filtros seleccionados.</td></tr>`;
         return;
       }
 
@@ -1203,14 +1378,8 @@
         const visUI = uiEstadoVisible(visible, p.ultima_revision);
         const pubUI = uiAccionPublicar(visible);
 
-        // ✅ CLAVE: usar statusKey, NO visible
         const statusKey = evGetStatusKey(p);
 
-        // Requerimiento:
-        // - Pendiente: no editar ni anular
-        // - Observado: sí editar y anular
-        // - Aprobado/anulado: no editar ni anular
-        // (Rechazado: lo tratamos como editable/anulable para corrección)
         const canEdit  = (statusKey === 'borrador' || statusKey === 'observado' || statusKey === 'rechazado');
         const canAnular= (statusKey === 'borrador' || statusKey === 'observado' || statusKey === 'rechazado');
 
@@ -1227,14 +1396,14 @@
 
         return `
           <tr ${trStyle}>
-            <td><span class="ev-code">${cod}</span></td>
-            <td class="td-trunc" title="${titulo}">${titulo || '-'}</td>
-            <td>S/ ${precio}</td>
-            <td><span class="${badge}">${estado || '-'}</span></td>
-            <td class="td-trunc" title="${tipo}">${tipo}</td>
-            <td class="td-trunc" title="${categoria}">${categoria}</td>
-            <td class="td-trunc" title="${escAttr(descFull)}">${descSafe}</td>
-            <td class="text-center">
+            <td data-label="Código"><span class="ev-code">${cod}</span></td>
+            <td data-label="Título" class="td-trunc" title="${titulo}">${titulo || '-'}</td>
+            <td data-label="Precio" class="text-end">S/ ${precio}</td>
+            <td data-label="Estado"><span class="${badge}">${estado || '-'}</span></td>
+            <td data-label="Tipo" class="td-trunc" title="${tipo}">${tipo}</td>
+            <td data-label="Categoría" class="td-trunc" title="${categoria}">${categoria}</td>
+            <td data-label="Descripción" class="td-trunc" title="${escAttr(descFull)}">${descSafe}</td>
+            <td data-label="Acciones" class="text-end">
               <div class="ev-actions">
                 ${
                   isAnulado
@@ -1276,8 +1445,8 @@
     if (document.body.dataset.evProductosBound === '1') return;
     document.body.dataset.evProductosBound = '1';
 
+    // Tabs
     document.addEventListener('click', (e) => {
-      // Tabs filtro publicación
       const tabBtn = e.target.closest('.ev-tab[data-tab]');
       if (tabBtn) {
         window.evProductosFiltro.tab = tabBtn.getAttribute('data-tab') || 'all';
@@ -1285,12 +1454,7 @@
         return;
       }
 
-      if (e.target.closest('#btnBuscarPublicacion')) {
-        const m = evGetStaticModal('modalBuscarPublicacion');
-        m?.show();
-        return;
-      }
-
+      // Agregar
       if (e.target.closest('#btnAgregarPublicacion')) {
         const modal = evGetStaticModal('modalAgregarPublicacion');
         if (!modal) return;
@@ -1301,6 +1465,31 @@
         return;
       }
 
+      // Refrescar
+      if (e.target.closest('#btnRefrescarMisProductos')) {
+        window.evCargarProductos?.();
+        return;
+      }
+
+      // Limpiar filtros
+      if (e.target.closest('#btnLimpiarFiltros')) {
+        (async () => {
+          resetFiltrosUI();
+          await cargarTiposFiltro();
+          window.evProductosFiltro.tab = 'all';
+          window.evCargarProductos?.();
+        })();
+        return;
+      }
+
+      // Legacy Buscar modal (si existe)
+      if (e.target.closest('#btnBuscarPublicacion')) {
+        const m = evGetStaticModal('modalBuscarPublicacion');
+        m?.show();
+        return;
+      }
+
+      // Acciones tabla
       const btnEditar = e.target.closest('[data-action="editar"][data-id]');
       if (btnEditar && !btnEditar.disabled) { cargarProductoEditar(btnEditar.getAttribute('data-id')); return; }
 
@@ -1311,9 +1500,50 @@
       if (btnPublicar && !btnPublicar.disabled) { confirmarYPublicar(btnPublicar.getAttribute('data-id')); return; }
     });
 
-    // Delegación de submit (robusto para vistas inyectadas)
+    // Filtros: input buscar (debounce)
+    document.addEventListener('input', debounce((e) => {
+      if (e.target && e.target.id === 'fTexto') {
+        syncFiltrosFromUI();
+        window.evCargarProductos?.();
+      }
+    }, 250));
+
+    // Change filtros
+    document.addEventListener('change', (e) => {
+      if (e.target && e.target.id === 'fTipo') {
+        (async () => {
+          syncFiltrosFromUI();
+          window.evProductosFiltro.categoria = '';
+          await cargarCategoriasFiltro(e.target.value);
+          syncFiltrosFromUI();
+          window.evCargarProductos?.();
+        })();
+        return;
+      }
+
+      if (e.target && e.target.id === 'fCategoria') {
+        syncFiltrosFromUI();
+        window.evCargarProductos?.();
+        return;
+      }
+
+      if (e.target && (e.target.id === 'fPrecioMin' || e.target.id === 'fPrecioMax' || e.target.id === 'fOrden')) {
+        syncFiltrosFromUI();
+        window.evCargarProductos?.();
+        return;
+      }
+    });
+
+    // Submit filtros móvil
     document.addEventListener('submit', (e) => {
       const form = e.target;
+
+      if (form && form.id === 'formFiltrosMisProductos') {
+        e.preventDefault();
+        syncFiltrosFromUI();
+        window.evCargarProductos?.();
+        return;
+      }
 
       if (form && form.id === 'formAgregarPublicacion') {
         e.preventDefault();
@@ -1327,28 +1557,33 @@
         return;
       }
 
-      // ✅ Buscar REAL (siempre funciona aunque el DOM se inyecte)
+      // Legacy buscar modal
       if (form && form.id === 'formBuscarPublicacion') {
         e.preventDefault();
-
         const fd = new FormData(form);
         window.evProductosFiltro.q = String(fd.get('q') || '').trim();
-
-        // UX: al buscar, volvemos a "Todos"
         window.evProductosFiltro.tab = 'all';
-
         const m = evGetStaticModal('modalBuscarPublicacion');
         m?.hide();
-
         window.evCargarProductos?.();
         return;
       }
     });
   }
 
-  function initIfNeeded() {
+  async function initIfNeeded() {
     bindOnceGlobalEvents();
     evMountAllModalsToBody();
+
+    // cargar combos filtros (tipos) una vez por vista
+    const tipoSel = document.getElementById('fTipo');
+    if (tipoSel && !tipoSel.dataset.evLoaded) {
+      tipoSel.dataset.evLoaded = '1';
+      await cargarTiposFiltro();
+
+      const prevTipo = String(window.evProductosFiltro?.tipo || '');
+      if (prevTipo) await cargarCategoriasFiltro(prevTipo);
+    }
 
     const tabla = document.getElementById('tablaPublicaciones');
     if (isProductosViewPresent() && tabla && !tabla.dataset.evLoaded) {
@@ -1357,7 +1592,7 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', initIfNeeded);
+  document.addEventListener('DOMContentLoaded', () => { initIfNeeded(); });
 
   const target = document.getElementById('contenido-principal') || document.body;
   const obs = new MutationObserver(() => { initIfNeeded(); });

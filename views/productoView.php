@@ -8,78 +8,213 @@ require_once __DIR__ . '/../Config/config.php';
 
 <?php include_once __DIR__ . '/estilos/productoEstilo.php'; ?>
 
-<div class="ev-pubs-wrapper fade-in">
-  <div class="card ev-pubs-card">
-    <div class="card-body">
+<div class="ev-mp-page">
 
-      <!-- Header -->
-      <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 ev-pubs-header">
-        <div class="d-flex align-items-start gap-3">
-          <div class="ev-pubs-title-icon"><i class="bi bi-journal-text"></i></div>
-          <div>
-            <div class="ev-pubs-title">Mis Productos</div>
-            <div class="ev-pubs-subtitle">Gestiona tus productos y controla cuáles se muestran en el marketplace.</div>
+  <!-- HERO PREMIUM -->
+  <div class="ev-card ev-mp-hero mb-3">
+    <div class="ev-mp-hero-body">
+
+      <div class="ev-mp-hero-top">
+        <div class="ev-mp-hero-left">
+          <div class="d-flex align-items-start gap-3">
+            <div class="ev-mp-title-icon"><i class="bi bi-journal-text"></i></div>
+            <div>
+              <h1 class="ev-mp-title mb-1">Mis Productos</h1>
+              <div class="ev-mp-subtitle">Gestiona tus productos y controla cuáles se muestran en el marketplace.</div>
+            </div>
           </div>
         </div>
 
-        <div class="d-flex flex-column flex-sm-row gap-2">
-          <button id="btnBuscarPublicacion" type="button" class="btn btn-ev-outline">
-            <i class="bi bi-search"></i> Buscar
+        <div class="ev-mp-hero-right">
+          <button class="ev-icon-btn" type="button" id="btnRefrescarMisProductos" title="Refrescar" aria-label="Refrescar">
+            <i class="bi bi-arrow-clockwise"></i>
           </button>
-          <button id="btnAgregarPublicacion" type="button" class="btn btn-ev-orange">
-            <i class="bi bi-plus-circle"></i> Agregar
+
+          <button id="btnToggleFiltros" class="btn ev-btn-light" type="button"
+                  data-bs-toggle="collapse" data-bs-target="#evFiltrosWrap"
+                  aria-expanded="true" aria-controls="evFiltrosWrap">
+            <i class="bi bi-funnel me-1"></i> Filtros
+          </button>
+
+          <button id="btnAgregarPublicacion" type="button" class="btn ev-btn-orange">
+            <i class="bi bi-plus-circle me-1"></i> Agregar
           </button>
         </div>
       </div>
 
-      <hr class="ev-pubs-divider">
+      <div class="ev-mp-hero-bottom">
+        <div class="ev-summary-pill">
+          <span class="ev-summary-label">Total:</span>
+          <span class="ev-summary-count" id="evTabCountAll">0</span>
+        </div>
 
-      <!-- Tabla -->
-      <div class="ev-pubs-table-wrapper">
+        <div class="ev-mp-tabs" role="tablist" aria-label="Estados de productos">
+          <button type="button" class="btn ev-tab ev-btn-light btn-sm active" data-tab="all" aria-selected="true">
+            <i class="bi bi-grid-3x3-gap me-1"></i> Todos <span class="ev-pill" id="evTabCountAll2">0</span>
+          </button>
+
+          <button type="button" class="btn ev-tab ev-btn-light btn-sm" data-tab="aprobado" aria-selected="false">
+            <i class="bi bi-check-circle me-1"></i> Aprobados <span class="ev-pill" id="evTabCountAprobado">0</span>
+          </button>
+
+          <button type="button" class="btn ev-tab ev-btn-light btn-sm" data-tab="pendiente" aria-selected="false">
+            <i class="bi bi-hourglass-split me-1"></i> Pendientes <span class="ev-pill" id="evTabCountPendiente">0</span>
+          </button>
+
+          <button type="button" class="btn ev-tab ev-btn-light btn-sm" data-tab="observado" aria-selected="false">
+            <i class="bi bi-exclamation-circle me-1"></i> Observados <span class="ev-pill" id="evTabCountObservado">0</span>
+          </button>
+
+          <button type="button" class="btn ev-tab ev-btn-light btn-sm" data-tab="rechazado" aria-selected="false">
+            <i class="bi bi-x-circle me-1"></i> Rechazados <span class="ev-pill" id="evTabCountRechazado">0</span>
+          </button>
+
+          <button type="button" class="btn ev-tab ev-btn-light btn-sm" data-tab="borrador" aria-selected="false">
+            <i class="bi bi-pencil-square me-1"></i> Borradores <span class="ev-pill" id="evTabCountBorrador">0</span>
+          </button>
+
+          <button type="button" class="btn ev-tab ev-btn-light btn-sm" data-tab="anulado" aria-selected="false">
+            <i class="bi bi-slash-circle me-1"></i> Anulados <span class="ev-pill" id="evTabCountAnulado">0</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="ev-mp-meta-row">
+        <div class="ev-table-meta" id="evLblMeta">Mostrando 0 registros</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FILTROS INLINE -->
+  <div class="ev-card ev-filters mb-3 collapse show" id="evFiltrosWrap">
+    <div class="ev-card-header">
+      <div class="ev-card-header-row">
+        <h2 class="ev-card-title mb-0">Filtros</h2>
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn ev-btn-outline btn-sm" id="btnLimpiarFiltros">
+            <i class="bi bi-eraser me-1"></i> Limpiar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="ev-card-body">
+      <form id="formFiltrosMisProductos" class="row g-3 align-items-end">
+
+        <div class="col-12 col-lg-4">
+          <label class="form-label">Buscar</label>
+          <div class="position-relative">
+            <i class="bi bi-search ev-input-icon"></i>
+            <input
+              type="text"
+              class="form-control ev-input ps-5"
+              id="fTexto"
+              name="q"
+              placeholder="Buscar por título, descripción, tipo o categoría..."
+              autocomplete="off"
+            />
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-lg-2">
+          <label class="form-label">Tipo</label>
+          <select class="form-select ev-input" id="fTipo" name="tipo">
+            <option value="">Todos</option>
+          </select>
+        </div>
+
+        <div class="col-12 col-sm-6 col-lg-2">
+          <label class="form-label">Categoría</label>
+          <select class="form-select ev-input" id="fCategoria" name="categoria" disabled>
+            <option value="">Todas</option>
+          </select>
+        </div>
+
+        <div class="col-6 col-lg-1">
+          <label class="form-label">Min (S/)</label>
+          <input type="number" step="0.01" min="0" class="form-control ev-input" id="fPrecioMin" name="min" placeholder="0.00">
+        </div>
+
+        <div class="col-6 col-lg-1">
+          <label class="form-label">Max (S/)</label>
+          <input type="number" step="0.01" min="0" class="form-control ev-input" id="fPrecioMax" name="max" placeholder="999.99">
+        </div>
+
+        <div class="col-12 col-lg-2">
+          <label class="form-label">Ordenar</label>
+          <select class="form-select ev-input" id="fOrden" name="orden">
+            <option value="recientes" selected>Más recientes</option>
+            <option value="precio_asc">Precio: menor a mayor</option>
+            <option value="precio_desc">Precio: mayor a menor</option>
+            <option value="titulo_asc">Título: A → Z</option>
+            <option value="titulo_desc">Título: Z → A</option>
+          </select>
+        </div>
+
+        <div class="col-12 d-grid d-lg-none">
+          <button class="btn ev-btn-orange" type="submit">
+            <i class="bi bi-search me-1"></i> Aplicar filtros
+          </button>
+        </div>
+
+      </form>
+
+      <div class="ev-hint mt-2">
+        Tip: Combina <strong>tabs</strong> + <strong>filtros</strong> para encontrar productos en segundos.
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLA -->
+  <div class="ev-card">
+    <div class="ev-card-header ev-card-header-row">
+      <h2 class="ev-card-title mb-0">Productos</h2>
+      <div class="ev-table-meta" id="evLblFooterLeft">Mostrando 0 de 0</div>
+    </div>
+
+    <div class="ev-table-wrap">
+      <div class="ev-table-frame">
         <div class="table-responsive">
-          <table id="tablaPublicaciones" class="table ev-pubs-table align-middle">
+          <table id="tablaPublicaciones" class="table ev-table mb-0">
             <thead>
               <tr>
-                <th>Código</th>
-                <th>Título</th>
-                <th>Precio (S/)</th>
-                <th>Estado</th>
-                <th>Tipo</th>
-                <th>Categoría</th>
-                <th>Descripción</th>
-                <th class="text-center">Opciones</th>
+                <th class="ev-col-codigo">Código</th>
+                <th class="ev-col-titulo">Título</th>
+                <th class="text-end ev-col-precio">Precio</th>
+                <th class="ev-col-estado">Estado</th>
+                <th class="ev-col-tipo">Tipo</th>
+                <th class="ev-col-categoria">Categoría</th>
+                <th class="ev-col-desc">Descripción</th>
+                <th class="text-end ev-col-acciones">Acciones</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td colspan="8" class="text-center py-4 text-muted">Cargando publicaciones…</td>
+                <td colspan="8" class="text-center py-4 ev-empty">
+                  <div class="ev-empty-wrap">
+                    <i class="bi bi-inbox ev-empty-ico"></i>
+                    <div class="ev-empty-text">Cargando productos…</div>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
+    </div>
 
-      <!-- Footer -->
-      <div class="ev-pubs-footer mt-3">
-        <div class="ev-pubs-per-page">
-          <label class="form-label mb-1">Registros por página:</label>
-          <select class="form-select ev-select-sm" style="max-width:120px;">
-            <option selected>10</option>
-            <option>20</option>
-            <option>50</option>
-          </select>
-        </div>
-        <div class="ev-pubs-pager">
-          <!-- si tu paginación la inyecta un plugin, no toques esto -->
-        </div>
-      </div>
-
+    <div class="ev-card-footer">
+      <div class="ev-footer-left">En móvil, cada fila se muestra como tarjeta (más cómodo).</div>
+      <div class="ev-footer-right"></div>
     </div>
   </div>
+
 </div>
 
 <!-- =========================
-     MODAL: BUSCAR
+     MODAL: BUSCAR (LEGACY - por compatibilidad)
+     (No se usa como filtro principal, pero lo dejo para no romper tu JS si aún lo llama)
 ========================= -->
 <div class="modal fade ev-modal" id="modalBuscarPublicacion" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
