@@ -337,8 +337,44 @@ VALUES ('Urbanización Los Álamos', 'Av. Principal 123', 150113, 'A');
 
 
 DESCRIBE usuario_residencia_solicitud;
-DESCRIBE usuario_residencia;
+DESCRIBE producto;
 
 DESCRIBE usuario;
 DESCRIBE provincia;
 DESCRIBE distrito;
+
+
+
+
+SELECT
+ u.codigo_usuario,
+ u.estado AS usuario_estado,
+ ur.estado_revision
+FROM usuario u
+LEFT JOIN usuario_revision ur ON ur.codigo_usuario = u.codigo_usuario
+WHERE
+ u.estado = 1 AND ur.estado_revision = 3;
+ 
+ 
+ SELECT * FROM usuario;
+ SELECT * FROM usuario_revision;
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+SELECT u.codigo_usuario, u.nombre, u.estado
+FROM usuario u
+WHERE EXISTS (
+  SELECT 1
+  FROM usuario_revision ur2
+  WHERE ur2.codigo_usuario = u.codigo_usuario
+    AND ur2.estado_revision = 3
+);
+

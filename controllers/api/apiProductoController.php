@@ -129,9 +129,6 @@ class apiProductoController
 
             $codigoProducto = $prod->crearProducto();
 
-            // ==========================
-            // SUBIDA DE IMÁGENES
-            // ==========================
             $imagenesIntentadas = 0;
             $imagenesSubidas    = 0;
             $primeraRuta        = null;
@@ -450,7 +447,6 @@ class apiProductoController
                 return;
             }
 
-            // Detectar visible antes del update (para lógica de reenvío)
             $visibleAntes = (int)($detalle['visible'] ?? -1);
 
             $titulo      = trim($_POST['titulo'] ?? '');
@@ -484,7 +480,6 @@ class apiProductoController
 
             $model->actualizarProductoBase($codigoProducto, $codigoUsuario);
 
-            // Eliminar imágenes por IDs
             $eliminadasRaw = $_POST['imagenes_eliminadas'] ?? '[]';
             $idsEliminar   = json_decode($eliminadasRaw, true);
             if (!is_array($idsEliminar)) $idsEliminar = [];
@@ -498,9 +493,6 @@ class apiProductoController
                 $model->eliminarImagenes($codigoProducto, $idsEliminar);
             }
 
-            // ==========================
-            // Subida de imágenes nuevas
-            // ==========================
             $imagenesIntentadas = 0;
             $imagenesSubidas    = 0;
             $erroresUpload      = [];
@@ -607,30 +599,18 @@ class apiProductoController
                 }
             }
 
-            // recalcula portada según regla
             $model->recalcularPortada($codigoProducto);
 
-            // =========================================================
-            // ✅ NUEVO: Si el producto estaba OBSERVADO, registrar REENVIO_CORRECCION
-            // Condición:
-            // - visible antes == 1
-            // - última revisión era una observación (comentario + estado_nuevo=1)
-            // - y no era ya un reenvío
-            // =========================================================
             $reenviado = false;
             try {
                 if ($visibleAntes === 1) {
                     $ps = new ProductoSoporte();
-
-                    // valida si última revisión sugiere observación previa
                     if ($ps->ultimaRevisionEsObservacionSoporte($codigoProducto, $visibleAntes)) {
-                        // registrar evento reenvío (actor = vecino)
                         $ps->registrarReenvioCorreccion($codigoProducto, $codigoUsuario, 1, 1);
                         $reenviado = true;
                     }
                 }
             } catch (Throwable $e) {
-                // No tumbamos la actualización si falla el tracking
                 error_log('[EV][apiProductoController][reenvio_correccion] ' . $e->getMessage());
             }
 
@@ -699,7 +679,7 @@ class apiProductoController
     }
 
     /* ======================================================================================
-       MARKETPLACE
+       ✅ MARKETPLACE (RAÍZ): FILTRADO POR CONDOMINIO/URBANIZACIÓN DEL USUARIO LOGUEADO
     ====================================================================================== */
     public function listarMarketplace(): void
     {
@@ -709,6 +689,8 @@ class apiProductoController
         }
 
         try {
+            $codigoUsuario = $this->obtenerUsuarioAuth();
+
             $tipo      = $this->toIntOrNull($_GET['tipo'] ?? null);
             $categoria = $this->toIntOrNull($_GET['categoria'] ?? null);
             $q         = trim((string)($_GET['q'] ?? ''));
@@ -719,7 +701,20 @@ class apiProductoController
             $size = max(1, min(50, $size));
 
             $model = new Producto();
-            $res = $model->listarMarketplaceFiltrado($tipo, $categoria, $q, $page, $size);
+
+            // ✅ Validar residencia activa (RAÍZ)
+            $resActiva = $model->obtenerResidenciaActivaUsuario($codigoUsuario);
+            if (!$resActiva) {
+                $this->json(409, [
+                    'ok' => false,
+                    'error' => 'SIN_RESIDENCIA_ACTIVA',
+                    'mensaje' => 'No se encontró una residencia activa para tu usuario. Completa tu residencia para ver el Marketplace.'
+                ]);
+                return;
+            }
+
+            // ✅ Marketplace filtrado por residencia
+            $res = $model->listarMarketplaceFiltradoPorResidencia($codigoUsuario, $tipo, $categoria, $q, $page, $size);
 
             $items = $res['items'] ?? [];
             $total = (int)($res['total'] ?? count($items));

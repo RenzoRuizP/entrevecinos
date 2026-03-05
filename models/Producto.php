@@ -43,6 +43,45 @@ class Producto extends Conexion
     }
 
     /* ==========================================================
+       ✅ NUEVO (RAÍZ): RESIDENCIA ACTIVA DEL USUARIO
+       - Tu regla: 1 residencia activa
+       - Como la tabla no tiene "estado/activo", tomamos la última registrada.
+    ========================================================== */
+    public function obtenerResidenciaActivaUsuario(int $codigoUsuario): ?array
+    {
+        $sql = "
+            SELECT
+                tipo_conjunto,
+                codigo_condominio,
+                codigo_urbanizacion
+            FROM usuario_residencia
+            WHERE codigo_usuario = :u
+            ORDER BY codigo_usuario_residencia DESC
+            LIMIT 1
+        ";
+        $st = $this->dblink->prepare($sql);
+        $st->bindParam(':u', $codigoUsuario, PDO::PARAM_INT);
+        $st->execute();
+
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row) return null;
+
+        $tipo = strtolower(trim((string)($row['tipo_conjunto'] ?? '')));
+        $cond = isset($row['codigo_condominio']) ? (int)$row['codigo_condominio'] : 0;
+        $urb  = isset($row['codigo_urbanizacion']) ? (int)$row['codigo_urbanizacion'] : 0;
+
+        if ($tipo !== 'condominio' && $tipo !== 'urbanizacion') return null;
+        if ($tipo === 'condominio' && $cond <= 0) return null;
+        if ($tipo === 'urbanizacion' && $urb <= 0) return null;
+
+        return [
+            'tipo_conjunto'      => $tipo,
+            'codigo_condominio'  => $cond,
+            'codigo_urbanizacion'=> $urb
+        ];
+    }
+
+    /* ==========================================================
        CREAR PRODUCTO (visible=0 borrador)
     ========================================================== */
     public function crearProducto(): int
@@ -312,7 +351,6 @@ class Producto extends Conexion
         $items = $sentencia->fetchAll(PDO::FETCH_ASSOC) ?: [];
         if (!$items) return [];
 
-        // ✅ Adjuntar ultima_revision a cada producto (para Mis Productos)
         $ids = array_map(fn($r) => (int)$r['codigo_producto'], $items);
         $revMap = $this->obtenerUltimasRevisionesPorProductos($ids);
 
@@ -354,7 +392,6 @@ class Producto extends Conexion
         $fila = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$fila) return null;
 
-        // ✅ Adjuntar ultima_revision también al detalle (por si lo usas luego)
         $revMap = $this->obtenerUltimasRevisionesPorProductos([(int)$codigoProducto]);
         $fila['ultima_revision'] = $revMap[(int)$codigoProducto] ?? null;
 
@@ -397,7 +434,6 @@ class Producto extends Conexion
        ESTADOS (acciones)
     ========================================================== */
 
-    // Borrador (0) -> Pendiente (1)
     public function publicarProducto(int $codigoProducto, int $codigoUsuario): bool
     {
         $sql = "
@@ -414,7 +450,6 @@ class Producto extends Conexion
         return $stmt->rowCount() > 0;
     }
 
-    // Pendiente (1) -> Aprobado (2) (para Admin)
     public function aprobarProducto(int $codigoProducto): bool
     {
         $sql = "
@@ -429,7 +464,6 @@ class Producto extends Conexion
         return $stmt->rowCount() > 0;
     }
 
-    // Anular -> 3 (vendedor)
     public function anularProducto(int $codigoProducto, int $codigoUsuario): bool
     {
         $sql = "
@@ -481,8 +515,8 @@ class Producto extends Conexion
     }
 
     /* ==========================================================
-       ✅ NUEVO: MARKETPLACE FILTRABLE + PAGINADO (visible=2)
-       Usado por /api/producto/marketplace?tipo=&categoria=&q=&page=&size=
+       ✅ ORIGINAL: MARKETPLACE FILTRABLE + PAGINADO (visible=2)
+       (Se mantiene por compatibilidad interna)
     ========================================================== */
     public function listarMarketplaceFiltrado(?int $tipo, ?int $categoria, string $q, int $page, int $size): array
     {
@@ -511,11 +545,134 @@ class Producto extends Conexion
             $params[':q'] = '%' . $q . '%';
         }
 
-        // Total
         $sqlTotal = "SELECT COUNT(*) AS total FROM producto p " . $where;
         $stT = $this->dblink->prepare($sqlTotal);
         foreach ($params as $k => $v) {
             $stT->bindValue($k, $v, ($k === ':tipo' || $k === ':cat') ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stT->execute();
+        $total = (int)($stT->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
+
+        $sql = "
+            SELECT
+                p.codigo_producto,
+                p.titulo,
+                p.descripcion,
+                p.estado,
+                p.precio,
+                p.visible,
+                p.codigo_usuario,
+                p.codigo_tipo,
+                p.codigo_categoria,
+                p.imagen_portada,
+                t.nombre AS tipo_nombre,
+                c.nombre AS categoria_nombre,
+                DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS create_at
+            FROM producto p
+            LEFT JOIN tipo t ON t.codigo_tipo = p.codigo_tipo
+            LEFT JOIN categoria c ON c.codigo_categoria = p.codigo_categoria
+            {$where}
+            ORDER BY p.created_at DESC
+            LIMIT :lim OFFSET :off
+        ";
+
+        $stmt = $this->dblink->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue($k, $v, ($k === ':tipo' || $k === ':cat') ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':lim', $size, PDO::PARAM_INT);
+        $stmt->bindValue(':off', $off, PDO::PARAM_INT);
+        $stmt->execute();
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'total' => $total,
+            'page'  => $page,
+            'size'  => $size,
+            'items' => $items
+        ];
+    }
+
+    /* ==========================================================
+       ✅ NUEVO (RAÍZ): MARKETPLACE FILTRADO POR RESIDENCIA
+       - Visible=2
+       - SOLO publicaciones de vecinos de mi mismo condominio/urbanización
+       - Filtro server-side (no se puede saltar por JS)
+    ========================================================== */
+    public function listarMarketplaceFiltradoPorResidencia(
+        int $codigoUsuarioViewer,
+        ?int $tipo,
+        ?int $categoria,
+        string $q,
+        int $page,
+        int $size
+    ): array
+    {
+        $res = $this->obtenerResidenciaActivaUsuario($codigoUsuarioViewer);
+        if (!$res) {
+            return ['total' => 0, 'page' => max(1, (int)$page), 'size' => max(1, min(50, (int)$size)), 'items' => []];
+        }
+
+        $tipoConjunto = (string)$res['tipo_conjunto'];
+        $condId = (int)($res['codigo_condominio'] ?? 0);
+        $urbId  = (int)($res['codigo_urbanizacion'] ?? 0);
+
+        $page = max(1, (int)$page);
+        $size = max(1, min(50, (int)$size));
+        $off  = ($page - 1) * $size;
+
+        $q = trim((string)$q);
+        $hasQ = ($q !== '');
+
+        // ✅ WHERE base
+        $where = " WHERE p.visible = 2 ";
+        $params = [];
+
+        // ✅ Scope por residencia (EXISTS evita duplicados)
+        if ($tipoConjunto === 'condominio') {
+            $where .= "
+              AND EXISTS (
+                SELECT 1
+                FROM usuario_residencia ur
+                WHERE ur.codigo_usuario = p.codigo_usuario
+                  AND ur.tipo_conjunto = 'condominio'
+                  AND ur.codigo_condominio = :cond
+              )
+            ";
+            $params[':cond'] = $condId;
+        } else {
+            $where .= "
+              AND EXISTS (
+                SELECT 1
+                FROM usuario_residencia ur
+                WHERE ur.codigo_usuario = p.codigo_usuario
+                  AND ur.tipo_conjunto = 'urbanizacion'
+                  AND ur.codigo_urbanizacion = :urb
+              )
+            ";
+            $params[':urb'] = $urbId;
+        }
+
+        if ($tipo !== null && $tipo > 0) {
+            $where .= " AND p.codigo_tipo = :tipo ";
+            $params[':tipo'] = $tipo;
+        }
+
+        if ($categoria !== null && $categoria > 0) {
+            $where .= " AND p.codigo_categoria = :cat ";
+            $params[':cat'] = $categoria;
+        }
+
+        if ($hasQ) {
+            $where .= " AND (p.titulo LIKE :q OR p.descripcion LIKE :q) ";
+            $params[':q'] = '%' . $q . '%';
+        }
+
+        // Total
+        $sqlTotal = "SELECT COUNT(*) AS total FROM producto p " . $where;
+        $stT = $this->dblink->prepare($sqlTotal);
+        foreach ($params as $k => $v) {
+            $stT->bindValue($k, $v, ($k === ':tipo' || $k === ':cat' || $k === ':cond' || $k === ':urb') ? PDO::PARAM_INT : PDO::PARAM_STR);
         }
         $stT->execute();
         $total = (int)($stT->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
@@ -546,7 +703,7 @@ class Producto extends Conexion
 
         $stmt = $this->dblink->prepare($sql);
         foreach ($params as $k => $v) {
-            $stmt->bindValue($k, $v, ($k === ':tipo' || $k === ':cat') ? PDO::PARAM_INT : PDO::PARAM_STR);
+            $stmt->bindValue($k, $v, ($k === ':tipo' || $k === ':cat' || $k === ':cond' || $k === ':urb') ? PDO::PARAM_INT : PDO::PARAM_STR);
         }
         $stmt->bindValue(':lim', $size, PDO::PARAM_INT);
         $stmt->bindValue(':off', $off, PDO::PARAM_INT);
@@ -610,8 +767,6 @@ class Producto extends Conexion
 
     /* ==========================================================
        ====== SOPORTE / ADMIN: REVISIONES ======
-       Tabla: producto_revision
-       (codigo_revision, codigo_producto, estado_anterior, estado_nuevo, comentario, codigo_soporte, created_at)
     ========================================================== */
 
     private function visibleFromEstadoString(string $estado): int
@@ -621,7 +776,7 @@ class Producto extends Conexion
         if ($e === 'pendiente') return 1;
         if ($e === 'aprobada' || $e === 'aprobado') return 2;
         if ($e === 'rechazada' || $e === 'rechazado') return 3;
-        return 1; // default
+        return 1;
     }
 
     public function obtenerUltimaRevision(int $codigoProducto): ?array
@@ -678,7 +833,6 @@ class Producto extends Conexion
         $q = trim((string)$q);
         $hasQ = ($q !== '');
 
-        // Total
         $sqlTotal = "
             SELECT COUNT(*) AS total
             FROM producto p
@@ -697,7 +851,6 @@ class Producto extends Conexion
         $stmtT->execute();
         $total = (int)($stmtT->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
 
-        // Items (incluye ultima_revision como objeto simple)
         $sql = "
             SELECT
                 p.codigo_producto,
