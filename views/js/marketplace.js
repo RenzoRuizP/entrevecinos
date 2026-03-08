@@ -9,6 +9,9 @@
    - Inyecta CSS defensivo (sin tocar tu CSS global)
    - Combo Categoría carga (fetch con credentials + normalización de payload)
    - Al elegir Productos, se oculta Servicios (y viceversa)
+   ✅ FIX CONDOMINIO DINÁMICO:
+   - Texto “Tu condominio” ahora usa window.EV_CONDOMINIO_NOMBRE
+   - Maneja 409 SIN_RESIDENCIA_ACTIVA con redirect
 */
 (function () {
   'use strict';
@@ -488,7 +491,7 @@
               <div class="ev-mp-avatar">${(titulo || '?').charAt(0).toUpperCase()}</div>
               <div>
                 <div class="ev-mp-vecino-nombre">Vecino</div>
-                <div class="ev-mp-vecino-condominio">Tu condominio</div>
+                <div class="ev-mp-vecino-condominio">${escapeHtml(CONDO_NOMBRE_RESUMEN)}</div>
               </div>
             </div>
           </div>
@@ -518,7 +521,7 @@
       const { resp, json, text } = await fetchJsonRobusto(url, {
         method:'GET',
         headers:{'Accept':'application/json'},
-        credentials:'same-origin' // ✅ IMPORTANTE
+        credentials:'same-origin'
       });
 
       if (!resp.ok || !json) {
@@ -554,7 +557,6 @@
       if (tipoIdProducto) {
         await cargarCategoriasProductos(tipoIdProducto);
       } else {
-        // si no detecta, deja combo en modo vacío
         if (refs.selectCategoriaProductos) {
           refs.selectCategoriaProductos.innerHTML = `<option value="0">Todas las categorías</option>`;
         }
@@ -572,7 +574,7 @@
       const { resp, json, text } = await fetchJsonRobusto(url, {
         method:'GET',
         headers:{'Accept':'application/json'},
-        credentials:'same-origin' // ✅ IMPORTANTE
+        credentials:'same-origin'
       });
 
       if (!resp.ok || !json) {
@@ -581,7 +583,7 @@
         return;
       }
 
-      const rows = getArrayFromPayload(json); // ✅ por si mañana lo envuelves en {ok,data}
+      const rows = getArrayFromPayload(json);
 
       const opt0 = `<option value="0">Todas las categorías</option>`;
       const options = rows.map(r => {
@@ -620,14 +622,12 @@
       });
     }
 
-    // ✅ categoría SOLO aplica si scope permite productos (todos o productos)
     if ((scope === 'todos' || scope === 'productos') && Number(categoriaProductoId || 0) > 0) {
       lista = lista.filter((p) => {
         const isProducto = tipoIdProducto
           ? Number(p.__codigo_tipo || 0) === tipoIdProducto
           : normalizar(p.__tipo_nombre || p.__tipo_slug || '').includes('producto');
 
-        // si no es producto, en scope "todos" lo dejamos pasar
         if (!isProducto) return true;
 
         return Number(p.__codigo_categoria || 0) === Number(categoriaProductoId);
@@ -678,7 +678,6 @@
     if (refs.countServicios) refs.countServicios.textContent = String(servicios.length);
     if (refs.countProductos) refs.countProductos.textContent = String(productos.length);
 
-    // ✅ pintar solo lo que corresponde al scope (pero sin romper "todos")
     refs.gridServicios.innerHTML = (scope === 'todos' || scope === 'servicios')
       ? servicios.map(cardHtml).join('')
       : '';
@@ -734,6 +733,16 @@
       if (resp.status === 401) {
         notify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
         setTimeout(() => { window.location.href = `${BASE}/`; }, 1200);
+        return;
+      }
+
+      // ✅ NUEVO: 409 SIN_RESIDENCIA_ACTIVA (redirige)
+      if (resp.status === 409) {
+        const msg = (json && (json.mensaje || json.error)) ? (json.mensaje || json.error) : 'No tienes residencia activa.';
+        notify('warning', 'Residencia requerida', msg);
+
+        const redir = (json && json.redirect) ? json.redirect : `${BASE}/mi-perfil`;
+        setTimeout(() => { window.location.href = redir; }, 1200);
         return;
       }
 
@@ -796,9 +805,7 @@
 
         scope = btn.dataset.scope || 'todos';
 
-        // ✅ si entro a productos y el tipo ya está detectado pero categorías no cargaron aún
         if ((scope === 'productos' || scope === 'todos') && tipoIdProducto && refs.selectCategoriaProductos) {
-          // si solo existe la opción 0, reintenta cargar
           const opts = refs.selectCategoriaProductos.querySelectorAll('option');
           if (!opts || opts.length <= 1) cargarCategoriasProductos(tipoIdProducto);
         }
@@ -818,7 +825,7 @@
   async function initMarketplace() {
     if (!capturarRefs()) return;
 
-    ensureGridCSS();        // ✅ fuerza cards pequeñas
+    ensureGridCSS();
     bindEvents();
     await cargarTiposYDetectar();
     await cargarPublicaciones();

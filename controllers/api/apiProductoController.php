@@ -680,6 +680,8 @@ class apiProductoController
 
     /* ======================================================================================
        ✅ MARKETPLACE (RAÍZ): FILTRADO POR CONDOMINIO/URBANIZACIÓN DEL USUARIO LOGUEADO
+       + 409 SIN_RESIDENCIA_ACTIVA con redirect
+       + devuelve conjunto (tipo/nombre)
     ====================================================================================== */
     public function listarMarketplace(): void
     {
@@ -705,13 +707,19 @@ class apiProductoController
             // ✅ Validar residencia activa (RAÍZ)
             $resActiva = $model->obtenerResidenciaActivaUsuario($codigoUsuario);
             if (!$resActiva) {
+                $redirect = rtrim(BASE_URL, '/') . '/mi-perfil';
+
                 $this->json(409, [
-                    'ok' => false,
-                    'error' => 'SIN_RESIDENCIA_ACTIVA',
-                    'mensaje' => 'No se encontró una residencia activa para tu usuario. Completa tu residencia para ver el Marketplace.'
+                    'ok'       => false,
+                    'error'    => 'SIN_RESIDENCIA_ACTIVA',
+                    'mensaje'  => 'No se encontró una residencia activa para tu usuario. Completa tu residencia para ver el Marketplace.',
+                    'redirect' => $redirect
                 ]);
                 return;
             }
+
+            // ✅ Info del conjunto para UI (si lo necesitas)
+            $conjunto = $model->obtenerNombreConjuntoActivoUsuario($codigoUsuario);
 
             // ✅ Marketplace filtrado por residencia
             $res = $model->listarMarketplaceFiltradoPorResidencia($codigoUsuario, $tipo, $categoria, $q, $page, $size);
@@ -727,6 +735,7 @@ class apiProductoController
 
                 $p['imagen_portada_url'] = $url;
 
+                // compatibilidad con tu JS (usa imagen_portada directo)
                 if ($ruta !== '') {
                     $p['imagen_portada'] = $url;
                 }
@@ -734,11 +743,12 @@ class apiProductoController
             unset($p);
 
             $this->json(200, [
-                'ok'    => true,
-                'total' => $total,
-                'page'  => $page,
-                'size'  => $size,
-                'data'  => $items
+                'ok'      => true,
+                'total'   => $total,
+                'page'    => $page,
+                'size'    => $size,
+                'data'    => $items,
+                'conjunto'=> $conjunto
             ]);
             return;
 

@@ -4,6 +4,7 @@
 require_once __DIR__ . '/../Config/config.php';
 require_once __DIR__ . '/../models/SesionJWT.php';
 require_once __DIR__ . '/../models/User.php';
+require_once __DIR__ . '/../models/Producto.php';
 
 class marketplaceController
 {
@@ -14,30 +15,36 @@ class marketplaceController
             $token = $_COOKIE['auth_token'] ?? null;
             $datosToken = $token ? SesionJWT::verificarToken($token) : null;
 
+            $codigoUsuario = (int)($datosToken['codigo_usuario'] ?? 0);
             $email = (string)($datosToken['email'] ?? '');
-            if ($email === '') {
+
+            if ($codigoUsuario <= 0 || $email === '') {
                 return $this->resolverNoAutorizado('token_invalido');
             }
 
-            // Intentar cargar datos extendidos (puede fallar para admin si no tiene residencia)
+            // Intentar cargar datos extendidos (puede fallar para algunos roles)
             $objUsuario = new User();
             $datosUsuario = $objUsuario->DatosUsuario($email);
 
-            // ✅ SOLUCIÓN DE RAÍZ:
-            // Si no hay datos extendidos, NO es “sesión expirada”.
-            // Construimos fallback con datos del token.
+            // ✅ Fallback si no hay datos extendidos
             if (!$datosUsuario || !is_array($datosUsuario)) {
                 $datosUsuario = [
                     'nombre'       => $datosToken['nombre'] ?? 'Usuario',
                     'email'        => $email,
-                    // Tu vista usa $datosUsuario['condominio'] (y luego fallback a "tu condominio")
-                    'condominio'   => $datosToken['condominio_nombre'] ?? null,
-                    'torre'        => $datosToken['torre_nombre'] ?? null,
-                    'departamento' => $datosToken['departamento_numero'] ?? null,
                     'rol'          => $datosToken['rol'] ?? null,
                     '_fallback'    => 1
                 ];
             }
+
+            // ✅ Fuente de verdad del conjunto activo (usuario_residencia)
+            $prod = new Producto();
+            $conjunto = $prod->obtenerNombreConjuntoActivoUsuario($codigoUsuario);
+
+            $datosUsuario['conjunto_tipo']   = $conjunto['tipo_conjunto'] ?? null;
+            $datosUsuario['conjunto_nombre'] = $conjunto['nombre'] ?? null;
+
+            // Compatibilidad (si otros módulos leen 'condominio')
+            $datosUsuario['condominio'] = $datosUsuario['conjunto_nombre'] ?? ($datosUsuario['condominio'] ?? null);
 
             header('X-Partial-Ok: 1');
             require __DIR__ . '/../views/marketplaceView.php';

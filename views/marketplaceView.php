@@ -2,7 +2,12 @@
 // views/marketplaceView.php
 require_once __DIR__ . '/../Config/config.php';
 
-$condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
+// nombre dinámico (condominio o urbanización)
+$condominioNombre = $datosUsuario['conjunto_nombre'] ?? ($datosUsuario['condominio'] ?? 'tu condominio');
+
+// label dinámico
+$conjuntoTipo = strtolower(trim((string)($datosUsuario['conjunto_tipo'] ?? '')));
+$labelConjunto = ($conjuntoTipo === 'urbanizacion') ? 'Urbanización actual' : 'Condominio actual';
 ?>
 
 <script>
@@ -33,7 +38,7 @@ $condominioNombre = $datosUsuario['condominio'] ?? 'tu condominio';
                 <i class="bi bi-buildings"></i>
               </div>
               <div class="ev-mp-condominio-text">
-                <span class="ev-mp-condominio-label">Condominio actual</span>
+                <span class="ev-mp-condominio-label"><?= htmlspecialchars($labelConjunto, ENT_QUOTES, 'UTF-8'); ?></span>
                 <span class="ev-mp-condominio-name">
                   <?= htmlspecialchars($condominioNombre, ENT_QUOTES, 'UTF-8'); ?>
                 </span>

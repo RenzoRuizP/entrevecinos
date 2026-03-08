@@ -82,6 +82,58 @@ class Producto extends Conexion
     }
 
     /* ==========================================================
+       ✅ NUEVO (RAÍZ): NOMBRE DEL CONJUNTO ACTIVO (condominio/urbanización)
+       - Para pintar “Tu condominio” dinámico en UI
+    ========================================================== */
+    public function obtenerNombreConjuntoActivoUsuario(int $codigoUsuario): ?array
+    {
+        $res = $this->obtenerResidenciaActivaUsuario($codigoUsuario);
+        if (!$res) return null;
+
+        $tipo = (string)$res['tipo_conjunto'];
+        $cond = (int)($res['codigo_condominio'] ?? 0);
+        $urb  = (int)($res['codigo_urbanizacion'] ?? 0);
+
+        if ($tipo === 'condominio') {
+            $st = $this->dblink->prepare("
+                SELECT nombre_condominio AS nombre
+                FROM condominio
+                WHERE codigo_condominio = :id
+                LIMIT 1
+            ");
+            $st->execute([':id' => $cond]);
+            $nombre = (string)($st->fetchColumn() ?: '');
+            if ($nombre === '') return null;
+
+            return [
+                'tipo_conjunto'     => 'condominio',
+                'nombre'            => $nombre,
+                'codigo_condominio' => $cond
+            ];
+        }
+
+        if ($tipo === 'urbanizacion') {
+            $st = $this->dblink->prepare("
+                SELECT nombre_urbanizacion AS nombre
+                FROM urbanizacion
+                WHERE codigo_urbanizacion = :id
+                LIMIT 1
+            ");
+            $st->execute([':id' => $urb]);
+            $nombre = (string)($st->fetchColumn() ?: '');
+            if ($nombre === '') return null;
+
+            return [
+                'tipo_conjunto'        => 'urbanizacion',
+                'nombre'               => $nombre,
+                'codigo_urbanizacion'  => $urb
+            ];
+        }
+
+        return null;
+    }
+
+    /* ==========================================================
        CREAR PRODUCTO (visible=0 borrador)
     ========================================================== */
     public function crearProducto(): int
