@@ -6,7 +6,6 @@
   const EV_API_BASE = (window.BASE_URL || '').replace(/\/$/, '');
   if (!EV_API_BASE) return;
 
-  // Cache + filtro global
   window.evProductosCache  = window.evProductosCache  || [];
   window.evProductosFiltro = window.evProductosFiltro || {
     q: '',
@@ -33,6 +32,68 @@
     }
   }
 
+  async function evBlockedRedirect(msg, redirect) {
+    if (window.__EV_AUTH_REDIRECTING__ === true) return;
+    window.__EV_AUTH_REDIRECTING__ = true;
+
+    const mensaje = msg || 'Tu cuenta fue bloqueada. Se cerró tu sesión por seguridad.';
+    const target = redirect || `${EV_API_BASE}/login`;
+
+    if (window.Swal?.fire) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Cuenta bloqueada',
+        text: mensaje,
+        confirmButtonText: 'Ir al login',
+        confirmButtonColor: '#EA7C12',
+        allowOutsideClick: false,
+        allowEscapeKey: false
+      });
+    } else {
+      alert(mensaje);
+    }
+
+    window.location.assign(target);
+  }
+
+  async function evSessionRedirect(msg, redirect) {
+    if (window.__EV_AUTH_REDIRECTING__ === true) return;
+    window.__EV_AUTH_REDIRECTING__ = true;
+
+    const mensaje = msg || 'Tu sesión ha expirado. Vuelve a iniciar sesión.';
+    const target = redirect || `${EV_API_BASE}/login`;
+
+    if (window.Swal?.fire) {
+      await Swal.fire({
+        icon: 'info',
+        title: 'Sesión finalizada',
+        text: mensaje,
+        confirmButtonText: 'Ir al login',
+        confirmButtonColor: '#EA7C12',
+        allowOutsideClick: false,
+        allowEscapeKey: false
+      });
+    } else {
+      alert(mensaje);
+    }
+
+    window.location.assign(target);
+  }
+
+  async function evHandleAuthResponse(resp, data) {
+    if (resp.status === 403 && data && data.error === 'CUENTA_BLOQUEADA') {
+      await evBlockedRedirect(data.mensaje, data.redirect);
+      return true;
+    }
+
+    if (resp.status === 401 || (data && data.error === 'UNAUTHORIZED')) {
+      await evSessionRedirect(data?.mensaje, data?.redirect);
+      return true;
+    }
+
+    return false;
+  }
+
   async function evConfirm({
     icon = 'question',
     title = 'Confirmar',
@@ -57,9 +118,6 @@
     return window.confirm(`${title}\n\n${text}`);
   }
 
-  /* ==============================
-     VH estable (anti rebote)
-  ============================== */
   function setEvVh() {
     const vh = window.innerHeight * 0.01;
     document.documentElement.style.setProperty('--ev-vh', `${vh}px`);
@@ -69,9 +127,6 @@
   window.addEventListener('orientationchange', setEvVh);
   document.addEventListener('shown.bs.modal', setEvVh);
 
-  /* =========================================================
-     FIX: Modales SIEMPRE en <body>
-  ========================================================= */
   function evMountModalToBody(modalId) {
     const el = document.getElementById(modalId);
     if (!el) return;
@@ -84,9 +139,6 @@
     evMountModalToBody('modalEditarPublicacion');
   }
 
-  /* =========================================================
-     FIX MODALES: no cerrar al click fuera (static backdrop)
-  ========================================================= */
   function evGetStaticModal(modalId) {
     evMountModalToBody(modalId);
 
@@ -103,14 +155,12 @@
     });
   }
 
-  /* ==============================
-     Helpers fotos
-  ============================== */
   function evGetFotoSrc(f) {
     if (!f) return '';
     if (typeof f === 'string') return f;
     return f.url || f.ruta || f.ruta_imagen || f.imagen || f.path || f.path_imagen || '';
   }
+
   function evGetFotoId(f, idx) {
     if (!f || typeof f !== 'object') return 'old_' + idx;
     return f.id_imagen || f.codigo_imagen || f.id || f.codigo || ('old_' + idx);
@@ -124,9 +174,6 @@
     section.classList.toggle('ev-has-tiles', hasTiles);
   }
 
-  /* =========================================================
-     UTIL: escape (seguro para atributos)
-  ========================================================= */
   function escAttr(v) {
     return String(v ?? '')
       .replace(/&/g, '&amp;')
@@ -135,9 +182,6 @@
       .replace(/"/g, '&quot;');
   }
 
-  /* =========================================================
-     ✅ FILTROS PREMIUM: debounce + cargar tipos/categorías
-  ========================================================= */
   function debounce(fn, wait = 250) {
     let t = null;
     return (...args) => {
@@ -148,12 +192,11 @@
 
   async function evFetchJson(url) {
     const resp = await fetch(url, { method: 'GET' });
-    if (resp.status === 401) {
-      evNotify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
-      setTimeout(() => { window.location.href = `${EV_API_BASE}/`; }, 1200);
-      return null;
-    }
-    return await resp.json().catch(() => null);
+    const data = await resp.json().catch(() => null);
+
+    if (await evHandleAuthResponse(resp, data || {})) return null;
+
+    return data;
   }
 
   function mapIdNombre(row, idKeys, nameKeys) {
@@ -262,9 +305,6 @@
     window.evProductosFiltro.orden = 'recientes';
   }
 
-  /* =========================================================
-     PREVIEW AGREGAR
-  ========================================================= */
   const evAddPreview = { inited: false };
 
   function evEnsurePreviewAgregar() {
@@ -359,9 +399,6 @@
     });
   }
 
-  /* =========================================================
-     Uploader AGREGAR
-  ========================================================= */
   (function initUploaderAgregarModule() {
     const MAX_MB = 5;
     const MAX_FILES = 10;
@@ -542,9 +579,6 @@
 
   })();
 
-  /* ==============================
-     PREVIEW EDITAR
-  ============================== */
   const evEditPreview = { inited:false };
 
   function evEnsurePreviewEditar() {
@@ -642,9 +676,6 @@
     });
   }
 
-  /* ==============================
-     Uploader EDITAR (estado)
-  ============================== */
   (function initUploaderEditarModule(){
     const MAX_MB = 5;
     const MAX_FILES = 10;
@@ -866,13 +897,12 @@
     };
   })();
 
-  /* ==============================
-     API: Cargar edición
-  ============================== */
   async function cargarProductoEditar(codProducto) {
     try {
       const resp = await fetch(`${EV_API_BASE}/api/producto/${codProducto}`, { method: 'GET' });
-      const data = await resp.json();
+      const data = await resp.json().catch(() => ({}));
+
+      if (await evHandleAuthResponse(resp, data)) return;
 
       if (!data.ok) {
         evNotify("error", "Error", data.mensaje || "Error al cargar el producto.");
@@ -915,9 +945,6 @@
     }
   }
 
-  /* ==============================
-     Acciones: anular
-  ============================== */
   async function confirmarYAnular(id) {
     if (!id) return;
 
@@ -935,11 +962,7 @@
       const resp = await fetch(`${EV_API_BASE}/api/producto/${id}/anular`, { method: 'POST' });
       const data = await resp.json().catch(() => ({}));
 
-      if (resp.status === 401) {
-        evNotify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
-        setTimeout(() => { window.location.href = `${EV_API_BASE}/`; }, 1500);
-        return;
-      }
+      if (await evHandleAuthResponse(resp, data)) return;
 
       if (!resp.ok || !data.ok) {
         evNotify('error', 'Error', data.mensaje || data.error || 'No se pudo anular el producto.');
@@ -955,9 +978,6 @@
     }
   }
 
-  /* ==============================
-     Acciones: publicar (0 -> 1)
-  ============================== */
   async function confirmarYPublicar(id) {
     if (!id) return;
 
@@ -975,11 +995,7 @@
       const resp = await fetch(`${EV_API_BASE}/api/producto/${id}/publicar`, { method: 'POST' });
       const data = await resp.json().catch(() => ({}));
 
-      if (resp.status === 401) {
-        evNotify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
-        setTimeout(() => { window.location.href = `${EV_API_BASE}/`; }, 1500);
-        return;
-      }
+      if (await evHandleAuthResponse(resp, data)) return;
 
       if (!resp.ok || !data.ok) {
         evNotify('error', 'Error', data.mensaje || data.error || 'No se pudo enviar el producto a revisión.');
@@ -995,9 +1011,6 @@
     }
   }
 
-  /* ==============================
-     Submit AGREGAR (API)
-  ============================== */
   async function registrarProducto(form) {
     const btnGuardar = form.querySelector('.btn-guardar') || form.querySelector('button[type="submit"]');
 
@@ -1052,11 +1065,7 @@
 
       const data = await resp.json().catch(() => ({}));
 
-      if (resp.status === 401) {
-        evNotify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
-        setTimeout(() => { window.location.href = `${EV_API_BASE}/`; }, 1500);
-        return;
-      }
+      if (await evHandleAuthResponse(resp, data)) return;
 
       if (!resp.ok || !data.ok) {
         const extra = Array.isArray(data.errores) && data.errores.length ? `\n\n• ${data.errores.join('\n• ')}` : '';
@@ -1080,9 +1089,6 @@
     }
   }
 
-  /* ==============================
-     Submit EDITAR (API)
-  ============================== */
   async function actualizarProducto(form) {
     const btnGuardar = form.querySelector('.btn-guardar') || form.querySelector('button[type="submit"]');
 
@@ -1132,11 +1138,7 @@
       const resp = await fetch(`${EV_API_BASE}/api/producto/${id}/actualizar`, { method:'POST', body: fd });
       const data = await resp.json().catch(() => ({}));
 
-      if (resp.status === 401) {
-        evNotify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
-        setTimeout(() => { window.location.href = `${EV_API_BASE}/`; }, 1500);
-        return;
-      }
+      if (await evHandleAuthResponse(resp, data)) return;
 
       if (!resp.ok || !data.ok) {
         evNotify('error', 'Error', data.mensaje || data.error || 'No se pudo actualizar el producto.');
@@ -1158,9 +1160,6 @@
     }
   }
 
-  /* ==============================
-     Estado visible y tabs
-  ============================== */
   function uiEstadoVisible(visibleNum, ultimaRevision) {
     const rev = ultimaRevision || null;
 
@@ -1287,9 +1286,6 @@
     return arr;
   }
 
-  /* ==============================
-     Cargar productos (con filtros + orden + data-label)
-  ============================== */
   async function cargarProductos() {
     const table = document.getElementById('tablaPublicaciones');
     const tbody = table?.querySelector('tbody');
@@ -1301,11 +1297,7 @@
       const resp = await fetch(`${EV_API_BASE}/api/producto/listar`, { method: 'GET' });
       const data = await resp.json().catch(() => ({}));
 
-      if (resp.status === 401) {
-        evNotify('error','Sesión expirada','Tu sesión ha expirado. Vuelve a iniciar sesión.');
-        setTimeout(() => { window.location.href = `${EV_API_BASE}/`; }, 1500);
-        return;
-      }
+      if (await evHandleAuthResponse(resp, data)) return;
 
       if (!resp.ok || !data.ok) {
         tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">${escAttr(data.mensaje || data.error || 'No se pudo obtener el listado.')}</td></tr>`;
@@ -1315,7 +1307,6 @@
       const items = Array.isArray(data.data) ? data.data : [];
       window.evProductosCache = items.slice();
 
-      // Conteos tabs (sobre el total)
       const counts = { all: items.length, aprobado: 0, observado: 0, rechazado: 0, pendiente: 0, borrador: 0, anulado: 0 };
       items.forEach(p => {
         const k = evGetStatusKey(p);
@@ -1328,10 +1319,8 @@
       });
       evUpdateTabsUI(counts);
 
-      // Filtrado: texto+tipo+cat+rango + tab + orden
       const filtrados = ordenarItems(filtrarItems(items).filter(evMatchTab));
 
-      // Metas
       const lblMeta = document.getElementById('evLblMeta');
       const lblFooterLeft = document.getElementById('evLblFooterLeft');
       if (lblMeta) lblMeta.textContent = `Mostrando ${filtrados.length} registros`;
@@ -1434,9 +1423,6 @@
 
   window.evCargarProductos = cargarProductos;
 
-  /* ==============================
-     INIT seguro para vista inyectada
-  ============================== */
   function isProductosViewPresent() {
     return !!document.getElementById('tablaPublicaciones');
   }
@@ -1445,8 +1431,9 @@
     if (document.body.dataset.evProductosBound === '1') return;
     document.body.dataset.evProductosBound = '1';
 
-    // Tabs
     document.addEventListener('click', (e) => {
+      if (window.__EV_AUTH_REDIRECTING__ === true) return;
+
       const tabBtn = e.target.closest('.ev-tab[data-tab]');
       if (tabBtn) {
         window.evProductosFiltro.tab = tabBtn.getAttribute('data-tab') || 'all';
@@ -1454,7 +1441,6 @@
         return;
       }
 
-      // Agregar
       if (e.target.closest('#btnAgregarPublicacion')) {
         const modal = evGetStaticModal('modalAgregarPublicacion');
         if (!modal) return;
@@ -1465,13 +1451,11 @@
         return;
       }
 
-      // Refrescar
       if (e.target.closest('#btnRefrescarMisProductos')) {
         window.evCargarProductos?.();
         return;
       }
 
-      // Limpiar filtros
       if (e.target.closest('#btnLimpiarFiltros')) {
         (async () => {
           resetFiltrosUI();
@@ -1482,14 +1466,12 @@
         return;
       }
 
-      // Legacy Buscar modal (si existe)
       if (e.target.closest('#btnBuscarPublicacion')) {
         const m = evGetStaticModal('modalBuscarPublicacion');
         m?.show();
         return;
       }
 
-      // Acciones tabla
       const btnEditar = e.target.closest('[data-action="editar"][data-id]');
       if (btnEditar && !btnEditar.disabled) { cargarProductoEditar(btnEditar.getAttribute('data-id')); return; }
 
@@ -1500,16 +1482,18 @@
       if (btnPublicar && !btnPublicar.disabled) { confirmarYPublicar(btnPublicar.getAttribute('data-id')); return; }
     });
 
-    // Filtros: input buscar (debounce)
     document.addEventListener('input', debounce((e) => {
+      if (window.__EV_AUTH_REDIRECTING__ === true) return;
+
       if (e.target && e.target.id === 'fTexto') {
         syncFiltrosFromUI();
         window.evCargarProductos?.();
       }
     }, 250));
 
-    // Change filtros
     document.addEventListener('change', (e) => {
+      if (window.__EV_AUTH_REDIRECTING__ === true) return;
+
       if (e.target && e.target.id === 'fTipo') {
         (async () => {
           syncFiltrosFromUI();
@@ -1534,9 +1518,13 @@
       }
     });
 
-    // Submit filtros móvil
     document.addEventListener('submit', (e) => {
       const form = e.target;
+
+      if (window.__EV_AUTH_REDIRECTING__ === true) {
+        e.preventDefault();
+        return;
+      }
 
       if (form && form.id === 'formFiltrosMisProductos') {
         e.preventDefault();
@@ -1557,7 +1545,6 @@
         return;
       }
 
-      // Legacy buscar modal
       if (form && form.id === 'formBuscarPublicacion') {
         e.preventDefault();
         const fd = new FormData(form);
@@ -1575,7 +1562,6 @@
     bindOnceGlobalEvents();
     evMountAllModalsToBody();
 
-    // cargar combos filtros (tipos) una vez por vista
     const tipoSel = document.getElementById('fTipo');
     if (tipoSel && !tipoSel.dataset.evLoaded) {
       tipoSel.dataset.evLoaded = '1';

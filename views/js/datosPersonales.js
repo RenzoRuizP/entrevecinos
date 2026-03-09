@@ -12,7 +12,7 @@
   const API_UB_PROVS  = (depId) => `${baseURL}/ubigeo/departamentos/${depId}/provincias`;
   const API_UB_DISTS  = (provId) => `${baseURL}/ubigeo/provincias/${provId}/distritos`;
 
-  // ✅ Guardado por secciones
+  // Guardado por secciones
   const API_ACTUALIZAR_TELEFONO = `${baseURL}/api/usuario/actualizar-telefono`;
   const API_SOLICITAR_CAMBIO = `${baseURL}/api/usuario/solicitar-cambio-residencia`;
   const API_CAMBIAR_CLAVE = `${baseURL}/api/usuario/cambiar-clave`;
@@ -32,14 +32,17 @@
     if (!safeSwal()) { alert(`${title}\n\n${text}`); return; }
     Swal.fire({ icon: "warning", title, text, confirmButtonColor: "#115C41" });
   }
+
   function swalErr(text) {
     if (!safeSwal()) { alert(`Error\n\n${text}`); return; }
     Swal.fire({ icon: "error", title: "Error", text, confirmButtonColor: "#BF3604" });
   }
+
   function swalOk(title, text) {
     if (!safeSwal()) { alert(`${title}\n\n${text}`); return; }
     Swal.fire({ icon: "success", title, text, confirmButtonColor: "#115C41" });
   }
+
   function swalInfo(title, text) {
     if (!safeSwal()) { alert(`${title}\n\n${text}`); return; }
     Swal.fire({ icon: "info", title, text, confirmButtonColor: "#115C41" });
@@ -71,8 +74,8 @@
     return data;
   }
 
-  function getBaseState() {
-    const root = document.getElementById("dp-state");
+  function getBaseState(container) {
+    const root = $("#dp-state", container) || document.getElementById("dp-state");
     return {
       tipo: (root?.dataset?.tipo || "").trim().toLowerCase(),
       codCondominio: (root?.dataset?.codigoCondominio || "").trim(),
@@ -85,20 +88,17 @@
     };
   }
 
-  // -------------------------
-  // Wizard UI
-  // -------------------------
   function setStep(container, step) {
     const steps = container.querySelectorAll(".ev-stepper .ev-step");
     const panels = container.querySelectorAll(".ev-step-panel");
 
-    steps.forEach(s => {
+    steps.forEach((s) => {
       const isActive = String(s.dataset.step) === String(step);
       s.classList.toggle("active", isActive);
       s.classList.toggle("done", Number(s.dataset.step) < Number(step));
     });
 
-    panels.forEach(p => {
+    panels.forEach((p) => {
       const show = String(p.dataset.panel) === String(step);
       p.classList.toggle("d-none", !show);
     });
@@ -116,9 +116,6 @@
     return Number(container.dataset.dpStep || "1");
   }
 
-  // -------------------------
-  // Ubigeo
-  // -------------------------
   function resetSelect(sel, placeholder, { disabled = false } = {}) {
     if (!sel) return;
     sel.innerHTML = `<option value="">${placeholder}</option>`;
@@ -221,9 +218,6 @@
     });
   }
 
-  // -------------------------
-  // Residencia
-  // -------------------------
   function currentTipo(container, base) {
     const rCondo = $("#dpTipoCondominio", container);
     const rUrb = $("#dpTipoUrbanizacion", container);
@@ -258,7 +252,6 @@
     }
 
     if (String(now.direccion) !== String(base.direccion)) return true;
-
     if (String(now.ubD) !== String(base.ub_depto)) return true;
     if (String(now.ubP) !== String(base.ub_prov)) return true;
     if (String(now.ubDi) !== String(base.ub_dist)) return true;
@@ -286,7 +279,7 @@
       }), pre);
 
       const map = new Map();
-      arr.forEach(c => map.set(String(c.codigo_condominio), String(c.direccion_condominio || "")));
+      arr.forEach((c) => map.set(String(c.codigo_condominio), String(c.direccion_condominio || "")));
       combo._evDirMap = map;
 
       combo.disabled = false;
@@ -322,7 +315,7 @@
       }), pre);
 
       const map = new Map();
-      arr.forEach(u => map.set(String(u.codigo_urbanizacion), String(u.direccion_urbanizacion || "")));
+      arr.forEach((u) => map.set(String(u.codigo_urbanizacion), String(u.direccion_urbanizacion || "")));
       combo._evDirMap = map;
 
       combo.disabled = false;
@@ -365,6 +358,8 @@
     const btnRemove = $("#btnRemoveSelectedFile", container);
 
     if (!file || !wrap || !aName || !meta || !btnRemove) return;
+    if (file.dataset.evBound === "1") return;
+    file.dataset.evBound = "1";
 
     function humanSize(n) {
       if (!Number.isFinite(n)) return "";
@@ -390,9 +385,6 @@
     btnRemove.addEventListener("click", clearSelected);
   }
 
-  // -------------------------
-  // Guardar Paso 1: Teléfono
-  // -------------------------
   async function guardarPaso1(container) {
     const btn = $("#btnGuardarPaso1", container);
     const original = btn ? btn.innerHTML : "";
@@ -426,16 +418,12 @@
     }
   }
 
-  // -------------------------
-  // Guardar Paso 2: Residencia (solicitud si cambia)
-  // -------------------------
   async function guardarPaso2(container, base) {
     const btn = $("#btnGuardarPaso2", container);
     const original = btn ? btn.innerHTML : "";
 
     const now = getResidenciaNow(container, base);
 
-    // Validaciones básicas
     if (!now.ubD || !now.ubP || !now.ubDi) {
       return swalWarn("Ubigeo requerido", "Selecciona Departamento, Provincia y Distrito.");
     }
@@ -454,7 +442,6 @@
       return swalInfo("Sin cambios", "No detecté cambios en tu residencia para enviar solicitud.");
     }
 
-    // Si cambió: exige archivo y crea solicitud
     const file = $("#dpDocDomicilio", container);
     const f = file?.files?.[0] || null;
     if (!f) return swalWarn("Adjunta un comprobante", "Para cambiar de domicilio debes adjuntar un comprobante.");
@@ -476,8 +463,6 @@
       fd.append("ubigeo_departamento", now.ubD);
       fd.append("ubigeo_provincia", now.ubP);
       fd.append("ubigeo_distrito", now.ubDi);
-
-      // backend espera este nombre:
       fd.append("documento_domicilio", f);
 
       const res2 = await fetch(API_SOLICITAR_CAMBIO, {
@@ -499,9 +484,6 @@
     }
   }
 
-  // -------------------------
-  // Guardar Paso 3: Contraseña
-  // -------------------------
   async function guardarPaso3(container) {
     const btn = $("#btnGuardarPaso3", container);
     const original = btn ? btn.innerHTML : "";
@@ -545,96 +527,145 @@
     }
   }
 
-  // -------------------------
-  // Init principal
-  // -------------------------
-  function initDatosPersonales(rootEl) {
-    const container = rootEl || document.querySelector(".container-datos-personales");
-    if (!container) return;
+  function bindStepper(container) {
+    container.querySelectorAll(".ev-stepper .ev-step").forEach((s) => {
+      if (s.dataset.evBound === "1") return;
+      s.dataset.evBound = "1";
 
-    if (container.dataset.dpInitialized === "1") return;
-    container.dataset.dpInitialized = "1";
-
-    const base = getBaseState();
-
-    setStep(container, 1);
-    initUbigeo(container, base);
-
-    initCondominios(container, base);
-    initUrbanizaciones(container, base);
-
-    const inputDir = $("#direccion", container);
-    if (inputDir) inputDir.value = inputDir.value || base.direccion || "";
-
-    ["#dpTipoCondominio", "#dpTipoUrbanizacion", "#comboCondominio", "#comboUrbanizacion"]
-      .forEach(sel => {
-        const el = $(sel, container);
-        if (!el) return;
-        el.addEventListener("change", () => refreshResidenciaUI(container, base));
-      });
-
-    const cCondo = $("#comboCondominio", container);
-    if (cCondo) {
-      cCondo.addEventListener("change", () => {
-        const id = cCondo.value || "";
-        const dir = cCondo._evDirMap ? (cCondo._evDirMap.get(String(id)) || "") : "";
-        const d = $("#direccion", container);
-        if (d) d.value = dir || "";
-        refreshResidenciaUI(container, base);
-      });
-    }
-
-    const cUrb = $("#comboUrbanizacion", container);
-    if (cUrb) {
-      cUrb.addEventListener("change", () => {
-        const id = cUrb.value || "";
-        const dir = cUrb._evDirMap ? (cUrb._evDirMap.get(String(id)) || "") : "";
-        const d = $("#direccion", container);
-        if (d) d.value = dir || "";
-        refreshResidenciaUI(container, base);
-      });
-    }
-
-    refreshResidenciaUI(container, base);
-    initFilePreview(container);
-
-    // Click stepper
-    container.querySelectorAll(".ev-stepper .ev-step").forEach(s => {
       s.addEventListener("click", () => {
         const step = Number(s.dataset.step || "1");
         setStep(container, step);
       });
     });
 
-    // Footer nav
     const btnAnterior = $("#btnAnterior", container);
-    if (btnAnterior) {
-      btnAnterior.addEventListener("click", () => {
+    if (btnAnterior && btnAnterior.dataset.evBound !== "1") {
+      btnAnterior.dataset.evBound = "1";
+      btnAnterior.addEventListener("click", (e) => {
+        e.preventDefault();
         const step = currentStep(container);
         if (step > 1) setStep(container, step - 1);
       });
     }
 
     const btnSiguiente = $("#btnSiguiente", container);
-    if (btnSiguiente) {
-      btnSiguiente.addEventListener("click", () => {
+    if (btnSiguiente && btnSiguiente.dataset.evBound !== "1") {
+      btnSiguiente.dataset.evBound = "1";
+      btnSiguiente.addEventListener("click", (e) => {
+        e.preventDefault();
         const step = currentStep(container);
         if (step < 3) setStep(container, step + 1);
       });
     }
-
-    // Guardar por paso
-    const b1 = $("#btnGuardarPaso1", container);
-    if (b1) b1.addEventListener("click", (e) => { e.preventDefault(); guardarPaso1(container); });
-
-    const b2 = $("#btnGuardarPaso2", container);
-    if (b2) b2.addEventListener("click", (e) => { e.preventDefault(); guardarPaso2(container, base); });
-
-    const b3 = $("#btnGuardarPaso3", container);
-    if (b3) b3.addEventListener("click", (e) => { e.preventDefault(); guardarPaso3(container); });
   }
 
-  function boot() { initDatosPersonales(); }
+  function bindGuardar(container, base) {
+    const b1 = $("#btnGuardarPaso1", container);
+    if (b1 && b1.dataset.evBound !== "1") {
+      b1.dataset.evBound = "1";
+      b1.addEventListener("click", (e) => {
+        e.preventDefault();
+        guardarPaso1(container);
+      });
+    }
+
+    const b2 = $("#btnGuardarPaso2", container);
+    if (b2 && b2.dataset.evBound !== "1") {
+      b2.dataset.evBound = "1";
+      b2.addEventListener("click", (e) => {
+        e.preventDefault();
+        guardarPaso2(container, base);
+      });
+    }
+
+    const b3 = $("#btnGuardarPaso3", container);
+    if (b3 && b3.dataset.evBound !== "1") {
+      b3.dataset.evBound = "1";
+      b3.addEventListener("click", (e) => {
+        e.preventDefault();
+        guardarPaso3(container);
+      });
+    }
+  }
+
+  function initDatosPersonales(rootEl) {
+    const container = rootEl || document.querySelector(".container-datos-personales");
+    if (!container) return false;
+
+    if (!container.dataset.dpStep) {
+      container.dataset.dpStep = "1";
+    }
+
+    if (container.dataset.dpInitialized !== "1") {
+      const base = getBaseState(container);
+
+      setStep(container, currentStep(container));
+      initUbigeo(container, base);
+      initCondominios(container, base);
+      initUrbanizaciones(container, base);
+
+      const inputDir = $("#direccion", container);
+      if (inputDir) inputDir.value = inputDir.value || base.direccion || "";
+
+      ["#dpTipoCondominio", "#dpTipoUrbanizacion", "#comboCondominio", "#comboUrbanizacion"]
+        .forEach((sel) => {
+          const el = $(sel, container);
+          if (!el || el.dataset.evBound === "1") return;
+          el.dataset.evBound = "1";
+          el.addEventListener("change", () => refreshResidenciaUI(container, base));
+        });
+
+      const cCondo = $("#comboCondominio", container);
+      if (cCondo && cCondo.dataset.evDirBound !== "1") {
+        cCondo.dataset.evDirBound = "1";
+        cCondo.addEventListener("change", () => {
+          const id = cCondo.value || "";
+          const dir = cCondo._evDirMap ? (cCondo._evDirMap.get(String(id)) || "") : "";
+          const d = $("#direccion", container);
+          if (d) d.value = dir || "";
+          refreshResidenciaUI(container, base);
+        });
+      }
+
+      const cUrb = $("#comboUrbanizacion", container);
+      if (cUrb && cUrb.dataset.evDirBound !== "1") {
+        cUrb.dataset.evDirBound = "1";
+        cUrb.addEventListener("change", () => {
+          const id = cUrb.value || "";
+          const dir = cUrb._evDirMap ? (cUrb._evDirMap.get(String(id)) || "") : "";
+          const d = $("#direccion", container);
+          if (d) d.value = dir || "";
+          refreshResidenciaUI(container, base);
+        });
+      }
+
+      refreshResidenciaUI(container, base);
+      initFilePreview(container);
+      bindStepper(container);
+      bindGuardar(container, base);
+
+      container.dataset.dpInitialized = "1";
+      return true;
+    }
+
+    bindStepper(container);
+    return true;
+  }
+
+  function initAll() {
+    document.querySelectorAll(".container-datos-personales").forEach((node) => {
+      initDatosPersonales(node);
+    });
+  }
+
+  function boot() {
+    initAll();
+  }
+
+  window.EV_DatosPersonales = {
+    init: initDatosPersonales,
+    initAll
+  };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot);
@@ -642,5 +673,15 @@
     boot();
   }
 
-  document.addEventListener("ev:content-loaded", () => initDatosPersonales());
+  document.addEventListener("ev:content-loaded", () => {
+    initAll();
+  });
+
+  const observerTarget = document.getElementById("contenido-principal") || document.body;
+  if (observerTarget && typeof MutationObserver !== "undefined") {
+    const observer = new MutationObserver(() => {
+      initAll();
+    });
+    observer.observe(observerTarget, { childList: true, subtree: true });
+  }
 })();

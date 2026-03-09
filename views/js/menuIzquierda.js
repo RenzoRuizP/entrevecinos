@@ -5,7 +5,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   "use strict";
 
-  // Evita doble inicialización (causa típica de bugs raros)
   if (window.__EV_NAV_INIT__ === true) return;
   window.__EV_NAV_INIT__ = true;
 
@@ -18,9 +17,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  // ==========================
-  // Backdrop (mobile)
-  // ==========================
   let backdrop = document.getElementById("sidebar-backdrop");
   if (!backdrop) {
     backdrop = document.createElement("div");
@@ -34,9 +30,6 @@ document.addEventListener("DOMContentLoaded", () => {
     backdrop.classList.remove("show");
   }
 
-  // ==========================
-  // Overlay único EV (GLOBAL)
-  // ==========================
   let overlayRefCount = 0;
   let overlayWatchdog = null;
 
@@ -119,9 +112,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ==========================
-  // Apagado agresivo de loaders legacy
-  // ==========================
   function killLegacyLoaders() {
     const selectors = [
       "#spinner-overlay", "#loading-overlay", "#loader-overlay", "#global-loader", "#ev-loading",
@@ -149,9 +139,70 @@ document.addEventListener("DOMContentLoaded", () => {
     document.documentElement.classList.remove("loading", "is-loading");
   }
 
-  // ==========================
-  // URL helpers
-  // ==========================
+  async function alertAndRedirectBlocked(payload) {
+    if (window.__EV_AUTH_REDIRECTING__ === true) return;
+    window.__EV_AUTH_REDIRECTING__ = true;
+
+    const mensaje = (payload && (payload.mensaje || payload.error))
+      ? (payload.mensaje || payload.error)
+      : "Tu cuenta fue bloqueada. Se cerró tu sesión por seguridad.";
+
+    const redirect = (payload && payload.redirect) ? payload.redirect : `${BASE}/login`;
+
+    try {
+      hideEvOverlay(true);
+      killLegacyLoaders();
+    } catch (_) {}
+
+    if (window.Swal?.fire) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Cuenta bloqueada",
+        text: mensaje,
+        confirmButtonText: "Ir al login",
+        confirmButtonColor: "#EA7C12",
+        allowOutsideClick: false,
+        allowEscapeKey: false
+      });
+    } else {
+      alert(mensaje);
+    }
+
+    window.location.assign(redirect);
+  }
+
+  async function alertAndRedirectUnauthorized(payload) {
+    if (window.__EV_AUTH_REDIRECTING__ === true) return;
+    window.__EV_AUTH_REDIRECTING__ = true;
+
+    const mensaje = (payload && (payload.mensaje || payload.error))
+      ? (payload.mensaje || payload.error)
+      : "Tu sesión ha finalizado. Vuelve a iniciar sesión.";
+
+    const redirect = (payload && payload.redirect) ? payload.redirect : `${BASE}/login`;
+
+    try {
+      hideEvOverlay(true);
+      killLegacyLoaders();
+    } catch (_) {}
+
+    if (window.Swal?.fire) {
+      await Swal.fire({
+        icon: "info",
+        title: "Sesión finalizada",
+        text: mensaje,
+        confirmButtonText: "Ir al login",
+        confirmButtonColor: "#EA7C12",
+        allowOutsideClick: false,
+        allowEscapeKey: false
+      });
+    } else {
+      alert(mensaje);
+    }
+
+    window.location.assign(redirect);
+  }
+
   function buildUrl(href) {
     if (!href) return null;
     const r = href.toString().trim();
@@ -169,9 +220,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return u.pathname + "?" + u.searchParams.toString();
   }
 
-  // ==========================
-  // Scripts del parcial (timeout por script)
-  // ==========================
   const LOADED = new Set(
     Array.from(document.scripts)
       .map(s => (s.src || "").trim())
@@ -182,7 +230,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function runInline(code) {
     if (!code) return;
     try {
-      // eslint-disable-next-line no-new-func
       new Function(code)();
     } catch (e) {
       console.error("[EV][NAV] Error en script inline:", e);
@@ -241,14 +288,10 @@ document.addEventListener("DOMContentLoaded", () => {
     inline.forEach(s => runInline(s.textContent || ""));
 
     for (const s of external) {
-      // eslint-disable-next-line no-await-in-loop
       await loadScriptWithTimeout(s.src, { signal, timeoutMs: 8000 });
     }
   }
 
-  // ==========================
-  // Fetch con timeout + abort
-  // ==========================
   let currentLoadId = 0;
 
   async function fetchWithTimeout(url, { timeoutMs = 15000, ...opts } = {}) {
@@ -262,10 +305,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ==========================
-  // Carga AJAX
-  // ==========================
   async function loadPage(url, { pushState = true } = {}) {
+    if (window.__EV_AUTH_REDIRECTING__ === true) return;
+
     const finalUrl = addPartial(url);
     const myId = ++currentLoadId;
 
@@ -289,7 +331,7 @@ document.addEventListener("DOMContentLoaded", () => {
         headers: {
           "X-Requested-With": "XMLHttpRequest",
           "X-Partial": "1",
-          "Accept": "text/html"
+          "Accept": "text/html,application/json"
         }
       });
 
@@ -298,7 +340,68 @@ document.addEventListener("DOMContentLoaded", () => {
       const ct = (res.headers.get("content-type") || "").toLowerCase();
       const text = await res.text().catch(() => "");
 
+      if (ct.includes("application/json")) {
+        let payload = null;
+        try {
+          payload = text ? JSON.parse(text) : null;
+        } catch (_) {
+          payload = null;
+        }
+
+        if (res.status === 403 && payload && payload.error === "CUENTA_BLOQUEADA") {
+          await alertAndRedirectBlocked(payload);
+          return;
+        }
+
+        if (res.status === 401 || (payload && payload.error === "UNAUTHORIZED")) {
+          await alertAndRedirectUnauthorized(payload);
+          return;
+        }
+
+        if (payload && payload.error === "CUENTA_OBSERVADA" && payload.redirect) {
+          if (window.__EV_AUTH_REDIRECTING__ === true) return;
+          window.__EV_AUTH_REDIRECTING__ = true;
+          window.location.href = payload.redirect;
+          return;
+        }
+
+        main.innerHTML = `
+          <div class="alert alert-danger border-0 shadow-sm rounded-4">
+            <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error</div>
+            <div>La vista devolvió JSON en lugar de HTML.</div>
+            <div class="small text-muted mt-2">${finalUrl}</div>
+          </div>
+        `;
+        return;
+      }
+
       if (!res.ok) {
+        if (res.status === 403) {
+          let payload403 = null;
+          try {
+            payload403 = text ? JSON.parse(text) : null;
+          } catch (_) {
+            payload403 = null;
+          }
+
+          if (payload403 && payload403.error === "CUENTA_BLOQUEADA") {
+            await alertAndRedirectBlocked(payload403);
+            return;
+          }
+        }
+
+        if (res.status === 401) {
+          let payload401 = null;
+          try {
+            payload401 = text ? JSON.parse(text) : null;
+          } catch (_) {
+            payload401 = null;
+          }
+
+          await alertAndRedirectUnauthorized(payload401);
+          return;
+        }
+
         main.innerHTML = `
           <div class="alert alert-danger border-0 shadow-sm rounded-4">
             <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error</div>
@@ -309,16 +412,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      if (ct.includes("application/json")) {
-        main.innerHTML = `
-          <div class="alert alert-danger border-0 shadow-sm rounded-4">
-            <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error</div>
-            <div>La vista devolvió JSON en lugar de HTML.</div>
-            <div class="small text-muted mt-2">${finalUrl}</div>
-          </div>
-        `;
-        return;
-      }
+      if (window.__EV_AUTH_REDIRECTING__ === true) return;
 
       main.innerHTML = text;
 
@@ -331,6 +425,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
     } catch (e) {
+      if (window.__EV_AUTH_REDIRECTING__ === true) return;
+
       const isAbort = String(e && e.name).toLowerCase().includes("abort");
       main.innerHTML = `
         <div class="alert alert-danger border-0 shadow-sm rounded-4">
@@ -348,10 +444,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ==========================
-  // Clicks del sidebar (delegación)
-  // ==========================
   document.addEventListener("click", (e) => {
+    if (window.__EV_AUTH_REDIRECTING__ === true) return;
+
     const a = e.target.closest("a");
     if (!a) return;
 
@@ -368,25 +463,20 @@ document.addEventListener("DOMContentLoaded", () => {
     loadPage(url, { pushState: true });
   }, true);
 
-  // Back/forward
   window.addEventListener("popstate", (ev) => {
+    if (window.__EV_AUTH_REDIRECTING__ === true) return;
+
     const u = ev.state?.url;
     if (!u) return;
     const clean = u.replace(/(\?|&)partial=1\b/g, "").replace(/[?&]$/, "");
     loadPage(clean, { pushState: false });
   });
 
-  // ==========================================================
-  // SOLUCIÓN RAÍZ: Deep link desde F5
-  // Router redirige a /MenuPrincipal?ev_goto=/ruta
-  // y aquí cargamos ese módulo automáticamente via AJAX.
-  // ==========================================================
   try {
     const qs = new URLSearchParams(window.location.search);
     const goto = qs.get("ev_goto");
 
     if (goto) {
-      // Limpiar URL para que no se repita el goto en refresh del shell
       const cleanShellUrl = BASE + "/MenuPrincipal";
       window.history.replaceState({}, document.title, cleanShellUrl);
 

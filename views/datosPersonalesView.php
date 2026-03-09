@@ -16,7 +16,6 @@ require_once __DIR__ . '/../Config/config.php';
   $ub_dist  = (string)($datosUsuario['ubigeo_distrito'] ?? '');
 ?>
 
-<!-- Estado base (para comparar cambios desde JS) -->
 <div
   id="dp-state"
   data-tipo="<?= htmlspecialchars($tipoConjunto, ENT_QUOTES, 'UTF-8'); ?>"
@@ -32,7 +31,6 @@ require_once __DIR__ . '/../Config/config.php';
 <div class="container-datos-personales fade-in">
   <div class="card shadow-sm border-0 rounded-4 ev-datos-card">
 
-    <!-- HEADER -->
     <div class="card-header bg-white border-0 d-flex align-items-center justify-content-between py-4 px-4">
       <div class="d-flex align-items-center gap-3">
         <span class="ev-datos-icon">
@@ -49,7 +47,6 @@ require_once __DIR__ . '/../Config/config.php';
 
     <div class="card-body p-4">
 
-      <!-- STEPPER -->
       <div class="ev-stepper mb-4" id="dp-stepper">
         <div class="ev-step active" data-step="1">
           <div class="ev-step-dot">1</div>
@@ -69,7 +66,6 @@ require_once __DIR__ . '/../Config/config.php';
 
       <form id="formDatosPersonales" class="ev-wizard" autocomplete="off" enctype="multipart/form-data">
 
-        <!-- PASO 1 -->
         <section class="ev-step-panel" data-panel="1">
           <div class="row g-3">
             <div class="col-md-6">
@@ -123,7 +119,6 @@ require_once __DIR__ . '/../Config/config.php';
               </div>
             </div>
 
-            <!-- ✅ Guardar paso 1 -->
             <div class="col-12 d-flex justify-content-end">
               <button type="button" class="btn btn-ev-primary" id="btnGuardarPaso1">
                 <i class="fas fa-save me-1"></i> Guardar
@@ -132,7 +127,6 @@ require_once __DIR__ . '/../Config/config.php';
           </div>
         </section>
 
-        <!-- PASO 2 -->
         <section class="ev-step-panel d-none" data-panel="2">
           <div class="row g-3">
 
@@ -181,7 +175,6 @@ require_once __DIR__ . '/../Config/config.php';
               </div>
             </div>
 
-            <!-- Condominio -->
             <div class="col-12" id="wrapCondominio">
               <div class="row g-3">
                 <div class="col-md-6">
@@ -198,7 +191,6 @@ require_once __DIR__ . '/../Config/config.php';
               </div>
             </div>
 
-            <!-- Urbanización -->
             <div class="col-12 d-none" id="wrapUrbanizacion">
               <div class="row g-3">
                 <div class="col-md-6">
@@ -272,7 +264,6 @@ require_once __DIR__ . '/../Config/config.php';
               <div class="form-text">Tipos permitidos: PDF, JPG, PNG. Tamaño máximo: 5MB.</div>
             </div>
 
-            <!-- ✅ Guardar paso 2 -->
             <div class="col-12 d-flex justify-content-end">
               <button type="button" class="btn btn-ev-primary" id="btnGuardarPaso2">
                 <i class="fas fa-save me-1"></i> Guardar
@@ -282,7 +273,6 @@ require_once __DIR__ . '/../Config/config.php';
           </div>
         </section>
 
-        <!-- PASO 3 -->
         <section class="ev-step-panel d-none" data-panel="3">
           <div class="row g-3">
             <div class="col-12">
@@ -311,7 +301,6 @@ require_once __DIR__ . '/../Config/config.php';
               <div class="form-text">Recomendación: mínimo 8 caracteres.</div>
             </div>
 
-            <!-- ✅ Guardar paso 3 -->
             <div class="col-12 d-flex justify-content-end">
               <button type="button" class="btn btn-ev-primary" id="btnGuardarPaso3">
                 <i class="fas fa-save me-1"></i> Guardar
@@ -320,7 +309,6 @@ require_once __DIR__ . '/../Config/config.php';
           </div>
         </section>
 
-        <!-- FOOTER NAV: Atrás / Siguiente -->
         <div class="ev-wizard-footer mt-4">
           <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center">
             <button type="button" class="btn btn-ev-neutral" id="btnAnterior">
@@ -338,5 +326,3 @@ require_once __DIR__ . '/../Config/config.php';
     </div>
   </div>
 </div>
-
-<script src="<?= rtrim(BASE_URL,'/') ?>/views/js/datosPersonales.js?v=1.0.1"></script>

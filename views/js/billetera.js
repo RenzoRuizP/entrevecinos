@@ -5,7 +5,6 @@
   const BASE = (window.BASE_URL || '').replace(/\/$/, '');
   const LOG_PREFIX = '[BILLETERA]';
 
-  // BroadcastChannel (cross-tab)
   const BC_NAME = 'EV_CHANNEL';
   let bc = null;
   try { bc = ('BroadcastChannel' in window) ? new BroadcastChannel(BC_NAME) : null; } catch (_) { bc = null; }
@@ -20,8 +19,6 @@
     recargasTable: null,
     btnRefrescarRecargas: null,
 
-
-    // Refs para el modal de recarga
     recargaForm: null,
     recargaTipo: null,
     recargaMonto: null,
@@ -35,7 +32,6 @@
     qrCard: null,
   };
 
-  // Configuración de imágenes y textos para QR
   const QR_CONFIG = {
     yape: {
       img: `${BASE}/resources/images/yape.jpg`,
@@ -61,12 +57,10 @@
     refs.recargasTable = document.getElementById('ev_recargas_table');
     refs.btnRefrescarRecargas = document.getElementById('btnRefrescarRecargas');
 
-
     refs.saldo = document.getElementById('ev_wallet_saldo');
     refs.emptyState = document.getElementById('ev_wallet_empty_state');
     refs.movimientos = document.getElementById('ev_wallet_movimientos');
 
-    // Modal recarga
     refs.recargaForm = document.getElementById('formRecargaSaldo');
     refs.recargaTipo = document.getElementById('recarga_tipo');
     refs.recargaMonto = document.getElementById('recarga_monto');
@@ -87,25 +81,18 @@
     return 'S/ ' + n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  // ==========================================================
-  // SWEETALERT2 – WRAPPER TEMA EV (FIX: botón Entendido con estilo)
-  // ==========================================================
   function swalFireEV(opts) {
     if (!window.Swal?.fire) return null;
 
-    // Clase base: aseguramos que SIEMPRE tenga el estilo EV,
-    // incluso si por algún motivo no toma "customClass.confirmButton".
     const baseCustomClass = {
       popup: 'ev-swal-popup',
       title: 'ev-swal-title',
       htmlContainer: 'ev-swal-html',
       icon: 'ev-swal-icon',
-      // IMPORTANTE: le metemos clases EV completas al botón
       confirmButton: 'ev-swal-confirm btn-ev-orange',
       cancelButton: 'ev-swal-cancel btn-ev-outline'
     };
 
-    // Merge seguro de customClass
     const userCC = (opts && opts.customClass) ? opts.customClass : {};
     const mergedCustomClass = Object.assign({}, baseCustomClass, userCC);
 
@@ -114,9 +101,7 @@
       customClass: mergedCustomClass,
       buttonsStyling: false,
       focusConfirm: true,
-      // Por defecto NO mostramos cancel
       showCancelButton: false,
-      // Mantiene el look consistente
       heightAuto: false
     };
 
@@ -165,6 +150,56 @@
     alert(msg);
   }
 
+  async function swalBlockedAndRedirect(msg, redirect) {
+    if (window.__EV_AUTH_REDIRECTING__ === true) return;
+    window.__EV_AUTH_REDIRECTING__ = true;
+
+    const mensaje = msg || 'Tu cuenta fue bloqueada. Se cerró tu sesión por seguridad.';
+    const target = redirect || `${BASE}/login`;
+
+    if (window.Swal?.fire) {
+      await swalFireEV({
+        icon: 'warning',
+        title: 'Cuenta bloqueada',
+        text: mensaje,
+        confirmButtonText: 'Ir al login',
+        showCancelButton: false,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        customClass: { popup: 'ev-swal-popup ev-swal-nocancel' }
+      });
+    } else {
+      alert(mensaje);
+    }
+
+    window.location.assign(target);
+  }
+
+  async function swalSessionAndRedirect(msg, redirect) {
+    if (window.__EV_AUTH_REDIRECTING__ === true) return;
+    window.__EV_AUTH_REDIRECTING__ = true;
+
+    const mensaje = msg || 'Tu sesión expiró. Vuelve a iniciar sesión.';
+    const target = redirect || `${BASE}/login`;
+
+    if (window.Swal?.fire) {
+      await swalFireEV({
+        icon: 'info',
+        title: 'Sesión finalizada',
+        text: mensaje,
+        confirmButtonText: 'Ir al login',
+        showCancelButton: false,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        customClass: { popup: 'ev-swal-popup ev-swal-nocancel' }
+      });
+    } else {
+      alert(mensaje);
+    }
+
+    window.location.assign(target);
+  }
+
   async function leerRespuestaSeguro(resp) {
     const ct = (resp.headers.get('content-type') || '').toLowerCase();
     if (ct.includes('application/json')) {
@@ -173,6 +208,20 @@
     const txt = await resp.text().catch(() => '');
     try { return JSON.parse(txt); } catch (_) {}
     return { ok: false, mensaje: txt || 'Respuesta no válida del servidor.' };
+  }
+
+  async function manejarAuthEspecial(resp, data) {
+    if (resp.status === 403 && data && data.error === 'CUENTA_BLOQUEADA') {
+      await swalBlockedAndRedirect(data.mensaje, data.redirect);
+      return true;
+    }
+
+    if (resp.status === 401 || (data && data.error === 'UNAUTHORIZED')) {
+      await swalSessionAndRedirect(data.mensaje, data.redirect);
+      return true;
+    }
+
+    return false;
   }
 
   function actualizarQRDesdeSelect() {
@@ -212,15 +261,15 @@
 
     try {
       const resp = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' }, credentials: 'include' });
-      if (resp.status === 401) return;
+      const json = await leerRespuestaSeguro(resp);
+
+      if (await manejarAuthEspecial(resp, json)) return;
 
       if (!resp.ok) {
-        const txt = await resp.text().catch(() => '');
-        error('Error HTTP al obtener saldo:', resp.status, txt);
+        error('Error HTTP al obtener saldo:', resp.status, json);
         return;
       }
 
-      const json = await resp.json().catch(() => ({}));
       if (!json.ok) return;
 
       const saldo = (json.saldo_actual ?? json.saldo ?? 0);
@@ -396,13 +445,10 @@
 
     try {
       const resp = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' }, credentials: 'include' });
+      const json = await leerRespuestaSeguro(resp);
 
-      if (resp.status === 401) {
-        renderizarRecargas([]);
-        return;
-      }
+      if (await manejarAuthEspecial(resp, json)) return;
 
-      const json = await resp.json().catch(() => ({}));
       if (!resp.ok || !json.ok) {
         renderizarRecargas([]);
         return;
@@ -416,7 +462,6 @@
     }
   }
 
-
   async function cargarMovimientos() {
     if (!refs.movimientos) return;
 
@@ -424,19 +469,11 @@
 
     try {
       const resp = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' }, credentials: 'include' });
+      const json = await leerRespuestaSeguro(resp);
 
-      if (resp.status === 401) {
-        renderizarMovimientos([]);
-        return;
-      }
+      if (await manejarAuthEspecial(resp, json)) return;
 
-      if (!resp.ok) {
-        renderizarMovimientos([]);
-        return;
-      }
-
-      const json = await resp.json().catch(() => ({}));
-      if (!json.ok) {
+      if (!resp.ok || !json.ok) {
         renderizarMovimientos([]);
         return;
       }
@@ -496,10 +533,7 @@
 
       const data = await leerRespuestaSeguro(resp);
 
-      if (resp.status === 401) {
-        swalErr(data.mensaje || 'Tu sesión expiró. Vuelve a iniciar sesión.');
-        return;
-      }
+      if (await manejarAuthEspecial(resp, data)) return;
 
       if (resp.status === 409) {
         swalErr(data.mensaje || 'Ya registraste una recarga con ese ID de operación.');
@@ -522,8 +556,8 @@
         mi.hide();
       }
 
-      // No actualizar saldo aquí (queda pendiente)
       cargarMovimientos();
+      cargarMisRecargas();
 
     } catch (e) {
       error(e);
@@ -546,22 +580,22 @@
     });
   }
 
-  // ===========================
-  // REFRESH AUTOMÁTICO (cross-tab)
-  // ===========================
   function refrescarAhora(payload) {
     if (!document.querySelector('.ev-wallet-wrapper')) return;
     log('Refrescando billetera por evento:', payload?.motivo || '(sin motivo)');
     cargarSaldo();
     cargarMovimientos();
     cargarMisRecargas();
-
   }
 
   function escucharEventosRefresh() {
+    if (window.__EV_WALLET_REFRESH_BOUND__ === true) return;
+    window.__EV_WALLET_REFRESH_BOUND__ = true;
+
     window.addEventListener('EV_BILLETERA_REFRESH', (e) => {
       refrescarAhora(e.detail || {});
     });
+
     document.addEventListener('EV_BILLETERA_REFRESH', (e) => {
       refrescarAhora(e.detail || {});
     });
@@ -585,6 +619,7 @@
       if (document.querySelector('.ev-wallet-wrapper')) {
         cargarSaldo();
         cargarMovimientos();
+        cargarMisRecargas();
       }
     });
   }
@@ -604,83 +639,29 @@
 
     cargarSaldo();
     cargarMovimientos();
-
     cargarMisRecargas();
 
-    refs.btnRefrescarRecargas?.addEventListener('click', () => {
-      cargarMisRecargas();
-    });
-
+    if (refs.btnRefrescarRecargas && refs.btnRefrescarRecargas.dataset.evWalletRefreshHooked !== '1') {
+      refs.btnRefrescarRecargas.dataset.evWalletRefreshHooked = '1';
+      refs.btnRefrescarRecargas.addEventListener('click', () => {
+        cargarMisRecargas();
+      });
+    }
 
     inicializarQR();
     engancharEventosRecarga();
     escucharEventosRefresh();
   }
 
-  async function cargarVistaParcialBilletera(contentWrapper) {
-    const url = `${BASE}/billetera?partial=1`;
-
-    try {
-      const resp = await fetch(url, {
-        method: 'GET',
-        headers: { 'X-Partial': '1', 'Accept': 'text/html' },
-        credentials: 'include',
-      });
-
-      if (resp.status === 401) {
-        if (window.Swal?.fire) {
-          swalFireEV({ icon: 'info', title: 'Sesión expirada', text: 'Tu sesión ha expirado. Vuelve a iniciar sesión.' })
-            .then(() => window.location.href = `${BASE}/login`);
-        } else {
-          window.location.href = `${BASE}/login`;
-        }
-        return;
-      }
-
-      if (!resp.ok) {
-        if (window.Swal?.fire) swalFireEV({ icon: 'error', title: 'Error', text: 'No se pudo cargar tu billetera. Intenta nuevamente.' });
-        return;
-      }
-
-      const html = await resp.text();
-      contentWrapper.innerHTML = html;
-      inicializarVista();
-
-    } catch (err) {
-      error('Excepción al cargar billetera:', err);
-      if (window.Swal?.fire) {
-        swalFireEV({ icon: 'error', title: 'Error de conexión', text: 'No pudimos cargar tu billetera. Revisa tu conexión.' });
-      }
-    }
-  }
-
-  function engancharMenuBilletera() {
-    const contentWrapper = document.querySelector('.content-wrapper');
-    if (!contentWrapper) return;
-
-    const enlaces = Array.from(document.querySelectorAll('a'));
-    const linkBilletera = enlaces.find((a) => ((a.textContent || '').trim().toLowerCase() === 'mi billetera'));
-
-    if (!linkBilletera) return;
-    if (linkBilletera.dataset.evWalletHooked === '1') return;
-
-    linkBilletera.dataset.evWalletHooked = '1';
-    linkBilletera.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      cargarVistaParcialBilletera(contentWrapper);
-    });
-  }
-
   document.addEventListener('DOMContentLoaded', () => {
-    engancharMenuBilletera();
     inicializarVista();
   });
 
   const observer = new MutationObserver(() => {
     const wrapperActual = document.querySelector('.ev-wallet-wrapper');
-    if (wrapperActual && wrapperActual !== refs.wrapper) inicializarVista();
-    engancharMenuBilletera();
+    if (wrapperActual && wrapperActual !== refs.wrapper) {
+      inicializarVista();
+    }
   });
 
   observer.observe(document.body, { childList: true, subtree: true });

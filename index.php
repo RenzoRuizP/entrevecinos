@@ -3,6 +3,7 @@
 // index.php — Enrutamiento centralizado (EV)
 // Shell único (MenuPrincipal) + parciales para módulos
 // + Bloqueo por CUENTA OBSERVADA (vecino) con página dedicada
+// + Expulsión inmediata en siguiente request si SOPORTE bloquea cuenta
 // ============================================================
 
 declare(strict_types=1);
@@ -99,6 +100,85 @@ function evRenderSesionFinalizada(string $loginUrl): void
 }
 
 /**
+ * ✅ NUEVO: render para cuenta bloqueada/inactiva detectada en la siguiente request.
+ */
+function evRenderCuentaBloqueada(string $loginUrl): void
+{
+    http_response_code(403);
+    header('Content-Type: text/html; charset=utf-8');
+    ?>
+    <!doctype html>
+    <html lang="es">
+    <head>
+        <meta charset="utf-8" />
+        <title>Cuenta bloqueada | Entre Vecinos</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    </head>
+    <body>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Tu cuenta fue bloqueada',
+                text: 'Por seguridad, se cerró tu sesión. Si necesitas más información, comunícate con soporte.',
+                confirmButtonText: 'Ir al login',
+                confirmButtonColor: '#EA7C12',
+                allowOutsideClick: false,
+                allowEscapeKey: false
+            }).then(function () {
+                window.location.href = <?php echo json_encode($loginUrl); ?>;
+            });
+        });
+    </script>
+    </body>
+    </html>
+    <?php
+    exit;
+}
+
+/**
+ * ✅ NUEVO: obtiene el estado actual del usuario desde BD.
+ * Tabla: usuario.estado
+ * 0 = Inactivo
+ * 1 = En revisión
+ * 2 = Habilitado
+ */
+function evObtenerEstadoUsuario(int $codigoUsuario): ?int
+{
+    try {
+        if (!class_exists('Conexion')) {
+            return null;
+        }
+
+        $cn = new Conexion();
+
+        if (!method_exists($cn, 'getDblink')) {
+            return null;
+        }
+
+        /** @var PDO|null $db */
+        $db = $cn->getDblink();
+        if (!$db) return null;
+
+        $sql = "SELECT estado
+                FROM usuario
+                WHERE codigo_usuario = :id
+                LIMIT 1";
+        $st = $db->prepare($sql);
+        $st->execute([':id' => $codigoUsuario]);
+
+        $valor = $st->fetchColumn();
+        if ($valor === false || $valor === null) return null;
+
+        return (int)$valor;
+    } catch (Throwable $e) {
+        error_log('[EV][INDEX][evObtenerEstadoUsuario] ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
  * ✅ Check rápido (router-level) si el vecino está OBSERVADO.
  * Usa tu tabla: usuario_revision (estado_revision = 3).
  */
@@ -135,36 +215,18 @@ function evUsuarioEstaObservado(int $codigoUsuario): bool
  */
 function evUsuarioEstaEnRevisionInicial(int $codigoUsuario): bool
 {
-    try {
-        if (!class_exists('Conexion')) {
-            return false;
-        }
+    $estado = evObtenerEstadoUsuario($codigoUsuario);
+    return ($estado === 1);
+}
 
-        $cn = new Conexion();
-
-        if (!method_exists($cn, 'getDblink')) {
-            return false;
-        }
-
-        /** @var PDO|null $db */
-        $db = $cn->getDblink();
-        if (!$db) return false;
-
-        $sql = "SELECT estado
-                FROM usuario
-                WHERE codigo_usuario = :id
-                LIMIT 1";
-        $st = $db->prepare($sql);
-        $st->execute([':id' => $codigoUsuario]);
-        $row = $st->fetch(PDO::FETCH_ASSOC);
-
-        if (!$row) return false;
-
-        return ((int)($row['estado'] ?? 0) === 1);
-    } catch (Throwable $e) {
-        error_log('[EV][INDEX][evUsuarioEstaEnRevisionInicial] ' . $e->getMessage());
-        return false;
-    }
+/**
+ * ✅ NUEVO: check si el vecino está bloqueado/inactivo.
+ * Tabla: usuario.estado = 0
+ */
+function evUsuarioEstaBloqueado(int $codigoUsuario): bool
+{
+    $estado = evObtenerEstadoUsuario($codigoUsuario);
+    return ($estado === 0);
 }
 
 function evRutaPermitidaEnObservacion(string $uri): bool
@@ -352,7 +414,6 @@ $routes = [
     // ✅ NUEVO: revisión de publicación (aprobar / rechazar / observar)
     ['POST', '#^/api/soporte/productos/(\d+)/revisar$#', [apiSoporteProductosController::class, 'revisar'], 'json'],
 
-
     // ==========================================================
     // ✅ ALIAS COMPATIBILIDAD (tu front llama /api/soporte-productos/...)
     //    Esto elimina RUTA_NO_ENCONTRADA sin romper nada.
@@ -361,7 +422,6 @@ $routes = [
     ['GET',  '#^/api/soporte-productos/(\d+)$#',        [apiSoporteProductosController::class, 'detalle'], 'json'],
     ['POST', '#^/api/soporte-productos/(\d+)/estado$#', [apiSoporteProductosController::class, 'actualizarEstado'], 'json'],
     ['POST', '#^/api/soporte-productos/(\d+)/revisar$#', [apiSoporteProductosController::class, 'revisar'], 'json'],
-
 
     ['GET',  '#^/api/soporte/usuarios$#',              [apiSoporteUsuariosController::class, 'listar'], 'json'],
     ['POST', '#^/api/soporte/usuarios/(\d+)/estado$#', [apiSoporteUsuariosController::class, 'actualizarEstado'], 'json'],
@@ -439,6 +499,26 @@ foreach ($routes as $r) {
         $esVecino = ($codigoUsuario > 0 && $codigoRol !== $adminId && $codigoRol !== $soporteId);
 
         if ($esVecino && $codigoUsuario > 0) {
+            // =========================================================
+            // ✅ NUEVO: si soporte bloqueó al usuario (estado=0),
+            // se expulsa en la siguiente request y se elimina el token.
+            // =========================================================
+            if (evUsuarioEstaBloqueado($codigoUsuario)) {
+                if (esPeticionParcial() || $type === 'json' || str_starts_with($uri, '/api/')) {
+                    header('Content-Type: application/json; charset=utf-8');
+                    http_response_code(403);
+                    echo json_encode([
+                        'ok'       => false,
+                        'error'    => 'CUENTA_BLOQUEADA',
+                        'mensaje'  => 'Tu cuenta fue bloqueada. Por seguridad, debes volver a iniciar sesión.',
+                        'redirect' => $loginUrl
+                    ], JSON_UNESCAPED_UNICODE);
+                    exit;
+                }
+
+                evRenderCuentaBloqueada($loginUrl);
+            }
+
             $observado = evUsuarioEstaObservado($codigoUsuario);
             $enRevisionInicial = evUsuarioEstaEnRevisionInicial($codigoUsuario);
 
