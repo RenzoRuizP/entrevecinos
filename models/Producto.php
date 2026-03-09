@@ -6,6 +6,12 @@
       1 = pendiente (vendedor ya publicó; espera aprobación admin)  [y también OBSERVADO se mantiene en 1]
       2 = aprobado  (aparece en marketplace)
       3 = rechazado (no disponible / rechazado por soporte/admin)
+
+    ✅ REGLA MARKETPLACE:
+      - Una publicación solo puede mostrarse en marketplace si:
+        1) producto.visible = 2
+        2) usuario.estado = 2 (Habilitado)
+      - Si el usuario está inactivo/bloqueado o en revisión, sus publicaciones NO deben verse.
 */
 
 require_once __DIR__ . '/../Config/EnvConfig.php';
@@ -131,6 +137,19 @@ class Producto extends Conexion
         }
 
         return null;
+    }
+
+    /* ==========================================================
+       ✅ NUEVO: condición base para marketplace
+       - visible = 2
+       - dueño habilitado (usuario.estado = 2)
+    ========================================================== */
+    private function whereMarketplaceUsuarioHabilitado(string $aliasProducto = 'p', string $aliasUsuario = 'u'): string
+    {
+        $aliasProducto = preg_replace('/[^a-zA-Z0-9_]/', '', $aliasProducto) ?: 'p';
+        $aliasUsuario  = preg_replace('/[^a-zA-Z0-9_]/', '', $aliasUsuario) ?: 'u';
+
+        return " {$aliasProducto}.visible = 2 AND {$aliasUsuario}.estado = 2 ";
     }
 
     /* ==========================================================
@@ -536,6 +555,7 @@ class Producto extends Conexion
 
     /* ==========================================================
        MARKETPLACE (solo aprobados: visible = 2)
+       ✅ Ahora también exige usuario habilitado (u.estado = 2)
     ========================================================== */
     public function listarAprobadosMarketplace(): array
     {
@@ -555,9 +575,10 @@ class Producto extends Conexion
                 c.nombre AS categoria_nombre,
                 DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS create_at
             FROM producto p
+            INNER JOIN usuario u ON u.codigo_usuario = p.codigo_usuario
             LEFT JOIN tipo t ON t.codigo_tipo = p.codigo_tipo
             LEFT JOIN categoria c ON c.codigo_categoria = p.codigo_categoria
-            WHERE p.visible = 2
+            WHERE " . $this->whereMarketplaceUsuarioHabilitado('p', 'u') . "
             ORDER BY p.created_at DESC
         ";
 
@@ -569,6 +590,7 @@ class Producto extends Conexion
     /* ==========================================================
        ✅ ORIGINAL: MARKETPLACE FILTRABLE + PAGINADO (visible=2)
        (Se mantiene por compatibilidad interna)
+       ✅ Ahora también exige usuario habilitado (u.estado = 2)
     ========================================================== */
     public function listarMarketplaceFiltrado(?int $tipo, ?int $categoria, string $q, int $page, int $size): array
     {
@@ -579,7 +601,7 @@ class Producto extends Conexion
         $q = trim((string)$q);
         $hasQ = ($q !== '');
 
-        $where = " WHERE p.visible = 2 ";
+        $where = " WHERE " . $this->whereMarketplaceUsuarioHabilitado('p', 'u') . " ";
         $params = [];
 
         if ($tipo !== null && $tipo > 0) {
@@ -597,7 +619,12 @@ class Producto extends Conexion
             $params[':q'] = '%' . $q . '%';
         }
 
-        $sqlTotal = "SELECT COUNT(*) AS total FROM producto p " . $where;
+        $sqlTotal = "
+            SELECT COUNT(*) AS total
+            FROM producto p
+            INNER JOIN usuario u ON u.codigo_usuario = p.codigo_usuario
+            {$where}
+        ";
         $stT = $this->dblink->prepare($sqlTotal);
         foreach ($params as $k => $v) {
             $stT->bindValue($k, $v, ($k === ':tipo' || $k === ':cat') ? PDO::PARAM_INT : PDO::PARAM_STR);
@@ -621,6 +648,7 @@ class Producto extends Conexion
                 c.nombre AS categoria_nombre,
                 DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS create_at
             FROM producto p
+            INNER JOIN usuario u ON u.codigo_usuario = p.codigo_usuario
             LEFT JOIN tipo t ON t.codigo_tipo = p.codigo_tipo
             LEFT JOIN categoria c ON c.codigo_categoria = p.codigo_categoria
             {$where}
@@ -650,6 +678,7 @@ class Producto extends Conexion
        - Visible=2
        - SOLO publicaciones de vecinos de mi mismo condominio/urbanización
        - Filtro server-side (no se puede saltar por JS)
+       ✅ NUEVO: además solo dueños habilitados (u.estado = 2)
     ========================================================== */
     public function listarMarketplaceFiltradoPorResidencia(
         int $codigoUsuarioViewer,
@@ -677,7 +706,7 @@ class Producto extends Conexion
         $hasQ = ($q !== '');
 
         // ✅ WHERE base
-        $where = " WHERE p.visible = 2 ";
+        $where = " WHERE " . $this->whereMarketplaceUsuarioHabilitado('p', 'u') . " ";
         $params = [];
 
         // ✅ Scope por residencia (EXISTS evita duplicados)
@@ -721,7 +750,12 @@ class Producto extends Conexion
         }
 
         // Total
-        $sqlTotal = "SELECT COUNT(*) AS total FROM producto p " . $where;
+        $sqlTotal = "
+            SELECT COUNT(*) AS total
+            FROM producto p
+            INNER JOIN usuario u ON u.codigo_usuario = p.codigo_usuario
+            {$where}
+        ";
         $stT = $this->dblink->prepare($sqlTotal);
         foreach ($params as $k => $v) {
             $stT->bindValue($k, $v, ($k === ':tipo' || $k === ':cat' || $k === ':cond' || $k === ':urb') ? PDO::PARAM_INT : PDO::PARAM_STR);
@@ -746,6 +780,7 @@ class Producto extends Conexion
                 c.nombre AS categoria_nombre,
                 DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS create_at
             FROM producto p
+            INNER JOIN usuario u ON u.codigo_usuario = p.codigo_usuario
             LEFT JOIN tipo t ON t.codigo_tipo = p.codigo_tipo
             LEFT JOIN categoria c ON c.codigo_categoria = p.codigo_categoria
             {$where}
@@ -772,6 +807,7 @@ class Producto extends Conexion
 
     /* ==========================================================
        DESTACADAS PAGADAS (solo aprobados: visible = 2)
+       ✅ Ahora también exige usuario habilitado (u.estado = 2)
     ========================================================== */
     public function listarDestacadasPagadas(int $limit = 12): array
     {
@@ -786,7 +822,7 @@ class Producto extends Conexion
         $hasEsDestacado    = isset($cols['es_destacado']);
         $hasDestacado      = isset($cols['destacado']);
 
-        $where = "WHERE p.visible = 2";
+        $where = "WHERE " . $this->whereMarketplaceUsuarioHabilitado('p', 'u');
 
         if ($hasDestacadoHasta) {
             $where .= " AND p.destacado_hasta IS NOT NULL AND p.destacado_hasta > NOW()";
@@ -807,6 +843,7 @@ class Producto extends Conexion
                 p.precio,
                 p.imagen_portada
             FROM producto p
+            INNER JOIN usuario u ON u.codigo_usuario = p.codigo_usuario
             {$where}
             ORDER BY p.created_at DESC
             LIMIT {$limit}
