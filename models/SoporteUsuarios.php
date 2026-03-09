@@ -36,18 +36,19 @@ final class SoporteUsuarios extends Conexion
         $where  = [];
         $params = [];
 
+        // Última revisión del usuario
         $joinRevision = "
             LEFT JOIN (
                 SELECT
-                    codigo_usuario,
-                    MAX(estado_revision)     AS estado_revision,
-                    MAX(mensaje_observacion) AS mensaje_observacion,
-                    MAX(comprobante_path)    AS comprobante_path
-                FROM usuario_revision
-                GROUP BY codigo_usuario
-            ) ur ON ur.codigo_usuario = u.codigo_usuario
+                    urx.codigo_usuario,
+                    urx.estado_revision,
+                    urx.mensaje_observacion,
+                    urx.comprobante_path
+                FROM usuario_revision urx
+            ) rev ON rev.codigo_usuario = u.codigo_usuario
         ";
 
+        // Última residencia vigente
         $joinResidencia = "
             LEFT JOIN (
                 SELECT r1.*
@@ -59,34 +60,54 @@ final class SoporteUsuarios extends Conexion
                 ) r2
                   ON r2.codigo_usuario = r1.codigo_usuario
                  AND r2.max_id = r1.codigo_usuario_residencia
-            ) r ON r.codigo_usuario = u.codigo_usuario
+            ) rv ON rv.codigo_usuario = u.codigo_usuario
         ";
 
-        // =========================
-        // FILTRO DE ESTADO
-        // =========================
+        // Última solicitud de residencia ABIERTA (pendiente u observada)
+        $joinSolicitudResidencia = "
+            LEFT JOIN (
+                SELECT s1.*
+                FROM usuario_residencia_solicitud s1
+                INNER JOIN (
+                    SELECT codigo_usuario, MAX(codigo_solicitud) AS max_id
+                    FROM usuario_residencia_solicitud
+                    WHERE estado IN ('pendiente','observada')
+                    GROUP BY codigo_usuario
+                ) s2
+                  ON s2.codigo_usuario = s1.codigo_usuario
+                 AND s2.max_id = s1.codigo_solicitud
+            ) rs ON rs.codigo_usuario = u.codigo_usuario
+        ";
+
+        // Filtro estado visual
         switch ($estado) {
             case 'observado':
-                $where[] = 'ur.estado_revision = 3';
+                $where[] = "(
+                    rev.estado_revision = 3
+                    OR rs.estado = 'observada'
+                )";
                 break;
 
             case 'revision':
-                // DDL: 1=En revision, 2=Habilitado, 3=Observado
-                // (Toleramos 0 por compatibilidad de data antigua si existiera)
-                $where[] = '(
+                $where[] = "(
                     u.estado = 1
-                    AND (ur.estado_revision IS NULL OR ur.estado_revision IN (0,1))
-                )';
+                    AND (
+                        rs.estado = 'pendiente'
+                        OR rev.estado_revision IS NULL
+                        OR rev.estado_revision IN (0,1)
+                    )
+                )";
                 break;
 
             case 'habilitado':
-                $where[] = 'u.estado = 2';
+                $where[] = "u.estado = 2";
                 break;
 
             case 'inactivo':
-                // ✅ CLAVE (evita doble aparición):
-                // Si está OBSERVADO (estado_revision=3), no entra en "Inactivos".
-                $where[] = '(u.estado = 0 AND (ur.estado_revision IS NULL OR ur.estado_revision <> 3))';
+                $where[] = "(
+                    u.estado = 0
+                    AND (rev.estado_revision IS NULL OR rev.estado_revision <> 3)
+                )";
                 break;
 
             case 'todos':
@@ -94,50 +115,63 @@ final class SoporteUsuarios extends Conexion
                 break;
         }
 
-        // =========================
-        // FILTRO BUSQUEDA
-        // =========================
         if ($q !== '') {
             $where[] = "(u.nombre LIKE :q OR u.email LIKE :q OR u.documento LIKE :q)";
             $params[':q'] = "%{$q}%";
         }
 
-        // =========================
-        // FILTRO CONJUNTO
-        // =========================
+        // Filtro conjunto: prioriza solicitud abierta; si no hay, usa vigente
         if ($conjunto === 'condominio') {
-            $where[] = "(LOWER(COALESCE(r.tipo_conjunto,'')) LIKE '%cond%')";
+            $where[] = "(
+                (rs.codigo_solicitud IS NOT NULL AND rs.tipo_conjunto = 'condominio')
+                OR
+                (rs.codigo_solicitud IS NULL AND rv.tipo_conjunto = 'condominio')
+            )";
+
             if ($conjuntoId > 0) {
-                $where[] = "r.codigo_condominio = :conjunto_id";
+                $where[] = "(
+                    (rs.codigo_solicitud IS NOT NULL AND rs.codigo_condominio = :conjunto_id)
+                    OR
+                    (rs.codigo_solicitud IS NULL AND rv.codigo_condominio = :conjunto_id)
+                )";
                 $params[':conjunto_id'] = $conjuntoId;
             }
         } elseif ($conjunto === 'urbanizacion') {
-            $where[] = "(LOWER(COALESCE(r.tipo_conjunto,'')) LIKE '%urban%')";
+            $where[] = "(
+                (rs.codigo_solicitud IS NOT NULL AND rs.tipo_conjunto = 'urbanizacion')
+                OR
+                (rs.codigo_solicitud IS NULL AND rv.tipo_conjunto = 'urbanizacion')
+            )";
+
             if ($conjuntoId > 0) {
-                $where[] = "r.codigo_urbanizacion = :conjunto_id";
+                $where[] = "(
+                    (rs.codigo_solicitud IS NOT NULL AND rs.codigo_urbanizacion = :conjunto_id)
+                    OR
+                    (rs.codigo_solicitud IS NULL AND rv.codigo_urbanizacion = :conjunto_id)
+                )";
                 $params[':conjunto_id'] = $conjuntoId;
             }
         }
 
         $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
-        // =========================
-        // TOTAL
-        // =========================
-        $stTotal = $db->prepare("
+        $sqlTotal = "
             SELECT COUNT(*)
             FROM usuario u
             {$joinRevision}
             {$joinResidencia}
+            {$joinSolicitudResidencia}
             {$whereSql}
-        ");
-        $stTotal->execute($params);
+        ";
+
+        $stTotal = $db->prepare($sqlTotal);
+        foreach ($params as $k => $v) {
+            $stTotal->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stTotal->execute();
         $total = (int)$stTotal->fetchColumn();
 
-        // =========================
-        // ITEMS
-        // =========================
-        $st = $db->prepare("
+        $sql = "
             SELECT
                 u.codigo_usuario,
                 u.nombre,
@@ -146,33 +180,63 @@ final class SoporteUsuarios extends Conexion
                 u.telefono,
                 u.estado AS usuario_estado,
 
-                ur.estado_revision,
-                ur.mensaje_observacion,
+                rev.estado_revision,
+                rev.mensaje_observacion,
+                rev.comprobante_path,
 
-                r.tipo_conjunto,
-                r.direccion,
+                rv.tipo_conjunto           AS tipo_conjunto_vigente,
+                rv.codigo_condominio       AS codigo_condominio_vigente,
+                rv.codigo_urbanizacion     AS codigo_urbanizacion_vigente,
+                rv.direccion               AS direccion_vigente,
+                rv.comprobante_domicilio   AS comprobante_vigente,
 
-                COALESCE(
-                    ur.comprobante_path,
-                    r.comprobante_domicilio
-                ) AS comprobante_domicilio
+                rs.codigo_solicitud,
+                rs.tipo_conjunto           AS tipo_conjunto_solicitado,
+                rs.codigo_condominio       AS codigo_condominio_solicitado,
+                rs.codigo_urbanizacion     AS codigo_urbanizacion_solicitado,
+                rs.direccion               AS direccion_solicitada,
+                rs.comprobante_domicilio   AS comprobante_solicitado,
+                rs.estado                  AS estado_solicitud_residencia,
+                rs.comentario_admin        AS comentario_admin_solicitud,
+
+                CASE WHEN rs.codigo_solicitud IS NOT NULL THEN 1 ELSE 0 END AS es_cambio_residencia,
+
+                CASE
+                    WHEN rs.codigo_solicitud IS NOT NULL THEN rs.tipo_conjunto
+                    ELSE rv.tipo_conjunto
+                END AS tipo_conjunto,
+
+                CASE
+                    WHEN rs.codigo_solicitud IS NOT NULL THEN rs.direccion
+                    ELSE rv.direccion
+                END AS direccion,
+
+                CASE
+                    WHEN rs.codigo_solicitud IS NOT NULL THEN rs.comprobante_domicilio
+                    ELSE COALESCE(rev.comprobante_path, rv.comprobante_domicilio)
+                END AS comprobante_domicilio
 
             FROM usuario u
             {$joinRevision}
             {$joinResidencia}
+            {$joinSolicitudResidencia}
             {$whereSql}
             ORDER BY
                 CASE
-                    WHEN ur.estado_revision = 3 THEN 3
-                    WHEN ur.estado_revision = 1 THEN 2
-                    ELSE 1
+                    WHEN rs.estado = 'pendiente' THEN 4
+                    WHEN rs.estado = 'observada' THEN 3
+                    WHEN rev.estado_revision = 3 THEN 2
+                    WHEN u.estado = 1 THEN 1
+                    ELSE 0
                 END DESC,
                 u.codigo_usuario DESC
             LIMIT :limit OFFSET :offset
-        ");
+        ";
+
+        $st = $db->prepare($sql);
 
         foreach ($params as $k => $v) {
-            $st->bindValue($k, $v);
+            $st->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
         }
         $st->bindValue(':limit', $limit, PDO::PARAM_INT);
         $st->bindValue(':offset', $offset, PDO::PARAM_INT);
@@ -207,13 +271,6 @@ final class SoporteUsuarios extends Conexion
         return $st->rowCount() > 0;
     }
 
-    /**
-     * ✅ OPCIÓN A (RAÍZ):
-     * Si el usuario estaba OBSERVADO (estado_revision=3) y lo INACTIVAS,
-     * aquí lo desmarcamos para que no quede en doble estado.
-     *
-     * No borramos el registro (evita impactos), solo cambiamos 3 -> 1 (En revisión).
-     */
     public function quitarObservado(int $codigoUsuario): bool
     {
         $codigoUsuario = (int)$codigoUsuario;
@@ -236,13 +293,6 @@ final class SoporteUsuarios extends Conexion
         }
     }
 
-    /**
-     * ✅ Guarda observación en usuario_revision SIN marcar observado.
-     * Para el caso: "Desactivar" con mensaje.
-     *
-     * - Si existe registro: actualiza mensaje_observacion (no toca estado_revision).
-     * - Si no existe: inserta con estado_revision=1 (En revisión) respetando tu DDL.
-     */
     public function guardarObservacionRevision(int $codigoUsuario, string $observacion): bool
     {
         $codigoUsuario = (int)$codigoUsuario;
@@ -292,10 +342,6 @@ final class SoporteUsuarios extends Conexion
         }
     }
 
-    /**
-     * ✅ Limpia revisión/observación al aprobar:
-     * deja estado_revision=2 (Habilitado) y mensaje_observacion NULL.
-     */
     public function limpiarRevision(int $codigoUsuario): bool
     {
         $codigoUsuario = (int)$codigoUsuario;

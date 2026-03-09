@@ -8,7 +8,6 @@ $baseUrl = rtrim(BASE_URL, '/');
 
 <div class="container-fluid py-4 ev-au-page">
 
-  <!-- HERO -->
   <div class="card ev-card ev-hero mb-4">
     <div class="ev-hero-body">
       <div class="ev-hero-top">
@@ -26,7 +25,6 @@ $baseUrl = rtrim(BASE_URL, '/');
         </div>
 
         <div class="ev-hero-right">
-          <!-- ✅ Notificaciones: link directo -->
           <a class="ev-icon-btn" href="<?= $baseUrl ?>/notificaciones-residencia" aria-label="Notificaciones">
             <i class="bi bi-bell"></i>
           </a>
@@ -39,15 +37,13 @@ $baseUrl = rtrim(BASE_URL, '/');
           <span class="ev-summary-count" id="lblTotal">0</span>
         </div>
 
-        <!-- ✅ Chips / filtros rápidos -->
         <div class="ev-quick-actions">
           <button type="button" class="btn ev-btn-light ev-chip js-ev-chip ev-chip-active" data-estado="revision" aria-pressed="true">
             <i class="bi bi-hourglass-split"></i> En revisión
           </button>
-          <button class="js-ev-chip" data-estado="observado">
-            Observados
+          <button type="button" class="btn ev-btn-light ev-chip js-ev-chip" data-estado="observado" aria-pressed="false">
+            <i class="bi bi-exclamation-triangle"></i> Observados
           </button>
-
           <button type="button" class="btn ev-btn-light ev-chip js-ev-chip" data-estado="habilitado" aria-pressed="false">
             <i class="bi bi-check2-circle"></i> Habilitados
           </button>
@@ -59,11 +55,9 @@ $baseUrl = rtrim(BASE_URL, '/');
           </button>
         </div>
       </div>
-
     </div>
   </div>
 
-  <!-- FILTROS -->
   <div class="card ev-card mb-4">
     <div class="ev-card-header">
       <div class="ev-card-header-row">
@@ -87,7 +81,7 @@ $baseUrl = rtrim(BASE_URL, '/');
           <label class="form-label fw-semibold">Estado</label>
           <select class="form-select ev-input" id="filtroEstado">
             <option value="revision" selected>En revisión</option>
-            <option value="observado" >Observados</option>
+            <option value="observado">Observados</option>
             <option value="habilitado">Habilitados</option>
             <option value="inactivo">Inactivos</option>
             <option value="todos">Todos</option>
@@ -131,7 +125,6 @@ $baseUrl = rtrim(BASE_URL, '/');
     </div>
   </div>
 
-  <!-- TABLA -->
   <div class="card ev-card">
     <div class="ev-card-header">
       <div class="ev-card-header-row">
@@ -179,12 +172,14 @@ $baseUrl = rtrim(BASE_URL, '/');
 
 </div>
 
-<!-- MODAL: Revisar -->
 <div class="modal fade" id="modalRevisarCuenta" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content ev-modal">
       <div class="modal-header ev-modal-header">
-        <h5 class="modal-title">Revisar cuenta</h5>
+        <div class="d-flex flex-column">
+          <h5 class="modal-title mb-1">Revisar registro</h5>
+          <small class="text-white-50" id="mModalTipoRevision">Cuenta de usuario</small>
+        </div>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
 
@@ -206,11 +201,10 @@ $baseUrl = rtrim(BASE_URL, '/');
               <div class="ev-kv-item"><span>Dirección</span><strong id="mDireccion">—</strong></div>
             </div>
 
-            <div class="ev-hint mt-3">
+            <div class="ev-hint mt-3" id="mHintRevision">
               Verifica que el comprobante coincida con la residencia.
             </div>
 
-            <!-- ✅ OBSERVACIÓN (RESTAURADO) -->
             <div class="mt-3">
               <label class="form-label fw-semibold mb-2">Observación</label>
               <textarea id="mObsTexto" class="form-control ev-input" rows="3"
@@ -232,18 +226,9 @@ $baseUrl = rtrim(BASE_URL, '/');
                 <a href="#" target="_blank" id="mLinkComprobante" class="small" style="display:none;">Abrir</a>
               </div>
 
-              <div class="ev-proof-actions px-3">
-                <!-- vacío -->
-              </div>
-
               <div class="ev-proof-box">
-                <!-- IMG -->
                 <img id="mImgComprobante" src="" alt="Comprobante" class="img-fluid rounded-3 border" style="display:none; max-height: 420px;">
-
-                <!-- PDF -->
                 <iframe id="mPdfComprobante" class="ev-doc-frame" style="display:none;" src=""></iframe>
-
-                <!-- Empty -->
                 <div id="mNoComprobante" class="ev-proof-empty">No hay comprobante adjunto.</div>
               </div>
 
@@ -264,18 +249,5 @@ $baseUrl = rtrim(BASE_URL, '/');
 </div>
 
 <script>
-  // En tu Shell ya existe, pero lo dejamos seguro:
   window.BASE_URL = window.BASE_URL || "<?= $baseUrl ?>";
-</script>
-
-<!-- ✅ Importante: si esta vista entra por AJAX, el JS debe inicializarse igual -->
-<script src="<?= rtrim(BASE_URL,'/') ?>/views/js/atenderCuentasUsuario.js?v=<?= time() ?>"></script>
-
-<script>
-  // Refresco inmediato si el módulo ya fue cargado por el shell
-  if (window.EV_AtenderCuentasUsuario && typeof window.EV_AtenderCuentasUsuario.refresh === 'function') {
-    window.EV_AtenderCuentasUsuario.refresh();
-  } else if (window.EV_AtenderCuentasUsuario && typeof window.EV_AtenderCuentasUsuario.init === 'function') {
-    window.EV_AtenderCuentasUsuario.init();
-  }
 </script>

@@ -8,16 +8,11 @@
   let observer = null;
   let modalInstance = null;
   let currentId = null;
+  let currentKind = "usuario"; // usuario | residencia
 
-  // Evita doble inicialización por navegación AJAX
   let lastInitKey = "";
-
-  // ✅ Estado de búsqueda global
   let searchActive = false;
 
-  // =========================
-  // Helpers
-  // =========================
   function esc(s) {
     return String(s ?? "")
       .replace(/&/g, "&amp;")
@@ -48,19 +43,15 @@
     };
   }
 
-  /**
-   * ✅ Solo consideramos que estamos en el módulo "Atender cuentas"
-   */
   function isAtenderCuentasView() {
     const c = getControls();
     return !!(c.selModo && c.selEstado && c.inpBuscar);
   }
 
   function getTbody() {
-    return byId("evUsuariosBody") || byId("tablaUsuariosBody") || null;
+    return byId("evUsuariosBody") || null;
   }
 
-  // Debounce helper (para búsqueda en vivo)
   function debounce(fn, wait) {
     let t = null;
     return function (...args) {
@@ -69,9 +60,6 @@
     };
   }
 
-  // =========================
-  // Estados
-  // =========================
   function normalizarEstado(v) {
     const s = String(v ?? "").trim().toLowerCase();
 
@@ -82,14 +70,27 @@
     if (["todos", "all"].includes(s)) return "todos";
 
     if (["revision", "en_revision", "en revisión"].includes(s)) return "revision";
-    if (["habilitado", "habilitados"].includes(s)) return "habilitado";
-    if (["observado", "observados"].includes(s)) return "observado";
-    if (["inactivo", "inactivos"].includes(s)) return "inactivo";
+    if (["habilitado", "habilitados", "aprobada", "aprobado"].includes(s)) return "habilitado";
+    if (["observado", "observados", "observada"].includes(s)) return "observado";
+    if (["inactivo", "inactivos", "rechazada", "rechazado"].includes(s)) return "inactivo";
 
     return "revision";
   }
 
-  function estadoToApiValue(estado) {
+  function estadoToApiValue(estado, modo) {
+    const isResidencias = String(modo || "").toLowerCase().includes("res");
+
+    if (isResidencias) {
+      switch (estado) {
+        case "revision": return "pendiente";
+        case "habilitado": return "aprobada";
+        case "observado": return "observada";
+        case "inactivo": return "rechazada";
+        case "todos": return "all";
+        default: return "pendiente";
+      }
+    }
+
     switch (estado) {
       case "revision": return "1";
       case "habilitado": return "2";
@@ -100,8 +101,24 @@
     }
   }
 
-  function badgeEstadoUsuario(estado) {
+  function badgeEstadoUsuario(estado, esCambioResidencia = false, estadoSolicitud = "") {
     const n = Number(estado);
+    const estSol = String(estadoSolicitud || "").toLowerCase();
+
+    if (esCambioResidencia) {
+      if (estSol === "observada") {
+        return `<div class="d-flex flex-column align-items-center gap-1">
+          <span class="ev-badge ev-off"><i class="bi bi-exclamation-triangle"></i> Observada</span>
+          <span class="ev-badge ev-res"><i class="bi bi-house-door"></i> Cambio de residencia</span>
+        </div>`;
+      }
+      if (estSol === "pendiente") {
+        return `<div class="d-flex flex-column align-items-center gap-1">
+          <span class="ev-badge ev-review"><i class="bi bi-hourglass-split"></i> En revisión</span>
+          <span class="ev-badge ev-res"><i class="bi bi-house-door"></i> Cambio de residencia</span>
+        </div>`;
+      }
+    }
 
     if (n === 3) {
       return `<span class="ev-badge ev-off"><i class="bi bi-exclamation-triangle"></i> Observado</span>`;
@@ -116,15 +133,19 @@
   }
 
   function residenciaTxt(it) {
-    const tipoRaw = it.tipo_conjunto || it.tipoConjunto || it.conjunto_tipo || it.tipo || "";
+    const tipoRaw = it.tipo_conjunto || "";
     const tipo = String(tipoRaw).toLowerCase();
     if (!tipo) return `<span class="text-muted">—</span>`;
 
-    const dir = it.direccion || it.direccion_residencia || it.dir || "";
+    const dir = it.direccion || "";
     const t = tipo.includes("cond") ? "Condominio" : "Urbanización";
+    const extra = Number(it.es_cambio_residencia || 0) === 1
+      ? `<div class="small text-warning fw-semibold mt-1">Solicitud de cambio</div>`
+      : "";
 
     return `<div class="fw-semibold">${esc(t)}</div>
-            <div class="text-muted small">${esc(dir || "—")}</div>`;
+            <div class="text-muted small">${esc(dir || "—")}</div>
+            ${extra}`;
   }
 
   function setLoading(tbody) {
@@ -139,21 +160,15 @@
     tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 ev-empty">Error al cargar datos.</td></tr>`;
   }
 
-  // =========================
-  // Endpoint
-  // =========================
   function endpointList(modo) {
     const m = String(modo || "").toLowerCase();
     if (m.includes("res")) return `${baseUrl}/api/soporte/residencias`;
     return `${baseUrl}/api/soporte/usuarios`;
   }
 
-  // =========================
-  // Combo Conjunto -> Condominio/Urbanización
-  // =========================
   function normalizarConjuntoUI(v) {
     const s = String(v ?? "").trim().toLowerCase();
-    if (!s) return "";
+    if (!s || s === "todos") return "";
     if (s.includes("cond")) return "condominio";
     if (s.includes("urban")) return "urbanizacion";
     return "";
@@ -240,70 +255,92 @@
     }
   }
 
-  // =========================
-  // Modal: modo "view" vs "review"
-  // =========================
-  function setModalMode(mode) {
-    const m = String(mode || "review").toLowerCase();
-
+  function setModalMode(kind, modeLabel) {
+    const lbl = byId("mModalTipoRevision");
     const btnObs = byId("btnModalObservar");
     const btnApr = byId("btnModalAprobar");
     const btnIna = byId("btnModalInactivar");
+    const hint = byId("mHintRevision");
 
-    const isView = (m === "view");
+    const isResidencia = kind === "residencia";
 
-    // view (habilitado): SOLO boton Inactivar visible
-    if (btnObs) btnObs.style.display = isView ? "none" : "";
-    if (btnApr) btnApr.style.display = isView ? "none" : "";
-    if (btnIna) btnIna.style.display = "";
+    if (lbl) {
+      lbl.textContent = isResidencia ? "Cambio de residencia" : "Cuenta de usuario";
+    }
+
+    if (btnObs) btnObs.textContent = "Observar";
+    if (btnApr) btnApr.textContent = isResidencia ? "Aprobar cambio" : "Activar";
+    if (btnIna) btnIna.textContent = isResidencia ? "Rechazar" : "Desactivar";
+
+    if (hint) {
+      hint.textContent = isResidencia
+        ? "Verifica que el comprobante coincida con la nueva residencia solicitada."
+        : "Verifica que el comprobante coincida con la residencia.";
+    }
   }
 
-  // =========================
-  // Render tabla
-  // =========================
-  function renderRows(tbody, items) {
+  function renderRows(tbody, items, modo) {
     if (!Array.isArray(items) || items.length === 0) {
       setEmpty(tbody);
       return;
     }
 
+    const isResidencias = String(modo || "").toLowerCase().includes("res");
+
     tbody.innerHTML = items.map((it) => {
-      const id = Number(it.codigo_usuario ?? it.id ?? 0);
+      const esCambioResidencia = isResidencias || Number(it.es_cambio_residencia || 0) === 1;
+      const id = Number(esCambioResidencia ? (it.codigo_solicitud ?? 0) : (it.codigo_usuario ?? it.id ?? 0));
+      const actionKind = esCambioResidencia ? "residencia" : "usuario";
 
       const estadoRevision = Number(it.estado_revision ?? 0);
       const estadoUsuario = Number(it.usuario_estado ?? it.estado ?? 1);
-      const estadoVisual = estadoRevision === 3 ? 3 : estadoUsuario;
+      const estadoSolicitud = String(it.estado_solicitud_residencia || it.estado || "").toLowerCase();
+
+      let estadoVisual = estadoRevision === 3 ? 3 : estadoUsuario;
+      if (esCambioResidencia) {
+        if (estadoSolicitud === "observada") estadoVisual = 3;
+        else if (estadoSolicitud === "aprobada") estadoVisual = 2;
+        else if (estadoSolicitud === "rechazada") estadoVisual = 0;
+        else estadoVisual = 1;
+      }
 
       const nombre = esc(it.nombre || "—");
       const email = esc(it.email || "—");
       const doc = esc(it.documento || "—");
       const tel = esc(it.telefono || "—");
 
-      const comprobante = it.comprobante_domicilio || it.comprobante || it.comprobante_url || it.url_comprobante || "";
+      const tipoConjunto = it.tipo_conjunto || "";
+      const direccion = it.direccion || "";
+      const comprobante = it.comprobante_domicilio || "";
+      const observacion = it.comentario_admin_solicitud || it.mensaje_observacion || "";
 
-      const isHabilitado = Number(estadoVisual) === 2;
-      const btnText = isHabilitado ? "Ver" : "Revisar";
-      const btnClass = isHabilitado ? "ev-btn-outline" : "ev-btn-orange";
-      const btnMode = isHabilitado ? "view" : "review";
+      const btnText = esCambioResidencia
+        ? "Revisar cambio"
+        : (Number(estadoVisual) === 2 ? "Ver" : "Revisar");
+
+      const btnClass = Number(estadoVisual) === 2 ? "ev-btn-outline" : "ev-btn-orange";
 
       return `
         <tr>
           <td><div class="fw-bold">${nombre}</div><div class="text-muted small">${doc}</div></td>
           <td><div class="fw-semibold">${email}</div><div class="text-muted small">${tel}</div></td>
-          <td>${residenciaTxt(it)}</td>
-          <td class="text-center">${badgeEstadoUsuario(estadoVisual)}</td>
+          <td>${residenciaTxt({ ...it, tipo_conjunto: tipoConjunto, direccion })}</td>
+          <td class="text-center">${badgeEstadoUsuario(estadoVisual, esCambioResidencia, estadoSolicitud)}</td>
           <td class="text-end">
-            <button type="button" class="btn btn-sm ${btnClass} js-ev-revisar" data-id="${id}"
-              data-mode="${btnMode}"
+            <button type="button" class="btn btn-sm ${btnClass} js-ev-revisar"
+              data-kind="${actionKind}"
+              data-id="${id}"
               data-nombre="${nombre}"
               data-email="${email}"
               data-doc="${doc}"
               data-tel="${tel}"
-              data-tipo_conjunto="${esc(it.tipo_conjunto || "")}"
-              data-direccion="${esc(it.direccion || "")}"
+              data-tipo_conjunto="${esc(tipoConjunto)}"
+              data-direccion="${esc(direccion)}"
               data-estado="${estadoVisual}"
+              data-estado_solicitud="${esc(estadoSolicitud)}"
+              data-es_cambio_residencia="${esCambioResidencia ? '1' : '0'}"
               data-comprobante="${esc(comprobante)}"
-              data-observacion="${esc(it.mensaje_observacion || "")}">
+              data-observacion="${esc(observacion)}">
               ${btnText}
             </button>
           </td>
@@ -311,9 +348,6 @@
     }).join("");
   }
 
-  // =========================
-  // ✅ Estados de carga
-  // =========================
   function snapshotStateFromUI() {
     const c = getControls();
     return {
@@ -327,23 +361,19 @@
     };
   }
 
-  // ✅ Búsqueda GLOBAL (ignora filtros)
   function makeGlobalSearchState(txt) {
     return {
-      modo: "usuarios",     // ✅ siempre usuarios
-      estado: "todos",      // ✅ no filtra estado
-      q: txt,               // ✅ lo único que importa
-      conjunto: "",         // ✅ ignora conjunto
-      conjunto_id: "",      // ✅ ignora condominio
+      modo: "usuarios",
+      estado: "todos",
+      q: txt,
+      conjunto: "",
+      conjunto_id: "",
       page: 1,
       limit: 10,
       __globalSearch: true,
     };
   }
 
-  // =========================
-  // Carga
-  // =========================
   async function load(state) {
     const tbody = getTbody();
     if (!tbody) return;
@@ -352,14 +382,21 @@
 
     try {
       const url = new URL(endpointList(state.modo), window.location.origin);
+      const isResidencias = String(state.modo || "").toLowerCase().includes("res");
 
-      url.searchParams.set("estado", estadoToApiValue(state.estado));
+      url.searchParams.set("estado", estadoToApiValue(state.estado, state.modo));
       url.searchParams.set("q", state.q || "");
       url.searchParams.set("page", state.page);
-      url.searchParams.set("limit", state.limit);
 
-      if (state.conjunto) url.searchParams.set("conjunto", state.conjunto);
-      if (state.conjunto_id) url.searchParams.set("conjunto_id", state.conjunto_id);
+      if (isResidencias) {
+        url.searchParams.set("size", state.limit);
+        if (state.conjunto) url.searchParams.set("tipo", state.conjunto);
+        if (state.conjunto_id) url.searchParams.set("codigo", state.conjunto_id);
+      } else {
+        url.searchParams.set("limit", state.limit);
+        if (state.conjunto) url.searchParams.set("conjunto", state.conjunto);
+        if (state.conjunto_id) url.searchParams.set("conjunto_id", state.conjunto_id);
+      }
 
       url.searchParams.set("_", Date.now());
 
@@ -371,19 +408,19 @@
       const json = await resp.json();
       if (!resp.ok || json.ok !== true) throw new Error("API");
 
-      renderRows(tbody, json.data.items);
+      const items = json?.data?.items || [];
+      const total = Number(json?.data?.total || 0);
+
+      renderRows(tbody, items, state.modo);
 
       const c = getControls();
-      if (c.lblTotal) c.lblTotal.textContent = String(json.data.total ?? 0);
-
+      if (c.lblTotal) c.lblTotal.textContent = String(total);
+      if (c.pagNum) c.pagNum.textContent = String(state.page || 1);
     } catch (e) {
       setError(tbody);
     }
   }
 
-  // ===================================================
-  // Modal: abrir con botón Revisar/Ver
-  // ===================================================
   document.addEventListener("click", (e) => {
     const btn = e.target.closest(".js-ev-revisar");
     if (!btn) return;
@@ -396,6 +433,7 @@
     });
 
     currentId = Number(btn.dataset.id || 0);
+    currentKind = btn.dataset.kind || "usuario";
 
     byId("mNombre").textContent = btn.dataset.nombre || "—";
     byId("mEmail").textContent = btn.dataset.email || "—";
@@ -403,9 +441,13 @@
     byId("mTel").textContent = btn.dataset.tel || "—";
     byId("mTipoConjunto").textContent = btn.dataset.tipo_conjunto || "—";
     byId("mDireccion").textContent = btn.dataset.direccion || "—";
-    byId("mBadgeEstado").innerHTML = badgeEstadoUsuario(btn.dataset.estado);
+    byId("mBadgeEstado").innerHTML = badgeEstadoUsuario(
+      btn.dataset.estado,
+      btn.dataset.es_cambio_residencia === "1",
+      btn.dataset.estado_solicitud || ""
+    );
 
-    setModalMode(btn.dataset.mode || "review");
+    setModalMode(currentKind, btn.dataset.mode || "review");
 
     const obsTextarea = byId("mObsTexto");
     if (obsTextarea) obsTextarea.value = btn.dataset.observacion || "";
@@ -415,10 +457,13 @@
     const empty = byId("mNoComprobante");
     const link = byId("mLinkComprobante");
 
-    if (img) img.style.display = "none";
-    if (pdf) pdf.style.display = "none";
+    if (img) { img.style.display = "none"; img.src = ""; }
+    if (pdf) { pdf.style.display = "none"; pdf.src = ""; }
     if (empty) empty.style.display = "none";
-    if (link) link.style.display = "none";
+    if (link) {
+      link.style.display = "none";
+      link.href = "#";
+    }
 
     const path = btn.dataset.comprobante || "";
     if (!path) {
@@ -446,52 +491,75 @@
     modalInstance.show();
   });
 
-  // ===================================================
-  // Acción: INACTIVAR (estado 0)  ✅ AHORA GUARDA OBSERVACIÓN
-  // ===================================================
   document.addEventListener("click", async (e) => {
     const btn = e.target.closest("#btnModalInactivar");
     if (!btn) return;
 
     if (!currentId) {
-      Swal.fire({ icon: "warning", title: "Usuario no identificado", text: "No se pudo determinar la cuenta." });
+      Swal.fire({ icon: "warning", title: "Registro no identificado", text: "No se pudo determinar el registro." });
       return;
     }
 
     const obs = String(byId("mObsTexto")?.value || "").trim();
 
-    const confirm = await Swal.fire({
-      icon: "warning",
-      title: "Inactivar cuenta",
-      text: "La cuenta quedará inactiva y el usuario no podrá ingresar.",
-      showCancelButton: true,
-      confirmButtonText: "Sí, inactivar",
-      cancelButtonText: "Cancelar",
-      confirmButtonColor: "#DC2626",
-    });
-
-    if (!confirm.isConfirmed) return;
-
     try {
       btn.disabled = true;
 
-      const payload = { estado: 0 };
-      if (obs) payload.observacion = obs; // ✅ clave: enviar observación si existe
+      if (currentKind === "residencia") {
+        const confirm = await Swal.fire({
+          icon: "warning",
+          title: "Rechazar solicitud",
+          text: "La solicitud de cambio de residencia será rechazada.",
+          showCancelButton: true,
+          confirmButtonText: "Sí, rechazar",
+          cancelButtonText: "Cancelar",
+          confirmButtonColor: "#DC2626",
+        });
 
-      const resp = await fetch(`${baseUrl}/api/soporte/usuarios/${currentId}/estado`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Partial": "1" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
+        if (!confirm.isConfirmed) return;
 
-      const json = await resp.json();
-      if (!resp.ok || json.ok !== true) throw new Error(json.mensaje || "No se pudo inactivar la cuenta.");
+        const resp = await fetch(`${baseUrl}/api/soporte/residencias/${currentId}/estado`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Partial": "1" },
+          credentials: "include",
+          body: JSON.stringify({ estado: "rechazada", comentario: obs }),
+        });
 
-      Swal.fire({ icon: "success", title: "Cuenta inactivada", timer: 1400, showConfirmButton: false });
+        const json = await resp.json();
+        if (!resp.ok || json.ok !== true) throw new Error(json.mensaje || "No se pudo rechazar la solicitud.");
+
+        Swal.fire({ icon: "success", title: "Solicitud rechazada", timer: 1400, showConfirmButton: false });
+      } else {
+        const confirm = await Swal.fire({
+          icon: "warning",
+          title: "Inactivar cuenta",
+          text: "La cuenta quedará inactiva y el usuario no podrá ingresar.",
+          showCancelButton: true,
+          confirmButtonText: "Sí, inactivar",
+          cancelButtonText: "Cancelar",
+          confirmButtonColor: "#DC2626",
+        });
+
+        if (!confirm.isConfirmed) return;
+
+        const payload = { estado: 0 };
+        if (obs) payload.observacion = obs;
+
+        const resp = await fetch(`${baseUrl}/api/soporte/usuarios/${currentId}/estado`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Partial": "1" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+
+        const json = await resp.json();
+        if (!resp.ok || json.ok !== true) throw new Error(json.mensaje || "No se pudo inactivar la cuenta.");
+
+        Swal.fire({ icon: "success", title: "Cuenta inactivada", timer: 1400, showConfirmButton: false });
+      }
+
       modalInstance.hide();
 
-      // ✅ si está en búsqueda global, refresca con la búsqueda; si no, con filtros
       const c = getControls();
       const q = (c.inpBuscar?.value || "").trim();
       if (q.length >= 3) {
@@ -500,21 +568,18 @@
         await load(snapshotStateFromUI());
       }
     } catch (err) {
-      Swal.fire({ icon: "error", title: "Error", text: err.message || "Error al inactivar la cuenta." });
+      Swal.fire({ icon: "error", title: "Error", text: err.message || "Error en la operación." });
     } finally {
       btn.disabled = false;
     }
   });
 
-  // ===================================================
-  // Acción: OBSERVAR
-  // ===================================================
   document.addEventListener("click", async (e) => {
     const btn = e.target.closest("#btnModalObservar");
     if (!btn) return;
 
     if (!currentId) {
-      Swal.fire({ icon: "warning", title: "Usuario no identificado", text: "No se pudo determinar la cuenta." });
+      Swal.fire({ icon: "warning", title: "Registro no identificado", text: "No se pudo determinar el registro." });
       return;
     }
 
@@ -527,12 +592,22 @@
     try {
       btn.disabled = true;
 
-      const resp = await fetch(`${baseUrl}/api/cuenta-observada/${currentId}/observar`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Partial": "1" },
-        credentials: "include",
-        body: JSON.stringify({ observacion: obs }),
-      });
+      let resp;
+      if (currentKind === "residencia") {
+        resp = await fetch(`${baseUrl}/api/soporte/residencias/${currentId}/estado`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Partial": "1" },
+          credentials: "include",
+          body: JSON.stringify({ estado: "observada", comentario: obs }),
+        });
+      } else {
+        resp = await fetch(`${baseUrl}/api/cuenta-observada/${currentId}/observar`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Partial": "1" },
+          credentials: "include",
+          body: JSON.stringify({ observacion: obs }),
+        });
+      }
 
       const json = await resp.json();
       if (!resp.ok || json.ok !== true) throw new Error(json.mensaje || "No se pudo registrar la observación.");
@@ -554,44 +629,63 @@
     }
   });
 
-  // ===================================================
-  // Acción: APROBAR (estado 2) ✅ AHORA LIMPIA OBSERVACIÓN
-  // ===================================================
   document.addEventListener("click", async (e) => {
     const btn = e.target.closest("#btnModalAprobar");
     if (!btn) return;
 
     if (!currentId) {
-      Swal.fire({ icon: "warning", title: "Usuario no identificado", text: "No se pudo determinar la cuenta." });
+      Swal.fire({ icon: "warning", title: "Registro no identificado", text: "No se pudo determinar el registro." });
       return;
     }
-
-    const confirm = await Swal.fire({
-      icon: "question",
-      title: "Aprobar cuenta",
-      text: "Esta acción habilitará la cuenta y eliminará cualquier observación.",
-      showCancelButton: true,
-      confirmButtonText: "Sí, aprobar",
-      cancelButtonText: "Cancelar",
-      confirmButtonColor: "#EA7C12",
-    });
-
-    if (!confirm.isConfirmed) return;
 
     try {
       btn.disabled = true;
 
-      const resp = await fetch(`${baseUrl}/api/soporte/usuarios/${currentId}/estado`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Partial": "1" },
-        credentials: "include",
-        body: JSON.stringify({ estado: 2 }),
-      });
+      let resp;
+      if (currentKind === "residencia") {
+        const confirm = await Swal.fire({
+          icon: "question",
+          title: "Aprobar cambio de residencia",
+          text: "Se aprobará la nueva residencia solicitada por el usuario.",
+          showCancelButton: true,
+          confirmButtonText: "Sí, aprobar",
+          cancelButtonText: "Cancelar",
+          confirmButtonColor: "#EA7C12",
+        });
+
+        if (!confirm.isConfirmed) return;
+
+        resp = await fetch(`${baseUrl}/api/soporte/residencias/${currentId}/estado`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Partial": "1" },
+          credentials: "include",
+          body: JSON.stringify({ estado: "aprobada" }),
+        });
+      } else {
+        const confirm = await Swal.fire({
+          icon: "question",
+          title: "Aprobar cuenta",
+          text: "Esta acción habilitará la cuenta y eliminará cualquier observación.",
+          showCancelButton: true,
+          confirmButtonText: "Sí, aprobar",
+          cancelButtonText: "Cancelar",
+          confirmButtonColor: "#EA7C12",
+        });
+
+        if (!confirm.isConfirmed) return;
+
+        resp = await fetch(`${baseUrl}/api/soporte/usuarios/${currentId}/estado`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Partial": "1" },
+          credentials: "include",
+          body: JSON.stringify({ estado: 2 }),
+        });
+      }
 
       const json = await resp.json();
-      if (!resp.ok || json.ok !== true) throw new Error(json.mensaje || "No se pudo aprobar la cuenta.");
+      if (!resp.ok || json.ok !== true) throw new Error(json.mensaje || "No se pudo aprobar.");
 
-      Swal.fire({ icon: "success", title: "Cuenta aprobada", timer: 1400, showConfirmButton: false });
+      Swal.fire({ icon: "success", title: "Operación exitosa", timer: 1400, showConfirmButton: false });
       modalInstance.hide();
 
       const c = getControls();
@@ -602,15 +696,12 @@
         await load(snapshotStateFromUI());
       }
     } catch (err) {
-      Swal.fire({ icon: "error", title: "Error", text: err.message || "Error al aprobar la cuenta." });
+      Swal.fire({ icon: "error", title: "Error", text: err.message || "Error al aprobar." });
     } finally {
       btn.disabled = false;
     }
   });
 
-  // =========================
-  // Init
-  // =========================
   function init() {
     if (!isAtenderCuentasView()) return false;
 
@@ -621,9 +712,6 @@
     const c = getControls();
     wireConjuntoDependienteOnce();
 
-    // =========================
-    // CHIPS (solo afectan cuando NO estás en búsqueda global)
-    // =========================
     c.chips.forEach((chip) => {
       if (chip.dataset.evWired === "1") return;
       chip.dataset.evWired = "1";
@@ -631,7 +719,6 @@
       chip.addEventListener("click", () => {
         const q = (c.inpBuscar?.value || "").trim();
         if (q.length >= 3) {
-          // ✅ búsqueda global manda
           load(makeGlobalSearchState(q));
           return;
         }
@@ -644,9 +731,6 @@
       });
     });
 
-    // =========================
-    // ✅ BUSCAR GLOBAL (3+ caracteres) — NO depende de filtros
-    // =========================
     if (c.inpBuscar && c.inpBuscar.dataset.evWired !== "1") {
       c.inpBuscar.dataset.evWired = "1";
 
@@ -659,20 +743,15 @@
           return;
         }
 
-        // Si vuelve a vacío => regresa a filtros
         if (txt.length === 0) {
           searchActive = false;
           load(snapshotStateFromUI());
         }
-        // Si 1-2 => no hace nada (espera 3)
       }, 260);
 
       c.inpBuscar.addEventListener("input", onLiveSearch);
     }
 
-    // =========================
-    // Aplicar filtros (manual)
-    // =========================
     if (c.btnAplicar && c.btnAplicar.dataset.evWired !== "1") {
       c.btnAplicar.dataset.evWired = "1";
 
@@ -686,9 +765,6 @@
       });
     }
 
-    // =========================
-    // Limpiar
-    // =========================
     if (c.btnLimpiar && c.btnLimpiar.dataset.evWired !== "1") {
       c.btnLimpiar.dataset.evWired = "1";
 
@@ -710,7 +786,6 @@
       });
     }
 
-    // ✅ primera carga (si ya hay texto >=3, entra directo a búsqueda global)
     const initialQ = (c.inpBuscar?.value || "").trim();
     if (initialQ.length >= 3) {
       searchActive = true;
@@ -722,14 +797,24 @@
     return true;
   }
 
-  // =========================
-  // Observer (AJAX)
-  // =========================
+  function refresh() {
+    const c = getControls();
+    if (!isAtenderCuentasView()) return;
+    const q = (c.inpBuscar?.value || "").trim();
+    if (q.length >= 3) load(makeGlobalSearchState(q));
+    else load(snapshotStateFromUI());
+  }
+
   function bootObserver() {
     if (observer) return;
     observer = new MutationObserver(() => init());
     observer.observe(document.body, { childList: true, subtree: true });
   }
+
+  window.EV_AtenderCuentasUsuario = {
+    init,
+    refresh
+  };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {

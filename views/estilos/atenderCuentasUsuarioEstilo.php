@@ -374,4 +374,11 @@
   .ev-hero-body{ padding: 16px 14px 12px; }
   .ev-doc-frame{ height: 260px; }
 }
+
+/* NUEVO: badge para cambio de residencia */
+.ev-res{
+  background: rgba(15,89,47,0.10);
+  border-color: rgba(15,89,47,0.22);
+  color: #0F592F;
+}
 </style>

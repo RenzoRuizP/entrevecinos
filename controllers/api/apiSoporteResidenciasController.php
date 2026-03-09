@@ -1,6 +1,5 @@
 <?php
 // controllers/api/apiSoporteResidenciasController.php
-
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../models/UsuarioResidenciaSolicitud.php';
@@ -12,19 +11,23 @@ class apiSoporteResidenciasController
     {
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
-        echo json_encode($payload);
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE);
     }
 
-    private function isAdmin(): bool
+    private function puedeAcceder(): bool
     {
         $auth = $GLOBALS['EV_AUTH'] ?? [];
         $rol  = (int)($auth['codigo_rol'] ?? 0);
-        return $rol === (int)EV_ADMIN_ROLE_ID;
+
+        $adminId   = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
+        $soporteId = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
+
+        return in_array($rol, [$adminId, $soporteId], true);
     }
 
     public function listar(): void
     {
-        if (!$this->isAdmin()) {
+        if (!$this->puedeAcceder()) {
             $this->json(403, ['ok' => false, 'mensaje' => 'Acceso restringido.']);
             return;
         }
@@ -33,20 +36,29 @@ class apiSoporteResidenciasController
 
         $filtros = [
             'estado' => $_GET['estado'] ?? 'pendiente',
-            'tipo'   => $_GET['tipo'] ?? '',
-            'codigo' => $_GET['codigo'] ?? 0,
+            'tipo'   => $_GET['tipo'] ?? ($_GET['conjunto'] ?? ''),
+            'codigo' => $_GET['codigo'] ?? ($_GET['conjunto_id'] ?? 0),
             'q'      => $_GET['q'] ?? '',
             'page'   => $_GET['page'] ?? 1,
-            'size'   => $_GET['size'] ?? 10,
+            'size'   => $_GET['size'] ?? ($_GET['limit'] ?? 10),
         ];
 
         $res = $model->listarSoporte($filtros);
-        $this->json(200, $res);
+
+        $this->json(200, [
+            'ok' => true,
+            'data' => [
+                'items' => $res['data'] ?? [],
+                'total' => (int)($res['meta']['total'] ?? 0),
+                'page'  => (int)($res['meta']['page'] ?? 1),
+                'size'  => (int)($res['meta']['size'] ?? 10),
+            ]
+        ]);
     }
 
     public function actualizarEstado($codigoSolicitud): void
     {
-        if (!$this->isAdmin()) {
+        if (!$this->puedeAcceder()) {
             $this->json(403, ['ok' => false, 'mensaje' => 'Acceso restringido.']);
             return;
         }
@@ -61,7 +73,6 @@ class apiSoporteResidenciasController
         if (!is_array($body)) $body = [];
 
         $estado = strtolower(trim((string)($body['estado'] ?? '')));
-        // ✅ compatible con tu JS actual: { comentario }
         $comentario = trim((string)($body['comentario_admin'] ?? ($body['comentario'] ?? '')));
 
         if (!in_array($estado, ['pendiente','observada','aprobada','rechazada'], true)) {
@@ -71,7 +82,6 @@ class apiSoporteResidenciasController
 
         $model = new UsuarioResidenciaSolicitud();
 
-        // Antes de actualizar, traemos solicitud para notificar correctamente
         $sol = $model->obtenerSolicitud($id);
         if (!$sol) {
             $this->json(404, ['ok' => false, 'mensaje' => 'Solicitud no encontrada.']);
@@ -80,7 +90,6 @@ class apiSoporteResidenciasController
 
         $ok = $model->actualizarEstadoSoporte($id, $estado, $comentario);
 
-        // ✅ Crear notificación si OBSERVADA o RECHAZADA
         if ($ok && in_array($estado, ['observada','rechazada'], true)) {
             $codigoUsuario = (int)($sol['codigo_usuario'] ?? 0);
 
