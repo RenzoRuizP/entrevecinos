@@ -1,17 +1,20 @@
 <?php
 /*
     Modelo Producto (EV)
+
     Estados (visible):
-      0 = borrador (recién creado por vendedor; puede "Publicar")
-      1 = pendiente (vendedor ya publicó; espera aprobación admin)  [y también OBSERVADO se mantiene en 1]
-      2 = aprobado  (aparece en marketplace)
-      3 = rechazado (no disponible / rechazado por soporte/admin)
+      0 = borrador
+      1 = pendiente
+      2 = aprobado
+      3 = rechazado
 
     ✅ REGLA MARKETPLACE:
       - Una publicación solo puede mostrarse en marketplace si:
         1) producto.visible = 2
-        2) usuario.estado = 2 (Habilitado)
-      - Si el usuario está inactivo/bloqueado o en revisión, sus publicaciones NO deben verse.
+        2) usuario.estado = 2
+        3) producto.estado_residencial_publicacion = 'activa'
+      - La publicación se filtra por la residencia propia con la que fue creada,
+        NO por la residencia actual del usuario dueño.
 */
 
 require_once __DIR__ . '/../Config/EnvConfig.php';
@@ -49,24 +52,27 @@ class Producto extends Conexion
     }
 
     /* ==========================================================
-       ✅ NUEVO (RAÍZ): RESIDENCIA ACTIVA DEL USUARIO
-       - Tu regla: 1 residencia activa
-       - Como la tabla no tiene "estado/activo", tomamos la última registrada.
+       RESIDENCIA ACTIVA DEL USUARIO
+       - Fuente de verdad: última fila de usuario_residencia
     ========================================================== */
     public function obtenerResidenciaActivaUsuario(int $codigoUsuario): ?array
     {
         $sql = "
             SELECT
+                codigo_usuario_residencia,
                 tipo_conjunto,
                 codigo_condominio,
-                codigo_urbanizacion
+                codigo_urbanizacion,
+                direccion,
+                comprobante_domicilio,
+                created_at
             FROM usuario_residencia
             WHERE codigo_usuario = :u
             ORDER BY codigo_usuario_residencia DESC
             LIMIT 1
         ";
         $st = $this->dblink->prepare($sql);
-        $st->bindParam(':u', $codigoUsuario, PDO::PARAM_INT);
+        $st->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
         $st->execute();
 
         $row = $st->fetch(PDO::FETCH_ASSOC);
@@ -75,21 +81,26 @@ class Producto extends Conexion
         $tipo = strtolower(trim((string)($row['tipo_conjunto'] ?? '')));
         $cond = isset($row['codigo_condominio']) ? (int)$row['codigo_condominio'] : 0;
         $urb  = isset($row['codigo_urbanizacion']) ? (int)$row['codigo_urbanizacion'] : 0;
+        $cur  = isset($row['codigo_usuario_residencia']) ? (int)$row['codigo_usuario_residencia'] : 0;
 
+        if ($cur <= 0) return null;
         if ($tipo !== 'condominio' && $tipo !== 'urbanizacion') return null;
         if ($tipo === 'condominio' && $cond <= 0) return null;
         if ($tipo === 'urbanizacion' && $urb <= 0) return null;
 
         return [
-            'tipo_conjunto'      => $tipo,
-            'codigo_condominio'  => $cond,
-            'codigo_urbanizacion'=> $urb
+            'codigo_usuario_residencia' => $cur,
+            'tipo_conjunto'             => $tipo,
+            'codigo_condominio'         => $cond > 0 ? $cond : null,
+            'codigo_urbanizacion'       => $urb > 0 ? $urb : null,
+            'direccion'                 => (string)($row['direccion'] ?? ''),
+            'comprobante_domicilio'     => (string)($row['comprobante_domicilio'] ?? ''),
+            'created_at'                => (string)($row['created_at'] ?? ''),
         ];
     }
 
     /* ==========================================================
-       ✅ NUEVO (RAÍZ): NOMBRE DEL CONJUNTO ACTIVO (condominio/urbanización)
-       - Para pintar “Tu condominio” dinámico en UI
+       NOMBRE DEL CONJUNTO ACTIVO
     ========================================================== */
     public function obtenerNombreConjuntoActivoUsuario(int $codigoUsuario): ?array
     {
@@ -114,7 +125,7 @@ class Producto extends Conexion
             return [
                 'tipo_conjunto'     => 'condominio',
                 'nombre'            => $nombre,
-                'codigo_condominio' => $cond
+                'codigo_condominio' => $cond,
             ];
         }
 
@@ -132,7 +143,7 @@ class Producto extends Conexion
             return [
                 'tipo_conjunto'        => 'urbanizacion',
                 'nombre'               => $nombre,
-                'codigo_urbanizacion'  => $urb
+                'codigo_urbanizacion'  => $urb,
             ];
         }
 
@@ -140,35 +151,101 @@ class Producto extends Conexion
     }
 
     /* ==========================================================
-       ✅ NUEVO: condición base para marketplace
-       - visible = 2
-       - dueño habilitado (usuario.estado = 2)
+       SNAPSHOT RESIDENCIAL PARA PUBLICACIÓN
+       - Se usa al crear producto
+    ========================================================== */
+    public function obtenerSnapshotResidenciaParaPublicacion(int $codigoUsuario): ?array
+    {
+        $res = $this->obtenerResidenciaActivaUsuario($codigoUsuario);
+        if (!$res) return null;
+
+        return [
+            'codigo_usuario_residencia'      => (int)$res['codigo_usuario_residencia'],
+            'tipo_conjunto_publicacion'      => (string)$res['tipo_conjunto'],
+            'codigo_condominio_publicacion'  => $res['tipo_conjunto'] === 'condominio'
+                ? (int)($res['codigo_condominio'] ?? 0)
+                : null,
+            'codigo_urbanizacion_publicacion'=> $res['tipo_conjunto'] === 'urbanizacion'
+                ? (int)($res['codigo_urbanizacion'] ?? 0)
+                : null,
+            'estado_residencial_publicacion' => 'activa',
+        ];
+    }
+
+    /* ==========================================================
+       CONDICIÓN BASE MARKETPLACE
     ========================================================== */
     private function whereMarketplaceUsuarioHabilitado(string $aliasProducto = 'p', string $aliasUsuario = 'u'): string
     {
         $aliasProducto = preg_replace('/[^a-zA-Z0-9_]/', '', $aliasProducto) ?: 'p';
         $aliasUsuario  = preg_replace('/[^a-zA-Z0-9_]/', '', $aliasUsuario) ?: 'u';
 
-        return " {$aliasProducto}.visible = 2 AND {$aliasUsuario}.estado = 2 ";
+        return " {$aliasProducto}.visible = 2
+                 AND {$aliasUsuario}.estado = 2
+                 AND {$aliasProducto}.estado_residencial_publicacion = 'activa' ";
     }
 
     /* ==========================================================
        CREAR PRODUCTO (visible=0 borrador)
+       ✅ Guarda snapshot residencial
     ========================================================== */
     public function crearProducto(): int
     {
+        $codigoUsuario = (int)$this->codigo_usuario;
+        if ($codigoUsuario <= 0) {
+            throw new Exception('Usuario inválido para registrar producto.');
+        }
+
+        $snap = $this->obtenerSnapshotResidenciaParaPublicacion($codigoUsuario);
+        if (!$snap) {
+            throw new Exception('No se encontró una residencia activa para registrar el producto.');
+        }
+
         $sql = "
             INSERT INTO producto
-                (titulo, imagen_portada, descripcion, estado, precio, visible, codigo_usuario, codigo_tipo, codigo_categoria)
+            (
+                titulo,
+                imagen_portada,
+                descripcion,
+                estado,
+                precio,
+                visible,
+                codigo_usuario,
+                codigo_usuario_residencia,
+                tipo_conjunto_publicacion,
+                codigo_condominio_publicacion,
+                codigo_urbanizacion_publicacion,
+                estado_residencial_publicacion,
+                codigo_tipo,
+                codigo_categoria
+            )
             VALUES
-                (:titulo, :imagen_portada, :descripcion, :estado, :precio, :visible, :codigo_usuario, :codigo_tipo, :codigo_categoria)
+            (
+                :titulo,
+                :imagen_portada,
+                :descripcion,
+                :estado,
+                :precio,
+                :visible,
+                :codigo_usuario,
+                :codigo_usuario_residencia,
+                :tipo_conjunto_publicacion,
+                :codigo_condominio_publicacion,
+                :codigo_urbanizacion_publicacion,
+                :estado_residencial_publicacion,
+                :codigo_tipo,
+                :codigo_categoria
+            )
         ";
 
         $stmt = $this->dblink->prepare($sql);
         $stmt->bindParam(':titulo', $this->titulo, PDO::PARAM_STR);
 
-        if ($this->imagen_portada !== null) $stmt->bindValue(':imagen_portada', $this->imagen_portada, PDO::PARAM_STR);
-        else $stmt->bindValue(':imagen_portada', null, PDO::PARAM_NULL);
+        if ($this->imagen_portada !== null) {
+            $stmt->bindValue(':imagen_portada', $this->imagen_portada, PDO::PARAM_STR);
+        } else {
+            $stmt->bindValue(':imagen_portada', null, PDO::PARAM_NULL);
+        }
 
         $stmt->bindParam(':descripcion', $this->descripcion, PDO::PARAM_STR);
         $stmt->bindParam(':estado', $this->estado, PDO::PARAM_STR);
@@ -176,11 +253,34 @@ class Producto extends Conexion
         $stmt->bindParam(':visible', $this->visible, PDO::PARAM_INT);
         $stmt->bindParam(':codigo_usuario', $this->codigo_usuario, PDO::PARAM_INT);
 
-        if ($this->codigo_tipo !== null) $stmt->bindParam(':codigo_tipo', $this->codigo_tipo, PDO::PARAM_INT);
-        else $stmt->bindValue(':codigo_tipo', null, PDO::PARAM_NULL);
+        $stmt->bindValue(':codigo_usuario_residencia', (int)$snap['codigo_usuario_residencia'], PDO::PARAM_INT);
+        $stmt->bindValue(':tipo_conjunto_publicacion', (string)$snap['tipo_conjunto_publicacion'], PDO::PARAM_STR);
 
-        if ($this->codigo_categoria !== null) $stmt->bindParam(':codigo_categoria', $this->codigo_categoria, PDO::PARAM_INT);
-        else $stmt->bindValue(':codigo_categoria', null, PDO::PARAM_NULL);
+        if ($snap['codigo_condominio_publicacion'] !== null) {
+            $stmt->bindValue(':codigo_condominio_publicacion', (int)$snap['codigo_condominio_publicacion'], PDO::PARAM_INT);
+        } else {
+            $stmt->bindValue(':codigo_condominio_publicacion', null, PDO::PARAM_NULL);
+        }
+
+        if ($snap['codigo_urbanizacion_publicacion'] !== null) {
+            $stmt->bindValue(':codigo_urbanizacion_publicacion', (int)$snap['codigo_urbanizacion_publicacion'], PDO::PARAM_INT);
+        } else {
+            $stmt->bindValue(':codigo_urbanizacion_publicacion', null, PDO::PARAM_NULL);
+        }
+
+        $stmt->bindValue(':estado_residencial_publicacion', (string)$snap['estado_residencial_publicacion'], PDO::PARAM_STR);
+
+        if ($this->codigo_tipo !== null) {
+            $stmt->bindParam(':codigo_tipo', $this->codigo_tipo, PDO::PARAM_INT);
+        } else {
+            $stmt->bindValue(':codigo_tipo', null, PDO::PARAM_NULL);
+        }
+
+        if ($this->codigo_categoria !== null) {
+            $stmt->bindParam(':codigo_categoria', $this->codigo_categoria, PDO::PARAM_INT);
+        } else {
+            $stmt->bindValue(':codigo_categoria', null, PDO::PARAM_NULL);
+        }
 
         $stmt->execute();
         return (int)$this->dblink->lastInsertId();
@@ -353,8 +453,7 @@ class Producto extends Conexion
     }
 
     /* ==========================================================
-       ✅ NUEVO: helper para traer última revisión por varios IDs
-       Evita N+1 en listarPorUsuario()
+       REVISIÓN
     ========================================================== */
     private function obtenerUltimasRevisionesPorProductos(array $ids): array
     {
@@ -404,6 +503,11 @@ class Producto extends Conexion
                 p.codigo_tipo,
                 p.codigo_categoria,
                 p.imagen_portada,
+                p.codigo_usuario_residencia,
+                p.tipo_conjunto_publicacion,
+                p.codigo_condominio_publicacion,
+                p.codigo_urbanizacion_publicacion,
+                p.estado_residencial_publicacion,
                 t.nombre AS tipo_nombre,
                 c.nombre AS categoria_nombre,
                 DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS create_at
@@ -448,6 +552,11 @@ class Producto extends Conexion
                 p.codigo_tipo,
                 p.codigo_categoria,
                 p.imagen_portada,
+                p.codigo_usuario_residencia,
+                p.tipo_conjunto_publicacion,
+                p.codigo_condominio_publicacion,
+                p.codigo_urbanizacion_publicacion,
+                p.estado_residencial_publicacion,
                 DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS create_at
             FROM producto p
             WHERE p.codigo_producto = :p_codigo_producto
@@ -502,9 +611,8 @@ class Producto extends Conexion
     }
 
     /* ==========================================================
-       ESTADOS (acciones)
+       ESTADOS
     ========================================================== */
-
     public function publicarProducto(int $codigoProducto, int $codigoUsuario): bool
     {
         $sql = "
@@ -554,8 +662,30 @@ class Producto extends Conexion
     }
 
     /* ==========================================================
-       MARKETPLACE (solo aprobados: visible = 2)
-       ✅ Ahora también exige usuario habilitado (u.estado = 2)
+       ✅ BLOQUEAR PUBLICACIONES ANTERIORES POR CAMBIO DE RESIDENCIA
+    ========================================================== */
+    public function bloquearPublicacionesPorCambioResidencia(int $codigoUsuario, int $codigoUsuarioResidenciaNueva): int
+    {
+        $sql = "
+            UPDATE producto
+            SET estado_residencial_publicacion = 'bloqueado_por_cambio',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE codigo_usuario = :u
+              AND codigo_usuario_residencia IS NOT NULL
+              AND codigo_usuario_residencia <> :ur_nueva
+              AND estado_residencial_publicacion = 'activa'
+        ";
+
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
+        $st->bindValue(':ur_nueva', $codigoUsuarioResidenciaNueva, PDO::PARAM_INT);
+        $st->execute();
+
+        return (int)$st->rowCount();
+    }
+
+    /* ==========================================================
+       MARKETPLACE GENERAL
     ========================================================== */
     public function listarAprobadosMarketplace(): array
     {
@@ -571,6 +701,10 @@ class Producto extends Conexion
                 p.codigo_tipo,
                 p.codigo_categoria,
                 p.imagen_portada,
+                p.tipo_conjunto_publicacion,
+                p.codigo_condominio_publicacion,
+                p.codigo_urbanizacion_publicacion,
+                p.estado_residencial_publicacion,
                 t.nombre AS tipo_nombre,
                 c.nombre AS categoria_nombre,
                 DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS create_at
@@ -587,11 +721,6 @@ class Producto extends Conexion
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    /* ==========================================================
-       ✅ ORIGINAL: MARKETPLACE FILTRABLE + PAGINADO (visible=2)
-       (Se mantiene por compatibilidad interna)
-       ✅ Ahora también exige usuario habilitado (u.estado = 2)
-    ========================================================== */
     public function listarMarketplaceFiltrado(?int $tipo, ?int $categoria, string $q, int $page, int $size): array
     {
         $page = max(1, (int)$page);
@@ -644,6 +773,10 @@ class Producto extends Conexion
                 p.codigo_tipo,
                 p.codigo_categoria,
                 p.imagen_portada,
+                p.tipo_conjunto_publicacion,
+                p.codigo_condominio_publicacion,
+                p.codigo_urbanizacion_publicacion,
+                p.estado_residencial_publicacion,
                 t.nombre AS tipo_nombre,
                 c.nombre AS categoria_nombre,
                 DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS create_at
@@ -674,11 +807,8 @@ class Producto extends Conexion
     }
 
     /* ==========================================================
-       ✅ NUEVO (RAÍZ): MARKETPLACE FILTRADO POR RESIDENCIA
-       - Visible=2
-       - SOLO publicaciones de vecinos de mi mismo condominio/urbanización
-       - Filtro server-side (no se puede saltar por JS)
-       ✅ NUEVO: además solo dueños habilitados (u.estado = 2)
+       ✅ MARKETPLACE FILTRADO POR RESIDENCIA DEL VISOR
+       - Usa snapshot de la publicación, no la residencia actual del dueño
     ========================================================== */
     public function listarMarketplaceFiltradoPorResidencia(
         int $codigoUsuarioViewer,
@@ -687,11 +817,15 @@ class Producto extends Conexion
         string $q,
         int $page,
         int $size
-    ): array
-    {
+    ): array {
         $res = $this->obtenerResidenciaActivaUsuario($codigoUsuarioViewer);
         if (!$res) {
-            return ['total' => 0, 'page' => max(1, (int)$page), 'size' => max(1, min(50, (int)$size)), 'items' => []];
+            return [
+                'total' => 0,
+                'page'  => max(1, (int)$page),
+                'size'  => max(1, min(50, (int)$size)),
+                'items' => []
+            ];
         }
 
         $tipoConjunto = (string)$res['tipo_conjunto'];
@@ -705,31 +839,19 @@ class Producto extends Conexion
         $q = trim((string)$q);
         $hasQ = ($q !== '');
 
-        // ✅ WHERE base
         $where = " WHERE " . $this->whereMarketplaceUsuarioHabilitado('p', 'u') . " ";
         $params = [];
 
-        // ✅ Scope por residencia (EXISTS evita duplicados)
         if ($tipoConjunto === 'condominio') {
             $where .= "
-              AND EXISTS (
-                SELECT 1
-                FROM usuario_residencia ur
-                WHERE ur.codigo_usuario = p.codigo_usuario
-                  AND ur.tipo_conjunto = 'condominio'
-                  AND ur.codigo_condominio = :cond
-              )
+                AND p.tipo_conjunto_publicacion = 'condominio'
+                AND p.codigo_condominio_publicacion = :cond
             ";
             $params[':cond'] = $condId;
         } else {
             $where .= "
-              AND EXISTS (
-                SELECT 1
-                FROM usuario_residencia ur
-                WHERE ur.codigo_usuario = p.codigo_usuario
-                  AND ur.tipo_conjunto = 'urbanizacion'
-                  AND ur.codigo_urbanizacion = :urb
-              )
+                AND p.tipo_conjunto_publicacion = 'urbanizacion'
+                AND p.codigo_urbanizacion_publicacion = :urb
             ";
             $params[':urb'] = $urbId;
         }
@@ -749,7 +871,6 @@ class Producto extends Conexion
             $params[':q'] = '%' . $q . '%';
         }
 
-        // Total
         $sqlTotal = "
             SELECT COUNT(*) AS total
             FROM producto p
@@ -758,12 +879,15 @@ class Producto extends Conexion
         ";
         $stT = $this->dblink->prepare($sqlTotal);
         foreach ($params as $k => $v) {
-            $stT->bindValue($k, $v, ($k === ':tipo' || $k === ':cat' || $k === ':cond' || $k === ':urb') ? PDO::PARAM_INT : PDO::PARAM_STR);
+            $stT->bindValue(
+                $k,
+                $v,
+                in_array($k, [':tipo', ':cat', ':cond', ':urb'], true) ? PDO::PARAM_INT : PDO::PARAM_STR
+            );
         }
         $stT->execute();
         $total = (int)($stT->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
 
-        // Items
         $sql = "
             SELECT
                 p.codigo_producto,
@@ -776,6 +900,11 @@ class Producto extends Conexion
                 p.codigo_tipo,
                 p.codigo_categoria,
                 p.imagen_portada,
+                p.codigo_usuario_residencia,
+                p.tipo_conjunto_publicacion,
+                p.codigo_condominio_publicacion,
+                p.codigo_urbanizacion_publicacion,
+                p.estado_residencial_publicacion,
                 t.nombre AS tipo_nombre,
                 c.nombre AS categoria_nombre,
                 DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS create_at
@@ -790,11 +919,16 @@ class Producto extends Conexion
 
         $stmt = $this->dblink->prepare($sql);
         foreach ($params as $k => $v) {
-            $stmt->bindValue($k, $v, ($k === ':tipo' || $k === ':cat' || $k === ':cond' || $k === ':urb') ? PDO::PARAM_INT : PDO::PARAM_STR);
+            $stmt->bindValue(
+                $k,
+                $v,
+                in_array($k, [':tipo', ':cat', ':cond', ':urb'], true) ? PDO::PARAM_INT : PDO::PARAM_STR
+            );
         }
         $stmt->bindValue(':lim', $size, PDO::PARAM_INT);
         $stmt->bindValue(':off', $off, PDO::PARAM_INT);
         $stmt->execute();
+
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         return [
@@ -806,8 +940,7 @@ class Producto extends Conexion
     }
 
     /* ==========================================================
-       DESTACADAS PAGADAS (solo aprobados: visible = 2)
-       ✅ Ahora también exige usuario habilitado (u.estado = 2)
+       DESTACADAS
     ========================================================== */
     public function listarDestacadasPagadas(int $limit = 12): array
     {
@@ -855,9 +988,8 @@ class Producto extends Conexion
     }
 
     /* ==========================================================
-       ====== SOPORTE / ADMIN: REVISIONES ======
+       SOPORTE / ADMIN
     ========================================================== */
-
     private function visibleFromEstadoString(string $estado): int
     {
         $e = strtolower(trim($estado));
@@ -949,6 +1081,11 @@ class Producto extends Conexion
                 p.precio,
                 p.visible,
                 p.imagen_portada,
+                p.codigo_usuario_residencia,
+                p.tipo_conjunto_publicacion,
+                p.codigo_condominio_publicacion,
+                p.codigo_urbanizacion_publicacion,
+                p.estado_residencial_publicacion,
                 p.created_at,
                 p.updated_at,
                 u.codigo_usuario,
@@ -963,7 +1100,6 @@ class Producto extends Conexion
                 pr.created_at AS rev_created_at
             FROM producto p
             INNER JOIN usuario u ON u.codigo_usuario = p.codigo_usuario
-
             LEFT JOIN (
                 SELECT pr1.*
                 FROM producto_revision pr1
@@ -973,7 +1109,6 @@ class Producto extends Conexion
                     GROUP BY codigo_producto
                 ) x ON x.codigo_producto = pr1.codigo_producto AND x.max_id = pr1.codigo_revision
             ) pr ON pr.codigo_producto = p.codigo_producto
-
             WHERE p.visible = :v
         ";
         if ($hasQ) {
@@ -995,17 +1130,22 @@ class Producto extends Conexion
         $items = [];
         foreach ($rows as $r) {
             $it = [
-                'codigo_producto' => (int)$r['codigo_producto'],
-                'titulo'          => $r['titulo'],
-                'descripcion'     => $r['descripcion'],
-                'estado'          => $r['estado'],
-                'precio'          => $r['precio'],
-                'visible'         => (int)$r['visible'],
-                'imagen_portada'  => $r['imagen_portada'],
-                'created_at'      => $r['created_at'],
-                'updated_at'      => $r['updated_at'],
-                'usuario_nombre'  => $r['usuario_nombre'],
-                'usuario_email'   => $r['usuario_email'],
+                'codigo_producto'               => (int)$r['codigo_producto'],
+                'titulo'                        => $r['titulo'],
+                'descripcion'                   => $r['descripcion'],
+                'estado'                        => $r['estado'],
+                'precio'                        => $r['precio'],
+                'visible'                       => (int)$r['visible'],
+                'imagen_portada'                => $r['imagen_portada'],
+                'codigo_usuario_residencia'     => $r['codigo_usuario_residencia'],
+                'tipo_conjunto_publicacion'     => $r['tipo_conjunto_publicacion'],
+                'codigo_condominio_publicacion' => $r['codigo_condominio_publicacion'],
+                'codigo_urbanizacion_publicacion'=> $r['codigo_urbanizacion_publicacion'],
+                'estado_residencial_publicacion'=> $r['estado_residencial_publicacion'],
+                'created_at'                    => $r['created_at'],
+                'updated_at'                    => $r['updated_at'],
+                'usuario_nombre'                => $r['usuario_nombre'],
+                'usuario_email'                 => $r['usuario_email'],
             ];
 
             if (!empty($r['rev_id'])) {
@@ -1043,6 +1183,11 @@ class Producto extends Conexion
                 p.precio,
                 p.visible,
                 p.imagen_portada,
+                p.codigo_usuario_residencia,
+                p.tipo_conjunto_publicacion,
+                p.codigo_condominio_publicacion,
+                p.codigo_urbanizacion_publicacion,
+                p.estado_residencial_publicacion,
                 p.created_at,
                 p.updated_at,
                 u.codigo_usuario,
@@ -1059,23 +1204,26 @@ class Producto extends Conexion
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row) return null;
 
-        $item = [
-            'codigo_producto' => (int)$row['codigo_producto'],
-            'titulo'          => $row['titulo'],
-            'descripcion'     => $row['descripcion'],
-            'estado'          => $row['estado'],
-            'precio'          => $row['precio'],
-            'visible'         => (int)$row['visible'],
-            'imagen_portada'  => $row['imagen_portada'],
-            'created_at'      => $row['created_at'],
-            'updated_at'      => $row['updated_at'],
-            'usuario_nombre'  => $row['usuario_nombre'],
-            'usuario_email'   => $row['usuario_email'],
-            'imagenes'        => $this->obtenerImagenes($codigoProducto),
-            'ultima_revision' => $this->obtenerUltimaRevision($codigoProducto),
+        return [
+            'codigo_producto'                => (int)$row['codigo_producto'],
+            'titulo'                         => $row['titulo'],
+            'descripcion'                    => $row['descripcion'],
+            'estado'                         => $row['estado'],
+            'precio'                         => $row['precio'],
+            'visible'                        => (int)$row['visible'],
+            'imagen_portada'                 => $row['imagen_portada'],
+            'codigo_usuario_residencia'      => $row['codigo_usuario_residencia'],
+            'tipo_conjunto_publicacion'      => $row['tipo_conjunto_publicacion'],
+            'codigo_condominio_publicacion'  => $row['codigo_condominio_publicacion'],
+            'codigo_urbanizacion_publicacion'=> $row['codigo_urbanizacion_publicacion'],
+            'estado_residencial_publicacion' => $row['estado_residencial_publicacion'],
+            'created_at'                     => $row['created_at'],
+            'updated_at'                     => $row['updated_at'],
+            'usuario_nombre'                 => $row['usuario_nombre'],
+            'usuario_email'                  => $row['usuario_email'],
+            'imagenes'                       => $this->obtenerImagenes($codigoProducto),
+            'ultima_revision'                => $this->obtenerUltimaRevision($codigoProducto),
         ];
-
-        return $item;
     }
 
     public function registrarRevisionSoporte(int $codigoProducto, int $estadoAnterior, int $estadoNuevo, string $comentario, int $codigoSoporte): int

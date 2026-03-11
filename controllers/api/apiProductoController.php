@@ -4,7 +4,7 @@
 require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/Producto.php';
-require_once __DIR__ . '/../../models/ProductoSoporte.php'; // ✅ NUEVO: para registrar reenvío trazable
+require_once __DIR__ . '/../../models/ProductoSoporte.php';
 
 class apiProductoController
 {
@@ -70,9 +70,9 @@ class apiProductoController
         $mime = strtolower((string)$mime);
         return match ($mime) {
             'image/jpeg', 'image/jpg' => 'jpg',
-            'image/png'              => 'png',
-            'image/webp'             => 'webp',
-            default                  => strtolower($fallbackExt ?: 'jpg')
+            'image/png'               => 'png',
+            'image/webp'              => 'webp',
+            default                   => strtolower($fallbackExt ?: 'jpg')
         };
     }
 
@@ -84,6 +84,7 @@ class apiProductoController
 
     /* ======================================================================================
        REGISTRAR PRODUCTO
+       ✅ ahora crearProducto() ya guarda snapshot residencial
     ====================================================================================== */
     public function registrarProducto(): void
     {
@@ -114,9 +115,24 @@ class apiProductoController
             }
 
             $estadoValido = ['Nuevo', 'Usado', 'NoAplica'];
-            if (!in_array($estado, $estadoValido, true)) $estado = 'NoAplica';
+            if (!in_array($estado, $estadoValido, true)) {
+                $estado = 'NoAplica';
+            }
 
             $prod = new Producto();
+
+            // blindaje: no permitir crear producto si no tiene residencia activa
+            $resActiva = $prod->obtenerResidenciaActivaUsuario($codigoUsuario);
+            if (!$resActiva) {
+                $this->json(409, [
+                    'ok'       => false,
+                    'error'    => 'SIN_RESIDENCIA_ACTIVA',
+                    'mensaje'  => 'No tienes una residencia activa para registrar productos.',
+                    'redirect' => rtrim(BASE_URL, '/') . '/mi-perfil'
+                ]);
+                return;
+            }
+
             $prod->setTitulo($titulo);
             $prod->setDescripcion($descripcion);
             $prod->setPrecio($precio);
@@ -135,13 +151,12 @@ class apiProductoController
             $erroresUpload      = [];
 
             if (!empty($_FILES['imagenes']) && is_array($_FILES['imagenes']['name'])) {
-
                 $names  = $_FILES['imagenes']['name'];
                 $tmp    = $_FILES['imagenes']['tmp_name'];
                 $errors = $_FILES['imagenes']['error'];
                 $sizes  = $_FILES['imagenes']['size'];
 
-                $rootPath   = realpath(__DIR__ . '/../../');
+                $rootPath = realpath(__DIR__ . '/../../');
                 if ($rootPath === false) {
                     throw new Exception('No se pudo resolver el path raíz del proyecto.');
                 }
@@ -229,7 +244,9 @@ class apiProductoController
                         $mimeReal
                     );
 
-                    if ($orden === 1 && !$primeraRuta) $primeraRuta = $destinoRel;
+                    if ($orden === 1 && !$primeraRuta) {
+                        $primeraRuta = $destinoRel;
+                    }
 
                     $imagenesSubidas++;
                     $orden++;
@@ -367,7 +384,7 @@ class apiProductoController
     }
 
     /* ======================================================================================
-       OBTENER PRODUCTO (privado)
+       OBTENER PRODUCTO
     ====================================================================================== */
     public function obtenerProducto($id): void
     {
@@ -399,7 +416,6 @@ class apiProductoController
             foreach ($imagenes as &$img) {
                 $ruta = (string)($img['ruta'] ?? '');
                 $img['url'] = ($ruta !== '') ? ($baseUrl . '/' . ltrim($ruta, '/')) : '';
-
                 $img['codigo_imagen'] = $img['codigo_producto_imagen'] ?? null;
                 $img['id_imagen']     = $img['codigo_producto_imagen'] ?? null;
             }
@@ -422,7 +438,6 @@ class apiProductoController
 
     /* ======================================================================================
        ACTUALIZAR PRODUCTO
-       ✅ NUEVO: si estaba OBSERVADO, registramos REENVIO_CORRECCION en producto_revision
     ====================================================================================== */
     public function actualizarProducto($id): void
     {
@@ -468,7 +483,9 @@ class apiProductoController
             }
 
             $estadoValido = ['Nuevo', 'Usado', 'NoAplica'];
-            if (!in_array($estado, $estadoValido, true)) $estado = 'NoAplica';
+            if (!in_array($estado, $estadoValido, true)) {
+                $estado = 'NoAplica';
+            }
 
             $model->setTitulo($titulo);
             $model->setDescripcion($descripcion);
@@ -498,13 +515,12 @@ class apiProductoController
             $erroresUpload      = [];
 
             if (!empty($_FILES['imagenes_nuevas']) && is_array($_FILES['imagenes_nuevas']['name'])) {
-
                 $names  = $_FILES['imagenes_nuevas']['name'];
                 $tmp    = $_FILES['imagenes_nuevas']['tmp_name'];
                 $errors = $_FILES['imagenes_nuevas']['error'];
                 $sizes  = $_FILES['imagenes_nuevas']['size'];
 
-                $rootPath   = realpath(__DIR__ . '/../../');
+                $rootPath = realpath(__DIR__ . '/../../');
                 if ($rootPath === false) {
                     throw new Exception('No se pudo resolver el path raíz del proyecto.');
                 }
@@ -679,9 +695,8 @@ class apiProductoController
     }
 
     /* ======================================================================================
-       ✅ MARKETPLACE (RAÍZ): FILTRADO POR CONDOMINIO/URBANIZACIÓN DEL USUARIO LOGUEADO
-       + 409 SIN_RESIDENCIA_ACTIVA con redirect
-       + devuelve conjunto (tipo/nombre)
+       MARKETPLACE
+       ✅ usa residencia del visor + snapshot de publicación
     ====================================================================================== */
     public function listarMarketplace(): void
     {
@@ -704,7 +719,6 @@ class apiProductoController
 
             $model = new Producto();
 
-            // ✅ Validar residencia activa (RAÍZ)
             $resActiva = $model->obtenerResidenciaActivaUsuario($codigoUsuario);
             if (!$resActiva) {
                 $redirect = rtrim(BASE_URL, '/') . '/mi-perfil';
@@ -718,10 +732,7 @@ class apiProductoController
                 return;
             }
 
-            // ✅ Info del conjunto para UI (si lo necesitas)
             $conjunto = $model->obtenerNombreConjuntoActivoUsuario($codigoUsuario);
-
-            // ✅ Marketplace filtrado por residencia
             $res = $model->listarMarketplaceFiltradoPorResidencia($codigoUsuario, $tipo, $categoria, $q, $page, $size);
 
             $items = $res['items'] ?? [];
@@ -735,7 +746,6 @@ class apiProductoController
 
                 $p['imagen_portada_url'] = $url;
 
-                // compatibilidad con tu JS (usa imagen_portada directo)
                 if ($ruta !== '') {
                     $p['imagen_portada'] = $url;
                 }
@@ -743,12 +753,12 @@ class apiProductoController
             unset($p);
 
             $this->json(200, [
-                'ok'      => true,
-                'total'   => $total,
-                'page'    => $page,
-                'size'    => $size,
-                'data'    => $items,
-                'conjunto'=> $conjunto
+                'ok'       => true,
+                'total'    => $total,
+                'page'     => $page,
+                'size'     => $size,
+                'data'     => $items,
+                'conjunto' => $conjunto
             ]);
             return;
 
