@@ -6,13 +6,23 @@ require_once __DIR__ . '/../database/Conexion.php';
 
 class RecargaSaldo extends Conexion
 {
-    // ============================
-    // Registro de recarga (vecino)
-    // ============================
-
     public function existeOperacion(string $metodo, string $idOperacion): bool
     {
         $sql = "SELECT 1 FROM recarga_saldo WHERE metodo = :metodo AND id_operacion = :id_operacion LIMIT 1";
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindParam(':metodo', $metodo, PDO::PARAM_STR);
+        $stmt->bindParam(':id_operacion', $idOperacion, PDO::PARAM_STR);
+        $stmt->execute();
+        return (bool)$stmt->fetchColumn();
+    }
+
+    public function existeOperacionGlobal(string $metodo, string $idOperacion): bool
+    {
+        $sql = "SELECT 1
+                FROM recarga_saldo
+                WHERE metodo = :metodo
+                  AND id_operacion = :id_operacion
+                LIMIT 1";
         $stmt = $this->dblink->prepare($sql);
         $stmt->bindParam(':metodo', $metodo, PDO::PARAM_STR);
         $stmt->bindParam(':id_operacion', $idOperacion, PDO::PARAM_STR);
@@ -25,13 +35,29 @@ class RecargaSaldo extends Conexion
         $sql = "SELECT 1
                 FROM recarga_saldo
                 WHERE codigo_usuario = :codigo_usuario
-                AND metodo = :metodo
-                AND id_operacion = :id_operacion
+                  AND metodo = :metodo
+                  AND id_operacion = :id_operacion
                 LIMIT 1";
         $stmt = $this->dblink->prepare($sql);
         $stmt->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
         $stmt->bindParam(':metodo', $metodo, PDO::PARAM_STR);
         $stmt->bindParam(':id_operacion', $idOperacion, PDO::PARAM_STR);
+        $stmt->execute();
+        return (bool)$stmt->fetchColumn();
+    }
+
+    public function existeOperacionEnOtroRegistro(int $codigoRecarga, string $metodo, string $idOperacion): bool
+    {
+        $sql = "SELECT 1
+                FROM recarga_saldo
+                WHERE metodo = :metodo
+                  AND id_operacion = :id_operacion
+                  AND codigo_recarga <> :codigo_recarga
+                LIMIT 1";
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindParam(':metodo', $metodo, PDO::PARAM_STR);
+        $stmt->bindParam(':id_operacion', $idOperacion, PDO::PARAM_STR);
+        $stmt->bindParam(':codigo_recarga', $codigoRecarga, PDO::PARAM_INT);
         $stmt->execute();
         return (bool)$stmt->fetchColumn();
     }
@@ -70,9 +96,6 @@ class RecargaSaldo extends Conexion
         return $this->registrarRecarga($codigoUsuario, $monto, $tipo, $idOperacion, $rutaComprobante);
     }
 
-    // ============================
-    // Soporte (Atender Recargas)
-    // ============================
     public function listarSoporte(array $filtros): array
     {
         $estado = $filtros['estado'] ?? 'pendiente';
@@ -175,6 +198,23 @@ class RecargaSaldo extends Conexion
         return $row ?: null;
     }
 
+    public function obtenerRecargaUsuarioPorId(int $codigoRecarga, int $codigoUsuario): ?array
+    {
+        $sql = "
+            SELECT *
+            FROM recarga_saldo
+            WHERE codigo_recarga = :codigo_recarga
+              AND codigo_usuario = :codigo_usuario
+            LIMIT 1
+        ";
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindParam(':codigo_recarga', $codigoRecarga, PDO::PARAM_INT);
+        $stmt->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
     public function actualizarEstado(
         int $codigoRecarga,
         string $estado,
@@ -198,10 +238,43 @@ class RecargaSaldo extends Conexion
         return $stmt->execute();
     }
 
-    // =========================================================
-    // ✅ NUEVO: listar recargas del usuario (Mi billetera)
-    // GET /api/recargas/mis
-    // =========================================================
+    public function subsanarRecargaObservada(
+        int $codigoRecarga,
+        int $codigoUsuario,
+        float $monto,
+        string $metodo,
+        string $idOperacion,
+        ?string $comprobantePath
+    ): bool {
+        $sql = "
+            UPDATE recarga_saldo
+            SET
+                monto = :monto,
+                metodo = :metodo,
+                id_operacion = :id_operacion,
+                comprobante_path = :comprobante_path,
+                estado = 'pendiente',
+                comentario_soporte = NULL,
+                codigo_soporte = NULL,
+                fecha_revision = NULL
+            WHERE codigo_recarga = :codigo_recarga
+              AND codigo_usuario = :codigo_usuario
+              AND estado = 'observada'
+            LIMIT 1
+        ";
+
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindParam(':monto', $monto);
+        $stmt->bindParam(':metodo', $metodo, PDO::PARAM_STR);
+        $stmt->bindParam(':id_operacion', $idOperacion, PDO::PARAM_STR);
+        $stmt->bindParam(':comprobante_path', $comprobantePath, PDO::PARAM_STR);
+        $stmt->bindParam(':codigo_recarga', $codigoRecarga, PDO::PARAM_INT);
+        $stmt->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+
+        $stmt->execute();
+        return $stmt->rowCount() > 0;
+    }
+
     public function listarMisRecargas(int $codigoUsuario, int $limit = 20): array
     {
         $limit = max(1, min(50, $limit));
@@ -215,7 +288,8 @@ class RecargaSaldo extends Conexion
                 r.metodo,
                 r.id_operacion,
                 r.estado,
-                r.comentario_soporte
+                r.comentario_soporte,
+                r.comprobante_path
             FROM recarga_saldo r
             WHERE r.codigo_usuario = :u
             ORDER BY r.fecha_creacion DESC, r.codigo_recarga DESC

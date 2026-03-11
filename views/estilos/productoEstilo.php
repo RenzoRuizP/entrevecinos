@@ -20,10 +20,10 @@
 
   --ev-texto:#111827;
 
-  --ev-shadow-card: 0 16px 44px rgba(15,23,42,0.10);
-  --ev-shadow-soft: 0 12px 28px rgba(15,23,42,0.06);
-  --ev-shadow-chip: 0 10px 18px rgba(15,23,42,0.06);
-  --ev-shadow-msg: 0 10px 24px rgba(15,23,42,0.05);
+  --ev-shadow-card:0 16px 44px rgba(15,23,42,0.10);
+  --ev-shadow-soft:0 12px 28px rgba(15,23,42,0.06);
+  --ev-shadow-chip:0 10px 18px rgba(15,23,42,0.06);
+  --ev-shadow-msg:0 10px 24px rgba(15,23,42,0.05);
 
   --ev-radius-card:18px;
   --ev-radius-modal:22px;
@@ -305,6 +305,7 @@
   table-layout:fixed;
   font-size:.93rem;
 }
+
 .ev-table thead th{
   position:sticky;
   top:0;
@@ -313,37 +314,50 @@
   color:#0f172a;
   font-weight:900;
   border-bottom:1px solid var(--ev-gris-200) !important;
-  white-space:nowrap;
-  padding:15px 16px !important;
+  white-space:normal;
+  word-break:break-word;
+  line-height:1.18;
+  padding:14px 12px !important;
+  text-align:center !important;
+  vertical-align:middle;
 }
+
 .ev-table tbody td{
   vertical-align:middle;
   border-bottom:1px solid rgba(229,231,235,0.9);
-  padding:14px 16px !important;
+  padding:14px 14px !important;
   background:#fff;
 }
+
 .ev-table tbody tr:nth-child(even) td{
   background:rgba(249,250,251,0.58);
 }
 .ev-table tbody tr:hover td{
-  background:
-    linear-gradient(180deg, rgba(236,253,245,0.72) 0%, rgba(249,250,251,0.92) 100%);
+  background:linear-gradient(180deg, rgba(236,253,245,0.72) 0%, rgba(249,250,251,0.92) 100%);
 }
 .ev-table th + th,
 .ev-table td + td{
   border-left:1px solid rgba(229,231,235,0.55);
 }
 
-/* Anchos más equilibrados */
-.ev-col-codigo{ width:104px; }
-.ev-col-titulo{ width:218px; }
-.ev-col-precio{ width:122px; }
-.ev-col-estado{ width:132px; }
-.ev-col-tipo{ width:140px; }
-.ev-col-categoria{ width:160px; }
-.ev-col-desc{ width:226px; }
-.ev-col-mensaje{ width:270px; }
-.ev-col-acciones{ width:292px; }
+/* Alineaciones */
+.ev-table tbody td.text-end{
+  text-align:right !important;
+}
+.ev-table tbody td.text-center{
+  text-align:center !important;
+}
+
+/* Anchos optimizados para 9 columnas */
+.ev-col-codigo{ width:98px; }
+.ev-col-titulo{ width:190px; }
+.ev-col-precio{ width:108px; }
+.ev-col-tipo{ width:126px; }
+.ev-col-categoria{ width:146px; }
+.ev-col-desc{ width:190px; }
+.ev-col-mensaje{ width:240px; }
+.ev-col-estado-publicacion{ width:160px; }
+.ev-col-acciones{ width:220px; }
 
 .ev-empty{
   color:var(--ev-gris-500);
@@ -376,26 +390,6 @@
   letter-spacing:.04em;
 }
 
-/* BADGES (producto estado: Nuevo/Usado/NoAplica) */
-.ev-badge{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  min-height:34px;
-  padding:6px 11px;
-  border-radius:999px;
-  font-size:.74rem;
-  font-weight:900;
-  border:1px solid rgba(148,163,184,.24);
-  background:linear-gradient(180deg, rgba(248,250,252,.98) 0%, rgba(241,245,249,.88) 100%);
-}
-.ev-badge--nuevo{ color:rgba(15,89,47,.92); }
-.ev-badge--usado{ color:rgba(122,90,0,.92); }
-.ev-badge--noaplica{
-  color:rgba(71,85,105,.92);
-  background:rgba(243,244,246,.85);
-}
-
 /* MENSAJE SOPORTE */
 .ev-msg-support{
   display:block;
@@ -426,7 +420,6 @@
   background:linear-gradient(180deg, rgba(255,247,237,.98) 0%, rgba(255,237,213,.95) 100%);
   border:1px solid rgba(234,124,18,.20);
 }
-
 .ev-msg-support-box.is-empty{
   background:linear-gradient(180deg, rgba(252,253,252,.98) 0%, rgba(247,249,248,.95) 100%);
   border:1px solid rgba(209,213,219,.85);
@@ -457,23 +450,24 @@
   font-style:italic;
 }
 
-/* ACTIONS + CHIPS */
+/* ACTIONS */
 .ev-actions{
   display:flex;
   align-items:center;
   justify-content:flex-end;
   gap:8px;
-  flex-wrap:wrap;
+  flex-wrap:nowrap;
   min-height:42px;
   width:100%;
 }
+
 .ev-chip{
-  min-width:94px;
+  min-width:90px;
   justify-content:center;
   border-radius:999px;
-  padding:.48rem .92rem;
+  padding:.48rem .90rem;
   font-weight:900;
-  font-size:.84rem;
+  font-size:.83rem;
   background:#fff;
   border:1px solid rgba(148,163,184,.34);
   box-shadow:var(--ev-shadow-chip);
@@ -518,6 +512,45 @@
   border-color:rgba(107,114,128,.22);
   color:rgba(55,65,81,.92);
   background:linear-gradient(180deg, rgba(243,244,246,.88) 0%, rgba(255,255,255,.94) 100%);
+}
+
+/* Estado de publicación */
+.ev-chip-status{
+  min-width:118px;
+  padding:.48rem .90rem;
+  border-radius:999px;
+  font-weight:900;
+  font-size:.82rem;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  white-space:nowrap;
+  border:1px dashed rgba(148,163,184,.42);
+  box-shadow:none;
+  cursor:default;
+  pointer-events:none;
+  opacity:1;
+}
+
+.ev-chip-status.ev-chip-green{
+  color:rgba(15,89,47,.95);
+  border-color:rgba(15,89,47,.24);
+  background:rgba(230,244,236,.72);
+}
+.ev-chip-status.ev-chip-red{
+  color:#DC2626;
+  border-color:rgba(220,38,38,.26);
+  background:rgba(254,242,242,.76);
+}
+.ev-chip-status.ev-chip-amber{
+  color:var(--ev-naranja);
+  border-color:rgba(234,124,18,.28);
+  background:rgba(255,247,237,.86);
+}
+.ev-chip-status.ev-chip-gray{
+  color:rgba(55,65,81,.92);
+  border-color:rgba(107,114,128,.24);
+  background:rgba(243,244,246,.84);
 }
 
 /* MODAL */
@@ -746,15 +779,42 @@
   display:block;
 }
 
+/* DESKTOP AJUSTADO */
+@media (min-width: 1400px){
+  .ev-col-titulo{ width:210px; }
+  .ev-col-desc{ width:210px; }
+  .ev-col-mensaje{ width:255px; }
+  .ev-col-acciones{ width:228px; }
+}
+
 /* TABLET */
 @media (max-width: 1199.98px){
-  .ev-col-titulo{ width:200px; }
-  .ev-col-categoria{ width:150px; }
-  .ev-col-desc{ width:210px; }
-  .ev-col-mensaje{ width:250px; }
-  .ev-col-acciones{ width:270px; }
+  .ev-table{
+    font-size:.89rem;
+  }
+
+  .ev-table thead th{
+    padding:13px 10px !important;
+    font-size:.82rem;
+  }
+
+  .ev-table tbody td{
+    padding:13px 10px !important;
+  }
+
+  .ev-col-codigo{ width:88px; }
+  .ev-col-titulo{ width:170px; }
+  .ev-col-precio{ width:98px; }
+  .ev-col-tipo{ width:112px; }
+  .ev-col-categoria{ width:126px; }
+  .ev-col-desc{ width:176px; }
+  .ev-col-mensaje{ width:210px; }
+  .ev-col-estado-publicacion{ width:145px; }
+  .ev-col-acciones{ width:200px; }
+
   .ev-actions{ gap:7px; }
-  .ev-chip{ min-width:88px; }
+  .ev-chip{ min-width:84px; font-size:.79rem; }
+  .ev-chip-status{ min-width:104px; font-size:.78rem; }
 }
 
 /* MOBILE -> CARDS */
@@ -784,6 +844,7 @@
     border-bottom:1px dashed rgba(229,231,235,0.9);
     padding:12px 14px !important;
     background:transparent !important;
+    text-align:left !important;
   }
   .ev-table tbody td:last-child{
     border-bottom:none;
@@ -797,7 +858,13 @@
     color:var(--ev-gris-500);
     text-transform:uppercase;
     letter-spacing:.04em;
-    margin-bottom:5px;
+    margin-bottom:6px;
+  }
+
+  .td-trunc{
+    white-space:normal;
+    overflow:visible;
+    text-overflow:unset;
   }
 
   .ev-msg-support-box{
@@ -806,13 +873,22 @@
     border-radius:14px;
   }
 
+  .ev-chip-status{
+    min-width:unset;
+    width:100%;
+  }
+
   .ev-actions{
     justify-content:flex-start;
-    flex-wrap:wrap;
+    align-items:stretch;
+    flex-direction:column;
+    flex-wrap:nowrap;
     gap:8px;
   }
 
-  .ev-chip{
+  .ev-actions .ev-chip,
+  .ev-actions .ev-chip-status{
+    width:100%;
     min-width:unset;
   }
 }
@@ -832,6 +908,12 @@
   .ev-card-footer{
     padding-left:14px;
     padding-right:14px;
+  }
+
+  .ev-card-footer{
+    flex-direction:column;
+    align-items:flex-start;
+    gap:8px;
   }
 
   .ev-table-wrap{

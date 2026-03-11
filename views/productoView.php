@@ -179,15 +179,15 @@ require_once __DIR__ . '/../Config/config.php';
           <table id="tablaPublicaciones" class="table ev-table mb-0">
             <thead>
               <tr>
-                <th class="ev-col-codigo">Código</th>
-                <th class="ev-col-titulo">Título</th>
-                <th class="text-end ev-col-precio">Precio</th>
-                <th class="ev-col-estado">Estado</th>
-                <th class="ev-col-tipo">Tipo</th>
-                <th class="ev-col-categoria">Categoría</th>
-                <th class="ev-col-desc">Descripción</th>
-                <th class="ev-col-mensaje">Mensaje de soporte</th>
-                <th class="text-end ev-col-acciones">Acciones</th>
+                <th class="ev-col-codigo text-center">Código</th>
+                <th class="ev-col-titulo text-center">Título</th>
+                <th class="ev-col-precio text-center">Precio</th>
+                <th class="ev-col-tipo text-center">Tipo</th>
+                <th class="ev-col-categoria text-center">Categoría</th>
+                <th class="ev-col-desc text-center">Descripción</th>
+                <th class="ev-col-mensaje text-center">Mensaje de soporte</th>
+                <th class="ev-col-estado-publicacion text-center">Estado de publicación</th>
+                <th class="ev-col-acciones text-center">Acciones</th>
               </tr>
             </thead>
             <tbody>

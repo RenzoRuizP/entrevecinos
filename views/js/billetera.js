@@ -18,18 +18,29 @@
     recargasEmpty: null,
     recargasTable: null,
     btnRefrescarRecargas: null,
+    btnAbrirNuevaRecarga: null,
 
     recargaForm: null,
+    recargaCodigo: null,
+    recargaModo: null,
     recargaTipo: null,
     recargaMonto: null,
     recargaOperacion: null,
     recargaImagen: null,
+    recargaImagenHelp: null,
+    recargaAlertaSubsanacion: null,
+    recargaAlertaSubsanacionTexto: null,
+    modalRecargaTitulo: null,
     btnEnviarRecarga: null,
 
     qrImg: null,
     qrTitle: null,
     qrText: null,
     qrCard: null,
+  };
+
+  let state = {
+    misRecargas: []
   };
 
   const QR_CONFIG = {
@@ -46,7 +57,6 @@
   };
 
   function log() { if (window.console && console.log) console.log(LOG_PREFIX, ...arguments); }
-  function warn() { if (window.console && console.warn) console.warn(LOG_PREFIX, ...arguments); }
   function error() { if (window.console && console.error) console.error(LOG_PREFIX, ...arguments); }
 
   function capturarRefs() {
@@ -56,16 +66,23 @@
     refs.recargasEmpty = document.getElementById('ev_recargas_empty');
     refs.recargasTable = document.getElementById('ev_recargas_table');
     refs.btnRefrescarRecargas = document.getElementById('btnRefrescarRecargas');
+    refs.btnAbrirNuevaRecarga = document.getElementById('btnAbrirNuevaRecarga');
 
     refs.saldo = document.getElementById('ev_wallet_saldo');
     refs.emptyState = document.getElementById('ev_wallet_empty_state');
     refs.movimientos = document.getElementById('ev_wallet_movimientos');
 
     refs.recargaForm = document.getElementById('formRecargaSaldo');
+    refs.recargaCodigo = document.getElementById('recarga_codigo');
+    refs.recargaModo = document.getElementById('recarga_modo');
     refs.recargaTipo = document.getElementById('recarga_tipo');
     refs.recargaMonto = document.getElementById('recarga_monto');
     refs.recargaOperacion = document.getElementById('recarga_operacion');
     refs.recargaImagen = document.getElementById('recarga_imagen');
+    refs.recargaImagenHelp = document.getElementById('recarga_imagen_help');
+    refs.recargaAlertaSubsanacion = document.getElementById('recarga_alerta_subsanacion');
+    refs.recargaAlertaSubsanacionTexto = document.getElementById('recarga_alerta_subsanacion_texto');
+    refs.modalRecargaTitulo = document.getElementById('modalRecargaTitulo');
     refs.btnEnviarRecarga = document.getElementById('btnEnviarRecarga');
 
     refs.qrImg = document.getElementById('ev_qr_img');
@@ -79,6 +96,12 @@
   function formatearMonto(monto) {
     const n = Number(monto || 0);
     return 'S/ ' + n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (m) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    }[m]));
   }
 
   function swalFireEV(opts) {
@@ -254,6 +277,80 @@
     actualizarQRDesdeSelect();
   }
 
+  function resetModalRecarga() {
+    if (!refs.recargaForm) return;
+
+    refs.recargaForm.reset();
+    if (refs.recargaCodigo) refs.recargaCodigo.value = '';
+    if (refs.recargaModo) refs.recargaModo.value = 'crear';
+
+    if (refs.modalRecargaTitulo) {
+      refs.modalRecargaTitulo.innerHTML = '<i class="bi bi-plus-circle me-2"></i> Recargar saldo';
+    }
+
+    if (refs.btnEnviarRecarga) {
+      refs.btnEnviarRecarga.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Confirmar recarga';
+    }
+
+    if (refs.recargaImagenHelp) {
+      refs.recargaImagenHelp.textContent = 'Sube una foto clara del voucher o comprobante de la recarga.';
+    }
+
+    if (refs.recargaAlertaSubsanacion) refs.recargaAlertaSubsanacion.classList.add('d-none');
+    if (refs.recargaAlertaSubsanacionTexto) {
+      refs.recargaAlertaSubsanacionTexto.textContent = 'Corrige los datos observados por soporte y vuelve a enviarla.';
+    }
+
+    if (refs.qrCard) refs.qrCard.classList.add('d-none');
+  }
+
+  function abrirModalNuevaRecarga() {
+    resetModalRecarga();
+    actualizarQRDesdeSelect();
+  }
+
+  function abrirModalSubsanar(id) {
+    const rec = (state.misRecargas || []).find((x) => String(x.id) === String(id));
+    if (!rec) {
+      swalErr('No se pudo cargar la recarga observada.');
+      return;
+    }
+
+    resetModalRecarga();
+
+    if (refs.recargaCodigo) refs.recargaCodigo.value = String(rec.id || '');
+    if (refs.recargaModo) refs.recargaModo.value = 'subsanar';
+    if (refs.recargaMonto) refs.recargaMonto.value = rec.monto || '';
+    if (refs.recargaTipo) refs.recargaTipo.value = String(rec.metodo || '').toLowerCase();
+    if (refs.recargaOperacion) refs.recargaOperacion.value = rec.id_operacion || '';
+
+    if (refs.modalRecargaTitulo) {
+      refs.modalRecargaTitulo.innerHTML = '<i class="bi bi-pencil-square me-2"></i> Subsanar recarga observada';
+    }
+
+    if (refs.btnEnviarRecarga) {
+      refs.btnEnviarRecarga.innerHTML = '<i class="bi bi-send-check me-1"></i> Reenviar recarga';
+    }
+
+    if (refs.recargaImagenHelp) {
+      refs.recargaImagenHelp.textContent = 'Sube un nuevo comprobante si necesitas corregirlo. Si no cambió, puedes dejar este campo vacío.';
+    }
+
+    if (refs.recargaAlertaSubsanacion) refs.recargaAlertaSubsanacion.classList.remove('d-none');
+    if (refs.recargaAlertaSubsanacionTexto) {
+      refs.recargaAlertaSubsanacionTexto.textContent =
+        (rec.comentario_soporte || 'Corrige los datos observados por soporte y vuelve a enviarla.');
+    }
+
+    actualizarQRDesdeSelect();
+
+    const modalEl = document.getElementById('modalRecargarSaldo');
+    if (modalEl && window.bootstrap?.Modal) {
+      const mi = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+      mi.show();
+    }
+  }
+
   async function cargarSaldo() {
     if (!refs.saldo) return;
 
@@ -264,13 +361,7 @@
       const json = await leerRespuestaSeguro(resp);
 
       if (await manejarAuthEspecial(resp, json)) return;
-
-      if (!resp.ok) {
-        error('Error HTTP al obtener saldo:', resp.status, json);
-        return;
-      }
-
-      if (!json.ok) return;
+      if (!resp.ok || !json.ok) return;
 
       const saldo = (json.saldo_actual ?? json.saldo ?? 0);
       refs.saldo.textContent = formatearMonto(saldo);
@@ -368,16 +459,12 @@
     return map[e] || 'badge rounded-pill text-bg-secondary';
   }
 
-  function esc(s) {
-    return String(s ?? '').replace(/[&<>"']/g, (m) => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
-    }[m]));
-  }
-
   function renderizarRecargas(items) {
     if (!refs.recargasEmpty || !refs.recargasTable) return;
 
-    if (!items || !items.length) {
+    state.misRecargas = Array.isArray(items) ? items : [];
+
+    if (!state.misRecargas.length) {
       refs.recargasEmpty.classList.remove('d-none');
       refs.recargasTable.classList.add('d-none');
       refs.recargasTable.innerHTML = '';
@@ -387,20 +474,32 @@
     refs.recargasEmpty.classList.add('d-none');
     refs.recargasTable.classList.remove('d-none');
 
-    const rows = items.map((r) => {
+    const rows = state.misRecargas.map((r) => {
       const est = String(r.estado || '').toLowerCase();
       const comentario = (r.comentario_soporte || '').trim();
+      const puedeSubsanar = (est === 'observada');
 
       const comentarioHtml = (est === 'observada' || est === 'rechazada')
         ? `
-          <div class="mt-2 p-2 rounded bg-light border">
+          <div class="mt-2 p-3 rounded bg-light border">
             <div class="fw-semibold small mb-1">
               <i class="bi bi-chat-left-text me-1"></i> Mensaje de soporte
             </div>
             <div class="small text-muted">${comentario ? esc(comentario) : '—'}</div>
-            <div class="small text-muted mt-1">
-              Corrige tu comprobante/ID y vuelve a registrar la recarga.
-            </div>
+            ${puedeSubsanar ? `
+              <div class="mt-2">
+                <button type="button"
+                        class="btn btn-sm btn-ev-orange"
+                        data-ev-action="subsanar-recarga"
+                        data-id="${esc(r.id)}">
+                  <i class="bi bi-pencil-square me-1"></i> Subsanar recarga
+                </button>
+              </div>
+            ` : `
+              <div class="small text-muted mt-1">
+                Esta recarga ya no puede reenviarse desde esta vista.
+              </div>
+            `}
           </div>
         `
         : '';
@@ -490,33 +589,45 @@
   async function enviarRecarga() {
     if (!refs.recargaForm || !refs.btnEnviarRecarga) return;
 
+    const modo = (refs.recargaModo?.value || 'crear').toLowerCase();
+    const codigoRecarga = (refs.recargaCodigo?.value || '').trim();
     const tipo = (refs.recargaTipo?.value || '').toLowerCase();
     const monto = Number(refs.recargaMonto?.value || 0);
     const oper = (refs.recargaOperacion?.value || '').trim();
-    const file = refs.recargaImagen?.files?.[0];
+    const file = refs.recargaImagen?.files?.[0] || null;
 
     if (!tipo) return swalInfo('Selecciona el tipo de billetera (Yape o Plin).');
     if (!monto || monto <= 0) return swalInfo('Ingresa un monto válido mayor a 0.');
     if (!oper || oper.length < 4) return swalInfo('Ingresa un ID de operación válido (mínimo 4 caracteres).');
-    if (!file) return swalInfo('Sube una imagen del comprobante.');
+
+    if (modo === 'crear' && !file) {
+      return swalInfo('Sube una imagen del comprobante.');
+    }
 
     const fd = new FormData(refs.recargaForm);
     fd.set('recarga_tipo', tipo);
     fd.set('recarga_monto', String(monto));
     fd.set('recarga_operacion', oper);
 
-    const url = `${BASE}/api/recargas/registrar`;
+    const esSubsanacion = (modo === 'subsanar' && codigoRecarga !== '');
+    const url = esSubsanacion
+      ? `${BASE}/api/recargas/${encodeURIComponent(codigoRecarga)}/subsanar`
+      : `${BASE}/api/recargas/registrar`;
+
+    const confirmarTexto = esSubsanacion
+      ? 'Se reenviará tu recarga corregida para una nueva validación por Soporte.'
+      : 'Se registrará tu recarga y quedará pendiente de validación por Soporte.';
 
     const confirmar = await (window.Swal?.fire
       ? swalFireEV({
           icon: 'question',
-          title: 'Confirmar recarga',
-          text: 'Se registrará tu recarga y quedará pendiente de validación por Soporte.',
+          title: esSubsanacion ? 'Reenviar recarga' : 'Confirmar recarga',
+          text: confirmarTexto,
           showCancelButton: true,
-          confirmButtonText: 'Sí, confirmar',
+          confirmButtonText: esSubsanacion ? 'Sí, reenviar' : 'Sí, confirmar',
           cancelButtonText: 'Cancelar'
         })
-      : Promise.resolve({ isConfirmed: confirm('¿Confirmas registrar tu recarga?') })
+      : Promise.resolve({ isConfirmed: confirm('¿Confirmas la operación?') })
     );
 
     if (!confirmar || !confirmar.isConfirmed) return;
@@ -536,7 +647,7 @@
       if (await manejarAuthEspecial(resp, data)) return;
 
       if (resp.status === 409) {
-        swalErr(data.mensaje || 'Ya registraste una recarga con ese ID de operación.');
+        swalErr(data.mensaje || 'No se pudo procesar la recarga.');
         return;
       }
 
@@ -545,10 +656,9 @@
         return;
       }
 
-      swalOk(data.mensaje || 'Recarga registrada.');
+      swalOk(data.mensaje || (esSubsanacion ? 'Recarga corregida y reenviada.' : 'Recarga registrada.'));
 
-      refs.recargaForm.reset();
-      if (refs.qrCard) refs.qrCard.classList.add('d-none');
+      resetModalRecarga();
 
       const modalEl = document.getElementById('modalRecargarSaldo');
       if (modalEl && window.bootstrap?.Modal) {
@@ -556,12 +666,13 @@
         mi.hide();
       }
 
+      cargarSaldo();
       cargarMovimientos();
       cargarMisRecargas();
 
     } catch (e) {
       error(e);
-      swalErr('No se pudo conectar con el servicio. Verifica el endpoint de recargas.');
+      swalErr('No se pudo conectar con el servicio de recargas.');
     } finally {
       refs.btnEnviarRecarga.disabled = false;
       refs.btnEnviarRecarga.classList.remove('saving');
@@ -569,15 +680,37 @@
   }
 
   function engancharEventosRecarga() {
-    if (!refs.btnEnviarRecarga) return;
+    if (refs.btnEnviarRecarga && refs.btnEnviarRecarga.dataset.evHooked !== '1') {
+      refs.btnEnviarRecarga.dataset.evHooked = '1';
+      refs.btnEnviarRecarga.addEventListener('click', (e) => {
+        e.preventDefault();
+        enviarRecarga();
+      });
+    }
 
-    if (refs.btnEnviarRecarga.dataset.evHooked === '1') return;
-    refs.btnEnviarRecarga.dataset.evHooked = '1';
+    if (refs.btnAbrirNuevaRecarga && refs.btnAbrirNuevaRecarga.dataset.evHooked !== '1') {
+      refs.btnAbrirNuevaRecarga.dataset.evHooked = '1';
+      refs.btnAbrirNuevaRecarga.addEventListener('click', () => {
+        abrirModalNuevaRecarga();
+      });
+    }
 
-    refs.btnEnviarRecarga.addEventListener('click', (e) => {
-      e.preventDefault();
-      enviarRecarga();
-    });
+    if (refs.recargasTable && refs.recargasTable.dataset.evHooked !== '1') {
+      refs.recargasTable.dataset.evHooked = '1';
+      refs.recargasTable.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-ev-action="subsanar-recarga"]');
+        if (!btn) return;
+        abrirModalSubsanar(btn.getAttribute('data-id'));
+      });
+    }
+
+    const modalEl = document.getElementById('modalRecargarSaldo');
+    if (modalEl && !modalEl.dataset.evResetHooked) {
+      modalEl.dataset.evResetHooked = '1';
+      modalEl.addEventListener('hidden.bs.modal', () => {
+        resetModalRecarga();
+      });
+    }
   }
 
   function refrescarAhora(payload) {
@@ -637,6 +770,7 @@
       refs.movimientos.innerHTML = '';
     }
 
+    resetModalRecarga();
     cargarSaldo();
     cargarMovimientos();
     cargarMisRecargas();

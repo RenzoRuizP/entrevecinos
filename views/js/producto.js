@@ -1184,14 +1184,14 @@
       !String(rev?.comentario || '').startsWith(REENVIO_PREFIX)
     );
 
-    if (hasObs) return { text: 'Observado', cls: 'ev-chip ev-chip-amber' };
+    if (hasObs) return { text: 'Observado', cls: 'ev-chip ev-chip-amber ev-chip-status' };
 
-    if (visible === 0) return { text: 'Borrador', cls: 'ev-chip ev-chip-gray' };
-    if (visible === 1) return { text: 'Pendiente', cls: 'ev-chip ev-chip-amber' };
-    if (visible === 2) return { text: 'Aprobado',  cls: 'ev-chip ev-chip-green' };
-    if (visible === 3) return { text: 'Rechazado', cls: 'ev-chip ev-chip-red' };
-    if (visible === 4) return { text: 'Anulado', cls: 'ev-chip ev-chip-red' };
-    return { text: '—', cls: 'ev-chip ev-chip-gray' };
+    if (visible === 0) return { text: 'Borrador', cls: 'ev-chip ev-chip-gray ev-chip-status' };
+    if (visible === 1) return { text: 'Pendiente', cls: 'ev-chip ev-chip-amber ev-chip-status' };
+    if (visible === 2) return { text: 'Aprobado',  cls: 'ev-chip ev-chip-green ev-chip-status' };
+    if (visible === 3) return { text: 'Rechazado', cls: 'ev-chip ev-chip-red ev-chip-status' };
+    if (visible === 4) return { text: 'Anulado', cls: 'ev-chip ev-chip-red ev-chip-status' };
+    return { text: '—', cls: 'ev-chip ev-chip-gray ev-chip-status' };
   }
 
   function uiAccionPublicar(visibleNum) {
@@ -1384,9 +1384,6 @@
 
         const precio = Number(p.precio || 0).toFixed(2);
 
-        const estadoRaw = (p.estado || '').toString();
-        const estado = estadoRaw.toUpperCase();
-
         const tipoRaw = (p.tipo_nombre || p.tipo || p.nombre_tipo || '').toString().trim();
         const catRaw  = (p.categoria_nombre || p.categoria || p.nombre_categoria || '').toString().trim();
 
@@ -1398,10 +1395,6 @@
         const descSafe = escAttr(descShort || '-');
 
         const visible = Number(p.visible ?? -1);
-
-        let badge = 'ev-badge ev-badge--noaplica';
-        if (estado === 'NUEVO') badge = 'ev-badge ev-badge--nuevo';
-        else if (estado === 'USADO') badge = 'ev-badge ev-badge--usado';
 
         const visUI = uiEstadoVisible(visible, p.ultima_revision);
         const pubUI = uiAccionPublicar(visible);
@@ -1423,8 +1416,8 @@
               </span>
             `;
 
-        const canEdit  = (statusKey === 'borrador' || statusKey === 'observado');
-        const canAnular= (statusKey === 'borrador' || statusKey === 'pendiente' || statusKey === 'aprobado' || statusKey === 'observado');
+        const canEdit   = (statusKey === 'borrador' || statusKey === 'observado');
+        const canAnular = (statusKey === 'borrador' || statusKey === 'pendiente' || statusKey === 'aprobado' || statusKey === 'observado');
 
         const disableEditar = canEdit ? '' : 'disabled';
         const disableAnular = canAnular ? '' : 'disabled';
@@ -1437,34 +1430,31 @@
 
         return `
           <tr ${trStyle}>
-            <td data-label="Código"><span class="ev-code">${cod}</span></td>
+            <td data-label="Código" class="text-center"><span class="ev-code">${cod}</span></td>
             <td data-label="Título" class="td-trunc" title="${titulo}">${titulo || '-'}</td>
             <td data-label="Precio" class="text-end">S/ ${precio}</td>
-            <td data-label="Estado"><span class="${badge}">${estado || '-'}</span></td>
             <td data-label="Tipo" class="td-trunc" title="${tipo}">${tipo}</td>
             <td data-label="Categoría" class="td-trunc" title="${categoria}">${categoria}</td>
             <td data-label="Descripción" class="td-trunc" title="${escAttr(descFull)}">${descSafe}</td>
             <td data-label="Mensaje de soporte">${mensajeHtml}</td>
+            <td data-label="Estado de publicación" class="text-center">
+              <span class="${visUI.cls}">${visUI.text}</span>
+            </td>
             <td data-label="Acciones" class="text-end">
               <div class="ev-actions">
                 ${
                   isAnulado
-                    ? `<button type="button" class="${visUI.cls}" disabled>${visUI.text}</button>`
+                    ? ''
                     : isAprobado
                       ? `
-                          <button type="button" class="ev-chip ev-chip-green" disabled>Aprobado</button>
                           <button type="button" class="ev-chip ev-chip-red" data-action="anular" data-id="${id}" ${disableAnular}>Anular</button>
                         `
                       : isRechazado
-                        ? `<button type="button" class="${visUI.cls}" disabled>${visUI.text}</button>`
+                        ? ''
                         : `
                             <button type="button" class="ev-chip ev-chip-green" data-action="editar" data-id="${id}" ${disableEditar}>Editar</button>
                             <button type="button" class="ev-chip ev-chip-red" data-action="anular" data-id="${id}" ${disableAnular}>Anular</button>
-                            ${
-                              pubUI.show
-                                ? `<button type="button" class="${pubUI.cls}" data-action="publicar" data-id="${id}">${pubUI.text}</button>`
-                                : `<button type="button" class="${visUI.cls}" disabled>${visUI.text}</button>`
-                            }
+                            ${pubUI.show ? `<button type="button" class="${pubUI.cls}" data-action="publicar" data-id="${id}">${pubUI.text}</button>` : ''}
                           `
                 }
               </div>

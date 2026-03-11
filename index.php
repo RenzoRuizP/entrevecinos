@@ -436,6 +436,7 @@ $routes = [
 
     // --- API Recargas ---
     ['POST', '#^/api/recargas/registrar$#', [apiRecargaSaldoController::class, 'registrar'], 'json'],
+    ['POST', '#^/api/recargas/(\d+)/subsanar$#', [apiRecargaSaldoController::class, 'subsanar'], 'json'],
     // ✅ NUEVO: Mis recargas (Mi billetera)
     ['GET',  '#^/api/recargas/mis$#',       [apiRecargaSaldoController::class, 'mis'], 'json'],
 

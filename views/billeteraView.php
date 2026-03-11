@@ -32,6 +32,7 @@ require_once __DIR__ . '/../Config/config.php';
             <button 
               type="button"
               class="btn btn-ev-orange ev-btn-recargar"
+              id="btnAbrirNuevaRecarga"
               data-bs-toggle="modal"
               data-bs-target="#modalRecargarSaldo">
               <i class="bi bi-plus-circle"></i> Recargar saldo
@@ -90,22 +91,17 @@ require_once __DIR__ . '/../Config/config.php';
         <div id="ev_recargas_table" class="d-none"></div>
       </div>
 
-
     </div>
   </div>
 
 </div>
 
-
-<!-- ===========================================================
-     MODAL: RECARGAR SALDO (armonizado con "Recuperar cuenta")
-=========================================================== -->
 <div class="modal fade ev-modal ev-modal-login" id="modalRecargarSaldo" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content ev-modal-content">
 
       <div class="modal-header ev-login-modal-header">
-        <h5 class="modal-title mb-0">
+        <h5 class="modal-title mb-0" id="modalRecargaTitulo">
           <i class="bi bi-plus-circle me-2"></i> Recargar saldo
         </h5>
         <button 
@@ -118,6 +114,17 @@ require_once __DIR__ . '/../Config/config.php';
 
       <div class="modal-body ev-login-modal-body">
         <form id="formRecargaSaldo" enctype="multipart/form-data">
+          <input type="hidden" id="recarga_codigo" name="recarga_codigo" value="">
+          <input type="hidden" id="recarga_modo" name="recarga_modo" value="crear">
+
+          <div id="recarga_alerta_subsanacion" class="alert alert-warning d-none mb-3" role="alert">
+            <div class="fw-semibold mb-1">
+              <i class="bi bi-exclamation-circle me-1"></i> Recarga observada
+            </div>
+            <div id="recarga_alerta_subsanacion_texto" class="small mb-0">
+              Corrige los datos observados por soporte y vuelve a enviarla.
+            </div>
+          </div>
           
           <div class="row g-3 align-items-start">
             
@@ -132,7 +139,7 @@ require_once __DIR__ . '/../Config/config.php';
                     id="recarga_imagen" 
                     name="recarga_imagen" 
                     accept="image/*">
-                  <div class="form-text">
+                  <div class="form-text" id="recarga_imagen_help">
                     Sube una foto clara del voucher o comprobante de la recarga.
                   </div>
                 </div>
@@ -158,7 +165,6 @@ require_once __DIR__ . '/../Config/config.php';
                   </select>
                 </div>
 
-                <!-- ID operación -->
                 <div class="col-12">
                   <label class="form-label">ID de operación</label>
                   <input
@@ -213,10 +219,6 @@ require_once __DIR__ . '/../Config/config.php';
   </div>
 </div>
 
-
-<!-- ===========================================================
-     MODAL: SOPORTE TÉCNICO (armonizado con "Recuperar cuenta")
-=========================================================== -->
 <div class="modal fade ev-modal ev-modal-login" id="modalSoporteBilletera" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content ev-modal-content">

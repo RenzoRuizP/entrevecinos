@@ -546,3 +546,20 @@
   .ev-wallet-qr-card{ margin-top: 8px; }
 }
 </style>
+
+<style>
+.ev-mono{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+#recarga_alerta_subsanacion{
+  border-radius: 14px;
+  border: 1px solid rgba(234,124,18,.22);
+  background: linear-gradient(180deg, rgba(255,247,237,1) 0%, rgba(255,251,235,1) 100%);
+  color: #9A3412;
+}
+
+#recarga_alerta_subsanacion .fw-semibold{
+  color: #C2410C;
+}
+</style>
