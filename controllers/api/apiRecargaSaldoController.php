@@ -1,6 +1,7 @@
 <?php
 // controllers/api/apiRecargaSaldoController.php
 
+require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/User.php';
 require_once __DIR__ . '/../../models/RecargaSaldo.php';
@@ -14,7 +15,7 @@ class apiRecargaSaldoController
         try {
             $usuarioAuth = $this->obtenerUsuarioAuth();
 
-            if (!$usuarioAuth) {
+            if (!$usuarioAuth || empty($usuarioAuth['codigo_usuario'])) {
                 http_response_code(401);
                 echo json_encode([
                     'ok'      => false,
@@ -24,53 +25,61 @@ class apiRecargaSaldoController
                 return;
             }
 
-            if (empty($usuarioAuth['codigo_usuario'])) {
-                http_response_code(401);
+            $metodo = strtolower(trim((string)($_POST['recarga_tipo'] ?? '')));
+            $monto  = (float)($_POST['recarga_monto'] ?? 0);
+            $idOp   = trim((string)($_POST['recarga_operacion'] ?? ''));
+
+            if (!in_array($metodo, ['yape', 'plin'], true)) {
+                http_response_code(422);
                 echo json_encode([
-                    'ok'      => false,
-                    'error'   => 'CODIGO_USUARIO_NO_DISPONIBLE',
-                    'mensaje' => 'Se encontró el usuario, pero no se obtuvo su código. Revisa el SELECT de DatosUsuario() para incluir codigo_usuario.'
+                    'ok' => false,
+                    'mensaje' => 'Tipo de billetera inválido (Yape o Plin).'
                 ], JSON_UNESCAPED_UNICODE);
                 return;
             }
 
-            $metodo = strtolower(trim($_POST['recarga_tipo'] ?? ''));
-            $monto  = (float)($_POST['recarga_monto'] ?? 0);
-            $idOp   = trim($_POST['recarga_operacion'] ?? '');
-
-            if (!in_array($metodo, ['yape', 'plin'], true)) {
-                http_response_code(422);
-                echo json_encode(['ok' => false, 'mensaje' => 'Tipo de billetera inválido (Yape o Plin).'], JSON_UNESCAPED_UNICODE);
-                return;
-            }
             if ($monto <= 0) {
                 http_response_code(422);
-                echo json_encode(['ok' => false, 'mensaje' => 'Ingresa un monto válido mayor a 0.'], JSON_UNESCAPED_UNICODE);
-                return;
-            }
-            if (strlen($idOp) < 4) {
-                http_response_code(422);
-                echo json_encode(['ok' => false, 'mensaje' => 'Ingresa un ID de operación válido (mínimo 4 caracteres).'], JSON_UNESCAPED_UNICODE);
+                echo json_encode([
+                    'ok' => false,
+                    'mensaje' => 'Ingresa un monto válido mayor a 0.'
+                ], JSON_UNESCAPED_UNICODE);
                 return;
             }
 
-            if (!isset($_FILES['recarga_imagen']) || $_FILES['recarga_imagen']['error'] !== UPLOAD_ERR_OK) {
+            if (strlen($idOp) < 4) {
                 http_response_code(422);
-                echo json_encode(['ok' => false, 'mensaje' => 'Sube una imagen del comprobante (jpg/png).'], JSON_UNESCAPED_UNICODE);
+                echo json_encode([
+                    'ok' => false,
+                    'mensaje' => 'Ingresa un ID de operación válido (mínimo 4 caracteres).'
+                ], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            if (!isset($_FILES['recarga_imagen']) || !is_array($_FILES['recarga_imagen']) || (int)$_FILES['recarga_imagen']['error'] !== UPLOAD_ERR_OK) {
+                http_response_code(422);
+                echo json_encode([
+                    'ok' => false,
+                    'mensaje' => 'Sube una imagen del comprobante (jpg/png).'
+                ], JSON_UNESCAPED_UNICODE);
                 return;
             }
 
             $file = $_FILES['recarga_imagen'];
 
             $maxBytes = 3 * 1024 * 1024;
-            if ($file['size'] <= 0 || $file['size'] > $maxBytes) {
+            if ((int)$file['size'] <= 0 || (int)$file['size'] > $maxBytes) {
                 http_response_code(422);
-                echo json_encode(['ok' => false, 'mensaje' => 'El comprobante debe pesar máximo 3MB.'], JSON_UNESCAPED_UNICODE);
+                echo json_encode([
+                    'ok' => false,
+                    'mensaje' => 'El comprobante debe pesar máximo 3MB.'
+                ], JSON_UNESCAPED_UNICODE);
                 return;
             }
 
             $finfo = new finfo(FILEINFO_MIME_TYPE);
-            $mime  = $finfo->file($file['tmp_name']) ?: '';
+            $mime  = $finfo->file((string)$file['tmp_name']) ?: '';
+
             $ext = match ($mime) {
                 'image/jpeg' => 'jpg',
                 'image/png'  => 'png',
@@ -79,7 +88,10 @@ class apiRecargaSaldoController
 
             if ($ext === '') {
                 http_response_code(422);
-                echo json_encode(['ok' => false, 'mensaje' => 'Formato no permitido. Sube una imagen JPG o PNG.'], JSON_UNESCAPED_UNICODE);
+                echo json_encode([
+                    'ok' => false,
+                    'mensaje' => 'Formato no permitido. Sube una imagen JPG o PNG.'
+                ], JSON_UNESCAPED_UNICODE);
                 return;
             }
 
@@ -103,9 +115,12 @@ class apiRecargaSaldoController
             $nombreSeguro = 'recarga_' . $codigoUsuario . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
             $rutaAbs = $dir . '/' . $nombreSeguro;
 
-            if (!move_uploaded_file($file['tmp_name'], $rutaAbs)) {
+            if (!move_uploaded_file((string)$file['tmp_name'], $rutaAbs)) {
                 http_response_code(500);
-                echo json_encode(['ok' => false, 'mensaje' => 'No se pudo guardar el comprobante.'], JSON_UNESCAPED_UNICODE);
+                echo json_encode([
+                    'ok' => false,
+                    'mensaje' => 'No se pudo guardar el comprobante.'
+                ], JSON_UNESCAPED_UNICODE);
                 return;
             }
 
@@ -132,22 +147,27 @@ class apiRecargaSaldoController
             http_response_code(500);
             echo json_encode([
                 'ok'      => false,
-                'mensaje' => 'Error interno al registrar la recarga.',
+                'mensaje' => 'Error interno al registrar la recarga.'
             ], JSON_UNESCAPED_UNICODE);
             return;
         }
     }
 
-    // ✅ NUEVO: GET /api/recargas/mis
+    // ✅ GET /api/recargas/mis
     public function mis()
     {
         header('Content-Type: application/json; charset=utf-8');
 
         try {
             $usuarioAuth = $this->obtenerUsuarioAuth();
+
             if (!$usuarioAuth || empty($usuarioAuth['codigo_usuario'])) {
                 http_response_code(401);
-                echo json_encode(['ok' => false, 'mensaje' => 'Sesión inválida.'], JSON_UNESCAPED_UNICODE);
+                echo json_encode([
+                    'ok' => false,
+                    'error' => 'UNAUTHORIZED',
+                    'mensaje' => 'Sesión inválida.'
+                ], JSON_UNESCAPED_UNICODE);
                 return;
             }
 
@@ -159,13 +179,19 @@ class apiRecargaSaldoController
             $model = new RecargaSaldo();
             $items = $model->listarMisRecargas($codigoUsuario, $limit);
 
-            echo json_encode(['ok' => true, 'data' => $items], JSON_UNESCAPED_UNICODE);
+            echo json_encode([
+                'ok' => true,
+                'data' => $items
+            ], JSON_UNESCAPED_UNICODE);
             return;
 
         } catch (Throwable $e) {
             error_log('[EV][apiRecargaSaldoController::mis] ' . $e->getMessage());
             http_response_code(500);
-            echo json_encode(['ok' => false, 'mensaje' => 'Error interno al listar recargas.'], JSON_UNESCAPED_UNICODE);
+            echo json_encode([
+                'ok' => false,
+                'mensaje' => 'Error interno al listar recargas.'
+            ], JSON_UNESCAPED_UNICODE);
             return;
         }
     }
@@ -179,41 +205,60 @@ class apiRecargaSaldoController
         if (!$token) return null;
 
         $payload = SesionJWT::verificarToken($token);
-        if (!$payload) return null;
+        if (!$payload || !is_array($payload)) return null;
+
+        // ✅ FUENTE DE VERDAD: token
+        $codigoUsuario = 0;
+        if (!empty($payload['codigo_usuario'])) {
+            $codigoUsuario = (int)$payload['codigo_usuario'];
+        } elseif (!empty($payload['codigoUsuario'])) {
+            $codigoUsuario = (int)$payload['codigoUsuario'];
+        } elseif (!empty($payload['usuario']['codigo_usuario'])) {
+            $codigoUsuario = (int)$payload['usuario']['codigo_usuario'];
+        }
 
         $email = '';
-        if (!empty($payload['email'])) $email = (string)$payload['email'];
-        elseif (!empty($payload['sub'])) $email = (string)$payload['sub'];
-        elseif (!empty($payload['usuario']['email'])) $email = (string)$payload['usuario']['email'];
-        $email = trim($email);
+        if (!empty($payload['email'])) {
+            $email = trim((string)$payload['email']);
+        } elseif (!empty($payload['sub'])) {
+            $email = trim((string)$payload['sub']);
+        } elseif (!empty($payload['usuario']['email'])) {
+            $email = trim((string)$payload['usuario']['email']);
+        }
 
-        $codigoDesdeToken = null;
-        if (!empty($payload['codigo_usuario'])) $codigoDesdeToken = (int)$payload['codigo_usuario'];
-        elseif (!empty($payload['codigoUsuario'])) $codigoDesdeToken = (int)$payload['codigoUsuario'];
-        elseif (!empty($payload['usuario']['codigo_usuario'])) $codigoDesdeToken = (int)$payload['usuario']['codigo_usuario'];
+        // Si el token ya trae codigo_usuario, con eso basta
+        if ($codigoUsuario > 0) {
+            return [
+                'codigo_usuario' => $codigoUsuario,
+                'email' => $email
+            ];
+        }
 
-        $datos = null;
+        // Fallback: enriquecer con User.php solo si hay email
         if ($email !== '') {
-            $u = new User();
-            $datos = $u->DatosUsuario($email);
-        }
+            try {
+                $u = new User();
+                $datos = $u->DatosUsuario($email);
 
-        if (!$datos) {
-            if ($codigoDesdeToken) {
-                return ['codigo_usuario' => $codigoDesdeToken, 'email' => $email];
+                if ($datos && is_array($datos)) {
+                    if (empty($datos['codigo_usuario']) && !empty($datos['id_usuario'])) {
+                        $datos['codigo_usuario'] = (int)$datos['id_usuario'];
+                    } elseif (empty($datos['codigo_usuario']) && !empty($datos['codigoUsuario'])) {
+                        $datos['codigo_usuario'] = (int)$datos['codigoUsuario'];
+                    } elseif (empty($datos['codigo_usuario']) && !empty($datos['codigo'])) {
+                        $datos['codigo_usuario'] = (int)$datos['codigo'];
+                    }
+
+                    if (!empty($datos['codigo_usuario'])) {
+                        if (empty($datos['email'])) $datos['email'] = $email;
+                        return $datos;
+                    }
+                }
+            } catch (Throwable $e) {
+                error_log('[EV][apiRecargaSaldoController::obtenerUsuarioAuth] ' . $e->getMessage());
             }
-            return null;
         }
 
-        if (empty($datos['codigo_usuario'])) {
-            if (!empty($datos['id_usuario'])) $datos['codigo_usuario'] = (int)$datos['id_usuario'];
-            elseif (!empty($datos['codigoUsuario'])) $datos['codigo_usuario'] = (int)$datos['codigoUsuario'];
-            elseif (!empty($datos['codigo'])) $datos['codigo_usuario'] = (int)$datos['codigo'];
-            elseif ($codigoDesdeToken) $datos['codigo_usuario'] = (int)$codigoDesdeToken;
-        }
-
-        if (empty($datos['email']) && $email !== '') $datos['email'] = $email;
-
-        return $datos;
+        return null;
     }
 }

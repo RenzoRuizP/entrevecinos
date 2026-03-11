@@ -398,7 +398,8 @@ $routes = [
     ['GET',  '#^/api/billetera/saldo$#',               [apiBilleteraController::class, 'obtenerSaldo'],        'json'],
     ['GET',  '#^/api/billetera/movimientos$#',         [apiBilleteraController::class, 'obtenerMovimientos'],  'json'],
     ['POST', '#^/api/billetera/debitar-publicacion$#', [apiBilleteraController::class, 'debitarPublicacion'],  'json'],
-    ['POST', '#^/api/billetera/debitar-producto-destacado$#', [apiBilleteraController::class, 'debitarPublicacion'], 'json'],
+    //['POST', '#^/api/billetera/debitar-producto-destacado$#', [apiBilleteraController::class, 'debitarPublicacion'], 'json'],
+    ['POST', '#^/api/billetera/debitar-producto-destacado$#', [apiBilleteraController::class, 'debitarProductoDestacado'], 'json'],
 
     ['GET',  '#^/api/pedidos/recibir$#',               [apiPedidoController::class, 'listarPedidos'],           'json'],
 
