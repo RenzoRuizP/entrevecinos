@@ -71,9 +71,33 @@ class RecargaSaldo extends Conexion
     ): int {
         $sql = "
             INSERT INTO recarga_saldo
-            (codigo_usuario, monto, metodo, id_operacion, comprobante_path, estado, fecha_creacion)
+            (
+                codigo_usuario,
+                monto,
+                metodo,
+                id_operacion,
+                comprobante_path,
+                estado,
+                comentario_soporte,
+                codigo_soporte,
+                fecha_revision,
+                reenviada_usuario,
+                fecha_creacion
+            )
             VALUES
-            (:codigo_usuario, :monto, :metodo, :id_operacion, :comprobante_path, 'pendiente', NOW())
+            (
+                :codigo_usuario,
+                :monto,
+                :metodo,
+                :id_operacion,
+                :comprobante_path,
+                'pendiente',
+                NULL,
+                NULL,
+                NULL,
+                0,
+                NOW()
+            )
         ";
         $stmt = $this->dblink->prepare($sql);
         $stmt->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
@@ -149,6 +173,7 @@ class RecargaSaldo extends Conexion
                 r.id_operacion,
                 r.estado,
                 r.comprobante_path,
+                r.reenviada_usuario,
 
                 COALESCE(t.nombre_torre, '—') AS torre,
                 COALESCE(d.numero_departamento, '—') AS departamento,
@@ -256,7 +281,8 @@ class RecargaSaldo extends Conexion
                 estado = 'pendiente',
                 comentario_soporte = NULL,
                 codigo_soporte = NULL,
-                fecha_revision = NULL
+                fecha_revision = NULL,
+                reenviada_usuario = 1
             WHERE codigo_recarga = :codigo_recarga
               AND codigo_usuario = :codigo_usuario
               AND estado = 'observada'
@@ -289,7 +315,8 @@ class RecargaSaldo extends Conexion
                 r.id_operacion,
                 r.estado,
                 r.comentario_soporte,
-                r.comprobante_path
+                r.comprobante_path,
+                r.reenviada_usuario
             FROM recarga_saldo r
             WHERE r.codigo_usuario = :u
             ORDER BY r.fecha_creacion DESC, r.codigo_recarga DESC

@@ -449,4 +449,11 @@
   .ev-col-fecha{ width: 150px; }
   .ev-col-usuario{ min-width: 220px; max-width: 320px; }
 }
+.ev-badge-reenviada{
+  background: rgba(59,130,246,0.12);
+  border-color: rgba(59,130,246,0.22);
+  color: #1D4ED8;
+  margin-top: 6px;
+  font-size: 0.76rem;
+}
 </style>

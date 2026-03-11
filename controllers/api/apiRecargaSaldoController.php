@@ -143,7 +143,6 @@ class apiRecargaSaldoController
         }
     }
 
-    // ✅ NUEVO: POST /api/recargas/{id}/subsanar
     public function subsanar($codigo_recarga)
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -301,6 +300,7 @@ class apiRecargaSaldoController
                 'ok' => true,
                 'id' => $codigoRecarga,
                 'estado' => 'pendiente',
+                'reenviada_usuario' => 1,
                 'mensaje' => $nuevoArchivoSubido
                     ? 'Recarga corregida y reenviada a validación.'
                     : 'Recarga corregida y reenviada a validación.'
@@ -318,7 +318,6 @@ class apiRecargaSaldoController
         }
     }
 
-    // ✅ GET /api/recargas/mis
     public function mis()
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -361,9 +360,6 @@ class apiRecargaSaldoController
         }
     }
 
-    // =========================================================
-    // Helpers
-    // =========================================================
     private function obtenerUsuarioAuth(): ?array
     {
         $token = $_COOKIE['auth_token'] ?? null;

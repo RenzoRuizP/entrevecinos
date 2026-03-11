@@ -27,7 +27,6 @@ final class SoporteRecargas extends Conexion
         $where = " WHERE r.estado = :estado ";
         $params = [':estado' => $estado];
 
-        // Rango
         if ($rango === 'hoy') {
             $where .= " AND DATE(r.fecha_creacion) = CURDATE() ";
         } else {
@@ -37,7 +36,6 @@ final class SoporteRecargas extends Conexion
             }
         }
 
-        // Búsqueda
         if ($q !== '') {
             $where .= " AND (
                 u.nombre LIKE :q OR
@@ -50,7 +48,6 @@ final class SoporteRecargas extends Conexion
 
         $offset = ($page - 1) * $size;
 
-        // Total
         $sqlCount = "
             SELECT COUNT(*)
             FROM recarga_saldo r
@@ -62,11 +59,9 @@ final class SoporteRecargas extends Conexion
         $stc->execute();
         $total = (int)$stc->fetchColumn();
 
-        // Pendientes globales
         $sqlPend = "SELECT COUNT(*) FROM recarga_saldo WHERE estado='pendiente'";
         $pendientes = (int)$this->dblink->query($sqlPend)->fetchColumn();
 
-        // Items (con formato que tu JS YA USA)
         $sql = "
             SELECT
                 r.codigo_recarga AS id,
@@ -82,6 +77,7 @@ final class SoporteRecargas extends Conexion
                 r.estado,
                 r.comprobante_path,
                 r.comentario_soporte,
+                r.reenviada_usuario,
 
                 r.codigo_usuario,
                 r.codigo_soporte,
@@ -128,7 +124,6 @@ final class SoporteRecargas extends Conexion
             return ['ok' => false, 'error' => 'UNAUTHORIZED', 'mensaje' => 'Sesión inválida'];
         }
 
-        // comentario obligatorio para observada/rechazada
         if (($nuevoEstado === 'observada' || $nuevoEstado === 'rechazada')) {
             if ($comentario === null || mb_strlen(trim($comentario)) < 3) {
                 return ['ok' => false, 'error' => 'VALIDATION', 'mensaje' => 'Debes ingresar un comentario (mín. 3 caracteres).'];
@@ -138,7 +133,6 @@ final class SoporteRecargas extends Conexion
         try {
             $this->dblink->beginTransaction();
 
-            // 1) Recarga FOR UPDATE
             $st = $this->dblink->prepare("
                 SELECT codigo_recarga, codigo_usuario, monto, estado
                 FROM recarga_saldo
@@ -157,7 +151,6 @@ final class SoporteRecargas extends Conexion
             $monto         = (float)$rec['monto'];
             $estadoActual  = (string)$rec['estado'];
 
-            // 2) Billetera FOR UPDATE (o crear)
             $stB = $this->dblink->prepare("
                 SELECT codigo_billetera, saldo_actual
                 FROM billetera
@@ -183,7 +176,6 @@ final class SoporteRecargas extends Conexion
 
             $cambioEstado = ($nuevoEstado !== $estadoActual);
 
-            // 3) Regla reversible (evita duplicar saldo)
             if ($cambioEstado) {
                 if ($estadoActual === 'aprobada' && $nuevoEstado !== 'aprobada') {
                     $saldoNuevo = $saldoActual - $monto;
@@ -214,16 +206,31 @@ final class SoporteRecargas extends Conexion
                 ]);
             }
 
-            // 4) Update recarga
-            $updR = $this->dblink->prepare("
-                UPDATE recarga_saldo
-                SET
-                    estado = :estado,
-                    comentario_soporte = :comentario,
-                    codigo_soporte = :soporte,
-                    fecha_revision = NOW()
-                WHERE codigo_recarga = :id
-            ");
+            $reenviadaUsuario = ($nuevoEstado === 'observada' || $nuevoEstado === 'rechazada') ? 0 : null;
+
+            if ($reenviadaUsuario === 0) {
+                $updR = $this->dblink->prepare("
+                    UPDATE recarga_saldo
+                    SET
+                        estado = :estado,
+                        comentario_soporte = :comentario,
+                        codigo_soporte = :soporte,
+                        fecha_revision = NOW(),
+                        reenviada_usuario = 0
+                    WHERE codigo_recarga = :id
+                ");
+            } else {
+                $updR = $this->dblink->prepare("
+                    UPDATE recarga_saldo
+                    SET
+                        estado = :estado,
+                        comentario_soporte = :comentario,
+                        codigo_soporte = :soporte,
+                        fecha_revision = NOW()
+                    WHERE codigo_recarga = :id
+                ");
+            }
+
             $updR->execute([
                 ':estado'     => $nuevoEstado,
                 ':comentario' => ($comentario !== null && trim($comentario) !== '' ? $comentario : null),
@@ -233,7 +240,6 @@ final class SoporteRecargas extends Conexion
 
             $this->dblink->commit();
 
-            // 5) Respuesta
             $out = $this->dblink->prepare("
                 SELECT
                     r.codigo_recarga AS id,
@@ -250,6 +256,7 @@ final class SoporteRecargas extends Conexion
                     r.codigo_soporte,
                     r.fecha_revision,
                     r.fecha_creacion,
+                    r.reenviada_usuario,
                     b.saldo_actual
                 FROM recarga_saldo r
                 INNER JOIN usuario u ON u.codigo_usuario = r.codigo_usuario

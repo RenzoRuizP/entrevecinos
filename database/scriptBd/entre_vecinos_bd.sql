@@ -793,3 +793,71 @@ CREATE TABLE `notificacion` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=UTF8MB4_GENERAL_CI;
 
 
+-- -------
+
+ALTER TABLE usuario
+  ADD COLUMN comentario_soporte TEXT NULL AFTER telefono,
+  ADD COLUMN comprobante_observacion_url VARCHAR(255) NULL AFTER comentario_soporte,
+  ADD COLUMN fecha_reenvio_observacion TIMESTAMP NULL AFTER comprobante_observacion_url;
+  
+  
+-- -------
+
+CREATE TABLE IF NOT EXISTS usuario_revision (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  codigo_usuario INT NOT NULL,
+  estado_revision TINYINT NOT NULL DEFAULT 1 COMMENT '1=En revision, 2=Habilitado, 3=Observado',
+  mensaje_observacion VARCHAR(500) DEFAULT NULL,
+  comprobante_path VARCHAR(255) DEFAULT NULL,
+  fecha_observacion TIMESTAMP NULL DEFAULT NULL,
+  fecha_reenvio TIMESTAMP NULL DEFAULT NULL,
+  fecha_actualizacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_usuario_revision (codigo_usuario),
+  CONSTRAINT fk_usuario_revision_usuario
+    FOREIGN KEY (codigo_usuario) REFERENCES usuario(codigo_usuario)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
+
+
+ALTER TABLE producto_revision
+  MODIFY created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+
+--
+
+
+
+ALTER TABLE producto
+ADD COLUMN codigo_usuario_residencia INT(11) NULL AFTER codigo_usuario,
+ADD COLUMN tipo_conjunto_publicacion ENUM('condominio','urbanizacion') NULL AFTER codigo_usuario_residencia,
+ADD COLUMN codigo_condominio_publicacion INT(11) NULL AFTER tipo_conjunto_publicacion,
+ADD COLUMN codigo_urbanizacion_publicacion INT(11) NULL AFTER codigo_condominio_publicacion,
+ADD COLUMN estado_residencial_publicacion ENUM('activa','bloqueado_por_cambio','migrada') NOT NULL DEFAULT 'activa' AFTER codigo_urbanizacion_publicacion;
+
+
+ALTER TABLE producto
+ADD INDEX idx_producto_usuario_residencia (codigo_usuario_residencia),
+ADD INDEX idx_producto_condominio_publicacion (codigo_condominio_publicacion),
+ADD INDEX idx_producto_urbanizacion_publicacion (codigo_urbanizacion_publicacion),
+ADD INDEX idx_producto_estado_residencial (estado_residencial_publicacion);
+
+
+
+ALTER TABLE producto
+ADD CONSTRAINT fk_producto_usuario_residencia
+    FOREIGN KEY (codigo_usuario_residencia)
+    REFERENCES usuario_residencia (codigo_usuario_residencia),
+ADD CONSTRAINT fk_producto_condominio_publicacion
+    FOREIGN KEY (codigo_condominio_publicacion)
+    REFERENCES condominio (codigo_condominio),
+ADD CONSTRAINT fk_producto_urbanizacion_publicacion
+    FOREIGN KEY (codigo_urbanizacion_publicacion)
+    REFERENCES urbanizacion (codigo_urbanizacion);
+    
+    
+    
+    
+ALTER TABLE recarga_saldo
+ADD COLUMN reenviada_usuario TINYINT(1) NOT NULL DEFAULT 0
+AFTER fecha_revision;

@@ -168,8 +168,22 @@
     return `
       <span class="${cls}" title="${alt}">
         <img src="${src}" alt="${alt}" onerror="this.onerror=null;this.parentElement.outerHTML='<span class=&quot;ev-metodo ev-metodo-fallback&quot;>${alt}</span>';">
-
       </span>
+    `;
+  }
+
+  function renderBadgeReenviada(rec) {
+    const reenviada = Number(rec.reenviada_usuario || 0) === 1;
+    const estado = String(rec.estado || '').toLowerCase();
+
+    if (!reenviada || estado !== 'pendiente') return '';
+
+    return `
+      <div class="mt-1">
+        <span class="ev-badge ev-badge-reenviada">
+          reenviada por el usuario
+        </span>
+      </div>
     `;
   }
 
@@ -189,6 +203,7 @@
       const metodoIcon = renderMetodoIcon(r.metodo);
       const op = escapeHtml(r.id_operacion || '—');
       const est = escapeHtml(r.estado || 'pendiente');
+      const badgeExtra = renderBadgeReenviada(r);
 
       return `
         <tr>
@@ -201,7 +216,10 @@
           <td class="ev-td-usuario" title="${usuario}">${usuario}</td>
           <td class="text-end"><strong>${monto}</strong></td>
           <td class="text-center">${metodoIcon}</td>
-          <td><span class="ev-mono">${op}</span></td>
+          <td>
+            <span class="ev-mono">${op}</span>
+            ${badgeExtra}
+          </td>
           <td><span class="${badgeEstado(est)}">${est}</span></td>
           <td class="text-end">
             <button class="btn ev-btn-light btn-sm" data-ev-action="revisar" data-id="${id}">
@@ -330,7 +348,6 @@
 
     const url = `${BASE}/api/soporte/recargas/${id}/estado`;
 
-    // Enviamos FormData (backend ya lo soporta)
     const fd = new FormData();
     fd.set('estado', nuevoEstado);
     fd.set('comentario', comentario);
