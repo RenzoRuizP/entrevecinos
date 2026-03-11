@@ -184,6 +184,19 @@ require_once __DIR__ . '/../Config/config.php';
       <div class="modal-body ev-modal-body">
         <div class="row g-4">
           <div class="col-12 col-lg-6">
+          <div id="mReenviadaWrap" class="ev-alert-reenviada d-none">
+            <div class="ev-alert-reenviada-icon">
+              <i class="bi bi-arrow-repeat"></i>
+            </div>
+            <div class="ev-alert-reenviada-body">
+              <div class="ev-alert-reenviada-title">Solicitud reenviada</div>
+              <div class="ev-alert-reenviada-text">
+                Esta solicitud fue reenviada por el usuario luego de una observación anterior.
+              </div>
+            </div>
+          </div>
+
+          <div class="ev-kv">
             <div class="ev-kv">
               <div class="ev-kv-item"><span>Usuario:</span> <strong id="mUsuario">—</strong></div>
               <div class="ev-kv-item"><span>DNI:</span> <strong id="mDni">—</strong></div>

@@ -24,6 +24,7 @@
     modalEl: null, modal: null,
     mUsuario: null, mDni: null, mMonto: null, mMetodo: null, mOperacion: null, mEstadoBadge: null,
     mComentario: null, mImagen: null, mNoImagen: null,
+    mReenviadaWrap: null,
     btnAprobar: null, btnObservar: null, btnRechazar: null,
   };
 
@@ -81,6 +82,7 @@
     refs.mComentario = document.getElementById('mComentario');
     refs.mImagen = document.getElementById('mImagen');
     refs.mNoImagen = document.getElementById('mNoImagen');
+    refs.mReenviadaWrap = document.getElementById('mReenviadaWrap');
     refs.btnAprobar = document.getElementById('btnAprobar');
     refs.btnObservar = document.getElementById('btnObservar');
     refs.btnRechazar = document.getElementById('btnRechazar');
@@ -305,6 +307,11 @@
     refs.mEstadoBadge.textContent = est;
 
     refs.mComentario.value = (rec.comentario_soporte || '');
+
+    const fueReenviada = Number(rec.reenviada_usuario || 0) === 1 && est === 'pendiente';
+    if (refs.mReenviadaWrap) {
+      refs.mReenviadaWrap.classList.toggle('d-none', !fueReenviada);
+    }
 
     const path = rec.comprobante_path ? `${BASE}/${String(rec.comprobante_path).replace(/^\/+/, '')}` : '';
     if (path) {

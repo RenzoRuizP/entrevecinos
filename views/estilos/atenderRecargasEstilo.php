@@ -456,4 +456,48 @@
   margin-top: 6px;
   font-size: 0.76rem;
 }
+
+.ev-alert-reenviada{
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border-radius: 16px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  background: linear-gradient(180deg, rgba(239,246,255,1) 0%, rgba(248,250,252,1) 100%);
+  border: 1px solid rgba(59,130,246,0.18);
+}
+
+.ev-alert-reenviada-icon{
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(59,130,246,0.12);
+  color: #1D4ED8;
+  flex: 0 0 36px;
+}
+
+.ev-alert-reenviada-title{
+  font-weight: 900;
+  color: #1E3A8A;
+  line-height: 1.15;
+  margin-bottom: 3px;
+}
+
+.ev-alert-reenviada-text{
+  color: #475569;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.ev-badge-reenviada{
+  background: rgba(59,130,246,0.12);
+  border-color: rgba(59,130,246,0.22);
+  color: #1D4ED8;
+  margin-top: 6px;
+  font-size: 0.76rem;
+}
 </style>
