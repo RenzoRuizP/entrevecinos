@@ -319,7 +319,8 @@ class apiProductoController
                 $msg = match ($visibleActual) {
                     1 => 'El producto ya está en estado Pendiente de aprobación.',
                     2 => 'El producto ya está Aprobado y visible en el marketplace.',
-                    3 => 'El producto está Anulado y no puede publicarse.',
+                    3 => 'El producto fue rechazado por soporte. Corrígelo para volver a registrarlo o crear una nueva publicación.',
+                    4 => 'El producto está Anulado y no puede publicarse.',
                     default => 'El producto no está en estado publicable.'
                 };
 
@@ -651,6 +652,8 @@ class apiProductoController
 
     /* ======================================================================================
        ANULAR PRODUCTO
+       ✅ SOLUCIÓN DE RAÍZ:
+       visible = 4 => anulado por el vecino
     ====================================================================================== */
     public function anularProducto($id): void
     {
@@ -681,7 +684,11 @@ class apiProductoController
                 return;
             }
 
-            $this->json(200, ['ok' => true, 'mensaje' => 'Producto anulado correctamente.', 'visible' => 3]);
+            $this->json(200, [
+                'ok' => true,
+                'mensaje' => 'Producto anulado correctamente.',
+                'visible' => 4
+            ]);
             return;
 
         } catch (Exception $e) {

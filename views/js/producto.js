@@ -17,6 +17,8 @@
     orden: 'recientes'
   };
 
+  const REENVIO_PREFIX = 'REENVIO_CORRECCION|';
+
   function evNotify(icon, title, text) {
     if (window.Swal?.fire) {
       Swal.fire({
@@ -188,6 +190,15 @@
       clearTimeout(t);
       t = setTimeout(() => fn(...args), wait);
     };
+  }
+
+  function limpiarComentarioSistema(comentario) {
+    const c = String(comentario ?? '').trim();
+    if (!c) return '';
+    if (c.startsWith(REENVIO_PREFIX)) {
+      return c.replace(REENVIO_PREFIX, '').trim();
+    }
+    return c;
   }
 
   async function evFetchJson(url) {
@@ -1161,21 +1172,26 @@
   }
 
   function uiEstadoVisible(visibleNum, ultimaRevision) {
+    const visible = Number(visibleNum ?? -1);
     const rev = ultimaRevision || null;
+    const comentario = limpiarComentarioSistema(rev?.comentario || '');
+    const estadoNuevoRev = Number(rev?.estado_nuevo ?? -1);
 
     const hasObs = (
-      Number(visibleNum) === 1 &&
-      rev &&
-      String(rev.comentario || '').trim().length > 0 &&
-      Number(rev.estado_nuevo ?? -1) === 1
+      visible === 1 &&
+      comentario.length > 0 &&
+      estadoNuevoRev === 1 &&
+      !String(rev?.comentario || '').startsWith(REENVIO_PREFIX)
     );
 
     if (hasObs) return { text: 'Observado', cls: 'ev-chip ev-chip-amber' };
 
-    if (Number(visibleNum) === 0) return { text: 'Borrador', cls: 'ev-chip ev-chip-gray' };
-    if (Number(visibleNum) === 1) return { text: 'Pendiente', cls: 'ev-chip ev-chip-amber' };
-    if (Number(visibleNum) === 2) return { text: 'Aprobado',  cls: 'ev-chip ev-chip-green' };
-    return { text: 'Anulado', cls: 'ev-chip ev-chip-red' };
+    if (visible === 0) return { text: 'Borrador', cls: 'ev-chip ev-chip-gray' };
+    if (visible === 1) return { text: 'Pendiente', cls: 'ev-chip ev-chip-amber' };
+    if (visible === 2) return { text: 'Aprobado',  cls: 'ev-chip ev-chip-green' };
+    if (visible === 3) return { text: 'Rechazado', cls: 'ev-chip ev-chip-red' };
+    if (visible === 4) return { text: 'Anulado', cls: 'ev-chip ev-chip-red' };
+    return { text: '—', cls: 'ev-chip ev-chip-gray' };
   }
 
   function uiAccionPublicar(visibleNum) {
@@ -1186,21 +1202,43 @@
   }
 
   function evGetStatusKey(p) {
-    const visible = Number(p?.visible ?? 0);
+    const visible = Number(p?.visible ?? -1);
     const rev = p?.ultima_revision || null;
-    const comentario = rev ? String(rev.comentario || '').trim() : '';
+    const comentarioOriginal = String(rev?.comentario || '').trim();
+    const comentario = limpiarComentarioSistema(comentarioOriginal);
 
-    const isObs = (visible === 1 && comentario && Number(rev.estado_nuevo ?? -1) === 1);
+    const isObs = (
+      visible === 1 &&
+      comentario &&
+      Number(rev?.estado_nuevo ?? -1) === 1 &&
+      !comentarioOriginal.startsWith(REENVIO_PREFIX)
+    );
     if (isObs) return 'observado';
-
-    const isRech = (visible === 1 && comentario && Number(rev.estado_nuevo ?? -1) === 0);
-    if (isRech) return 'rechazado';
 
     if (visible === 2) return 'aprobado';
     if (visible === 1) return 'pendiente';
     if (visible === 0) return 'borrador';
-    if (visible === 3) return 'anulado';
+    if (visible === 3) return 'rechazado';
+    if (visible === 4) return 'anulado';
     return 'all';
+  }
+
+  function evGetMensajeSoporte(p) {
+    const rev = p?.ultima_revision || null;
+    const comentarioOriginal = String(rev?.comentario || '').trim();
+    const comentario = limpiarComentarioSistema(comentarioOriginal);
+    if (!comentario) return '';
+
+    if (comentarioOriginal.startsWith(REENVIO_PREFIX)) return '';
+
+    const visible = Number(p?.visible ?? -1);
+    const estadoNuevoRev = Number(rev?.estado_nuevo ?? -1);
+
+    const esObservado = visible === 1 && estadoNuevoRev === 1;
+    const esRechazado = visible === 3;
+
+    if (esObservado || esRechazado) return comentario;
+    return '';
   }
 
   function evMatchTab(p) {
@@ -1251,7 +1289,8 @@
         const d  = String(p.descripcion || '').toLowerCase();
         const c  = String(p.categoria_nombre || p.categoria || '').toLowerCase();
         const tp = String(p.tipo_nombre || p.tipo || '').toLowerCase();
-        return (t.includes(q) || d.includes(q) || c.includes(q) || tp.includes(q));
+        const ms = String(evGetMensajeSoporte(p) || '').toLowerCase();
+        return (t.includes(q) || d.includes(q) || c.includes(q) || tp.includes(q) || ms.includes(q));
       });
     }
 
@@ -1291,7 +1330,7 @@
     const tbody = table?.querySelector('tbody');
     if (!table || !tbody) return;
 
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Cargando productos…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">Cargando productos…</td></tr>`;
 
     try {
       const resp = await fetch(`${EV_API_BASE}/api/producto/listar`, { method: 'GET' });
@@ -1300,7 +1339,7 @@
       if (await evHandleAuthResponse(resp, data)) return;
 
       if (!resp.ok || !data.ok) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">${escAttr(data.mensaje || data.error || 'No se pudo obtener el listado.')}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-danger">${escAttr(data.mensaje || data.error || 'No se pudo obtener el listado.')}</td></tr>`;
         return;
       }
 
@@ -1327,12 +1366,12 @@
       if (lblFooterLeft) lblFooterLeft.textContent = `Mostrando ${filtrados.length} de ${items.length}`;
 
       if (!items.length) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Aún no tienes productos registrados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">Aún no tienes productos registrados.</td></tr>`;
         return;
       }
 
       if (!filtrados.length) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">No hay productos para los filtros seleccionados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">No hay productos para los filtros seleccionados.</td></tr>`;
         return;
       }
 
@@ -1358,7 +1397,7 @@
         const descShort = descFull.length > 90 ? (descFull.substring(0, 90) + '…') : descFull;
         const descSafe = escAttr(descShort || '-');
 
-        const visible = Number(p.visible ?? 0);
+        const visible = Number(p.visible ?? -1);
 
         let badge = 'ev-badge ev-badge--noaplica';
         if (estado === 'NUEVO') badge = 'ev-badge ev-badge--nuevo';
@@ -1368,20 +1407,33 @@
         const pubUI = uiAccionPublicar(visible);
 
         const statusKey = evGetStatusKey(p);
+        const mensajeSoporte = evGetMensajeSoporte(p);
 
-        const canEdit  = (statusKey === 'borrador' || statusKey === 'observado' || statusKey === 'rechazado');
-        const canAnular= (statusKey === 'borrador' || statusKey === 'observado' || statusKey === 'rechazado');
+        const mensajeHtml = mensajeSoporte
+          ? `
+              <span class="ev-msg-support-box ${statusKey === 'observado' || statusKey === 'rechazado' ? 'is-alert' : ''}">
+                <span class="ev-msg-support-title">Mensaje de soporte</span>
+                <span class="ev-msg-support-text">${escAttr(mensajeSoporte)}</span>
+              </span>
+            `
+          : `
+              <span class="ev-msg-support-box is-empty">
+                <span class="ev-msg-support-title">Mensaje de soporte</span>
+                <span class="ev-msg-support-text">Sin observaciones</span>
+              </span>
+            `;
+
+        const canEdit  = (statusKey === 'borrador' || statusKey === 'observado');
+        const canAnular= (statusKey === 'borrador' || statusKey === 'pendiente' || statusKey === 'aprobado' || statusKey === 'observado');
 
         const disableEditar = canEdit ? '' : 'disabled';
         const disableAnular = canAnular ? '' : 'disabled';
 
-        const isAprobado = (visible === 2);
-        const isAnulado  = (visible === 3);
+        const isAprobado  = (visible === 2);
+        const isAnulado   = (visible === 4);
+        const isRechazado = (visible === 3);
 
         const trStyle = isAnulado ? 'style="opacity:.62;filter:saturate(.85);"' : '';
-
-        const obsTxt = String(p?.ultima_revision?.comentario || '').trim();
-        const obsTitle = obsTxt ? `title="${escAttr(obsTxt)}"` : '';
 
         return `
           <tr ${trStyle}>
@@ -1392,22 +1444,28 @@
             <td data-label="Tipo" class="td-trunc" title="${tipo}">${tipo}</td>
             <td data-label="Categoría" class="td-trunc" title="${categoria}">${categoria}</td>
             <td data-label="Descripción" class="td-trunc" title="${escAttr(descFull)}">${descSafe}</td>
+            <td data-label="Mensaje de soporte">${mensajeHtml}</td>
             <td data-label="Acciones" class="text-end">
               <div class="ev-actions">
                 ${
                   isAnulado
-                    ? `<button type="button" class="${visUI.cls}" disabled ${obsTitle}>${visUI.text}</button>`
+                    ? `<button type="button" class="${visUI.cls}" disabled>${visUI.text}</button>`
                     : isAprobado
-                      ? `<button type="button" class="${visUI.cls}" disabled>Aprobado</button>`
-                      : `
-                          <button type="button" class="ev-chip ev-chip-green" data-action="editar" data-id="${id}" ${disableEditar}>Editar</button>
+                      ? `
+                          <button type="button" class="ev-chip ev-chip-green" disabled>Aprobado</button>
                           <button type="button" class="ev-chip ev-chip-red" data-action="anular" data-id="${id}" ${disableAnular}>Anular</button>
-                          ${
-                            pubUI.show
-                              ? `<button type="button" class="${pubUI.cls}" data-action="publicar" data-id="${id}">${pubUI.text}</button>`
-                              : `<button type="button" class="${visUI.cls}" disabled ${obsTitle}>${visUI.text}</button>`
-                          }
                         `
+                      : isRechazado
+                        ? `<button type="button" class="${visUI.cls}" disabled>${visUI.text}</button>`
+                        : `
+                            <button type="button" class="ev-chip ev-chip-green" data-action="editar" data-id="${id}" ${disableEditar}>Editar</button>
+                            <button type="button" class="ev-chip ev-chip-red" data-action="anular" data-id="${id}" ${disableAnular}>Anular</button>
+                            ${
+                              pubUI.show
+                                ? `<button type="button" class="${pubUI.cls}" data-action="publicar" data-id="${id}">${pubUI.text}</button>`
+                                : `<button type="button" class="${visUI.cls}" disabled>${visUI.text}</button>`
+                            }
+                          `
                 }
               </div>
             </td>
@@ -1417,7 +1475,7 @@
 
     } catch (err) {
       console.error(err);
-      tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">Ocurrió un error al cargar los productos.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-danger">Ocurrió un error al cargar los productos.</td></tr>`;
     }
   }
 

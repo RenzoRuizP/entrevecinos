@@ -186,12 +186,13 @@ require_once __DIR__ . '/../Config/config.php';
                 <th class="ev-col-tipo">Tipo</th>
                 <th class="ev-col-categoria">Categoría</th>
                 <th class="ev-col-desc">Descripción</th>
+                <th class="ev-col-mensaje">Mensaje de soporte</th>
                 <th class="text-end ev-col-acciones">Acciones</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td colspan="8" class="text-center py-4 ev-empty">
+                <td colspan="9" class="text-center py-4 ev-empty">
                   <div class="ev-empty-wrap">
                     <i class="bi bi-inbox ev-empty-ico"></i>
                     <div class="ev-empty-text">Cargando productos…</div>
@@ -205,7 +206,7 @@ require_once __DIR__ . '/../Config/config.php';
     </div>
 
     <div class="ev-card-footer">
-      <div class="ev-footer-left">En móvil, cada fila se muestra como tarjeta (más cómodo).</div>
+      <div class="ev-footer-left">En móvil, cada fila se muestra como tarjeta para una lectura más cómoda.</div>
       <div class="ev-footer-right"></div>
     </div>
   </div>
@@ -213,8 +214,7 @@ require_once __DIR__ . '/../Config/config.php';
 </div>
 
 <!-- =========================
-     MODAL: BUSCAR (LEGACY - por compatibilidad)
-     (No se usa como filtro principal, pero lo dejo para no romper tu JS si aún lo llama)
+     MODAL: BUSCAR (LEGACY)
 ========================= -->
 <div class="modal fade ev-modal" id="modalBuscarPublicacion" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -334,7 +334,7 @@ require_once __DIR__ . '/../Config/config.php';
 
             </div>
 
-            <!-- Col derecha (preview) -->
+            <!-- Col derecha -->
             <div class="col-12 col-lg-5">
               <div id="previewMount"></div>
             </div>
@@ -450,7 +450,7 @@ require_once __DIR__ . '/../Config/config.php';
 
             </div>
 
-            <!-- Col derecha (preview) -->
+            <!-- Col derecha -->
             <div class="col-12 col-lg-5">
               <div id="evPreviewWrapperEditContainer"></div>
             </div>

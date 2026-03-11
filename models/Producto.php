@@ -7,6 +7,7 @@
       1 = pendiente
       2 = aprobado
       3 = rechazado
+      4 = anulado
 
     ✅ REGLA MARKETPLACE:
       - Una publicación solo puede mostrarse en marketplace si:
@@ -141,9 +142,9 @@ class Producto extends Conexion
             if ($nombre === '') return null;
 
             return [
-                'tipo_conjunto'        => 'urbanizacion',
-                'nombre'               => $nombre,
-                'codigo_urbanizacion'  => $urb,
+                'tipo_conjunto'       => 'urbanizacion',
+                'nombre'              => $nombre,
+                'codigo_urbanizacion' => $urb,
             ];
         }
 
@@ -160,15 +161,15 @@ class Producto extends Conexion
         if (!$res) return null;
 
         return [
-            'codigo_usuario_residencia'      => (int)$res['codigo_usuario_residencia'],
-            'tipo_conjunto_publicacion'      => (string)$res['tipo_conjunto'],
-            'codigo_condominio_publicacion'  => $res['tipo_conjunto'] === 'condominio'
+            'codigo_usuario_residencia'       => (int)$res['codigo_usuario_residencia'],
+            'tipo_conjunto_publicacion'       => (string)$res['tipo_conjunto'],
+            'codigo_condominio_publicacion'   => $res['tipo_conjunto'] === 'condominio'
                 ? (int)($res['codigo_condominio'] ?? 0)
                 : null,
-            'codigo_urbanizacion_publicacion'=> $res['tipo_conjunto'] === 'urbanizacion'
+            'codigo_urbanizacion_publicacion' => $res['tipo_conjunto'] === 'urbanizacion'
                 ? (int)($res['codigo_urbanizacion'] ?? 0)
                 : null,
-            'estado_residencial_publicacion' => 'activa',
+            'estado_residencial_publicacion'  => 'activa',
         ];
     }
 
@@ -508,6 +509,7 @@ class Producto extends Conexion
                 p.codigo_condominio_publicacion,
                 p.codigo_urbanizacion_publicacion,
                 p.estado_residencial_publicacion,
+                p.updated_at,
                 t.nombre AS tipo_nombre,
                 c.nombre AS categoria_nombre,
                 DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS create_at
@@ -515,7 +517,7 @@ class Producto extends Conexion
             LEFT JOIN tipo t ON t.codigo_tipo = p.codigo_tipo
             LEFT JOIN categoria c ON c.codigo_categoria = p.codigo_categoria
             WHERE p.codigo_usuario = :p_codigo_usuario
-              AND p.visible IN (0,1,2,3)
+              AND p.visible IN (0,1,2,3,4)
             ORDER BY p.created_at DESC
         ";
 
@@ -557,6 +559,7 @@ class Producto extends Conexion
                 p.codigo_condominio_publicacion,
                 p.codigo_urbanizacion_publicacion,
                 p.estado_residencial_publicacion,
+                p.updated_at,
                 DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS create_at
             FROM producto p
             WHERE p.codigo_producto = :p_codigo_producto
@@ -647,10 +650,10 @@ class Producto extends Conexion
     {
         $sql = "
             UPDATE producto
-            SET visible = 3
+            SET visible = 4
             WHERE codigo_producto = :p_codigo_producto
               AND codigo_usuario  = :p_codigo_usuario
-              AND visible IN (0,1,2)
+              AND visible IN (0,1,2,3)
         ";
 
         $stmt = $this->dblink->prepare($sql);
@@ -997,6 +1000,7 @@ class Producto extends Conexion
         if ($e === 'pendiente') return 1;
         if ($e === 'aprobada' || $e === 'aprobado') return 2;
         if ($e === 'rechazada' || $e === 'rechazado') return 3;
+        if ($e === 'anulada' || $e === 'anulado') return 4;
         return 1;
     }
 
@@ -1030,7 +1034,8 @@ class Producto extends Conexion
                 SUM(CASE WHEN visible = 0 THEN 1 ELSE 0 END) AS borradores,
                 SUM(CASE WHEN visible = 1 THEN 1 ELSE 0 END) AS pendientes,
                 SUM(CASE WHEN visible = 2 THEN 1 ELSE 0 END) AS aprobadas,
-                SUM(CASE WHEN visible = 3 THEN 1 ELSE 0 END) AS rechazadas
+                SUM(CASE WHEN visible = 3 THEN 1 ELSE 0 END) AS rechazadas,
+                SUM(CASE WHEN visible = 4 THEN 1 ELSE 0 END) AS anuladas
             FROM producto
         ";
         $stmt = $this->dblink->prepare($sql);
@@ -1041,6 +1046,7 @@ class Producto extends Conexion
             'pendientes' => (int)($row['pendientes'] ?? 0),
             'aprobadas'  => (int)($row['aprobadas'] ?? 0),
             'rechazadas' => (int)($row['rechazadas'] ?? 0),
+            'anuladas'   => (int)($row['anuladas'] ?? 0),
         ];
     }
 
@@ -1130,22 +1136,22 @@ class Producto extends Conexion
         $items = [];
         foreach ($rows as $r) {
             $it = [
-                'codigo_producto'               => (int)$r['codigo_producto'],
-                'titulo'                        => $r['titulo'],
-                'descripcion'                   => $r['descripcion'],
-                'estado'                        => $r['estado'],
-                'precio'                        => $r['precio'],
-                'visible'                       => (int)$r['visible'],
-                'imagen_portada'                => $r['imagen_portada'],
-                'codigo_usuario_residencia'     => $r['codigo_usuario_residencia'],
-                'tipo_conjunto_publicacion'     => $r['tipo_conjunto_publicacion'],
-                'codigo_condominio_publicacion' => $r['codigo_condominio_publicacion'],
+                'codigo_producto'                => (int)$r['codigo_producto'],
+                'titulo'                         => $r['titulo'],
+                'descripcion'                    => $r['descripcion'],
+                'estado'                         => $r['estado'],
+                'precio'                         => $r['precio'],
+                'visible'                        => (int)$r['visible'],
+                'imagen_portada'                 => $r['imagen_portada'],
+                'codigo_usuario_residencia'      => $r['codigo_usuario_residencia'],
+                'tipo_conjunto_publicacion'      => $r['tipo_conjunto_publicacion'],
+                'codigo_condominio_publicacion'  => $r['codigo_condominio_publicacion'],
                 'codigo_urbanizacion_publicacion'=> $r['codigo_urbanizacion_publicacion'],
-                'estado_residencial_publicacion'=> $r['estado_residencial_publicacion'],
-                'created_at'                    => $r['created_at'],
-                'updated_at'                    => $r['updated_at'],
-                'usuario_nombre'                => $r['usuario_nombre'],
-                'usuario_email'                 => $r['usuario_email'],
+                'estado_residencial_publicacion' => $r['estado_residencial_publicacion'],
+                'created_at'                     => $r['created_at'],
+                'updated_at'                     => $r['updated_at'],
+                'usuario_nombre'                 => $r['usuario_nombre'],
+                'usuario_email'                  => $r['usuario_email'],
             ];
 
             if (!empty($r['rev_id'])) {

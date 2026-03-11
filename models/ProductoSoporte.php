@@ -20,6 +20,7 @@ class ProductoSoporte extends Conexion
             'pendiente' => 1,
             'aprobada'  => 2,
             'rechazada' => 3,
+            'anulada'   => 4,
         ];
 
         $where  = [];
@@ -46,7 +47,9 @@ class ProductoSoporte extends Conexion
             {$whereSql}
         ";
         $stTotal = $this->dblink->prepare($sqlTotal);
-        foreach ($params as $k => $v) $stTotal->bindValue($k, $v);
+        foreach ($params as $k => $v) {
+            $stTotal->bindValue($k, $v);
+        }
         $stTotal->execute();
         $total = (int)($stTotal->fetchColumn() ?: 0);
 
@@ -91,7 +94,9 @@ class ProductoSoporte extends Conexion
         ";
 
         $st = $this->dblink->prepare($sql);
-        foreach ($params as $k => $v) $st->bindValue($k, $v);
+        foreach ($params as $k => $v) {
+            $st->bindValue($k, $v);
+        }
         $st->bindValue(':limit', $size, \PDO::PARAM_INT);
         $st->bindValue(':offset', $offset, \PDO::PARAM_INT);
         $st->execute();
@@ -132,6 +137,7 @@ class ProductoSoporte extends Conexion
             'pendientes' => (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 1")->fetchColumn() ?: 0),
             'aprobadas'  => (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 2")->fetchColumn() ?: 0),
             'rechazadas' => (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 3")->fetchColumn() ?: 0),
+            'anuladas'   => (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 4")->fetchColumn() ?: 0),
         ];
 
         return [
@@ -189,8 +195,11 @@ class ProductoSoporte extends Conexion
         $st->bindValue(':ea', $estadoAnterior, \PDO::PARAM_INT);
         $st->bindValue(':en', $estadoNuevo, \PDO::PARAM_INT);
 
-        if ($comentario !== '') $st->bindValue(':c', $comentario, \PDO::PARAM_STR);
-        else $st->bindValue(':c', null, \PDO::PARAM_NULL);
+        if ($comentario !== '') {
+            $st->bindValue(':c', $comentario, \PDO::PARAM_STR);
+        } else {
+            $st->bindValue(':c', null, \PDO::PARAM_NULL);
+        }
 
         $st->bindValue(':s',  $codigoSoporte, \PDO::PARAM_INT);
         $st->execute();
@@ -266,7 +275,6 @@ class ProductoSoporte extends Conexion
         if ($comentario === '') return false;
         if ($this->esRevisionReenvioCorreccion($comentario)) return false;
 
-        // observado (tu convención): estado_nuevo=1 + comentario
         return ($estadoNuevo === 1);
     }
 

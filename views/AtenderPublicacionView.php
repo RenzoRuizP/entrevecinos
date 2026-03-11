@@ -13,7 +13,7 @@ require_once __DIR__ . '/../Config/config.php';
       <div class="ev-hero-top">
         <div class="ev-hero-left">
           <h1 class="ev-title mb-1">Atender publicación</h1>
-          <div class="ev-subtitle">Aprueba o rechaza publicaciones antes de mostrarlas en el Marketplace.</div>
+          <div class="ev-subtitle">Aprueba, observa o rechaza publicaciones antes de mostrarlas en el Marketplace.</div>
         </div>
 
         <div class="ev-hero-right">
@@ -157,7 +157,7 @@ require_once __DIR__ . '/../Config/config.php';
 
 </div>
 
-<!-- MODAL: REVISAR (modo lectura + comentario + acciones) -->
+<!-- MODAL: REVISAR -->
 <div class="modal fade" id="modalPub" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-centered modal-xl">
     <div class="modal-content ev-modal">
@@ -178,15 +178,26 @@ require_once __DIR__ . '/../Config/config.php';
             </div>
 
             <div class="mt-3">
-              <label class="form-label">Comentario (obligatorio para Observar o Rechazar)</label>
-              <textarea class="form-control ev-input" id="mComentario" rows="4"
-                        placeholder="Ej. Falta precio / Imagen no corresponde / Publicación duplicada..."></textarea>
-              <div class="form-text">Este comentario se mostrará al usuario.</div>
+              <label class="form-label">Comentario para el vecino</label>
+              <textarea
+                class="form-control ev-input"
+                id="mComentario"
+                rows="4"
+                placeholder="Ej. Hola, revisamos tu publicación y necesitamos que corrijas la imagen principal porque no se aprecia bien el producto."
+              ></textarea>
+              <div class="form-text">
+                Este mensaje se mostrará al vecino. Usa un tono claro, respetuoso y específico.
+              </div>
             </div>
 
             <div class="mt-3">
               <label class="form-label mb-1">Descripción</label>
               <div class="ev-desc" id="mDescripcion">—</div>
+            </div>
+
+            <div class="mt-3">
+              <label class="form-label mb-1">Último mensaje registrado</label>
+              <div class="ev-desc ev-desc-soft" id="mUltimoComentario">Sin mensaje registrado.</div>
             </div>
           </div>
 
@@ -209,7 +220,7 @@ require_once __DIR__ . '/../Config/config.php';
           <i class="bi bi-x-circle me-1"></i> Cerrar
         </button>
 
-        <div class="ms-auto d-flex gap-2">
+        <div class="ms-auto d-flex gap-2 flex-wrap">
           <button type="button" class="btn ev-btn-danger" id="btnRechazar">
             <i class="bi bi-x-circle me-1"></i> Rechazar
           </button>

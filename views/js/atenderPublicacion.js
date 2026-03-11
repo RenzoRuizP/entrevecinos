@@ -9,7 +9,6 @@
   if (window[BOOT_KEY]) return;
   window[BOOT_KEY] = true;
 
-  // Prefijo del backend
   const REENVIO_PREFIX = "REENVIO_CORRECCION|";
 
   function $(sel, root) {
@@ -23,6 +22,15 @@
   function safeStr(v, def = "-") {
     const s = String(v ?? "").trim();
     return s ? s : def;
+  }
+
+  function escapeHtml(v) {
+    return String(v ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
   function money(v) {
@@ -70,29 +78,40 @@
     return null;
   }
 
+  function esComentarioReenvio(comentario) {
+    const c = String(comentario ?? "").trim();
+    return !!c && c.startsWith(REENVIO_PREFIX);
+  }
+
+  function limpiarComentarioSistema(comentario) {
+    const c = String(comentario ?? "").trim();
+    if (!c) return "";
+    if (esComentarioReenvio(c)) {
+      return c.replace(REENVIO_PREFIX, "").trim();
+    }
+    return c;
+  }
+
   function getEstadoKey(it) {
     const vis = Number(it?.visible ?? NaN);
     const rev = getUltimaRevision(it);
+    const comentario = String(rev?.comentario ?? "").trim();
+    const estadoNuevo = Number(rev?.estado_nuevo ?? NaN);
 
-    // ✅ 1) Si es REENVIO_CORRECCION => CORREGIDO (sigue siendo revisable)
-    if (vis === 1 && rev && rev.comentario && rev.comentario.startsWith(REENVIO_PREFIX)) {
+    if (vis === 1 && comentario && comentario.startsWith(REENVIO_PREFIX)) {
       return "corregido";
     }
 
-    // ✅ 2) Observado/Rechazado “sin cambiar visible”
-    // (visible=1 y hay comentario)
-    if (vis === 1 && rev && rev.comentario) {
-      // Si tu backend usa 0 para “rechazo lógico” (solo comentario) lo respetamos
-      if (Number.isFinite(rev.estado_nuevo) && rev.estado_nuevo === 0) return "rechazada";
-      // estado_nuevo=1 => observado lógico
-      if (Number.isFinite(rev.estado_nuevo) && rev.estado_nuevo === 1) return "observada";
-      return "observada";
+    if (vis === 1 && comentario) {
+      if (Number.isFinite(estadoNuevo) && estadoNuevo === 1) return "observada";
+      return "pendiente";
     }
 
     if (vis === 0) return "borrador";
     if (vis === 1) return "pendiente";
     if (vis === 2) return "aprobada";
     if (vis === 3) return "rechazada";
+    if (vis === 4) return "anulada";
 
     return "pendiente";
   }
@@ -105,13 +124,13 @@
     if (k === "rechazada") return "Rechazada";
     if (k === "observada") return "Observada";
     if (k === "corregido") return "Corregido";
+    if (k === "anulada") return "Anulada";
     return "Pendiente";
   }
 
   function badgeClass(it) {
     const k = getEstadoKey(it);
 
-    // Si aún no tienes clases CSS dedicadas, mapeamos sin romper
     if (k === "corregido") return "ev-badge ev-badge-pendiente";
     if (k === "observada") return "ev-badge ev-badge-pendiente";
 
@@ -119,8 +138,24 @@
     if (k === "pendiente") return "ev-badge ev-badge-pendiente";
     if (k === "aprobada") return "ev-badge ev-badge-aprobada";
     if (k === "rechazada") return "ev-badge ev-badge-rechazada";
+    if (k === "anulada") return "ev-badge ev-badge-borrador";
 
     return "ev-badge ev-badge-pendiente";
+  }
+
+  function normalizarComentarioParaEnviar(accion, comentario) {
+    const c = String(comentario ?? "").trim();
+    if (!c) return c;
+
+    if (accion === "observar") {
+      return c;
+    }
+
+    if (accion === "rechazar") {
+      return c;
+    }
+
+    return c;
   }
 
   function isComentarioValidoFor(accion, comentario) {
@@ -129,9 +164,6 @@
     return true;
   }
 
-  // ✅ Reglas modal:
-  // Revisable: pendiente/observada/corregido (son visible=1 en tu lógica)
-  // Solo lectura: aprobada/rechazada/borrador
   function aplicarReglasModalPorEstadoKey(estadoKey) {
     const btnAprobar = document.getElementById("btnAprobar");
     const btnRechazar = document.getElementById("btnRechazar");
@@ -147,9 +179,13 @@
 
     if (txt) {
       txt.readOnly = esSoloLectura;
+      if (esSoloLectura) {
+        txt.setAttribute("placeholder", "Esta publicación está en modo lectura.");
+      } else {
+        txt.setAttribute("placeholder", "Ej. Hola, revisamos tu publicación y necesitamos que ajustes la imagen principal para que el producto se vea con más claridad.");
+      }
     }
 
-    // Guardamos en dataset para validar antes de enviar acciones
     const modalEl = document.getElementById("modalPub");
     if (modalEl) {
       modalEl.dataset.evEstadoKey = estadoKey || "";
@@ -198,6 +234,7 @@
         mEmail: document.getElementById("mEmail"),
         mDescripcion: document.getElementById("mDescripcion"),
         mComentario: document.getElementById("mComentario"),
+        mUltimoComentario: document.getElementById("mUltimoComentario"),
         mGaleria: document.getElementById("mGaleria"),
         mNoImgs: document.getElementById("mNoImgs"),
       };
@@ -267,11 +304,11 @@
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${fecha}</td>
-          <td>${titulo}</td>
-          <td class="text-end">${precio}</td>
-          <td>${usuario}</td>
-          <td><span class="${badgeClass(it)}">${estTxt}</span></td>
+          <td>${escapeHtml(fecha)}</td>
+          <td>${escapeHtml(titulo)}</td>
+          <td class="text-end">${escapeHtml(precio)}</td>
+          <td>${escapeHtml(usuario)}</td>
+          <td><span class="${badgeClass(it)}">${escapeHtml(estTxt)}</span></td>
           <td class="text-end">
             <button type="button" class="btn btn-sm btn-outline-success js-revisar" data-id="${String(id)}">
               Revisar
@@ -370,7 +407,19 @@
     }
 
     function clearModal() {
-      const { mTitulo, mPrecio, mUsuario, mEmail, mDescripcion, mComentario, mGaleria, mNoImgs, mEstadoBadge, modalEl } = getModalEls();
+      const {
+        mTitulo,
+        mPrecio,
+        mUsuario,
+        mEmail,
+        mDescripcion,
+        mComentario,
+        mUltimoComentario,
+        mGaleria,
+        mNoImgs,
+        mEstadoBadge,
+        modalEl
+      } = getModalEls();
 
       if (mTitulo) mTitulo.textContent = "—";
       if (mPrecio) mPrecio.textContent = "—";
@@ -378,6 +427,7 @@
       if (mEmail) mEmail.textContent = "—";
       if (mDescripcion) mDescripcion.textContent = "—";
       if (mComentario) mComentario.value = "";
+      if (mUltimoComentario) mUltimoComentario.textContent = "Sin mensaje registrado.";
       if (mGaleria) mGaleria.innerHTML = "";
       if (mNoImgs) mNoImgs.style.display = "block";
       if (mEstadoBadge) {
@@ -391,12 +441,22 @@
         modalEl.dataset.evRevisable = "1";
       }
 
-      // default revisable
       aplicarReglasModalPorEstadoKey("pendiente");
     }
 
     function fillModal(it) {
-      const { mTitulo, mPrecio, mUsuario, mEmail, mDescripcion, mComentario, mGaleria, mNoImgs, mEstadoBadge } = getModalEls();
+      const {
+        mTitulo,
+        mPrecio,
+        mUsuario,
+        mEmail,
+        mDescripcion,
+        mComentario,
+        mUltimoComentario,
+        mGaleria,
+        mNoImgs,
+        mEstadoBadge
+      } = getModalEls();
 
       const usuarioNombre = safeStr(it.usuario_nombre, "");
       const usuarioEmail = safeStr(it.usuario_email, "");
@@ -413,13 +473,27 @@
         mEstadoBadge.className = badgeClass(it);
       }
 
-      const prev = it?.ultima_revision?.comentario;
+      const prev = String(it?.ultima_revision?.comentario ?? "").trim();
+      const prevLimpio = limpiarComentarioSistema(prev);
+
       if (mComentario) {
-        const c = String(prev ?? "").trim();
-        mComentario.value = c;
+        const estadoKey = getEstadoKey(it);
+
+        if (estadoKey === "observada" || estadoKey === "rechazada") {
+          mComentario.value = prevLimpio;
+        } else {
+          mComentario.value = "";
+        }
       }
 
-      // ✅ Aplicar reglas de botones
+      if (mUltimoComentario) {
+        if (prevLimpio) {
+          mUltimoComentario.textContent = prevLimpio;
+        } else {
+          mUltimoComentario.textContent = "Sin mensaje registrado.";
+        }
+      }
+
       const k = getEstadoKey(it);
       aplicarReglasModalPorEstadoKey(k);
 
@@ -445,7 +519,7 @@
           img.src = src;
           img.alt = "Imagen";
           img.loading = "lazy";
-          mGaleria && mGaleria.appendChild(img);
+          if (mGaleria) mGaleria.appendChild(img);
         }
       } else {
         if (mNoImgs) mNoImgs.style.display = "block";
@@ -485,7 +559,7 @@
         fillModal(it);
 
         const mi = ensureModal();
-        mi && mi.show();
+        if (mi) mi.show();
       } catch (e) {
         if (e && e.name === "AbortError") return;
         toastError("Error de red al obtener detalle.");
@@ -497,7 +571,6 @@
     async function enviarRevision(accion) {
       if (!currentId) return;
 
-      // ✅ Si el modal está en modo lectura, NO permitir enviar
       const modalEl = document.getElementById("modalPub");
       const revisable = modalEl && modalEl.dataset.evRevisable === "1";
       if (!revisable) {
@@ -506,11 +579,12 @@
       }
 
       const { mComentario } = getModalEls();
-      const comentario = String(mComentario?.value ?? "").trim();
+      const comentarioRaw = String(mComentario?.value ?? "").trim();
+      const comentario = normalizarComentarioParaEnviar(accion, comentarioRaw);
 
       if (!isComentarioValidoFor(accion, comentario)) {
-        toastInfo("Debes ingresar un comentario (mín. 3 caracteres) para Observar o Rechazar.");
-        mComentario && mComentario.focus();
+        toastInfo("Debes ingresar un mensaje claro para el vecino (mín. 3 caracteres) al observar o rechazar.");
+        if (mComentario) mComentario.focus();
         return;
       }
 
@@ -559,7 +633,7 @@
         toastOk(data?.mensaje || "Acción realizada.");
 
         const mi = ensureModal();
-        mi && mi.hide();
+        if (mi) mi.hide();
 
         listar();
       } catch (e) {
@@ -603,6 +677,7 @@
       [btnVerRech, "rechazada"],
       [btnVerBor, "borrador"],
     ];
+
     quickMap.forEach(([btn, st]) => {
       if (!btn) return;
       btn.addEventListener("click", function (ev) {
@@ -630,9 +705,21 @@
       const t = ev.target;
       if (!t || !t.closest) return;
 
-      if (t.closest("#btnAprobar")) { ev.preventDefault(); enviarRevision("aprobar"); return; }
-      if (t.closest("#btnRechazar")) { ev.preventDefault(); enviarRevision("rechazar"); return; }
-      if (t.closest("#btnObservar")) { ev.preventDefault(); enviarRevision("observar"); return; }
+      if (t.closest("#btnAprobar")) {
+        ev.preventDefault();
+        enviarRevision("aprobar");
+        return;
+      }
+      if (t.closest("#btnRechazar")) {
+        ev.preventDefault();
+        enviarRevision("rechazar");
+        return;
+      }
+      if (t.closest("#btnObservar")) {
+        ev.preventDefault();
+        enviarRevision("observar");
+        return;
+      }
     }, true);
 
     setActiveQuickButtons();
