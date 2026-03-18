@@ -10,7 +10,6 @@ require_once __DIR__ . '/../Config/config.php';
 
 <div class="ev-mp-page">
 
-  <!-- HERO PREMIUM -->
   <div class="ev-card ev-mp-hero mb-3">
     <div class="ev-mp-hero-body">
 
@@ -86,7 +85,6 @@ require_once __DIR__ . '/../Config/config.php';
     </div>
   </div>
 
-  <!-- FILTROS INLINE -->
   <div class="ev-card ev-filters mb-3 collapse show" id="evFiltrosWrap">
     <div class="ev-card-header">
       <div class="ev-card-header-row">
@@ -166,7 +164,6 @@ require_once __DIR__ . '/../Config/config.php';
     </div>
   </div>
 
-  <!-- TABLA -->
   <div class="ev-card">
     <div class="ev-card-header ev-card-header-row">
       <h2 class="ev-card-title mb-0">Productos</h2>
@@ -213,9 +210,6 @@ require_once __DIR__ . '/../Config/config.php';
 
 </div>
 
-<!-- =========================
-     MODAL: BUSCAR (LEGACY)
-========================= -->
 <div class="modal fade ev-modal" id="modalBuscarPublicacion" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content ev-modal-content">
@@ -243,9 +237,6 @@ require_once __DIR__ . '/../Config/config.php';
   </div>
 </div>
 
-<!-- =========================
-     MODAL: AGREGAR
-========================= -->
 <div class="modal fade ev-modal" id="modalAgregarPublicacion" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered ev-modal-xl">
     <div class="modal-content ev-modal-content ev-modal-flex">
@@ -258,7 +249,6 @@ require_once __DIR__ . '/../Config/config.php';
         <div class="ev-modal-body ev-modal-body-scroll">
 
           <div class="row g-3">
-            <!-- Col izquierda -->
             <div class="col-12 col-lg-7">
 
               <div class="ev-section">
@@ -321,6 +311,17 @@ require_once __DIR__ . '/../Config/config.php';
                       <option value="">-- Selecciona un tipo primero --</option>
                     </select>
                   </div>
+
+                  <div class="col-12">
+                    <label class="form-label">Tipo de atención del producto <span class="text-danger">*</span></label>
+                    <select id="tipoAtencionProducto" class="form-select" name="tipo_atencion_producto">
+                      <option value="no_requiere_preparacion" selected>No requiere preparación</option>
+                      <option value="requiere_preparacion">Requiere preparación</option>
+                    </select>
+                    <div class="form-text">
+                      Define si el producto necesita preparación previa antes de ser entregado.
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -334,7 +335,6 @@ require_once __DIR__ . '/../Config/config.php';
 
             </div>
 
-            <!-- Col derecha -->
             <div class="col-12 col-lg-5">
               <div id="previewMount"></div>
             </div>
@@ -354,9 +354,6 @@ require_once __DIR__ . '/../Config/config.php';
   </div>
 </div>
 
-<!-- =========================
-     MODAL: EDITAR
-========================= -->
 <div class="modal fade ev-modal" id="modalEditarPublicacion" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered ev-modal-xl">
     <div class="modal-content ev-modal-content ev-modal-flex">
@@ -371,7 +368,6 @@ require_once __DIR__ . '/../Config/config.php';
         <div class="ev-modal-body ev-modal-body-scroll">
 
           <div class="row g-3">
-            <!-- Col izquierda -->
             <div class="col-12 col-lg-7">
 
               <div class="ev-section">
@@ -437,6 +433,17 @@ require_once __DIR__ . '/../Config/config.php';
                       <option value="">-- Selecciona un tipo primero --</option>
                     </select>
                   </div>
+
+                  <div class="col-12">
+                    <label class="form-label">Tipo de atención del producto <span class="text-danger">*</span></label>
+                    <select id="edit_tipoAtencionProducto" class="form-select" name="edit_tipo_atencion_producto">
+                      <option value="no_requiere_preparacion">No requiere preparación</option>
+                      <option value="requiere_preparacion">Requiere preparación</option>
+                    </select>
+                    <div class="form-text">
+                      Define si el producto necesita preparación previa antes de ser entregado.
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -450,7 +457,6 @@ require_once __DIR__ . '/../Config/config.php';
 
             </div>
 
-            <!-- Col derecha -->
             <div class="col-12 col-lg-5">
               <div id="evPreviewWrapperEditContainer"></div>
             </div>

@@ -70,7 +70,6 @@ $labelConjunto = ($conjuntoTipo === 'urbanizacion') ? 'Urbanización actual' : '
             </div>
           </div>
 
-          <!-- ✅ NUEVO: scope + categoría productos -->
           <div class="ev-mp-filters-advanced">
             <div class="ev-mp-scope">
               <span class="ev-mp-scope-label">Buscar en:</span>
@@ -89,7 +88,6 @@ $labelConjunto = ($conjuntoTipo === 'urbanizacion') ? 'Urbanización actual' : '
             </div>
           </div>
 
-          <!-- Compatibilidad visual (opcional) -->
           <div class="ev-mp-chips d-none">
             <button type="button" class="ev-mp-chip active" data-filtro="todos">Todos</button>
             <button type="button" class="ev-mp-chip" data-filtro="recomendados">Recomendados</button>
@@ -108,12 +106,8 @@ $labelConjunto = ($conjuntoTipo === 'urbanizacion') ? 'Urbanización actual' : '
         No encontramos publicaciones con los filtros actuales.
       </div>
 
-      <!-- Wrapper -->
       <div id="mp_grid_publicaciones" class="ev-mp-split">
 
-        <!-- ==========================
-             SECCIÓN 1: SERVICIOS
-        =========================== -->
         <div class="ev-mp-section">
           <div class="ev-mp-section-head">
             <div>
@@ -127,9 +121,6 @@ $labelConjunto = ($conjuntoTipo === 'urbanizacion') ? 'Urbanización actual' : '
           <div id="mp_grid_servicios" class="ev-mp-grid"></div>
         </div>
 
-        <!-- ==========================
-             SECCIÓN 2: PRODUCTOS
-        =========================== -->
         <div class="ev-mp-section">
           <div class="ev-mp-section-head">
             <div>
@@ -150,9 +141,14 @@ $labelConjunto = ($conjuntoTipo === 'urbanizacion') ? 'Urbanización actual' : '
 </div>
 
 <!-- ==========================
-     MODAL DETALLE (se mantiene)
+     MODAL DETALLE
 ========================== -->
-<div class="modal fade" id="mp_modal_detalle" tabindex="-1" aria-hidden="true">
+<div class="modal fade"
+     id="mp_modal_detalle"
+     tabindex="-1"
+     aria-hidden="true"
+     data-bs-backdrop="static"
+     data-bs-keyboard="false">
   <div class="modal-dialog ev-mp-modal-dialog modal-dialog-centered">
     <div class="modal-content ev-mp-modal-content">
 
@@ -189,6 +185,90 @@ $labelConjunto = ($conjuntoTipo === 'urbanizacion') ? 'Urbanización actual' : '
         <button type="button" class="btn-ev-neutral" data-bs-dismiss="modal">Cerrar</button>
         <button type="button" id="btnPedirAhoraDetalle" class="btn-ev-primary">Pedir ahora</button>
       </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ==========================
+     MODAL SOLICITUD DE PEDIDO
+========================== -->
+<div class="modal fade"
+     id="mp_modal_solicitud"
+     tabindex="-1"
+     aria-hidden="true"
+     data-bs-backdrop="static"
+     data-bs-keyboard="false">
+  <div class="modal-dialog ev-mp-modal-dialog modal-dialog-centered">
+    <div class="modal-content ev-mp-modal-content">
+
+      <div class="modal-header ev-mp-modal-header">
+        <h5 class="modal-title d-flex align-items-center gap-2">
+          <i class="bi bi-bag-plus"></i>
+          <span>Solicitud de pedido</span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <form id="mp_form_solicitud_pedido">
+        <div class="modal-body ev-mp-modal-body">
+          <div class="ev-mp-preview-card">
+
+            <input type="hidden" id="mp_sp_codigo_producto">
+            <input type="hidden" id="mp_sp_precio_unitario">
+            <input type="hidden" id="mp_sp_requiere_preparacion">
+
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label fw-semibold">Nombre del producto</label>
+                <input type="text" id="mp_sp_nombre_producto" class="form-control" readonly>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold">Cantidad</label>
+                <input type="number" id="mp_sp_cantidad" class="form-control" min="1" step="1" value="1">
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold">Precio total</label>
+                <input type="text" id="mp_sp_total" class="form-control" readonly>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label fw-semibold">Entrega</label>
+                <select id="mp_sp_tipo_entrega" class="form-select">
+                  <option value="inmediata">Inmediata</option>
+                  <option value="programada">Programada</option>
+                </select>
+              </div>
+
+              <div class="col-12 d-none" id="mp_sp_wrap_programada">
+                <label class="form-label fw-semibold">Fecha y hora programada</label>
+                <input type="datetime-local" id="mp_sp_fecha_programada" class="form-control">
+                <div class="form-text">
+                  Puedes programar la entrega hasta 2 días después del registro de la solicitud.
+                </div>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label fw-semibold">Dirección</label>
+                <textarea id="mp_sp_direccion" class="form-control" rows="2" placeholder="Ej. Torre B, Dpto. 402 / área común / calle y número"></textarea>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label fw-semibold">Mensaje al vendedor</label>
+                <textarea id="mp_sp_mensaje" class="form-control" rows="3" placeholder="Escribe un mensaje breve para el vendedor."></textarea>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="modal-footer ev-mp-modal-footer d-flex justify-content-end gap-2 flex-wrap">
+          <button type="button" class="btn-ev-neutral" data-bs-dismiss="modal">Cerrar</button>
+          <button type="submit" class="btn-ev-primary">Enviar</button>
+        </div>
+      </form>
 
     </div>
   </div>

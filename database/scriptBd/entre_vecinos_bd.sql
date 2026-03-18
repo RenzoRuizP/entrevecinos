@@ -861,3 +861,229 @@ ADD CONSTRAINT fk_producto_urbanizacion_publicacion
 ALTER TABLE recarga_saldo
 ADD COLUMN reenviada_usuario TINYINT(1) NOT NULL DEFAULT 0
 AFTER fecha_revision;
+
+
+
+
+-- Pedidos --
+
+-- usuario
+
+ALTER TABLE usuario
+ADD COLUMN disponibilidad_pedidos TINYINT(1) NOT NULL DEFAULT 0
+COMMENT '0=No disponible, 1=Disponible';
+
+-- producto
+
+ALTER TABLE producto
+ADD COLUMN tipo_atencion_producto ENUM('requiere_preparacion','no_requiere_preparacion')
+NOT NULL DEFAULT 'no_requiere_preparacion'
+AFTER precio;
+
+-- tabla principal pedidos
+
+CREATE TABLE pedido (
+  codigo_pedido INT(11) NOT NULL AUTO_INCREMENT,
+  codigo_producto INT(11) NOT NULL,
+  codigo_usuario_comprador INT(11) NOT NULL,
+  codigo_usuario_vendedor INT(11) NOT NULL,
+
+  fase ENUM('solicitud','pedido') NOT NULL DEFAULT 'solicitud',
+
+  estado_actual VARCHAR(80) NOT NULL,
+
+  cantidad INT(11) NOT NULL,
+  costo_unitario DECIMAL(10,2) NOT NULL,
+  total DECIMAL(10,2) NOT NULL,
+
+  tipo_entrega ENUM('inmediata','programada') NOT NULL,
+  fecha_hora_programada DATETIME DEFAULT NULL,
+
+  direccion_entrega TEXT NOT NULL,
+  mensaje_comprador TEXT DEFAULT NULL,
+
+  posicion_cola INT(11) DEFAULT NULL,
+
+  motivo_estado VARCHAR(255) DEFAULT NULL,
+
+  requiere_preparacion TINYINT(1) NOT NULL DEFAULT 0,
+
+  monto_descontado_billetera DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  descuento_billetera_aplicado TINYINT(1) NOT NULL DEFAULT 0,
+  devolucion_billetera_aplicada TINYINT(1) NOT NULL DEFAULT 0,
+
+  fecha_limite_respuesta DATETIME DEFAULT NULL,
+  fecha_aceptacion DATETIME DEFAULT NULL,
+  fecha_rechazo DATETIME DEFAULT NULL,
+  fecha_cancelacion DATETIME DEFAULT NULL,
+  fecha_cierre DATETIME DEFAULT NULL,
+
+  created_at TIMESTAMP NOT NULL DEFAULT current_timestamp(),
+  updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+
+  PRIMARY KEY (codigo_pedido),
+  KEY idx_pedido_producto (codigo_producto),
+  KEY idx_pedido_comprador (codigo_usuario_comprador),
+  KEY idx_pedido_vendedor (codigo_usuario_vendedor),
+  KEY idx_pedido_fase_estado (fase, estado_actual),
+  KEY idx_pedido_fecha_limite (fecha_limite_respuesta),
+
+  CONSTRAINT fk_pedido_producto
+    FOREIGN KEY (codigo_producto) REFERENCES producto (codigo_producto),
+
+  CONSTRAINT fk_pedido_usuario_comprador
+    FOREIGN KEY (codigo_usuario_comprador) REFERENCES usuario (codigo_usuario),
+
+  CONSTRAINT fk_pedido_usuario_vendedor
+    FOREIGN KEY (codigo_usuario_vendedor) REFERENCES usuario (codigo_usuario)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=UTF8MB4_GENERAL_CI;
+
+
+
+-- pedido_historial_estado
+
+CREATE TABLE pedido_historial_estado (
+  codigo_historial INT(11) NOT NULL AUTO_INCREMENT,
+  codigo_pedido INT(11) NOT NULL,
+
+  fase_anterior VARCHAR(30) DEFAULT NULL,
+  estado_anterior VARCHAR(80) DEFAULT NULL,
+
+  fase_nueva VARCHAR(30) NOT NULL,
+  estado_nuevo VARCHAR(80) NOT NULL,
+
+  codigo_usuario_actor INT(11) DEFAULT NULL,
+  rol_actor VARCHAR(30) DEFAULT NULL,
+
+  motivo VARCHAR(255) DEFAULT NULL,
+  observacion TEXT DEFAULT NULL,
+
+  fecha_evento DATETIME NOT NULL DEFAULT current_timestamp(),
+
+  PRIMARY KEY (codigo_historial),
+  KEY idx_historial_pedido_fecha (codigo_pedido, fecha_evento),
+  KEY idx_historial_actor (codigo_usuario_actor),
+
+  CONSTRAINT fk_historial_pedido
+    FOREIGN KEY (codigo_pedido) REFERENCES pedido (codigo_pedido)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+
+  CONSTRAINT fk_historial_actor
+    FOREIGN KEY (codigo_usuario_actor) REFERENCES usuario (codigo_usuario)
+    ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=UTF8MB4_GENERAL_CI;
+
+
+-- pedido incidencia
+
+CREATE TABLE pedido_incidencia (
+  codigo_incidencia INT(11) NOT NULL AUTO_INCREMENT,
+  codigo_pedido INT(11) NOT NULL,
+
+  codigo_usuario_reportante INT(11) NOT NULL,
+  codigo_usuario_afectado INT(11) NOT NULL,
+  codigo_usuario_reportado INT(11) NOT NULL,
+
+  tipo_incidencia VARCHAR(100) NOT NULL,
+  descripcion TEXT NOT NULL,
+  estado_incidencia ENUM('registrada','en_revision','cerrada') NOT NULL DEFAULT 'registrada',
+
+  observacion_soporte TEXT DEFAULT NULL,
+
+  fecha_registro DATETIME NOT NULL DEFAULT current_timestamp(),
+  fecha_actualizacion DATETIME NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+
+  PRIMARY KEY (codigo_incidencia),
+  KEY idx_incidencia_pedido (codigo_pedido),
+  KEY idx_incidencia_reportante (codigo_usuario_reportante),
+  KEY idx_incidencia_reportado (codigo_usuario_reportado),
+
+  CONSTRAINT fk_incidencia_pedido
+    FOREIGN KEY (codigo_pedido) REFERENCES pedido (codigo_pedido)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+
+  CONSTRAINT fk_incidencia_reportante
+    FOREIGN KEY (codigo_usuario_reportante) REFERENCES usuario (codigo_usuario),
+
+  CONSTRAINT fk_incidencia_afectado
+    FOREIGN KEY (codigo_usuario_afectado) REFERENCES usuario (codigo_usuario),
+
+  CONSTRAINT fk_incidencia_reportado
+    FOREIGN KEY (codigo_usuario_reportado) REFERENCES usuario (codigo_usuario)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=UTF8MB4_GENERAL_CI;
+
+
+
+/*
+
+Estados que recomiendo guardar
+
+Para evitar caos después, yo te recomiendo guardar estados tal cual texto controlado.
+
+Fase solicitud
+
+Solicitud enviada
+
+Solicitud rechazada
+
+Solicitud cancelada por el comprador
+
+Solicitud sin respuesta del vendedor
+
+Solicitud en cola aceptada por el comprador
+
+Solicitud en cola cancelada por el comprador
+
+Fase pedido
+
+Pedido aprobado
+
+En preparación
+
+Preparando despacho
+
+En camino
+
+En el punto de entrega
+
+Entregado por el vendedor
+
+Entrega confirmada por el comprador
+
+*/
+
+
+
+-- ----------
+
+/*
+
+Cómo conectaría esto con billetera_movimiento
+
+No cambiaría tu tabla.
+
+Solo usaría mejor estos campos:
+
+Para descuento
+
+tipo_movimiento = 'D'
+
+origen = 'pedido'
+
+codigo_referencia = codigo_pedido
+
+descripcion = 'Descuento por solicitud de pedido con preparación'
+
+Para devolución
+
+tipo_movimiento = 'C'
+
+origen = 'pedido'
+
+codigo_referencia = codigo_pedido
+
+descripcion = 'Devolución automática por pedido no concretado'
+
+Con eso ya quedas bien trazado.
+
+*/

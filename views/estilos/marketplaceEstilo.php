@@ -301,12 +301,50 @@
   flex-direction:column;
   transition:all .22s ease;
   box-shadow:var(--ev-shadow-card);
+  gap:0;
 }
 
 .ev-mp-card:hover{
   transform:translateY(-4px);
   box-shadow:0 18px 40px rgba(15,23,42,0.14);
   border-color:var(--ev-verde);
+}
+
+/* Barra superior de disponibilidad */
+.ev-mp-card-top-status{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:34px;
+  padding:8px 12px;
+  margin:0;
+  border:none;
+  border-radius:0;
+  font-size:13px;
+  font-weight:800;
+  line-height:1.1;
+  letter-spacing:.01em;
+  text-align:center;
+}
+
+.ev-mp-card-top-status-text{
+  display:block;
+  width:100%;
+  margin:0;
+  padding:0;
+}
+
+.ev-mp-card-top-status-on{
+  background:#DCFCE7;
+  color:#166534;
+  border-bottom:1px solid rgba(22,101,52,0.10);
+}
+
+.ev-mp-card-top-status-off{
+  background:#E5E7EB;
+  color:#4B5563;
+  border-bottom:1px solid rgba(75,85,99,0.08);
 }
 
 .ev-mp-card-media{
@@ -317,12 +355,14 @@
   align-items:center;
   justify-content:center;
   background:#f5f7fa;
+  margin:0;
 }
 
 .ev-mp-card-media img{
   width:100%;
   height:100%;
   object-fit:cover;
+  display:block;
 }
 
 .ev-mp-card-badges{
@@ -365,38 +405,8 @@
   font-size:17px;
 }
 
-.ev-mp-card-meta{
-  margin-top:6px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-}
-
-.ev-mp-card-vecino{
-  display:flex;
-  align-items:center;
-  gap:8px;
-}
-
-.ev-mp-avatar{
-  width:30px;
-  height:30px;
-  border-radius:50%;
-  background:var(--ev-verde-suave);
-  color:var(--ev-verde-oscuro);
-  font-size:13px;
-  font-weight:800;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-
-.ev-mp-vecino-nombre{ font-size:13px; font-weight:700; }
-.ev-mp-vecino-condominio{ font-size:12px; color:var(--ev-texto-suave); }
-
 .ev-mp-card-actions{
-  margin-top:10px;
+  margin-top:8px;
   display:flex;
   justify-content:space-between;
   gap:8px;
@@ -608,6 +618,12 @@
   .ev-mp-modal-media{ max-height:360px; }
   .ev-mp-modal-media img{ max-height:340px !important; }
   .ev-mp-cat-select{ min-width: 100%; }
+
+  .ev-mp-card-top-status{
+    min-height:32px;
+    padding:7px 10px;
+    font-size:12px;
+  }
 }
 
 @media (max-width:991.98px){

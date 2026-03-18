@@ -46,6 +46,13 @@ class apiProductoController
         return ($n > 0) ? $n : null;
     }
 
+    private function normalizarTipoAtencionProducto($valor): string
+    {
+        $v = strtolower(trim((string)$valor));
+        $permitidos = ['requiere_preparacion', 'no_requiere_preparacion'];
+        return in_array($v, $permitidos, true) ? $v : 'no_requiere_preparacion';
+    }
+
     private function getMimeReal(string $tmpFile): ?string
     {
         if (!is_file($tmpFile)) return null;
@@ -102,6 +109,7 @@ class apiProductoController
             $estado      = $_POST['estado'] ?? 'NoAplica';
             $tipo        = $_POST['comboTipo'] ?? null;
             $categoria   = $_POST['categoria'] ?? null;
+            $tipoAtencionProducto = $this->normalizarTipoAtencionProducto($_POST['tipo_atencion_producto'] ?? 'no_requiere_preparacion');
 
             if ($titulo === '' || $descripcion === '') {
                 $this->json(400, ['ok' => false, 'mensaje' => 'Título y descripción son obligatorios.']);
@@ -121,7 +129,6 @@ class apiProductoController
 
             $prod = new Producto();
 
-            // blindaje: no permitir crear producto si no tiene residencia activa
             $resActiva = $prod->obtenerResidenciaActivaUsuario($codigoUsuario);
             if (!$resActiva) {
                 $this->json(409, [
@@ -137,6 +144,7 @@ class apiProductoController
             $prod->setDescripcion($descripcion);
             $prod->setPrecio($precio);
             $prod->setEstado($estado);
+            $prod->setTipoAtencionProducto($tipoAtencionProducto);
             $prod->setCodigoUsuario($codigoUsuario);
             $prod->setVisible(0);
             $prod->setCodigoTipo($tipo);
@@ -267,12 +275,13 @@ class apiProductoController
             }
 
             $this->json(201, [
-                'ok'               => true,
-                'mensaje'          => 'Producto registrado como borrador. Presiona "Publicar" para enviarlo a revisión.',
-                'codigo_producto'  => $codigoProducto,
-                'visible'          => 0,
-                'imagenes_subidas' => $imagenesSubidas,
-                'warnings'         => $erroresUpload
+                'ok'                     => true,
+                'mensaje'                => 'Producto registrado como borrador. Presiona "Publicar" para enviarlo a revisión.',
+                'codigo_producto'        => $codigoProducto,
+                'visible'                => 0,
+                'tipo_atencion_producto' => $tipoAtencionProducto,
+                'imagenes_subidas'       => $imagenesSubidas,
+                'warnings'               => $erroresUpload
             ]);
             return;
 
@@ -471,6 +480,7 @@ class apiProductoController
             $estado      = $_POST['estado'] ?? 'NoAplica';
             $tipo        = $_POST['comboTipo'] ?? null;
             $categoria   = $_POST['categoria'] ?? null;
+            $tipoAtencionProducto = $this->normalizarTipoAtencionProducto($_POST['tipo_atencion_producto'] ?? 'no_requiere_preparacion');
 
             if ($titulo === '' || $descripcion === '') {
                 $this->json(400, ['ok' => false, 'mensaje' => 'Título y descripción son obligatorios.']);
@@ -492,6 +502,7 @@ class apiProductoController
             $model->setDescripcion($descripcion);
             $model->setPrecio($precio);
             $model->setEstado($estado);
+            $model->setTipoAtencionProducto($tipoAtencionProducto);
             $model->setCodigoUsuario($codigoUsuario);
             $model->setCodigoTipo($tipo);
             $model->setCodigoCategoria($categoria);
@@ -632,11 +643,12 @@ class apiProductoController
             }
 
             $this->json(200, [
-                'ok' => true,
-                'mensaje' => 'Producto actualizado correctamente.',
-                'imagenes_subidas' => $imagenesSubidas,
-                'warnings' => $erroresUpload,
-                'reenviado_correccion' => $reenviado
+                'ok'                     => true,
+                'mensaje'                => 'Producto actualizado correctamente.',
+                'tipo_atencion_producto' => $tipoAtencionProducto,
+                'imagenes_subidas'       => $imagenesSubidas,
+                'warnings'               => $erroresUpload,
+                'reenviado_correccion'   => $reenviado
             ]);
             return;
 
@@ -756,6 +768,8 @@ class apiProductoController
                 if ($ruta !== '') {
                     $p['imagen_portada'] = $url;
                 }
+
+                $p['vendedor_disponible'] = ((int)($p['disponibilidad_pedidos_vendedor'] ?? 0) === 1) ? 1 : 0;
             }
             unset($p);
 
@@ -771,6 +785,77 @@ class apiProductoController
 
         } catch (Exception $e) {
             $this->json(500, ['ok' => false, 'error' => $e->getMessage()]);
+            return;
+        }
+    }
+
+    public function obtenerDetalleMarketplace($id): void
+    {
+        try {
+            if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+                $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
+                return;
+            }
+
+            $codigoUsuarioViewer = $this->obtenerUsuarioAuth();
+            $codigoProducto = (int)$id;
+
+            if ($codigoProducto <= 0) {
+                $this->json(400, ['ok' => false, 'mensaje' => 'Código de producto inválido.']);
+                return;
+            }
+
+            $model = new Producto();
+
+            $resActiva = $model->obtenerResidenciaActivaUsuario($codigoUsuarioViewer);
+            if (!$resActiva) {
+                $this->json(409, [
+                    'ok'       => false,
+                    'error'    => 'SIN_RESIDENCIA_ACTIVA',
+                    'mensaje'  => 'No se encontró una residencia activa para tu usuario.',
+                    'redirect' => rtrim(BASE_URL, '/') . '/mi-perfil'
+                ]);
+                return;
+            }
+
+            $detalle = $model->obtenerDetalleMarketplacePorResidencia($codigoProducto, $codigoUsuarioViewer);
+            if (!$detalle) {
+                $this->json(404, [
+                    'ok'      => false,
+                    'mensaje' => 'La publicación no está disponible para tu marketplace.'
+                ]);
+                return;
+            }
+
+            $imagenes = $model->obtenerImagenes($codigoProducto);
+
+            $baseUrl = rtrim(BASE_URL, '/');
+            foreach ($imagenes as &$img) {
+                $ruta = (string)($img['ruta'] ?? '');
+                $img['url'] = ($ruta !== '') ? ($baseUrl . '/' . ltrim($ruta, '/')) : '';
+                $img['codigo_imagen'] = $img['codigo_producto_imagen'] ?? null;
+                $img['id_imagen']     = $img['codigo_producto_imagen'] ?? null;
+            }
+            unset($img);
+            
+            $detalle['vendedor_disponible'] = ((int)($detalle['disponibilidad_pedidos_vendedor'] ?? 0) === 1) ? 1 : 0;
+            $detalle['es_producto_propio'] = ((int)($detalle['codigo_usuario'] ?? 0) === (int)$codigoUsuarioViewer) ? 1 : 0;
+
+            $this->json(200, [
+                'ok'   => true,
+                'data' => [
+                    'producto' => $detalle,
+                    'imagenes' => $imagenes
+                ]
+            ]);
+            return;
+
+        } catch (Exception $e) {
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'Error al obtener el detalle del marketplace.',
+                'error'   => $e->getMessage()
+            ]);
             return;
         }
     }

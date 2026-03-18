@@ -929,6 +929,11 @@
       document.querySelector("#edit_estado").value      = prod.estado || "Nuevo";
       document.querySelector("#edit_descripcion").value = prod.descripcion || "";
 
+      const editTipoAtencion = document.querySelector("#edit_tipoAtencionProducto");
+      if (editTipoAtencion) {
+        editTipoAtencion.value = prod.tipo_atencion_producto || "no_requiere_preparacion";
+      }
+
       const comboTipo = document.getElementById("edit_comboTipo");
       const comboCat  = document.getElementById("edit_comboCategoria");
       if (comboTipo) comboTipo.dataset.valorRegistrado = prod.codigo_tipo || "";
@@ -1038,15 +1043,38 @@
 
     const comboTipo   = form.querySelector('#comboTipo')?.value || form.querySelector('select[name="comboTipo"]')?.value || '';
     const categoria   = form.querySelector('#comboCategoria')?.value || form.querySelector('select[name="categoria"]')?.value || '';
+    const tipoAtencionProducto = form.querySelector('#tipoAtencionProducto')?.value || 'no_requiere_preparacion';
 
-    if (!titulo) { evNotify('warning','Validación','Debes ingresar un título para el producto.'); return; }
+    if (!titulo) {
+      evNotify('warning','Validación','Debes ingresar un título para el producto.');
+      return;
+    }
 
     const precio = Number(precioRaw || 0);
-    if (!precio || precio <= 0) { evNotify('warning','Validación','El precio debe ser mayor a 0.'); return; }
+    if (!precio || precio <= 0) {
+      evNotify('warning','Validación','El precio debe ser mayor a 0.');
+      return;
+    }
 
-    if (!comboTipo) { evNotify('warning','Validación','Debes seleccionar un tipo.'); return; }
-    if (!categoria) { evNotify('warning','Validación','Debes seleccionar una categoría.'); return; }
-    if (!descripcion) { evNotify('warning','Validación','Debes ingresar una descripción.'); return; }
+    if (!comboTipo) {
+      evNotify('warning','Validación','Debes seleccionar un tipo.');
+      return;
+    }
+
+    if (!categoria) {
+      evNotify('warning','Validación','Debes seleccionar una categoría.');
+      return;
+    }
+
+    if (!tipoAtencionProducto) {
+      evNotify('warning','Validación','Debes seleccionar el tipo de atención del producto.');
+      return;
+    }
+
+    if (!descripcion) {
+      evNotify('warning','Validación','Debes ingresar una descripción.');
+      return;
+    }
 
     const estadoImgs = typeof window.evGetEstadoImagenesAgregar === 'function'
       ? window.evGetEstadoImagenesAgregar()
@@ -1061,6 +1089,7 @@
     fd.append('comboTipo', comboTipo);
     fd.append('categoria', categoria);
     fd.append('descripcion', descripcion);
+    fd.append('tipo_atencion_producto', tipoAtencionProducto);
 
     nuevas.forEach((item) => {
       if (item && item.file instanceof File) fd.append('imagenes[]', item.file);
@@ -1117,6 +1146,12 @@
 
     const comboTipo   = form.querySelector('#edit_comboTipo')?.value || '';
     const categoria   = form.querySelector('#edit_comboCategoria')?.value || '';
+    const tipoAtencionProducto = form.querySelector('#edit_tipoAtencionProducto')?.value || 'no_requiere_preparacion';
+
+    if (!tipoAtencionProducto) {
+      evNotify('warning','Validación','Debes seleccionar el tipo de atención del producto.');
+      return;
+    }
 
     if (!id) { evNotify('error','Error','No se encontró el código del producto.'); return; }
     if (!titulo) { evNotify('warning','Validación','Debes ingresar un título.'); return; }
@@ -1136,7 +1171,7 @@
     fd.append('comboTipo', comboTipo);
     fd.append('categoria', categoria);
     fd.append('descripcion', descripcion);
-
+    fd.append('tipo_atencion_producto', tipoAtencionProducto);
     fd.append('imagenes_eliminadas', JSON.stringify(estadoImgs.eliminadas || []));
 
     (estadoImgs.nuevas || []).forEach((item) => {

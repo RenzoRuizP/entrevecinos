@@ -28,6 +28,7 @@ class Producto extends Conexion
     private $descripcion;
     private $precio;
     private $estado;
+    private $tipo_atencion_producto = 'no_requiere_preparacion';
 
     private $visible = 0;
 
@@ -43,6 +44,15 @@ class Producto extends Conexion
     public function setEstado($estado) { $this->estado = $estado; }
     public function setVisible($visible) { $this->visible = (int)$visible; }
     public function setCodigoUsuario($codigo_usuario) { $this->codigo_usuario = (int)$codigo_usuario; }
+
+    public function setTipoAtencionProducto($tipo_atencion_producto): void
+    {
+        $valor = strtolower(trim((string)$tipo_atencion_producto));
+        $permitidos = ['requiere_preparacion', 'no_requiere_preparacion'];
+        $this->tipo_atencion_producto = in_array($valor, $permitidos, true)
+            ? $valor
+            : 'no_requiere_preparacion';
+    }
 
     public function setCodigoTipo($codigo_tipo) {
         $this->codigo_tipo = ($codigo_tipo !== null && $codigo_tipo !== '') ? (int)$codigo_tipo : null;
@@ -210,6 +220,7 @@ class Producto extends Conexion
                 descripcion,
                 estado,
                 precio,
+                tipo_atencion_producto,
                 visible,
                 codigo_usuario,
                 codigo_usuario_residencia,
@@ -227,6 +238,7 @@ class Producto extends Conexion
                 :descripcion,
                 :estado,
                 :precio,
+                :tipo_atencion_producto,
                 :visible,
                 :codigo_usuario,
                 :codigo_usuario_residencia,
@@ -251,6 +263,7 @@ class Producto extends Conexion
         $stmt->bindParam(':descripcion', $this->descripcion, PDO::PARAM_STR);
         $stmt->bindParam(':estado', $this->estado, PDO::PARAM_STR);
         $stmt->bindParam(':precio', $this->precio);
+        $stmt->bindValue(':tipo_atencion_producto', $this->tipo_atencion_producto, PDO::PARAM_STR);
         $stmt->bindParam(':visible', $this->visible, PDO::PARAM_INT);
         $stmt->bindParam(':codigo_usuario', $this->codigo_usuario, PDO::PARAM_INT);
 
@@ -500,6 +513,7 @@ class Producto extends Conexion
                 p.descripcion,
                 p.estado,
                 p.precio,
+                p.tipo_atencion_producto,
                 p.visible,
                 p.codigo_tipo,
                 p.codigo_categoria,
@@ -549,6 +563,7 @@ class Producto extends Conexion
                 p.descripcion,
                 p.estado,
                 p.precio,
+                p.tipo_atencion_producto,
                 p.visible,
                 p.codigo_usuario,
                 p.codigo_tipo,
@@ -586,12 +601,13 @@ class Producto extends Conexion
         $sql = "
             UPDATE producto
             SET
-                titulo           = :titulo,
-                descripcion      = :descripcion,
-                estado           = :estado,
-                precio           = :precio,
-                codigo_tipo      = :codigo_tipo,
-                codigo_categoria = :codigo_categoria
+                titulo                  = :titulo,
+                descripcion             = :descripcion,
+                estado                  = :estado,
+                precio                  = :precio,
+                tipo_atencion_producto  = :tipo_atencion_producto,
+                codigo_tipo             = :codigo_tipo,
+                codigo_categoria        = :codigo_categoria
             WHERE codigo_producto = :codigo_producto
               AND codigo_usuario  = :codigo_usuario
         ";
@@ -601,6 +617,7 @@ class Producto extends Conexion
         $stmt->bindParam(':descripcion', $this->descripcion, PDO::PARAM_STR);
         $stmt->bindParam(':estado', $this->estado, PDO::PARAM_STR);
         $stmt->bindParam(':precio', $this->precio);
+        $stmt->bindValue(':tipo_atencion_producto', $this->tipo_atencion_producto, PDO::PARAM_STR);
         $stmt->bindParam(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
         $stmt->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
 
@@ -699,6 +716,7 @@ class Producto extends Conexion
                 p.descripcion,
                 p.estado,
                 p.precio,
+                p.tipo_atencion_producto,
                 p.visible,
                 p.codigo_usuario,
                 p.codigo_tipo,
@@ -771,6 +789,7 @@ class Producto extends Conexion
                 p.descripcion,
                 p.estado,
                 p.precio,
+                p.tipo_atencion_producto,
                 p.visible,
                 p.codigo_usuario,
                 p.codigo_tipo,
@@ -898,6 +917,7 @@ class Producto extends Conexion
                 p.descripcion,
                 p.estado,
                 p.precio,
+                p.tipo_atencion_producto,
                 p.visible,
                 p.codigo_usuario,
                 p.codigo_tipo,
@@ -908,6 +928,7 @@ class Producto extends Conexion
                 p.codigo_condominio_publicacion,
                 p.codigo_urbanizacion_publicacion,
                 p.estado_residencial_publicacion,
+                COALESCE(u.disponibilidad_pedidos, 0) AS disponibilidad_pedidos_vendedor,
                 t.nombre AS tipo_nombre,
                 c.nombre AS categoria_nombre,
                 DATE_FORMAT(p.created_at, '%d/%m/%Y %H:%i') AS create_at
@@ -977,6 +998,7 @@ class Producto extends Conexion
                 p.codigo_producto,
                 p.titulo,
                 p.precio,
+                p.tipo_atencion_producto,
                 p.imagen_portada
             FROM producto p
             INNER JOIN usuario u ON u.codigo_usuario = p.codigo_usuario
@@ -1085,6 +1107,7 @@ class Producto extends Conexion
                 p.descripcion,
                 p.estado,
                 p.precio,
+                p.tipo_atencion_producto,
                 p.visible,
                 p.imagen_portada,
                 p.codigo_usuario_residencia,
@@ -1141,6 +1164,7 @@ class Producto extends Conexion
                 'descripcion'                    => $r['descripcion'],
                 'estado'                         => $r['estado'],
                 'precio'                         => $r['precio'],
+                'tipo_atencion_producto'         => $r['tipo_atencion_producto'],
                 'visible'                        => (int)$r['visible'],
                 'imagen_portada'                 => $r['imagen_portada'],
                 'codigo_usuario_residencia'      => $r['codigo_usuario_residencia'],
@@ -1187,6 +1211,7 @@ class Producto extends Conexion
                 p.descripcion,
                 p.estado,
                 p.precio,
+                p.tipo_atencion_producto,
                 p.visible,
                 p.imagen_portada,
                 p.codigo_usuario_residencia,
@@ -1216,6 +1241,7 @@ class Producto extends Conexion
             'descripcion'                    => $row['descripcion'],
             'estado'                         => $row['estado'],
             'precio'                         => $row['precio'],
+            'tipo_atencion_producto'         => $row['tipo_atencion_producto'],
             'visible'                        => (int)$row['visible'],
             'imagen_portada'                 => $row['imagen_portada'],
             'codigo_usuario_residencia'      => $row['codigo_usuario_residencia'],
@@ -1259,4 +1285,82 @@ class Producto extends Conexion
         $stmt->execute();
         return $stmt->rowCount() > 0;
     }
+
+    public function obtenerDetalleMarketplacePorResidencia(int $codigoProducto, int $codigoUsuarioViewer): ?array
+    {
+        $res = $this->obtenerResidenciaActivaUsuario($codigoUsuarioViewer);
+        if (!$res) return null;
+
+        $tipoConjunto = (string)$res['tipo_conjunto'];
+        $condId = (int)($res['codigo_condominio'] ?? 0);
+        $urbId  = (int)($res['codigo_urbanizacion'] ?? 0);
+
+        $whereResidencia = '';
+        if ($tipoConjunto === 'condominio') {
+            $whereResidencia = "
+                AND p.tipo_conjunto_publicacion = 'condominio'
+                AND p.codigo_condominio_publicacion = :cond
+            ";
+        } else {
+            $whereResidencia = "
+                AND p.tipo_conjunto_publicacion = 'urbanizacion'
+                AND p.codigo_urbanizacion_publicacion = :urb
+            ";
+        }
+
+        $sql = "
+            SELECT
+                p.codigo_producto,
+                p.titulo,
+                p.descripcion,
+                p.estado,
+                p.precio,
+                p.tipo_atencion_producto,
+                p.visible,
+                p.codigo_usuario,
+                p.codigo_tipo,
+                p.codigo_categoria,
+                p.imagen_portada,
+                p.codigo_usuario_residencia,
+                p.tipo_conjunto_publicacion,
+                p.codigo_condominio_publicacion,
+                p.codigo_urbanizacion_publicacion,
+                p.estado_residencial_publicacion,
+                COALESCE(u.disponibilidad_pedidos, 0) AS disponibilidad_pedidos_vendedor,
+                p.updated_at,
+                p.created_at,
+                t.nombre AS tipo_nombre,
+                c.nombre AS categoria_nombre,
+                u.nombre AS vendedor_nombre,
+                u.estado AS vendedor_estado
+            FROM producto p
+            INNER JOIN usuario u ON u.codigo_usuario = p.codigo_usuario
+            LEFT JOIN tipo t ON t.codigo_tipo = p.codigo_tipo
+            LEFT JOIN categoria c ON c.codigo_categoria = p.codigo_categoria
+            WHERE p.codigo_producto = :p_codigo_producto
+            AND " . $this->whereMarketplaceUsuarioHabilitado('p', 'u') . "
+            {$whereResidencia}
+            LIMIT 1
+        ";
+
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindValue(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
+
+        if ($tipoConjunto === 'condominio') {
+            $stmt->bindValue(':cond', $condId, PDO::PARAM_INT);
+        } else {
+            $stmt->bindValue(':urb', $urbId, PDO::PARAM_INT);
+        }
+
+        $stmt->execute();
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$fila) return null;
+
+        $fila['es_producto_propio'] = ((int)$fila['codigo_usuario'] === $codigoUsuarioViewer) ? 1 : 0;
+        $fila['requiere_preparacion'] = ((string)($fila['tipo_atencion_producto'] ?? '') === 'requiere_preparacion') ? 1 : 0;
+
+        return $fila;
+    }
+
 }

@@ -293,6 +293,8 @@ safeRequire(__DIR__ . '/models/Notificacion.php');
 safeRequire(__DIR__ . '/controllers/api/apiSoporteDashboardController.php');
 safeRequire(__DIR__ . '/models/SoporteDashboard.php');
 
+safeRequire(__DIR__ . '/controllers/api/apiDisponibilidadPedidosController.php');
+
 // ------------------------------
 // 2) Normalización BASE_URL / basePath
 // ------------------------------
@@ -390,18 +392,20 @@ $routes = [
     ['POST', '#^/api/producto/registrar$#',        [apiProductoController::class, 'registrarProducto'],  'json'],
     ['GET',  '#^/api/producto/listar$#',           [apiProductoController::class, 'listarProductos'],    'json'],
     ['GET',  '#^/api/producto/(\d+)$#',            [apiProductoController::class, 'obtenerProducto'],    'json'],
+    ['GET',  '#^/api/marketplace/producto/(\d+)$#', [apiProductoController::class, 'obtenerDetalleMarketplace'], 'json'],
     ['POST', '#^/api/producto/(\d+)/actualizar$#', [apiProductoController::class, 'actualizarProducto'], 'json'],
     ['POST', '#^/api/producto/(\d+)/anular$#',     [apiProductoController::class, 'anularProducto'],     'json'],
     ['POST', '#^/api/producto/(\d+)/publicar$#',   [apiProductoController::class, 'publicarProducto'],   'json'],
     ['GET',  '#^/api/producto/marketplace$#',      [apiProductoController::class, 'listarMarketplace'],  'json'],
-
+    
     ['GET',  '#^/api/billetera/saldo$#',               [apiBilleteraController::class, 'obtenerSaldo'],        'json'],
     ['GET',  '#^/api/billetera/movimientos$#',         [apiBilleteraController::class, 'obtenerMovimientos'],  'json'],
     ['POST', '#^/api/billetera/debitar-publicacion$#', [apiBilleteraController::class, 'debitarPublicacion'],  'json'],
     //['POST', '#^/api/billetera/debitar-producto-destacado$#', [apiBilleteraController::class, 'debitarPublicacion'], 'json'],
     ['POST', '#^/api/billetera/debitar-producto-destacado$#', [apiBilleteraController::class, 'debitarProductoDestacado'], 'json'],
 
-    ['GET',  '#^/api/pedidos/recibir$#',               [apiPedidoController::class, 'listarPedidos'],           'json'],
+    ['GET',  '#^/api/pedidos/recibir$#',    [apiPedidoController::class, 'listarPedidos'],   'json'],
+    ['POST', '#^/api/pedidos/registrar$#',  [apiPedidoController::class, 'registrarPedido'],  'json'],
 
     ['GET',  '#^/api/soporte/recargas$#',              [apiSoporteRecargasController::class, 'listar'],           'json'],
     ['POST', '#^/api/soporte/recargas/(\d+)/estado$#', [apiSoporteRecargasController::class, 'actualizarEstado'], 'json'],
@@ -447,6 +451,12 @@ $routes = [
     ['POST', '#^/api/notificaciones/(\d+)/leida$#', [apiNotificacionesController::class, 'marcarLeida'], 'json'],
 
     ['POST', '#^/api/notificaciones/residencia/(\d+)/reenviar$#', [apiNotificacionesResidenciaController::class, 'reenviar'], 'json'],
+
+    ['GET',  '#^/api/usuario/disponibilidad-pedidos$#', [apiDisponibilidadPedidosController::class, 'obtenerEstado'], 'json'],
+    ['POST', '#^/api/usuario/disponibilidad-pedidos$#', [apiDisponibilidadPedidosController::class, 'actualizarEstado'], 'json'],
+
+    
+    
 ];
 
 // ============================================================

@@ -31,7 +31,8 @@
   background:
     radial-gradient(circle at 75% 30%, rgba(255,255,255,0.08), transparent 60%),
     radial-gradient(circle at 20% 80%, rgba(0,0,0,0.08), transparent 70%),
-    linear-gradient(145deg, var(--ev-verde-oscuro) 0%, var(--ev-verde-mid) 45%, var(--ev-verde) 85%);
+    linear-gradient(145deg, #0F592F 0%, #0E7A43 45%, #16A34A 85%);
+    
 
   color: rgba(255,255,255,.92);
 
