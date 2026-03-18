@@ -311,40 +311,39 @@
 }
 
 /* Barra superior de disponibilidad */
+
 .ev-mp-card-top-status{
-  width:100%;
   display:flex;
   align-items:center;
   justify-content:center;
-  min-height:34px;
-  padding:8px 12px;
-  margin:0;
-  border:none;
-  border-radius:0;
-  font-size:13px;
-  font-weight:800;
-  line-height:1.1;
-  letter-spacing:.01em;
+  width:100%;
+  min-height:38px;
+  padding:10px 12px;
+  border-bottom:1px solid rgba(229,231,235,0.85);
   text-align:center;
+  line-height:1.15;
+  box-sizing:border-box;
 }
 
 .ev-mp-card-top-status-text{
   display:block;
   width:100%;
-  margin:0;
-  padding:0;
+  font-size:clamp(11px, 2.8vw, 14px);
+  font-weight:800;
+  letter-spacing:.01em;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 
 .ev-mp-card-top-status-on{
-  background:#DCFCE7;
-  color:#166534;
-  border-bottom:1px solid rgba(22,101,52,0.10);
+  background:linear-gradient(135deg, rgba(15,89,47,0.14), rgba(22,163,74,0.20));
+  color:var(--ev-verde-oscuro);
 }
 
 .ev-mp-card-top-status-off{
-  background:#E5E7EB;
-  color:#4B5563;
-  border-bottom:1px solid rgba(75,85,99,0.08);
+  background:linear-gradient(135deg, rgba(107,114,128,0.12), rgba(229,231,235,0.70));
+  color:#6B7280;
 }
 
 .ev-mp-card-media{

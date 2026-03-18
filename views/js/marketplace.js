@@ -770,7 +770,7 @@
       ? 'ev-mp-card-top-status ev-mp-card-top-status-on'
       : 'ev-mp-card-top-status ev-mp-card-top-status-off';
 
-    const estadoLabel = vendedorDisponible ? 'Disponible para pedidos' : 'No disponible';
+    const estadoLabel = vendedorDisponible ? 'Disponible' : 'No disponible';
 
     return `
       <div class="ev-mp-card" data-id="${escapeHtml(String(id))}">
