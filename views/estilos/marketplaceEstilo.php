@@ -614,62 +614,80 @@
    SWEETALERT EV - MARKETPLACE
 ========================================================== */
 .ev-mp-swal-popup{
-  border-radius:22px !important;
-  padding:24px 22px 20px !important;
-  box-shadow:0 24px 60px rgba(15,23,42,.22) !important;
+  border-radius:28px !important;
+  padding:28px 24px 22px !important;
+  box-shadow:
+    0 28px 70px rgba(15,23,42,.20),
+    0 10px 24px rgba(15,89,47,.08) !important;
   border:1px solid rgba(229,231,235,.96) !important;
+  background:
+    radial-gradient(circle at top, rgba(230,244,236,.65) 0%, rgba(255,255,255,1) 26%, rgba(255,255,255,1) 100%) !important;
+}
+
+.ev-mp-swal-popup.ev-mp-swal-popup-seguimiento{
+  width:min(92vw, 560px) !important;
+  overflow:hidden !important;
 }
 
 .ev-mp-swal-title{
   color:var(--ev-verde-oscuro) !important;
-  font-weight:800 !important;
-  letter-spacing:-.02em !important;
-  font-size:2rem !important;
-  line-height:1.1 !important;
+  font-weight:900 !important;
+  letter-spacing:-.03em !important;
+  font-size:2.15rem !important;
+  line-height:1.04 !important;
+  margin:0 0 8px 0 !important;
 }
 
 .ev-mp-swal-html{
   color:var(--ev-texto-suave) !important;
   font-size:1rem !important;
   line-height:1.55 !important;
+  margin-top:0 !important;
 }
 
 .ev-mp-swal-confirm{
   background:linear-gradient(135deg, #EA7C12, #F59E0B) !important;
   border:none !important;
   color:#fff !important;
-  border-radius:12px !important;
-  padding:12px 22px !important;
-  min-width:148px !important;
-  font-weight:800 !important;
-  box-shadow:0 12px 28px rgba(234,124,18,.35) !important;
+  border-radius:16px !important;
+  padding:13px 24px !important;
+  min-width:156px !important;
+  font-weight:900 !important;
+  font-size:1rem !important;
+  box-shadow:0 14px 30px rgba(234,124,18,.32) !important;
+  transition:transform .16s ease, box-shadow .16s ease, filter .16s ease !important;
 }
 
 .ev-mp-swal-confirm:hover{
   filter:brightness(1.03) !important;
-  box-shadow:0 16px 34px rgba(234,124,18,.42) !important;
+  transform:translateY(-1px) !important;
+  box-shadow:0 18px 34px rgba(234,124,18,.42) !important;
 }
 
 .ev-mp-swal-cancel{
   background:#fff !important;
-  border:1px solid #EF4444 !important;
+  border:1.6px solid #EF4444 !important;
   color:#EF4444 !important;
-  border-radius:12px !important;
-  padding:12px 22px !important;
-  min-width:148px !important;
-  font-weight:800 !important;
-  box-shadow:none !important;
+  border-radius:16px !important;
+  padding:13px 24px !important;
+  min-width:180px !important;
+  font-weight:900 !important;
+  font-size:1rem !important;
+  box-shadow:0 8px 18px rgba(239,68,68,.08) !important;
+  transition:transform .16s ease, box-shadow .16s ease, background .16s ease !important;
 }
 
 .ev-mp-swal-cancel:hover{
   background:#FEF2F2 !important;
+  transform:translateY(-1px) !important;
+  box-shadow:0 12px 24px rgba(239,68,68,.14) !important;
 }
 
 .ev-mp-swal-loader{
-  width:58px;
-  height:58px;
+  width:62px;
+  height:62px;
   border-radius:50%;
-  border:5px solid rgba(22,163,74,.18);
+  border:5px solid rgba(22,163,74,.16);
   border-top-color:rgba(15,89,47,.96);
   margin:4px auto 16px auto;
   animation:evMpSpin .85s linear infinite;
@@ -679,57 +697,132 @@
   to{ transform:rotate(360deg); }
 }
 
+.ev-mp-swal-status-icon{
+  width:94px;
+  height:94px;
+  margin:0 auto 14px auto;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:linear-gradient(180deg, rgba(230,244,236,.88), rgba(255,255,255,.98));
+  border:2px solid rgba(22,163,74,.20);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.9),
+    0 10px 28px rgba(15,89,47,.08);
+}
+
+.ev-mp-swal-status-icon i{
+  font-size:44px;
+  color:var(--ev-verde);
+  line-height:1;
+}
+
+.ev-mp-swal-subtitle{
+  font-weight:900;
+  font-size:1.15rem;
+  color:var(--ev-verde-oscuro);
+  margin-bottom:8px;
+  letter-spacing:-.02em;
+}
+
+.ev-mp-swal-soft-text{
+  font-size:14px;
+  color:#6B7280;
+  line-height:1.6;
+}
+
+.ev-mp-swal-timer-wrap{
+  margin-top:16px;
+}
+
 .ev-mp-swal-timer-pill{
   display:inline-flex;
   align-items:center;
   justify-content:center;
   gap:10px;
-  padding:12px 16px;
+  padding:12px 18px;
   border-radius:999px;
-  background:#E6F4EC;
+  background:linear-gradient(135deg, #E6F4EC, #F0FDF4);
   color:#0F592F;
-  font-weight:800;
+  font-weight:900;
   font-size:14px;
+  border:1px solid rgba(22,163,74,.10);
+  box-shadow:0 10px 22px rgba(15,89,47,.08);
 }
 
-.ev-mp-swal-note{
-  margin-top:12px;
-  padding:12px 14px;
-  border-radius:14px;
-  background:#FFF7ED;
-  border:1px solid rgba(234,124,18,.18);
-  color:#9A3412;
-  font-size:13px;
-  line-height:1.45;
+.ev-mp-swal-timer-pill i{
+  font-size:15px;
+  opacity:.9;
 }
 
-.ev-mp-swal-subtitle{
+.ev-mp-swal-product-card{
+  margin-top:16px;
+  padding:13px 16px;
+  border-radius:18px;
+  background:#fff;
+  border:1px solid rgba(229,231,235,.95);
+  box-shadow:0 8px 22px rgba(15,23,42,.05);
+}
+
+.ev-mp-swal-product-label{
+  display:block;
+  font-size:11px;
   font-weight:800;
-  font-size:16px;
-  color:#0F592F;
-  margin-bottom:8px;
-}
-
-.ev-mp-swal-soft-text{
-  font-size:13px;
-  color:#6B7280;
-  line-height:1.5;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:#9CA3AF;
+  margin-bottom:5px;
 }
 
 .ev-mp-swal-product{
-  margin-top:14px;
-  font-size:13px;
-  color:#6B7280;
-}
-
-.ev-mp-swal-product strong{
+  font-size:15px;
   color:#1A1F36;
+  font-weight:800;
+  word-break:break-word;
 }
 
 .ev-mp-swal-cancel-hint{
-  margin-top:10px;
-  font-size:12px;
+  margin-top:12px;
+  font-size:12.5px;
   color:#6B7280;
+  min-height:18px;
+}
+
+.ev-mp-swal-note{
+  margin-top:16px;
+  padding:14px 16px;
+  border-radius:18px;
+  background:linear-gradient(180deg, #FFF7ED, #FFFDF9);
+  border:1px solid rgba(234,124,18,.22);
+  color:#9A3412;
+  font-size:13.5px;
+  line-height:1.55;
+  box-shadow:0 8px 18px rgba(234,124,18,.08);
+}
+
+.ev-mp-swal-note strong{
+  font-weight:900;
+}
+
+.ev-mp-swal-divider{
+  width:72px;
+  height:4px;
+  border-radius:999px;
+  margin:14px auto 0 auto;
+  background:linear-gradient(90deg, rgba(15,89,47,.10), rgba(22,163,74,.42), rgba(15,89,47,.10));
+}
+
+.ev-mp-swal-popup-bounce{
+  animation:evMpSwalBounce .34s ease;
+}
+
+@keyframes evMpSwalBounce{
+  0%   { transform:scale(1) translateX(0); }
+  22%  { transform:scale(1.01) translateX(-8px); }
+  46%  { transform:scale(1.01) translateX(8px); }
+  68%  { transform:scale(1.005) translateX(-4px); }
+  100% { transform:scale(1) translateX(0); }
 }
 
 .ev-mp-swal-danger{
@@ -741,40 +834,33 @@
 }
 
 @media(max-width:575.98px){
-  .ev-mp-modal-body{ padding:14px; }
-  .ev-mp-preview-card{ border-radius:16px; }
-  .ev-mp-modal-media{ max-height:360px; }
-  .ev-mp-modal-media img{ max-height:340px !important; }
-  .ev-mp-cat-select{ min-width: 100%; }
-
-  .ev-mp-card-top-status{
-    min-height:32px;
-    padding:7px 10px;
-    font-size:12px;
-  }
-
   .ev-mp-swal-popup{
-    padding:20px 16px 18px !important;
-    border-radius:18px !important;
+    padding:22px 16px 18px !important;
+    border-radius:22px !important;
   }
 
   .ev-mp-swal-title{
-    font-size:1.7rem !important;
+    font-size:1.75rem !important;
+  }
+
+  .ev-mp-swal-status-icon{
+    width:82px;
+    height:82px;
+    margin-bottom:12px;
+  }
+
+  .ev-mp-swal-status-icon i{
+    font-size:36px;
+  }
+
+  .ev-mp-swal-subtitle{
+    font-size:1.02rem;
   }
 
   .ev-mp-swal-confirm,
   .ev-mp-swal-cancel{
     width:100% !important;
     min-width:0 !important;
-  }
-}
-
-@media (max-width:991.98px){
-  .ev-mp-header .card-body{ padding:14px 16px 10px 16px; }
-  .ev-mp-title{ font-size:24px; }
-  .ev-mp-content{
-    padding-left:6px !important;
-    padding-right:8px !important;
   }
 }
 </style>

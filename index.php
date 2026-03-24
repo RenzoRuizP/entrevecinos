@@ -526,6 +526,7 @@ $routes = [
 
     ['GET',  '#^/api/pedidos/recibir$#',    [apiPedidoController::class, 'listarPedidos'],   'json'],
     ['POST', '#^/api/pedidos/registrar$#',  [apiPedidoController::class, 'registrarPedido'],  'json'],
+    ['GET',  '#^/api/pedidos/solicitud-activa$#', [apiPedidoController::class, 'obtenerSolicitudActiva'], 'json'],
     ['GET',  '#^/api/pedidos/(\d+)/estado$#',    [apiPedidoController::class, 'obtenerEstadoSolicitud'], 'json'],
     ['POST', '#^/api/pedidos/(\d+)/cancelar$#',  [apiPedidoController::class, 'cancelarSolicitud'], 'json'],
 

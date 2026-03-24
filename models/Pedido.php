@@ -1308,4 +1308,93 @@ class Pedido extends Conexion
 
         return $out;
     }
+
+    public function obtenerSolicitudActivaComprador(int $codigoUsuarioComprador): array
+    {
+        try {
+            $sql = "
+                SELECT
+                    p.codigo_pedido,
+                    p.codigo_producto,
+                    p.codigo_usuario_comprador,
+                    p.codigo_usuario_vendedor,
+                    p.fase,
+                    p.estado_actual,
+                    p.cantidad,
+                    p.costo_unitario,
+                    p.total,
+                    p.tipo_entrega,
+                    p.fecha_hora_programada,
+                    p.direccion_entrega,
+                    p.mensaje_comprador,
+                    p.posicion_cola,
+                    p.motivo_estado,
+                    p.requiere_preparacion,
+                    p.monto_descontado_billetera,
+                    p.descuento_billetera_aplicado,
+                    p.devolucion_billetera_aplicada,
+                    p.fecha_limite_respuesta,
+                    p.fecha_aceptacion,
+                    p.fecha_rechazo,
+                    p.fecha_cancelacion,
+                    p.fecha_cierre,
+                    p.created_at,
+                    p.updated_at,
+                    pr.titulo AS titulo_producto
+                FROM pedido p
+                INNER JOIN producto pr
+                    ON pr.codigo_producto = p.codigo_producto
+                WHERE p.codigo_usuario_comprador = :codigo_usuario_comprador
+                AND p.fase = 'solicitud'
+                AND p.estado_actual = 'pendiente_vendedor'
+                ORDER BY p.codigo_pedido DESC
+                LIMIT 1
+            ";
+
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':codigo_usuario_comprador', $codigoUsuarioComprador, PDO::PARAM_INT);
+            $st->execute();
+
+            $pedido = $st->fetch(PDO::FETCH_ASSOC);
+            if (!$pedido) {
+                return [
+                    'ok'   => true,
+                    'data' => null
+                ];
+            }
+
+            $cierre = $this->cerrarSolicitudPorSinRespuestaInterno($pedido);
+            if (!$cierre['ok']) {
+                return $cierre;
+            }
+
+            $pedidoActual = $cierre['data'];
+
+            if (
+                (string)($pedidoActual['fase'] ?? '') !== 'solicitud' ||
+                (string)($pedidoActual['estado_actual'] ?? '') !== 'pendiente_vendedor'
+            ) {
+                return [
+                    'ok'   => true,
+                    'data' => null
+                ];
+            }
+
+            return [
+                'ok'   => true,
+                'data' => $this->construirDataEstadoSolicitud($pedidoActual)
+            ];
+
+        } catch (Throwable $e) {
+            error_log('[EV][Pedido][obtenerSolicitudActivaComprador] ' . $e->getMessage());
+
+            return [
+                'ok'      => false,
+                'error'   => 'ERROR_OBTENER_SOLICITUD_ACTIVA',
+                'mensaje' => 'No se pudo obtener la solicitud activa del comprador.'
+            ];
+        }
+    }
+
+
 }

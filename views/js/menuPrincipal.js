@@ -1,11 +1,4 @@
 // views/js/menuPrincipal.js
-// Shell principal EV
-// RESPONSABILIDAD:
-// - Alertas globales (ej. login exitoso)
-// - Inicialización visual del shell
-// - NO manejar navegación AJAX del sidebar
-//   (eso queda centralizado en menuIzquierda.js para evitar dobles cargas)
-
 (function () {
   'use strict';
 
@@ -14,19 +7,21 @@
 
   const params = new URLSearchParams(window.location.search);
 
-  function mostrarLoginExitosoSiAplica() {
+  async function mostrarLoginExitosoSiAplica() {
     if (!params.has('success')) return;
 
     const success = params.get('success');
     if (success !== 'login_exitoso') return;
 
     if (window.Swal?.fire) {
-      Swal.fire({
+      await Swal.fire({
         icon: 'success',
         title: 'Bienvenido',
         text: 'Inicio de sesión exitoso',
-        timer: 2000,
-        showConfirmButton: false
+        timer: 1800,
+        showConfirmButton: false,
+        allowOutsideClick: false,
+        allowEscapeKey: false
       });
     }
 
@@ -50,14 +45,28 @@
     });
   }
 
-  function initShell() {
-    mostrarLoginExitosoSiAplica();
-    initOverlayScrollbars();
+  async function restaurarSolicitudActivaGlobal() {
+    try {
+      if (window.EVMarketplace && typeof window.EVMarketplace.restoreSolicitudActiva === 'function') {
+        await window.EVMarketplace.restoreSolicitudActiva();
+      }
+    } catch (e) {
+      console.warn('[EV][Shell] No se pudo restaurar la solicitud activa:', e);
+    }
   }
 
-  document.addEventListener('DOMContentLoaded', initShell);
+  async function initShell() {
+    initOverlayScrollbars();
+    await mostrarLoginExitosoSiAplica();
+    await restaurarSolicitudActivaGlobal();
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    initShell();
+  });
 
   window.EVShell = {
-    init: initShell
+    init: initShell,
+    restaurarSolicitudActiva: restaurarSolicitudActivaGlobal
   };
 })();

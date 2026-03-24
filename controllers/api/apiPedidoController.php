@@ -329,4 +329,51 @@ class apiPedidoController
             return;
         }
     }
+
+    
+    public function obtenerSolicitudActiva(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            $this->json(405, [
+                'ok'      => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuarioComprador = $this->obtenerUsuarioAuth();
+
+            $model = new Pedido();
+            $resultado = $model->obtenerSolicitudActivaComprador($codigoUsuarioComprador);
+
+            if (!$resultado['ok']) {
+                $error = (string)($resultado['error'] ?? 'ERROR_OBTENER_SOLICITUD_ACTIVA');
+                $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo obtener la solicitud activa.');
+
+                $this->json(500, [
+                    'ok'      => false,
+                    'error'   => $error,
+                    'mensaje' => $mensaje
+                ]);
+                return;
+            }
+
+            $this->json(200, [
+                'ok'   => true,
+                'data' => $resultado['data'] ?? null
+            ]);
+            return;
+
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][obtenerSolicitudActiva] ' . $e->getMessage());
+
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'No se pudo obtener la solicitud activa.'
+            ]);
+            return;
+        }
+    }
+
 }

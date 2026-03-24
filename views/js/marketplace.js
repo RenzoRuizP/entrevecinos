@@ -42,6 +42,7 @@
   let pollingTimer = null;
   let pollingEnCurso = false;
   let marketplaceInicializado = false;
+  let restaurandoSolicitudActiva = false;
 
   let solicitudFlow = {
   codigoPedido: 0,
@@ -211,6 +212,32 @@
       Swal.close();
     }
   }
+
+
+    function triggerSwalBounce() {
+      const popup = window.Swal?.getPopup ? Swal.getPopup() : null;
+      if (!popup) return;
+
+      popup.classList.remove('ev-mp-swal-popup-bounce');
+    void popup.offsetWidth;
+    popup.classList.add('ev-mp-swal-popup-bounce');
+  }
+
+  function attachBounceOutsideBehavior() {
+    const container = window.Swal?.getContainer ? Swal.getContainer() : null;
+    const popup = window.Swal?.getPopup ? Swal.getPopup() : null;
+    if (!container || !popup) return;
+
+    if (container.dataset.evBounceBound === '1') return;
+    container.dataset.evBounceBound = '1';
+
+    container.addEventListener('mousedown', (ev) => {
+      if (!popup.contains(ev.target)) {
+        triggerSwalBounce();
+      }
+    });
+  }
+
 
   async function notify(icon, title, text, extra = {}) {
     if (!window.Swal?.fire) {
@@ -510,50 +537,57 @@ function tickSeguimientoSolicitud() {
   });
 }
 
-  function htmlSeguimientoSolicitud(opts = {}) {
-    const {
-      tituloProducto = 'tu solicitud',
-      estadoTexto = 'Esperando ser atendido...',
-      detalle = 'El vendedor aún no responde.',
-      segundosRestantes = 0,
-      requierePreparacion = false,
-      montoDescontado = 0
-    } = opts;
+    function htmlSeguimientoSolicitud(opts = {}) {
+      const {
+        tituloProducto = 'tu solicitud',
+        estadoTexto = 'Esperando ser atendido...',
+        detalle = 'El vendedor aún no responde.',
+        segundosRestantes = 0,
+        requierePreparacion = false,
+        montoDescontado = 0
+      } = opts;
 
-    const notaBilletera = requierePreparacion && Number(montoDescontado || 0) > 0
-      ? `
-        <div class="ev-mp-swal-note">
-          Se reservó <strong>${formatPrecio(montoDescontado)}</strong> de tu billetera por tratarse de un producto con preparación.
-          Si la solicitud no continúa, el saldo se devolverá automáticamente.
-        </div>
-      `
-      : '';
-
-    return `
-      <div style="text-align:center;">
-        <div class="ev-mp-swal-subtitle">${escapeHtml(estadoTexto)}</div>
-
-        <div class="ev-mp-swal-soft-text">
-          ${escapeHtml(detalle)}
-        </div>
-
-        <div style="margin-top:14px;">
-          <div class="ev-mp-swal-timer-pill">
-            <i class="bi bi-clock-history"></i>
-            <span id="ev_sp_timer_text">Tiempo restante: ${formatDuracionSegundos(segundosRestantes)}</span>
+      const notaBilletera = requierePreparacion && Number(montoDescontado || 0) > 0
+        ? `
+          <div class="ev-mp-swal-note">
+            Se reservó <strong>${formatPrecio(montoDescontado)}</strong> de tu billetera por tratarse de un producto con preparación.
+            Si la solicitud no continúa, el saldo se devolverá automáticamente.
           </div>
+        `
+        : '';
+
+      return `
+        <div class="ev-mp-swal-seguimiento-wrap" style="text-align:center;">
+          <div class="ev-mp-swal-status-icon" aria-hidden="true">
+            <i class="bi bi-check-lg"></i>
+          </div>
+
+          <div class="ev-mp-swal-subtitle">${escapeHtml(estadoTexto)}</div>
+
+          <div class="ev-mp-swal-soft-text">
+            ${escapeHtml(detalle)}
+          </div>
+
+          <div class="ev-mp-swal-timer-wrap">
+            <div class="ev-mp-swal-timer-pill">
+              <i class="bi bi-clock-history"></i>
+              <span id="ev_sp_timer_text">Tiempo restante: ${formatDuracionSegundos(segundosRestantes)}</span>
+            </div>
+          </div>
+
+          <div class="ev-mp-swal-product-card">
+            <span class="ev-mp-swal-product-label">Solicitud de pedido</span>
+            <div class="ev-mp-swal-product">${escapeHtml(tituloProducto)}</div>
+          </div>
+
+          <div id="ev_sp_cancel_hint" class="ev-mp-swal-cancel-hint"></div>
+
+          ${notaBilletera}
+
+          <div class="ev-mp-swal-divider"></div>
         </div>
-
-        <div class="ev-mp-swal-product">
-          Solicitud de: <strong>${escapeHtml(tituloProducto)}</strong>
-        </div>
-
-        <div id="ev_sp_cancel_hint" class="ev-mp-swal-cancel-hint"></div>
-
-        ${notaBilletera}
-      </div>
-    `;
-  }
+      `;
+    }
 
   async function consultarEstadoSolicitud(codigoPedido) {
     const { resp, json, text } = await fetchJsonRobusto(`${BASE}/api/pedidos/${encodeURIComponent(codigoPedido)}/estado`, {
@@ -574,6 +608,56 @@ function tickSeguimientoSolicitud() {
     }
 
     return json.data || null;
+  }
+
+  async function obtenerSolicitudActivaActual() {
+    const { resp, json, text } = await fetchJsonRobusto(`${BASE}/api/pedidos/solicitud-activa`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'same-origin'
+    });
+
+    if (await manejarRespuestaAuth(resp, json)) return null;
+
+    if (!json) {
+      err('SOLICITUD ACTIVA no devolvió JSON:', (text || '').slice(0, 400));
+      return null;
+    }
+
+    if (!resp.ok || !json.ok) {
+      return null;
+    }
+
+    return json.data || null;
+  }
+
+  async function restoreSolicitudActiva(data = null) {
+    if (restaurandoSolicitudActiva) return;
+    if (solicitudFlow.activo && solicitudFlow.codigoPedido > 0) return;
+
+    restaurandoSolicitudActiva = true;
+
+    try {
+      let solicitud = data;
+
+      if (!solicitud) {
+        solicitud = await obtenerSolicitudActivaActual();
+      }
+
+      if (!solicitud || !solicitud.codigo_pedido) {
+        return;
+      }
+
+      if (solicitudFlow.codigoPedido === Number(solicitud.codigo_pedido || 0) && solicitudFlow.activo) {
+        return;
+      }
+
+      await iniciarSeguimientoSolicitud(solicitud);
+    } catch (e) {
+      err('EXCEPTION restoreSolicitudActiva', e);
+    } finally {
+      restaurandoSolicitudActiva = false;
+    }
   }
 
   async function cancelarSolicitudBackend(codigoPedido) {
@@ -689,87 +773,101 @@ function tickSeguimientoSolicitud() {
     }
   }
 
-  async function iniciarSeguimientoSolicitud(data = {}) {
-    limpiarSeguimientoSolicitud();
+    async function iniciarSeguimientoSolicitud(data = {}) {
+      limpiarSeguimientoSolicitud();
 
-    const codigoPedido = Number(data.codigo_pedido || 0);
-    if (!codigoPedido) return;
+      const codigoPedido = Number(data.codigo_pedido || 0);
+      if (!codigoPedido) return;
 
-    solicitudFlow.codigoPedido = codigoPedido;
-    solicitudFlow.activo = true;
-    solicitudFlow.cancelButtonVisible = false;
+      solicitudFlow.codigoPedido = codigoPedido;
+      solicitudFlow.activo = true;
+      solicitudFlow.cancelButtonVisible = false;
 
-    sincronizarSeguimientoDesdeData({
-      segundos_restantes: data.segundos_restantes ?? data.segundos_timeout ?? 0,
-      segundos_para_cancelar_restantes: data.segundos_para_cancelar_restantes ?? data.segundos_para_cancelar ?? SEGUNDOS_CANCELACION_SOLICITUD,
-      puede_cancelar: data.puede_cancelar ?? 0
-    });
+      sincronizarSeguimientoDesdeData({
+        segundos_restantes: data.segundos_restantes ?? data.segundos_timeout ?? 0,
+        segundos_para_cancelar_restantes: data.segundos_para_cancelar_restantes ?? data.segundos_para_cancelar ?? SEGUNDOS_CANCELACION_SOLICITUD,
+        puede_cancelar: data.puede_cancelar ?? 0
+      });
 
-    const tituloProducto = String(data.titulo_producto || 'tu solicitud');
-    const requierePreparacion = Number(data.requiere_preparacion || 0) === 1;
-    const montoDescontado = Number(data.monto_descontado_billetera || 0);
+      const tituloProducto = String(data.titulo_producto || 'tu solicitud');
+      const requierePreparacion = Number(data.requiere_preparacion || 0) === 1;
+      const montoDescontado = Number(data.monto_descontado_billetera || 0);
 
-    const result = await Swal.fire(swalBaseConfig({
-      icon: 'success',
-      title: 'Solicitud enviada',
-      html: htmlSeguimientoSolicitud({
-        tituloProducto,
-        estadoTexto: 'Esperando ser atendido...',
-        detalle: 'Tu solicitud fue registrada correctamente. Estamos esperando la respuesta del vendedor.',
-        segundosRestantes: solicitudFlow.segundosRestantes,
-        requierePreparacion,
-        montoDescontado
-      }),
-      showConfirmButton: false,
-      showCancelButton: false,
-      didOpen: () => {
-        actualizarUiSeguimiento({
-          segundos_restantes: solicitudFlow.segundosRestantes,
-          segundos_para_cancelar_restantes: solicitudFlow.segundosParaCancelarRestantes,
-          puede_cancelar: 0
-        });
+      const result = await Swal.fire(swalBaseConfig({
+        icon: undefined,
+        title: 'Solicitud enviada',
+        html: htmlSeguimientoSolicitud({
+          tituloProducto,
+          estadoTexto: 'Esperando ser atendido...',
+          detalle: 'Tu solicitud fue registrada correctamente. Estamos esperando la respuesta del vendedor.',
+          segundosRestantes: solicitudFlow.segundosRestantes,
+          requierePreparacion,
+          montoDescontado
+        }),
+        showConfirmButton: false,
+        showCancelButton: false,
+        allowOutsideClick: () => {
+          triggerSwalBounce();
+          return false;
+        },
+        allowEscapeKey: false,
+        customClass: {
+          popup: 'ev-mp-swal-popup ev-mp-swal-popup-seguimiento',
+          title: 'ev-mp-swal-title',
+          htmlContainer: 'ev-mp-swal-html',
+          confirmButton: 'ev-mp-swal-confirm',
+          cancelButton: 'ev-mp-swal-cancel'
+        },
+        didOpen: () => {
+          attachBounceOutsideBehavior();
 
-        solicitudFlow.intervalUi = setInterval(() => {
-          tickSeguimientoSolicitud();
-        }, 1000);
+          actualizarUiSeguimiento({
+            segundos_restantes: solicitudFlow.segundosRestantes,
+            segundos_para_cancelar_restantes: solicitudFlow.segundosParaCancelarRestantes,
+            puede_cancelar: 0
+          });
 
-        solicitudFlow.pollingTimer = setInterval(() => {
-          refrescarSeguimientoSolicitud();
-        }, SOLICITUD_POLLING_MS);
-      },
-      willClose: () => {
-        if (solicitudFlow.activo) {
-          if (solicitudFlow.intervalUi) {
-            clearInterval(solicitudFlow.intervalUi);
-            solicitudFlow.intervalUi = null;
-          }
-          if (solicitudFlow.pollingTimer) {
-            clearInterval(solicitudFlow.pollingTimer);
-            solicitudFlow.pollingTimer = null;
+          solicitudFlow.intervalUi = setInterval(() => {
+            tickSeguimientoSolicitud();
+          }, 1000);
+
+          solicitudFlow.pollingTimer = setInterval(() => {
+            refrescarSeguimientoSolicitud();
+          }, SOLICITUD_POLLING_MS);
+        },
+        willClose: () => {
+          if (solicitudFlow.activo) {
+            if (solicitudFlow.intervalUi) {
+              clearInterval(solicitudFlow.intervalUi);
+              solicitudFlow.intervalUi = null;
+            }
+            if (solicitudFlow.pollingTimer) {
+              clearInterval(solicitudFlow.pollingTimer);
+              solicitudFlow.pollingTimer = null;
+            }
           }
         }
-      }
-    }));
+      }));
 
-    if (result.dismiss === Swal.DismissReason.cancel && solicitudFlow.activo && solicitudFlow.codigoPedido) {
-      const r = await cancelarSolicitudBackend(solicitudFlow.codigoPedido);
-      if (!r || !r.json) {
-        await notify('error', 'Error', 'No se pudo cancelar la solicitud.');
-        return;
-      }
-
-      if (!r.resp.ok || !r.json.ok) {
-        await notify('warning', 'No se pudo cancelar', r.json.mensaje || 'La solicitud ya no se puede cancelar.');
-        const dataEstado = r.json.data || null;
-        if (dataEstado && Number(dataEstado.finalizado || 0) === 1) {
-          await finalizarSeguimientoSolicitud(dataEstado);
+      if (result.dismiss === Swal.DismissReason.cancel && solicitudFlow.activo && solicitudFlow.codigoPedido) {
+        const r = await cancelarSolicitudBackend(solicitudFlow.codigoPedido);
+        if (!r || !r.json) {
+          await notify('error', 'Error', 'No se pudo cancelar la solicitud.');
+          return;
         }
-        return;
-      }
 
-      await finalizarSeguimientoSolicitud(r.json.data || {});
+        if (!r.resp.ok || !r.json.ok) {
+          await notify('warning', 'No se pudo cancelar', r.json.mensaje || 'La solicitud ya no se puede cancelar.');
+          const dataEstado = r.json.data || null;
+          if (dataEstado && Number(dataEstado.finalizado || 0) === 1) {
+            await finalizarSeguimientoSolicitud(dataEstado);
+          }
+          return;
+        }
+
+        await finalizarSeguimientoSolicitud(r.json.data || {});
+      }
     }
-  }
 
   async function abrirModalDetalle(idProducto) {
     if (!idProducto) return;
@@ -1687,7 +1785,8 @@ function tickSeguimientoSolicitud() {
 
   window.EVMarketplace = {
     init: initMarketplace,
-    refreshDisponibilidad: refrescarDisponibilidadMarketplace
+    refreshDisponibilidad: refrescarDisponibilidadMarketplace,
+    restoreSolicitudActiva: restoreSolicitudActiva
   };
 
   log('Cargado. BASE:', BASE || '(vacío)', '| Condominio:', CONDO_NOMBRE_RESUMEN);
