@@ -6,6 +6,9 @@
   const LOG_PREFIX = '[MARKETPLACE]';
   const POLLING_MS = 15000;
 
+  const SOLICITUD_POLLING_MS = 5000;
+  const SEGUNDOS_CANCELACION_SOLICITUD = 120;
+
   const CONDO_NOMBRE_RESUMEN = (typeof window !== 'undefined' && window.EV_CONDOMINIO_NOMBRE)
     ? window.EV_CONDOMINIO_NOMBRE
     : 'tu condominio';
@@ -39,6 +42,15 @@
   let pollingTimer = null;
   let pollingEnCurso = false;
   let marketplaceInicializado = false;
+
+    let solicitudFlow = {
+    codigoPedido: 0,
+    pollingTimer: null,
+    intervalUi: null,
+    cancelableDesdeTs: 0,
+    limiteTs: 0,
+    activo: false
+  };
 
   function log()  { if (console && console.log)  console.log(LOG_PREFIX, ...arguments); }
   function warn() { if (console && console.warn) console.warn(LOG_PREFIX, ...arguments); }
@@ -389,6 +401,295 @@
     return Number(json.saldo_actual || 0);
   }
 
+    function limpiarSeguimientoSolicitud() {
+    if (solicitudFlow.pollingTimer) {
+      clearInterval(solicitudFlow.pollingTimer);
+      solicitudFlow.pollingTimer = null;
+    }
+
+    if (solicitudFlow.intervalUi) {
+      clearInterval(solicitudFlow.intervalUi);
+      solicitudFlow.intervalUi = null;
+    }
+
+    solicitudFlow.codigoPedido = 0;
+    solicitudFlow.cancelableDesdeTs = 0;
+    solicitudFlow.limiteTs = 0;
+    solicitudFlow.activo = false;
+  }
+
+  function parseFechaLocalToTs(fechaStr) {
+    if (!fechaStr) return 0;
+    const normalizada = String(fechaStr).replace(' ', 'T');
+    const d = new Date(normalizada);
+    const ts = d.getTime();
+    return Number.isFinite(ts) ? ts : 0;
+  }
+
+  function formatDuracionSegundos(segundos) {
+    const total = Math.max(0, Number(segundos || 0));
+    const min = Math.floor(total / 60);
+    const sec = total % 60;
+    return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  }
+
+  function htmlSeguimientoSolicitud(opts = {}) {
+    const {
+      tituloProducto = 'tu solicitud',
+      estadoTexto = 'Esperando ser atendido…',
+      detalle = 'El vendedor aún no responde.',
+      segundosRestantes = 0,
+      requierePreparacion = false,
+      montoDescontado = 0
+    } = opts;
+
+    const notaBilletera = requierePreparacion && Number(montoDescontado || 0) > 0
+      ? `
+        <div style="margin-top:12px;padding:12px 14px;border-radius:14px;background:#FFF7ED;border:1px solid rgba(234,124,18,.18);color:#9A3412;font-size:13px;line-height:1.45;">
+          Se reservó <strong>${formatPrecio(montoDescontado)}</strong> de tu billetera por tratarse de un producto con preparación.
+          Si la solicitud no continúa, el saldo se devolverá automáticamente.
+        </div>
+      `
+      : '';
+
+    return `
+      <div style="text-align:center;">
+        <div style="font-weight:800;font-size:16px;color:#0F592F;margin-bottom:8px;">
+          ${escapeHtml(estadoTexto)}
+        </div>
+
+        <div style="font-size:13px;color:#6B7280;line-height:1.5;margin-bottom:14px;">
+          ${escapeHtml(detalle)}
+        </div>
+
+        <div style="display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:12px 16px;border-radius:999px;background:#E6F4EC;color:#0F592F;font-weight:800;font-size:14px;">
+          <i class="bi bi-clock-history"></i>
+          <span id="ev_sp_timer_text">Tiempo restante: ${formatDuracionSegundos(segundosRestantes)}</span>
+        </div>
+
+        <div style="margin-top:14px;font-size:13px;color:#6B7280;">
+          Solicitud de: <strong style="color:#1A1F36;">${escapeHtml(tituloProducto)}</strong>
+        </div>
+
+        <div id="ev_sp_cancel_hint" style="margin-top:10px;font-size:12px;color:#6B7280;"></div>
+
+        ${notaBilletera}
+      </div>
+    `;
+  }
+
+  async function consultarEstadoSolicitud(codigoPedido) {
+    const { resp, json, text } = await fetchJsonRobusto(`${BASE}/api/pedidos/${encodeURIComponent(codigoPedido)}/estado`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'same-origin'
+    });
+
+    if (resp.status === 401) {
+      notify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
+      setTimeout(() => { window.location.href = `${BASE}/`; }, 1200);
+      return null;
+    }
+
+    if (!json) {
+      err('ESTADO SOLICITUD no devolvió JSON:', (text || '').slice(0, 400));
+      return null;
+    }
+
+    if (!resp.ok || !json.ok) {
+      return null;
+    }
+
+    return json.data || null;
+  }
+
+  async function cancelarSolicitudBackend(codigoPedido) {
+    const { resp, json, text } = await fetchJsonRobusto(`${BASE}/api/pedidos/${encodeURIComponent(codigoPedido)}/cancelar`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        motivo_cancelacion: 'Solicitud cancelada por el comprador durante el tiempo de espera.'
+      })
+    });
+
+    if (resp.status === 401) {
+      notify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
+      setTimeout(() => { window.location.href = `${BASE}/`; }, 1200);
+      return null;
+    }
+
+    if (!json) {
+      err('CANCELAR SOLICITUD no devolvió JSON:', (text || '').slice(0, 400));
+      return null;
+    }
+
+    return {
+      resp,
+      json
+    };
+  }
+
+  function actualizarUiSeguimiento(data) {
+    const ahora = Date.now();
+    const timerEl = document.getElementById('ev_sp_timer_text');
+    const hintEl = document.getElementById('ev_sp_cancel_hint');
+    const cancelBtn = window.Swal?.getCancelButton?.();
+
+    const segundosRestantes = Number(data?.segundos_restantes ?? Math.max(0, Math.floor((solicitudFlow.limiteTs - ahora) / 1000)));
+    const yaPuedeCancelar = Number(data?.puede_cancelar || 0) === 1 || ahora >= solicitudFlow.cancelableDesdeTs;
+
+    if (timerEl) {
+      timerEl.textContent = `Tiempo restante: ${formatDuracionSegundos(segundosRestantes)}`;
+    }
+
+    if (hintEl) {
+      if (yaPuedeCancelar) {
+        hintEl.textContent = 'Ya puedes cancelar esta solicitud si ya no deseas continuar.';
+      } else {
+        const faltan = Math.max(0, Math.floor((solicitudFlow.cancelableDesdeTs - ahora) / 1000));
+        hintEl.textContent = `Podrás cancelarla en ${formatDuracionSegundos(faltan)}.`;
+      }
+    }
+
+    if (cancelBtn) {
+      cancelBtn.style.display = yaPuedeCancelar ? 'inline-flex' : 'none';
+    }
+  }
+
+  async function finalizarSeguimientoSolicitud(data) {
+    limpiarSeguimientoSolicitud();
+    if (window.Swal?.isVisible()) {
+      Swal.close();
+    }
+
+    const estado = String(data?.estado_actual || '').trim();
+    const tuvoDebito = Number(data?.descuento_billetera_aplicado || 0) === 1;
+    const montoDebitado = Number(data?.monto_descontado_billetera || 0);
+    const devolvio = Number(data?.devolucion_billetera_aplicada || 0) === 1;
+
+    if (estado === 'cancelado_comprador') {
+      const texto = tuvoDebito && devolvio
+        ? `Tu solicitud fue cancelada correctamente. Se devolvió ${formatPrecio(montoDebitado)} a tu billetera.`
+        : 'Tu solicitud fue cancelada correctamente.';
+
+      notify('success', 'Solicitud cancelada', texto);
+      return;
+    }
+
+    if (estado === 'sin_respuesta_vendedor') {
+      const texto = tuvoDebito && devolvio
+        ? `El vendedor no respondió dentro del tiempo esperado. Se devolvió ${formatPrecio(montoDebitado)} a tu billetera.`
+        : 'El vendedor no respondió dentro del tiempo esperado.';
+
+      notify('info', 'Solicitud sin respuesta', texto);
+      return;
+    }
+  }
+
+  async function refrescarSeguimientoSolicitud() {
+    if (!solicitudFlow.activo || !solicitudFlow.codigoPedido) return;
+
+    const data = await consultarEstadoSolicitud(solicitudFlow.codigoPedido);
+    if (!data) return;
+
+    actualizarUiSeguimiento(data);
+
+    if (Number(data.finalizado || 0) === 1) {
+      await finalizarSeguimientoSolicitud(data);
+    }
+  }
+
+  async function iniciarSeguimientoSolicitud(data = {}) {
+    limpiarSeguimientoSolicitud();
+
+    const codigoPedido = Number(data.codigo_pedido || 0);
+    if (!codigoPedido) return;
+
+    solicitudFlow.codigoPedido = codigoPedido;
+    solicitudFlow.cancelableDesdeTs = parseFechaLocalToTs(data.fecha_cancelable_desde);
+    solicitudFlow.limiteTs = parseFechaLocalToTs(data.fecha_limite_respuesta);
+    solicitudFlow.activo = true;
+
+    const tituloProducto = String(data.titulo_producto || 'tu solicitud');
+    const requierePreparacion = Number(data.requiere_preparacion || 0) === 1;
+    const montoDescontado = Number(data.monto_descontado_billetera || 0);
+    const segundosRestantesInicial = Math.max(0, Math.floor((solicitudFlow.limiteTs - Date.now()) / 1000));
+
+    await Swal.fire({
+      title: 'Solicitud enviada',
+      html: htmlSeguimientoSolicitud({
+        tituloProducto,
+        estadoTexto: 'Esperando ser atendido…',
+        detalle: 'Tu solicitud fue registrada correctamente. Estamos esperando la respuesta del vendedor.',
+        segundosRestantes: segundosRestantesInicial,
+        requierePreparacion,
+        montoDescontado
+      }),
+      icon: 'success',
+      showConfirmButton: false,
+      showCancelButton: true,
+      cancelButtonText: 'Cancelar solicitud',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      buttonsStyling: false,
+      customClass: {
+        cancelButton: 'btn btn-outline-danger'
+      },
+      didOpen: () => {
+        actualizarUiSeguimiento({
+          puede_cancelar: 0,
+          segundos_restantes: segundosRestantesInicial
+        });
+
+        solicitudFlow.intervalUi = setInterval(() => {
+          actualizarUiSeguimiento({
+            puede_cancelar: 0,
+            segundos_restantes: Math.max(0, Math.floor((solicitudFlow.limiteTs - Date.now()) / 1000))
+          });
+        }, 1000);
+
+        solicitudFlow.pollingTimer = setInterval(() => {
+          refrescarSeguimientoSolicitud();
+        }, SOLICITUD_POLLING_MS);
+      },
+      willClose: () => {
+        if (solicitudFlow.activo) {
+          if (solicitudFlow.intervalUi) {
+            clearInterval(solicitudFlow.intervalUi);
+            solicitudFlow.intervalUi = null;
+          }
+          if (solicitudFlow.pollingTimer) {
+            clearInterval(solicitudFlow.pollingTimer);
+            solicitudFlow.pollingTimer = null;
+          }
+        }
+      }
+    }).then(async (result) => {
+      if (result.dismiss === Swal.DismissReason.cancel && solicitudFlow.activo && solicitudFlow.codigoPedido) {
+        const r = await cancelarSolicitudBackend(solicitudFlow.codigoPedido);
+        if (!r || !r.json) {
+          notify('error', 'Error', 'No se pudo cancelar la solicitud.');
+          return;
+        }
+
+        if (!r.resp.ok || !r.json.ok) {
+          notify('warning', 'No se pudo cancelar', r.json.mensaje || 'La solicitud ya no se puede cancelar.');
+          const dataEstado = r.json.data || null;
+          if (dataEstado && Number(dataEstado.finalizado || 0) === 1) {
+            await finalizarSeguimientoSolicitud(dataEstado);
+          }
+          return;
+        }
+
+        await finalizarSeguimientoSolicitud(r.json.data || {});
+      }
+    });
+  }
+
   async function abrirModalDetalle(idProducto) {
     if (!idProducto) return;
 
@@ -655,6 +956,19 @@
     try {
       if (btnSubmit) btnSubmit.disabled = true;
 
+      if (window.Swal?.fire) {
+        Swal.fire({
+          title: 'Enviando solicitud…',
+          text: 'Estamos registrando tu solicitud. Espera un momento.',
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          showConfirmButton: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+      }
+
       if (requierePreparacion) {
         const saldoActual = await obtenerSaldoBilleteraActual();
 
@@ -744,18 +1058,6 @@
       }
 
       const data = json?.data || {};
-      const tuvoDebito = Number(data?.descuento_billetera_aplicado || 0) === 1;
-      const montoDebitado = Number(data?.monto_descontado_billetera || 0);
-
-      if (tuvoDebito) {
-        notify(
-          'success',
-          'Solicitud registrada',
-          `Tu solicitud fue enviada correctamente. Se descontó ${formatPrecio(montoDebitado)} de tu billetera por tratarse de un producto con preparación.`
-        );
-      } else {
-        notify('success', 'Solicitud registrada', json.mensaje || 'Tu solicitud fue enviada correctamente.');
-      }
 
       const form = document.getElementById('mp_form_solicitud_pedido');
       try { form?.reset(); } catch (_) {}
@@ -772,8 +1074,17 @@
       recalcularTotalSolicitud();
       actualizarVisibilidadEntregaProgramada();
 
+      if (window.Swal?.isVisible()) {
+        Swal.close();
+      }
+
+      await iniciarSeguimientoSolicitud(data);
+
     } catch (e) {
       err('EXCEPTION registrar pedido', e);
+      if (window.Swal?.isVisible()) {
+        Swal.close();
+      }
       notify('error', 'Error inesperado', 'Ocurrió un problema al registrar la solicitud.');
     } finally {
       if (btnSubmit) btnSubmit.disabled = false;

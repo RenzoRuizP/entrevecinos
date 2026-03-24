@@ -3,6 +3,9 @@ require_once __DIR__ . '/../database/Conexion.php';
 
 class Pedido extends Conexion
 {
+    private const SEGUNDOS_CANCELACION = 120;
+    private const SEGUNDOS_TIMEOUT = 240;
+
     private function obtenerResidenciaActivaUsuario(int $codigoUsuario): ?array
     {
         $sql = "
@@ -193,6 +196,287 @@ class Pedido extends Conexion
         return $titulo;
     }
 
+    private function registrarHistorialEstado(
+        int $codigoPedido,
+        ?string $faseAnterior,
+        ?string $estadoAnterior,
+        string $faseNueva,
+        string $estadoNuevo,
+        ?int $codigoUsuarioActor,
+        ?string $rolActor,
+        ?string $motivo,
+        ?string $observacion
+    ): void {
+        $sqlHist = "
+            INSERT INTO pedido_historial_estado
+            (
+                codigo_pedido,
+                fase_anterior,
+                estado_anterior,
+                fase_nueva,
+                estado_nuevo,
+                codigo_usuario_actor,
+                rol_actor,
+                motivo,
+                observacion
+            )
+            VALUES
+            (
+                :codigo_pedido,
+                :fase_anterior,
+                :estado_anterior,
+                :fase_nueva,
+                :estado_nuevo,
+                :codigo_usuario_actor,
+                :rol_actor,
+                :motivo,
+                :observacion
+            )
+        ";
+
+        $stHist = $this->dblink->prepare($sqlHist);
+        $stHist->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+
+        $stHist->bindValue(':fase_anterior', $faseAnterior, $faseAnterior !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+        $stHist->bindValue(':estado_anterior', $estadoAnterior, $estadoAnterior !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+        $stHist->bindValue(':fase_nueva', $faseNueva, PDO::PARAM_STR);
+        $stHist->bindValue(':estado_nuevo', $estadoNuevo, PDO::PARAM_STR);
+
+        if ($codigoUsuarioActor !== null && $codigoUsuarioActor > 0) {
+            $stHist->bindValue(':codigo_usuario_actor', $codigoUsuarioActor, PDO::PARAM_INT);
+        } else {
+            $stHist->bindValue(':codigo_usuario_actor', null, PDO::PARAM_NULL);
+        }
+
+        $stHist->bindValue(':rol_actor', $rolActor, $rolActor !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+        $stHist->bindValue(':motivo', $motivo, $motivo !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+        $stHist->bindValue(':observacion', $observacion, $observacion !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+        $stHist->execute();
+    }
+
+    private function obtenerSolicitudComprador(int $codigoPedido, int $codigoUsuarioComprador, bool $forUpdate = false): ?array
+    {
+        $forUpdateSql = $forUpdate ? ' FOR UPDATE' : '';
+
+        $sql = "
+            SELECT
+                p.codigo_pedido,
+                p.codigo_producto,
+                p.codigo_usuario_comprador,
+                p.codigo_usuario_vendedor,
+                p.fase,
+                p.estado_actual,
+                p.cantidad,
+                p.costo_unitario,
+                p.total,
+                p.tipo_entrega,
+                p.fecha_hora_programada,
+                p.direccion_entrega,
+                p.mensaje_comprador,
+                p.posicion_cola,
+                p.motivo_estado,
+                p.requiere_preparacion,
+                p.monto_descontado_billetera,
+                p.descuento_billetera_aplicado,
+                p.devolucion_billetera_aplicada,
+                p.fecha_limite_respuesta,
+                p.fecha_aceptacion,
+                p.fecha_rechazo,
+                p.fecha_cancelacion,
+                p.fecha_cierre,
+                p.created_at,
+                p.updated_at,
+                pr.titulo AS titulo_producto
+            FROM pedido p
+            INNER JOIN producto pr
+                ON pr.codigo_producto = p.codigo_producto
+            WHERE p.codigo_pedido = :codigo_pedido
+              AND p.codigo_usuario_comprador = :codigo_usuario_comprador
+            LIMIT 1
+            {$forUpdateSql}
+        ";
+
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+        $st->bindValue(':codigo_usuario_comprador', $codigoUsuarioComprador, PDO::PARAM_INT);
+        $st->execute();
+
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    private function construirDataEstadoSolicitud(array $pedido): array
+    {
+        $ahoraTs = time();
+        $createdTs = !empty($pedido['created_at']) ? strtotime((string)$pedido['created_at']) : $ahoraTs;
+        $limiteTs  = !empty($pedido['fecha_limite_respuesta']) ? strtotime((string)$pedido['fecha_limite_respuesta']) : null;
+
+        $segundosTranscurridos = max(0, $ahoraTs - $createdTs);
+        $segundosRestantes = $limiteTs !== null ? max(0, $limiteTs - $ahoraTs) : null;
+        $puedeCancelar = (
+            (string)$pedido['fase'] === 'solicitud'
+            && (string)$pedido['estado_actual'] === 'pendiente_vendedor'
+            && $segundosTranscurridos >= self::SEGUNDOS_CANCELACION
+        );
+
+        $estadosFinales = [
+            'cancelado_comprador',
+            'sin_respuesta_vendedor',
+            'rechazado_vendedor',
+            'cancelado_vendedor'
+        ];
+
+        $finalizado = in_array((string)$pedido['estado_actual'], $estadosFinales, true);
+
+        $mensajeEstado = match ((string)$pedido['estado_actual']) {
+            'pendiente_vendedor'      => 'Tu solicitud está esperando respuesta del vendedor.',
+            'cancelado_comprador'     => 'Cancelaste la solicitud antes de que fuera atendida.',
+            'sin_respuesta_vendedor'  => 'El vendedor no respondió a tiempo.',
+            default                   => (string)($pedido['motivo_estado'] ?? 'Estado actualizado.')
+        };
+
+        return [
+            'codigo_pedido'                  => (int)$pedido['codigo_pedido'],
+            'codigo_producto'                => (int)$pedido['codigo_producto'],
+            'titulo_producto'                => (string)($pedido['titulo_producto'] ?? ''),
+            'fase'                           => (string)$pedido['fase'],
+            'estado_actual'                  => (string)$pedido['estado_actual'],
+            'motivo_estado'                  => (string)($pedido['motivo_estado'] ?? ''),
+            'mensaje_estado'                 => $mensajeEstado,
+            'requiere_preparacion'           => (int)($pedido['requiere_preparacion'] ?? 0),
+            'monto_descontado_billetera'     => (float)($pedido['monto_descontado_billetera'] ?? 0),
+            'descuento_billetera_aplicado'   => (int)($pedido['descuento_billetera_aplicado'] ?? 0),
+            'devolucion_billetera_aplicada'  => (int)($pedido['devolucion_billetera_aplicada'] ?? 0),
+            'fecha_limite_respuesta'         => $pedido['fecha_limite_respuesta'],
+            'fecha_cancelacion'              => $pedido['fecha_cancelacion'],
+            'fecha_cierre'                   => $pedido['fecha_cierre'],
+            'created_at'                     => $pedido['created_at'],
+            'segundos_transcurridos'         => $segundosTranscurridos,
+            'segundos_restantes'             => $segundosRestantes,
+            'puede_cancelar'                 => $puedeCancelar ? 1 : 0,
+            'finalizado'                     => $finalizado ? 1 : 0,
+            'fecha_cancelable_desde'         => date('Y-m-d H:i:s', $createdTs + self::SEGUNDOS_CANCELACION)
+        ];
+    }
+
+    private function cerrarSolicitudPorSinRespuestaInterno(array $pedido): array
+    {
+        $estadoActual = (string)($pedido['estado_actual'] ?? '');
+        $faseActual   = (string)($pedido['fase'] ?? '');
+
+        if ($faseActual !== 'solicitud' || $estadoActual !== 'pendiente_vendedor') {
+            return [
+                'ok'   => true,
+                'data' => $pedido
+            ];
+        }
+
+        $limite = !empty($pedido['fecha_limite_respuesta']) ? strtotime((string)$pedido['fecha_limite_respuesta']) : null;
+        if ($limite === null || time() < $limite) {
+            return [
+                'ok'   => true,
+                'data' => $pedido
+            ];
+        }
+
+        try {
+            if (!$this->dblink->inTransaction()) {
+                $this->dblink->beginTransaction();
+                $manejaTx = true;
+            } else {
+                $manejaTx = false;
+            }
+
+            $pedidoBloqueado = $this->obtenerSolicitudComprador(
+                (int)$pedido['codigo_pedido'],
+                (int)$pedido['codigo_usuario_comprador'],
+                true
+            );
+
+            if (!$pedidoBloqueado) {
+                if ($manejaTx) {
+                    $this->dblink->rollBack();
+                }
+
+                return [
+                    'ok'      => false,
+                    'error'   => 'PEDIDO_NO_ENCONTRADO',
+                    'mensaje' => 'No se encontró la solicitud.'
+                ];
+            }
+
+            if ((string)$pedidoBloqueado['estado_actual'] !== 'pendiente_vendedor') {
+                if ($manejaTx) {
+                    $this->dblink->commit();
+                }
+
+                return [
+                    'ok'   => true,
+                    'data' => $pedidoBloqueado
+                ];
+            }
+
+            $sqlUpdate = "
+                UPDATE pedido
+                SET
+                    estado_actual = 'sin_respuesta_vendedor',
+                    motivo_estado = :motivo_estado,
+                    fecha_cierre = NOW()
+                WHERE codigo_pedido = :codigo_pedido
+            ";
+            $stUpdate = $this->dblink->prepare($sqlUpdate);
+            $stUpdate->bindValue(':motivo_estado', 'La solicitud finalizó porque el vendedor no respondió dentro del tiempo esperado.', PDO::PARAM_STR);
+            $stUpdate->bindValue(':codigo_pedido', (int)$pedidoBloqueado['codigo_pedido'], PDO::PARAM_INT);
+            $stUpdate->execute();
+
+            if ((int)$pedidoBloqueado['requiere_preparacion'] === 1 && (int)$pedidoBloqueado['descuento_billetera_aplicado'] === 1) {
+                $tituloLimpio = $this->limpiarTituloParaMovimiento((string)($pedidoBloqueado['titulo_producto'] ?? 'producto'));
+                $motivoDevolucion = "Devolución por solicitud sin respuesta del vendedor: {$tituloLimpio}";
+                $this->devolverBilleteraPorSolicitudPreparada((int)$pedidoBloqueado['codigo_pedido'], $motivoDevolucion);
+            }
+
+            $this->registrarHistorialEstado(
+                (int)$pedidoBloqueado['codigo_pedido'],
+                (string)$pedidoBloqueado['fase'],
+                (string)$pedidoBloqueado['estado_actual'],
+                (string)$pedidoBloqueado['fase'],
+                'sin_respuesta_vendedor',
+                null,
+                'sistema',
+                'timeout_solicitud',
+                'La solicitud cerró automáticamente por falta de respuesta del vendedor.'
+            );
+
+            $pedidoActualizado = $this->obtenerSolicitudComprador(
+                (int)$pedidoBloqueado['codigo_pedido'],
+                (int)$pedidoBloqueado['codigo_usuario_comprador'],
+                false
+            );
+
+            if ($manejaTx) {
+                $this->dblink->commit();
+            }
+
+            return [
+                'ok'   => true,
+                'data' => $pedidoActualizado ?: $pedidoBloqueado
+            ];
+
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+
+            error_log('[EV][Pedido][cerrarSolicitudPorSinRespuestaInterno] ' . $e->getMessage());
+
+            return [
+                'ok'      => false,
+                'error'   => 'ERROR_CIERRE_TIMEOUT',
+                'mensaje' => 'No se pudo cerrar la solicitud por tiempo de espera.'
+            ];
+        }
+    }
+
     private function debitarBilleteraPorSolicitudPreparada(
         int $codigoUsuarioComprador,
         int $codigoPedido,
@@ -253,50 +537,67 @@ class Pedido extends Conexion
         int $codigoPedido,
         string $motivoDevolucion = 'Devolución por cierre no exitoso de solicitud preparada.'
     ): array {
-        $sqlPedido = "
-            SELECT
-                p.codigo_pedido,
-                p.codigo_usuario_comprador,
-                p.total,
-                p.requiere_preparacion,
-                p.descuento_billetera_aplicado,
-                p.devolucion_billetera_aplicada
-            FROM pedido p
-            WHERE p.codigo_pedido = :codigo_pedido
-            LIMIT 1
-        ";
-
-        $stPedido = $this->dblink->prepare($sqlPedido);
-        $stPedido->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
-        $stPedido->execute();
-
-        $pedido = $stPedido->fetch(PDO::FETCH_ASSOC);
-        if (!$pedido) {
-            return [
-                'ok'      => false,
-                'error'   => 'PEDIDO_NO_ENCONTRADO',
-                'mensaje' => 'No se encontró el pedido.'
-            ];
-        }
-
-        if ((int)$pedido['requiere_preparacion'] !== 1 || (int)$pedido['descuento_billetera_aplicado'] !== 1) {
-            return [
-                'ok'       => true,
-                'aplicado' => false,
-                'mensaje'  => 'El pedido no tiene débito aplicado por preparación.'
-            ];
-        }
-
-        if ((int)$pedido['devolucion_billetera_aplicada'] === 1 || $this->existeMovimientoBilletera('PEDIDO_PREPARADO_DEVOLUCION', $codigoPedido)) {
-            return [
-                'ok'       => true,
-                'aplicado' => false,
-                'mensaje'  => 'La devolución ya había sido aplicada.'
-            ];
-        }
+        $manejaTx = !$this->dblink->inTransaction();
 
         try {
-            $this->dblink->beginTransaction();
+            if ($manejaTx) {
+                $this->dblink->beginTransaction();
+            }
+
+            $sqlPedido = "
+                SELECT
+                    p.codigo_pedido,
+                    p.codigo_usuario_comprador,
+                    p.total,
+                    p.requiere_preparacion,
+                    p.descuento_billetera_aplicado,
+                    p.devolucion_billetera_aplicada
+                FROM pedido p
+                WHERE p.codigo_pedido = :codigo_pedido
+                LIMIT 1
+                FOR UPDATE
+            ";
+
+            $stPedido = $this->dblink->prepare($sqlPedido);
+            $stPedido->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+            $stPedido->execute();
+
+            $pedido = $stPedido->fetch(PDO::FETCH_ASSOC);
+            if (!$pedido) {
+                if ($manejaTx) {
+                    $this->dblink->rollBack();
+                }
+
+                return [
+                    'ok'      => false,
+                    'error'   => 'PEDIDO_NO_ENCONTRADO',
+                    'mensaje' => 'No se encontró el pedido.'
+                ];
+            }
+
+            if ((int)$pedido['requiere_preparacion'] !== 1 || (int)$pedido['descuento_billetera_aplicado'] !== 1) {
+                if ($manejaTx) {
+                    $this->dblink->commit();
+                }
+
+                return [
+                    'ok'       => true,
+                    'aplicado' => false,
+                    'mensaje'  => 'El pedido no tiene débito aplicado por preparación.'
+                ];
+            }
+
+            if ((int)$pedido['devolucion_billetera_aplicada'] === 1 || $this->existeMovimientoBilletera('PEDIDO_PREPARADO_DEVOLUCION', $codigoPedido)) {
+                if ($manejaTx) {
+                    $this->dblink->commit();
+                }
+
+                return [
+                    'ok'       => true,
+                    'aplicado' => false,
+                    'mensaje'  => 'La devolución ya había sido aplicada.'
+                ];
+            }
 
             $codigoUsuarioComprador = (int)$pedido['codigo_usuario_comprador'];
             $monto = (float)$pedido['total'];
@@ -328,7 +629,9 @@ class Pedido extends Conexion
             $stUpdatePedido->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
             $stUpdatePedido->execute();
 
-            $this->dblink->commit();
+            if ($manejaTx) {
+                $this->dblink->commit();
+            }
 
             return [
                 'ok'           => true,
@@ -336,7 +639,7 @@ class Pedido extends Conexion
                 'saldo_actual' => $saldoDespues
             ];
         } catch (Throwable $e) {
-            if ($this->dblink->inTransaction()) {
+            if ($manejaTx && $this->dblink->inTransaction()) {
                 $this->dblink->rollBack();
             }
 
@@ -600,7 +903,9 @@ class Pedido extends Conexion
         $fase          = 'solicitud';
         $estadoActual  = 'pendiente_vendedor';
 
-        $fechaLimite = (new DateTime('now'))->modify('+5 minutes')->format('Y-m-d H:i:s');
+        $createdAt = new DateTime('now');
+        $fechaLimite = (clone $createdAt)->modify('+' . self::SEGUNDOS_TIMEOUT . ' seconds')->format('Y-m-d H:i:s');
+        $fechaCancelableDesde = (clone $createdAt)->modify('+' . self::SEGUNDOS_CANCELACION . ' seconds')->format('Y-m-d H:i:s');
 
         try {
             $this->dblink->beginTransaction();
@@ -708,48 +1013,17 @@ class Pedido extends Conexion
                 $stUpdPedidoBilletera->execute();
             }
 
-            $sqlHist = "
-                INSERT INTO pedido_historial_estado
-                (
-                    codigo_pedido,
-                    fase_anterior,
-                    estado_anterior,
-                    fase_nueva,
-                    estado_nuevo,
-                    codigo_usuario_actor,
-                    rol_actor,
-                    motivo,
-                    observacion
-                )
-                VALUES
-                (
-                    :codigo_pedido,
-                    NULL,
-                    NULL,
-                    :fase_nueva,
-                    :estado_nuevo,
-                    :codigo_usuario_actor,
-                    :rol_actor,
-                    :motivo,
-                    :observacion
-                )
-            ";
-
-            $stHist = $this->dblink->prepare($sqlHist);
-            $stHist->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
-            $stHist->bindValue(':fase_nueva', $fase, PDO::PARAM_STR);
-            $stHist->bindValue(':estado_nuevo', $estadoActual, PDO::PARAM_STR);
-            $stHist->bindValue(':codigo_usuario_actor', $codigoUsuarioComprador, PDO::PARAM_INT);
-            $stHist->bindValue(':rol_actor', 'comprador', PDO::PARAM_STR);
-            $stHist->bindValue(':motivo', 'registro_solicitud', PDO::PARAM_STR);
-
-            if ($mensajeComprador !== '') {
-                $stHist->bindValue(':observacion', $mensajeComprador, PDO::PARAM_STR);
-            } else {
-                $stHist->bindValue(':observacion', null, PDO::PARAM_NULL);
-            }
-
-            $stHist->execute();
+            $this->registrarHistorialEstado(
+                $codigoPedido,
+                null,
+                null,
+                $fase,
+                $estadoActual,
+                $codigoUsuarioComprador,
+                'comprador',
+                'registro_solicitud',
+                ($mensajeComprador !== '') ? $mensajeComprador : null
+            );
 
             $this->dblink->commit();
 
@@ -764,11 +1038,14 @@ class Pedido extends Conexion
                     'tipo_entrega'                 => $tipoEntrega,
                     'fecha_hora_programada'        => $fechaProgramadaMySql,
                     'fecha_limite_respuesta'       => $fechaLimite,
+                    'fecha_cancelable_desde'       => $fechaCancelableDesde,
                     'estado_actual'                => $estadoActual,
                     'fase'                         => $fase,
                     'requiere_preparacion'         => $requierePrep,
                     'descuento_billetera_aplicado' => $requierePrep === 1 ? 1 : 0,
-                    'monto_descontado_billetera'   => $requierePrep === 1 ? $total : 0.00
+                    'monto_descontado_billetera'   => $requierePrep === 1 ? $total : 0.00,
+                    'segundos_para_cancelar'       => self::SEGUNDOS_CANCELACION,
+                    'segundos_timeout'             => self::SEGUNDOS_TIMEOUT
                 ]
             ];
         } catch (Throwable $e) {
@@ -782,6 +1059,142 @@ class Pedido extends Conexion
                 'ok'      => false,
                 'error'   => 'ERROR_REGISTRAR_PEDIDO',
                 'mensaje' => 'No se pudo registrar la solicitud de pedido.'
+            ];
+        }
+    }
+
+    public function obtenerEstadoSolicitudParaComprador(int $codigoPedido, int $codigoUsuarioComprador): array
+    {
+        $pedido = $this->obtenerSolicitudComprador($codigoPedido, $codigoUsuarioComprador, false);
+
+        if (!$pedido) {
+            return [
+                'ok'      => false,
+                'error'   => 'PEDIDO_NO_ENCONTRADO',
+                'mensaje' => 'No se encontró la solicitud.'
+            ];
+        }
+
+        $cierre = $this->cerrarSolicitudPorSinRespuestaInterno($pedido);
+        if (!$cierre['ok']) {
+            return $cierre;
+        }
+
+        $pedidoActual = $cierre['data'];
+        return [
+            'ok'   => true,
+            'data' => $this->construirDataEstadoSolicitud($pedidoActual)
+        ];
+    }
+
+    public function cancelarSolicitudPorComprador(int $codigoPedido, int $codigoUsuarioComprador, string $motivo): array
+    {
+        try {
+            $this->dblink->beginTransaction();
+
+            $pedido = $this->obtenerSolicitudComprador($codigoPedido, $codigoUsuarioComprador, true);
+
+            if (!$pedido) {
+                $this->dblink->rollBack();
+                return [
+                    'ok'      => false,
+                    'error'   => 'PEDIDO_NO_ENCONTRADO',
+                    'mensaje' => 'No se encontró la solicitud.'
+                ];
+            }
+
+            $cierre = $this->cerrarSolicitudPorSinRespuestaInterno($pedido);
+            if (!$cierre['ok']) {
+                if ($this->dblink->inTransaction()) {
+                    $this->dblink->rollBack();
+                }
+                return $cierre;
+            }
+
+            $pedido = $cierre['data'];
+
+            if ((string)$pedido['estado_actual'] !== 'pendiente_vendedor' || (string)$pedido['fase'] !== 'solicitud') {
+                if ($this->dblink->inTransaction()) {
+                    $this->dblink->rollBack();
+                }
+
+                return [
+                    'ok'      => false,
+                    'error'   => 'ESTADO_NO_CANCELABLE',
+                    'mensaje' => 'La solicitud ya no se puede cancelar.',
+                    'data'    => $this->construirDataEstadoSolicitud($pedido)
+                ];
+            }
+
+            $createdTs = !empty($pedido['created_at']) ? strtotime((string)$pedido['created_at']) : time();
+            $segundosTranscurridos = max(0, time() - $createdTs);
+
+            if ($segundosTranscurridos < self::SEGUNDOS_CANCELACION) {
+                if ($this->dblink->rollBack()) {
+                    // noop
+                }
+
+                return [
+                    'ok'      => false,
+                    'error'   => 'ESTADO_NO_CANCELABLE',
+                    'mensaje' => 'Aún no puedes cancelar esta solicitud. Inténtalo cuando el tiempo de espera lo permita.',
+                    'data'    => $this->construirDataEstadoSolicitud($pedido)
+                ];
+            }
+
+            $sqlUpdate = "
+                UPDATE pedido
+                SET
+                    estado_actual = 'cancelado_comprador',
+                    motivo_estado = :motivo_estado,
+                    fecha_cancelacion = NOW(),
+                    fecha_cierre = NOW()
+                WHERE codigo_pedido = :codigo_pedido
+            ";
+
+            $stUpdate = $this->dblink->prepare($sqlUpdate);
+            $stUpdate->bindValue(':motivo_estado', $motivo, PDO::PARAM_STR);
+            $stUpdate->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+            $stUpdate->execute();
+
+            if ((int)$pedido['requiere_preparacion'] === 1 && (int)$pedido['descuento_billetera_aplicado'] === 1) {
+                $tituloLimpio = $this->limpiarTituloParaMovimiento((string)($pedido['titulo_producto'] ?? 'producto'));
+                $motivoDevolucion = "Devolución por cancelación de solicitud: {$tituloLimpio}";
+                $this->devolverBilleteraPorSolicitudPreparada((int)$pedido['codigo_pedido'], $motivoDevolucion);
+            }
+
+            $this->registrarHistorialEstado(
+                (int)$pedido['codigo_pedido'],
+                (string)$pedido['fase'],
+                (string)$pedido['estado_actual'],
+                (string)$pedido['fase'],
+                'cancelado_comprador',
+                $codigoUsuarioComprador,
+                'comprador',
+                'cancelacion_solicitud',
+                $motivo
+            );
+
+            $pedidoActualizado = $this->obtenerSolicitudComprador($codigoPedido, $codigoUsuarioComprador, false);
+
+            $this->dblink->commit();
+
+            return [
+                'ok'   => true,
+                'data' => $this->construirDataEstadoSolicitud($pedidoActualizado ?: $pedido)
+            ];
+
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+
+            error_log('[EV][Pedido][cancelarSolicitudPorComprador] ' . $e->getMessage());
+
+            return [
+                'ok'      => false,
+                'error'   => 'ERROR_CANCELAR_SOLICITUD',
+                'mensaje' => 'No se pudo cancelar la solicitud.'
             ];
         }
     }
@@ -820,6 +1233,7 @@ class Pedido extends Conexion
             WHERE p.codigo_usuario_vendedor = :v
               AND p.fase = 'solicitud'
               AND p.estado_actual = 'pendiente_vendedor'
+              AND (p.fecha_limite_respuesta IS NULL OR p.fecha_limite_respuesta > NOW())
             ORDER BY p.created_at DESC, p.codigo_pedido DESC
         ";
 
@@ -848,27 +1262,27 @@ class Pedido extends Conexion
             }
 
             $out[] = [
-                'id_pedido'                    => (int)$r['codigo_pedido'],
-                'codigo_producto'              => (int)$r['codigo_producto'],
-                'titulo_publicacion'           => (string)($r['titulo_publicacion'] ?? ''),
-                'nombre_vecino'                => (string)($r['nombre_vecino'] ?? 'Vecino'),
-                'fecha_hora'                   => !empty($r['created_at']) ? date('d/m/Y H:i', strtotime((string)$r['created_at'])) : '',
-                'monto_total'                  => (string)($r['total'] ?? '0.00'),
-                'cantidad'                     => (int)($r['cantidad'] ?? 0),
-                'precio_unitario'              => (string)($r['costo_unitario'] ?? '0.00'),
-                'tipo_entrega'                 => (string)($r['tipo_entrega'] ?? 'inmediata'),
-                'fecha_hora_programada'        => $r['fecha_hora_programada'],
-                'direccion_entrega'            => (string)($r['direccion_entrega'] ?? ''),
-                'mensaje_comprador'            => (string)($r['mensaje_comprador'] ?? ''),
-                'estado_actual'                => (string)($r['estado_actual'] ?? ''),
-                'fase'                         => (string)($r['fase'] ?? ''),
-                'fecha_limite_respuesta'       => $r['fecha_limite_respuesta'],
-                'tiempo_restante_segundos'     => $segundosRestantes,
-                'imagen_portada'               => (string)($r['imagen_portada'] ?? ''),
-                'requiere_preparacion'         => (int)($r['requiere_preparacion'] ?? 0),
-                'monto_descontado_billetera'   => (string)($r['monto_descontado_billetera'] ?? '0.00'),
-                'descuento_billetera_aplicado' => (int)($r['descuento_billetera_aplicado'] ?? 0),
-                'devolucion_billetera_aplicada'=> (int)($r['devolucion_billetera_aplicada'] ?? 0)
+                'id_pedido'                     => (int)$r['codigo_pedido'],
+                'codigo_producto'               => (int)$r['codigo_producto'],
+                'titulo_publicacion'            => (string)($r['titulo_publicacion'] ?? ''),
+                'nombre_vecino'                 => (string)($r['nombre_vecino'] ?? 'Vecino'),
+                'fecha_hora'                    => !empty($r['created_at']) ? date('d/m/Y H:i', strtotime((string)$r['created_at'])) : '',
+                'monto_total'                   => (string)($r['total'] ?? '0.00'),
+                'cantidad'                      => (int)($r['cantidad'] ?? 0),
+                'precio_unitario'               => (string)($r['costo_unitario'] ?? '0.00'),
+                'tipo_entrega'                  => (string)($r['tipo_entrega'] ?? 'inmediata'),
+                'fecha_hora_programada'         => $r['fecha_hora_programada'],
+                'direccion_entrega'             => (string)($r['direccion_entrega'] ?? ''),
+                'mensaje_comprador'             => (string)($r['mensaje_comprador'] ?? ''),
+                'estado_actual'                 => (string)($r['estado_actual'] ?? ''),
+                'fase'                          => (string)($r['fase'] ?? ''),
+                'fecha_limite_respuesta'        => $r['fecha_limite_respuesta'],
+                'tiempo_restante_segundos'      => $segundosRestantes,
+                'imagen_portada'                => (string)($r['imagen_portada'] ?? ''),
+                'requiere_preparacion'          => (int)($r['requiere_preparacion'] ?? 0),
+                'monto_descontado_billetera'    => (string)($r['monto_descontado_billetera'] ?? '0.00'),
+                'descuento_billetera_aplicado'  => (int)($r['descuento_billetera_aplicado'] ?? 0),
+                'devolucion_billetera_aplicada' => (int)($r['devolucion_billetera_aplicada'] ?? 0)
             ];
         }
 

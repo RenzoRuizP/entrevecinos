@@ -27,6 +27,19 @@ class apiPedidoController
         return $codigoUsuario;
     }
 
+    private function leerInput(): array
+    {
+        $input = $_POST;
+        if (!empty($input)) {
+            return $input;
+        }
+
+        $raw = file_get_contents('php://input');
+        $json = json_decode($raw, true);
+
+        return is_array($json) ? $json : [];
+    }
+
     public function registrarPedido(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -39,12 +52,7 @@ class apiPedidoController
 
         try {
             $codigoUsuarioComprador = $this->obtenerUsuarioAuth();
-
-            $input = $_POST;
-            if (empty($input)) {
-                $raw = file_get_contents('php://input');
-                $input = json_decode($raw, true) ?: [];
-            }
+            $input = $this->leerInput();
 
             $codigoProducto       = (int)($input['codigo_producto'] ?? 0);
             $cantidad             = (int)($input['cantidad'] ?? 0);
@@ -148,6 +156,133 @@ class apiPedidoController
             $this->json(500, [
                 'ok'      => false,
                 'mensaje' => 'Ocurrió un error al registrar la solicitud de pedido.'
+            ]);
+            return;
+        }
+    }
+
+    public function obtenerEstadoSolicitud($codigoPedido): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            $this->json(405, [
+                'ok'      => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuarioComprador = $this->obtenerUsuarioAuth();
+            $codigoPedido = (int)$codigoPedido;
+
+            if ($codigoPedido <= 0) {
+                $this->json(400, [
+                    'ok'      => false,
+                    'mensaje' => 'Código de pedido inválido.'
+                ]);
+                return;
+            }
+
+            $model = new Pedido();
+            $resultado = $model->obtenerEstadoSolicitudParaComprador($codigoPedido, $codigoUsuarioComprador);
+
+            if (!$resultado['ok']) {
+                $error = (string)($resultado['error'] ?? 'ERROR_OBTENER_ESTADO');
+                $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo obtener el estado de la solicitud.');
+
+                $status = match ($error) {
+                    'PEDIDO_NO_ENCONTRADO' => 404,
+                    default => 500
+                };
+
+                $this->json($status, [
+                    'ok'      => false,
+                    'error'   => $error,
+                    'mensaje' => $mensaje
+                ]);
+                return;
+            }
+
+            $this->json(200, [
+                'ok'   => true,
+                'data' => $resultado['data']
+            ]);
+            return;
+
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][obtenerEstadoSolicitud] ' . $e->getMessage());
+
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'No se pudo consultar el estado de la solicitud.'
+            ]);
+            return;
+        }
+    }
+
+    public function cancelarSolicitud($codigoPedido): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(405, [
+                'ok'      => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuarioComprador = $this->obtenerUsuarioAuth();
+            $codigoPedido = (int)$codigoPedido;
+            $input = $this->leerInput();
+
+            if ($codigoPedido <= 0) {
+                $this->json(400, [
+                    'ok'      => false,
+                    'mensaje' => 'Código de pedido inválido.'
+                ]);
+                return;
+            }
+
+            $motivo = trim((string)($input['motivo_cancelacion'] ?? ''));
+            if ($motivo === '') {
+                $motivo = 'Solicitud cancelada por el comprador.';
+            }
+
+            $model = new Pedido();
+            $resultado = $model->cancelarSolicitudPorComprador($codigoPedido, $codigoUsuarioComprador, $motivo);
+
+            if (!$resultado['ok']) {
+                $error = (string)($resultado['error'] ?? 'ERROR_CANCELAR_SOLICITUD');
+                $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo cancelar la solicitud.');
+
+                $status = match ($error) {
+                    'PEDIDO_NO_ENCONTRADO'  => 404,
+                    'ESTADO_NO_CANCELABLE'  => 409,
+                    default                 => 500
+                };
+
+                $this->json($status, [
+                    'ok'      => false,
+                    'error'   => $error,
+                    'mensaje' => $mensaje,
+                    'data'    => $resultado['data'] ?? null
+                ]);
+                return;
+            }
+
+            $this->json(200, [
+                'ok'      => true,
+                'mensaje' => 'Tu solicitud fue cancelada correctamente.',
+                'data'    => $resultado['data']
+            ]);
+            return;
+
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][cancelarSolicitud] ' . $e->getMessage());
+
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'No se pudo cancelar la solicitud.'
             ]);
             return;
         }
