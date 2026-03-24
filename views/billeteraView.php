@@ -1,4 +1,4 @@
-<?php 
+<?php
 require_once __DIR__ . '/../Config/config.php';
 ?>
 <script>
@@ -12,24 +12,40 @@ require_once __DIR__ . '/../Config/config.php';
   <div class="card ev-wallet-card fade-in">
     <div class="card-body">
 
-      <div class="ev-wallet-header d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+      <div class="ev-wallet-hero">
+        <div class="ev-wallet-hero-main">
+          <div class="ev-wallet-title-wrap">
+            <h2 class="ev-wallet-title mb-2 d-flex align-items-center gap-2">
+              <span class="ev-wallet-title-icon">
+                <i class="bi bi-wallet2"></i>
+              </span>
+              <span>Mi billetera</span>
+            </h2>
 
-        <div class="flex-grow-1 d-flex flex-column">
-          <h2 class="ev-wallet-title mb-1 d-flex align-items-center gap-2">
-            <span class="ev-wallet-title-icon">
-              <i class="bi bi-wallet2"></i>
+            <p class="ev-wallet-subtitle mb-0">
+              Revisa tu saldo disponible, los movimientos de tu billetera y el historial de tus recargas dentro del condominio.
+            </p>
+          </div>
+
+          <div class="ev-wallet-hero-chips">
+            <span class="ev-wallet-chip">
+              <i class="bi bi-shield-check"></i>
+              <span>Trazabilidad clara</span>
             </span>
-            <span>Mi billetera</span>
-          </h2>
-          <p class="ev-wallet-subtitle mb-0">
-            Revisa tu saldo disponible y los movimientos de tus compras y ventas dentro del condominio.
-          </p>
+            <span class="ev-wallet-chip">
+              <i class="bi bi-arrow-repeat"></i>
+              <span>Movimientos actualizados</span>
+            </span>
+            <span class="ev-wallet-chip">
+              <i class="bi bi-building"></i>
+              <span>Uso dentro del condominio</span>
+            </span>
+          </div>
         </div>
 
-        <div class="d-flex flex-column align-items-end gap-2 w-100 w-md-auto">
-
-          <div class="d-flex flex-column flex-sm-row gap-2 justify-content-end w-100">
-            <button 
+        <div class="ev-wallet-hero-side">
+          <div class="ev-wallet-actions">
+            <button
               type="button"
               class="btn btn-ev-orange ev-btn-recargar"
               id="btnAbrirNuevaRecarga"
@@ -38,7 +54,7 @@ require_once __DIR__ . '/../Config/config.php';
               <i class="bi bi-plus-circle"></i> Recargar saldo
             </button>
 
-            <button 
+            <button
               type="button"
               class="btn btn-ev-outline ev-btn-soporte"
               data-bs-toggle="modal"
@@ -47,38 +63,69 @@ require_once __DIR__ . '/../Config/config.php';
             </button>
           </div>
 
-          <div class="ev-wallet-badge mt-1">
-            <span class="ev-wallet-badge-label">Saldo disponible</span>
-            <span class="ev-wallet-badge-amount" id="ev_wallet_saldo">
-              S/ 0.00
-            </span>
+          <div class="ev-wallet-balance-card">
+            <div class="ev-wallet-balance-top">
+              <div>
+                <span class="ev-wallet-balance-label">Saldo disponible</span>
+                <div class="ev-wallet-balance-amount" id="ev_wallet_saldo">
+                  S/ 0.00
+                </div>
+              </div>
+              <span class="ev-wallet-balance-icon">
+                <i class="bi bi-cash-stack"></i>
+              </span>
+            </div>
+
+            <div class="ev-wallet-balance-meta">
+              <div class="ev-wallet-balance-meta-item">
+                <span class="ev-wallet-balance-meta-label">Movimientos</span>
+                <strong id="ev_wallet_total_movimientos">0</strong>
+              </div>
+              <div class="ev-wallet-balance-meta-item">
+                <span class="ev-wallet-balance-meta-label">Recargas</span>
+                <strong id="ev_wallet_total_recargas">0</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ev-wallet-section">
+        <div class="ev-wallet-section-head">
+          <div>
+            <h3 class="ev-wallet-section-title">
+              <i class="bi bi-clock-history me-2"></i> Movimientos recientes
+            </h3>
+            <p class="ev-wallet-section-subtitle mb-0">
+              Aquí verás de forma clara los cargos y abonos realizados en tu billetera.
+            </p>
+          </div>
+        </div>
+
+        <div id="ev_wallet_empty_state" class="ev-wallet-empty text-center">
+          <div class="ev-wallet-empty-icon mb-2">
+            <i class="bi bi-wallet2"></i>
+          </div>
+          <p class="mb-1">Aún no tienes movimientos en tu billetera.</p>
+          <p class="mb-0 text-muted small">
+            Cuando compres o vendas dentro del condominio, verás aquí todos los cargos y abonos.
+          </p>
+        </div>
+
+        <div id="ev_wallet_movimientos" class="ev-wallet-movimientos d-none"></div>
+      </div>
+
+      <div class="ev-wallet-section ev-wallet-section-recargas">
+        <div class="ev-wallet-section-head ev-wallet-section-head-recargas">
+          <div>
+            <h3 class="ev-wallet-section-title">
+              <i class="bi bi-receipt-cutoff me-2"></i> Mis recargas
+            </h3>
+            <p class="ev-wallet-section-subtitle mb-0">
+              Consulta el estado de tus recargas y revisa cualquier observación enviada por soporte.
+            </p>
           </div>
 
-        </div>
-
-      </div>
-
-      <hr class="ev-wallet-divider my-3">
-
-      <div id="ev_wallet_empty_state" class="ev-wallet-empty text-center">
-        <div class="ev-wallet-empty-icon mb-2">
-          <i class="bi bi-wallet2"></i>
-        </div>
-        <p class="mb-1">Aún no tienes movimientos en tu billetera.</p>
-        <p class="mb-0 text-muted small">
-          Cuando compres o vendas dentro del condominio, verás aquí todos los cargos y abonos.
-        </p>
-      </div>
-
-      <div id="ev_wallet_movimientos" class="ev-wallet-movimientos d-none"></div>
-
-      <hr class="ev-wallet-divider my-3">
-
-      <div class="ev-wallet-recargas">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-          <h3 class="mb-0" style="font-size: 1.05rem; font-weight: 700;">
-            <i class="bi bi-receipt-cutoff me-2"></i> Mis recargas
-          </h3>
           <button type="button" class="btn btn-sm btn-ev-outline" id="btnRefrescarRecargas">
             <i class="bi bi-arrow-clockwise me-1"></i> Refrescar
           </button>
@@ -104,10 +151,10 @@ require_once __DIR__ . '/../Config/config.php';
         <h5 class="modal-title mb-0" id="modalRecargaTitulo">
           <i class="bi bi-plus-circle me-2"></i> Recargar saldo
         </h5>
-        <button 
-          type="button" 
-          class="btn-close btn-close-white" 
-          data-bs-dismiss="modal" 
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
           aria-label="Cerrar">
         </button>
       </div>
@@ -125,19 +172,19 @@ require_once __DIR__ . '/../Config/config.php';
               Corrige los datos observados por soporte y vuelve a enviarla.
             </div>
           </div>
-          
+
           <div class="row g-3 align-items-start">
-            
+
             <div class="col-lg-7">
               <div class="row g-3">
 
                 <div class="col-12">
                   <label class="form-label">Comprobante o recibo</label>
-                  <input 
-                    type="file" 
-                    class="form-control" 
-                    id="recarga_imagen" 
-                    name="recarga_imagen" 
+                  <input
+                    type="file"
+                    class="form-control"
+                    id="recarga_imagen"
+                    name="recarga_imagen"
                     accept="image/*">
                   <div class="form-text" id="recarga_imagen_help">
                     Sube una foto clara del voucher o comprobante de la recarga.
@@ -146,13 +193,13 @@ require_once __DIR__ . '/../Config/config.php';
 
                 <div class="col-md-6">
                   <label class="form-label">Monto a recargar</label>
-                  <input 
-                    type="number" 
-                    min="1" 
+                  <input
+                    type="number"
+                    min="1"
                     step="0.1"
-                    class="form-control" 
-                    id="recarga_monto" 
-                    name="recarga_monto" 
+                    class="form-control"
+                    id="recarga_monto"
+                    name="recarga_monto"
                     placeholder="Ej. 10.00">
                 </div>
 
@@ -183,9 +230,9 @@ require_once __DIR__ . '/../Config/config.php';
 
             <div class="col-lg-5">
               <div class="ev-wallet-qr-card text-center d-none" id="ev_qr_card">
-                <img 
-                  src="<?= BASE_URL ?>resources/images/plin.jpeg" 
-                  alt="QR billetera" 
+                <img
+                  src="<?= BASE_URL ?>resources/images/plin.jpeg"
+                  alt="QR billetera"
                   class="ev-wallet-qr-img"
                   id="ev_qr_img">
 
@@ -203,8 +250,8 @@ require_once __DIR__ . '/../Config/config.php';
       </div>
 
       <div class="modal-footer ev-login-modal-footer justify-content-between">
-        <button 
-          type="button" 
+        <button
+          type="button"
           class="btn ev-btn-modal-outline"
           data-bs-dismiss="modal">
           <i class="bi bi-x-circle me-1"></i> Cerrar
@@ -227,10 +274,10 @@ require_once __DIR__ . '/../Config/config.php';
         <h5 class="modal-title mb-0">
           <i class="bi bi-headset me-2"></i> Soporte técnico
         </h5>
-        <button 
-          type="button" 
-          class="btn-close btn-close-white" 
-          data-bs-dismiss="modal" 
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
           aria-label="Cerrar">
         </button>
       </div>
@@ -263,8 +310,8 @@ require_once __DIR__ . '/../Config/config.php';
       </div>
 
       <div class="modal-footer ev-login-modal-footer justify-content-between">
-        <button 
-          type="button" 
+        <button
+          type="button"
           class="btn ev-btn-modal-outline"
           data-bs-dismiss="modal">
           <i class="bi bi-x-circle me-1"></i> Cerrar

@@ -6,12 +6,125 @@ require_once __DIR__ . '/../database/Conexion.php';
 
 class Billetera extends Conexion
 {
+    private function obtenerOBilleteraBloqueada(int $codigoUsuario): array
+    {
+        $sql = "
+            SELECT
+                b.codigo_billetera,
+                b.codigo_usuario,
+                b.saldo_actual
+            FROM billetera b
+            WHERE b.codigo_usuario = :codigo_usuario
+            FOR UPDATE
+        ";
+
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($row) {
+            return [
+                'codigo_billetera' => (int)$row['codigo_billetera'],
+                'codigo_usuario'   => (int)$row['codigo_usuario'],
+                'saldo_actual'     => (float)$row['saldo_actual']
+            ];
+        }
+
+        $sqlInsert = "
+            INSERT INTO billetera (codigo_usuario, saldo_actual)
+            VALUES (:codigo_usuario, 0.00)
+        ";
+        $stmtInsert = $this->dblink->prepare($sqlInsert);
+        $stmtInsert->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+        $stmtInsert->execute();
+
+        return [
+            'codigo_billetera' => (int)$this->dblink->lastInsertId(),
+            'codigo_usuario'   => $codigoUsuario,
+            'saldo_actual'     => 0.00
+        ];
+    }
+
+    private function registrarMovimiento(
+        int $codigoBilletera,
+        string $tipoMovimiento,
+        float $monto,
+        float $saldoAntes,
+        float $saldoDespues,
+        string $descripcion,
+        string $origen,
+        ?int $codigoReferencia = null,
+        int $esPromocional = 0,
+        ?string $fechaExpira = null
+    ): void {
+        $sqlMov = "
+            INSERT INTO billetera_movimiento
+            (
+                codigo_billetera,
+                tipo_movimiento,
+                monto,
+                saldo_antes,
+                saldo_despues,
+                descripcion,
+                origen,
+                codigo_referencia,
+                es_promocional,
+                fecha_expira
+            )
+            VALUES
+            (
+                :codigo_billetera,
+                :tipo_movimiento,
+                :monto,
+                :saldo_antes,
+                :saldo_despues,
+                :descripcion,
+                :origen,
+                :codigo_referencia,
+                :es_promocional,
+                :fecha_expira
+            )
+        ";
+
+        $stmtMov = $this->dblink->prepare($sqlMov);
+        $stmtMov->bindParam(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
+        $stmtMov->bindParam(':tipo_movimiento', $tipoMovimiento, PDO::PARAM_STR);
+        $stmtMov->bindParam(':monto', $monto);
+        $stmtMov->bindParam(':saldo_antes', $saldoAntes);
+        $stmtMov->bindParam(':saldo_despues', $saldoDespues);
+        $stmtMov->bindParam(':descripcion', $descripcion, PDO::PARAM_STR);
+        $stmtMov->bindParam(':origen', $origen, PDO::PARAM_STR);
+
+        if ($codigoReferencia !== null) {
+            $stmtMov->bindParam(':codigo_referencia', $codigoReferencia, PDO::PARAM_INT);
+        } else {
+            $stmtMov->bindValue(':codigo_referencia', null, PDO::PARAM_NULL);
+        }
+
+        $stmtMov->bindValue(':es_promocional', $esPromocional, PDO::PARAM_INT);
+        $stmtMov->bindValue(':fecha_expira', $fechaExpira, $fechaExpira !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+        $stmtMov->execute();
+    }
+
+    private function actualizarSaldoBilletera(int $codigoBilletera, float $nuevoSaldo): void
+    {
+        $sqlUpd = "
+            UPDATE billetera
+            SET saldo_actual = :saldo_actual
+            WHERE codigo_billetera = :codigo_billetera
+        ";
+        $stmtUpd = $this->dblink->prepare($sqlUpd);
+        $stmtUpd->bindParam(':saldo_actual', $nuevoSaldo);
+        $stmtUpd->bindParam(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
+        $stmtUpd->execute();
+    }
+
     /**
      * Obtiene la billetera del usuario. Si no existe, la crea con saldo 0.
      */
     public function obtenerOBilleteraPorUsuario(int $codigoUsuario): array
     {
-        // 1) Buscar billetera existente
         $sql = "
             SELECT
                 b.codigo_billetera,
@@ -31,7 +144,6 @@ class Billetera extends Conexion
             return $row;
         }
 
-        // 2) Si no existe, crearla
         $sqlInsert = "
             INSERT INTO billetera (codigo_usuario, saldo_actual)
             VALUES (:codigo_usuario, 0.00)
@@ -49,26 +161,21 @@ class Billetera extends Conexion
         ];
     }
 
-    /**
-     * Devuelve el saldo actual de la billetera del usuario.
-     */
     public function obtenerSaldoActual(int $codigoUsuario): float
     {
         $billetera = $this->obtenerOBilleteraPorUsuario($codigoUsuario);
         return (float)($billetera['saldo_actual'] ?? 0);
     }
 
-    /**
-     * Lista los movimientos de la billetera del usuario ordenados por fecha desc.
-     */
     public function listarMovimientos(int $codigoUsuario): array
     {
         $sql = "
             SELECT
                 m.codigo_movimiento,
                 m.codigo_billetera,
-                m.tipo_movimiento,         -- 'C' (crédito) / 'D' (débito)
+                m.tipo_movimiento,
                 m.monto,
+                m.saldo_antes,
                 m.saldo_despues,
                 m.descripcion,
                 m.origen,
@@ -89,12 +196,6 @@ class Billetera extends Conexion
         return $rows ?: [];
     }
 
-    /**
-     * Debita un monto por destacar una publicación.
-     * Retorna:
-     *  - ['ok' => true, 'saldo_actual' => float]  si todo OK
-     *  - ['ok' => false, 'codigo' => 'SALDO_INSUFICIENTE', 'mensaje' => ...]
-     */
     public function debitarPorPublicacionDestacada(
         int $codigoUsuario,
         int $codigoPublicacion,
@@ -103,36 +204,9 @@ class Billetera extends Conexion
         try {
             $this->dblink->beginTransaction();
 
-            // Bloquear la billetera del usuario
-            $sql = "
-                SELECT
-                    b.codigo_billetera,
-                    b.saldo_actual
-                FROM billetera b
-                WHERE b.codigo_usuario = :codigo_usuario
-                FOR UPDATE
-            ";
-            $stmt = $this->dblink->prepare($sql);
-            $stmt->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
-            $stmt->execute();
-            $billetera = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$billetera) {
-                // Crear billetera en cero si no existe
-                $sqlInsert = "
-                    INSERT INTO billetera (codigo_usuario, saldo_actual)
-                    VALUES (:codigo_usuario, 0.00)
-                ";
-                $stmtInsert = $this->dblink->prepare($sqlInsert);
-                $stmtInsert->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
-                $stmtInsert->execute();
-
-                $codigoBilletera = (int)$this->dblink->lastInsertId();
-                $saldoActual = 0.00;
-            } else {
-                $codigoBilletera = (int)$billetera['codigo_billetera'];
-                $saldoActual     = (float)$billetera['saldo_actual'];
-            }
+            $billetera = $this->obtenerOBilleteraBloqueada($codigoUsuario);
+            $codigoBilletera = (int)$billetera['codigo_billetera'];
+            $saldoActual = (float)$billetera['saldo_actual'];
 
             if ($saldoActual < $monto) {
                 $this->dblink->rollBack();
@@ -143,49 +217,20 @@ class Billetera extends Conexion
                 ];
             }
 
-            $nuevoSaldo = $saldoActual - $monto;
+            $nuevoSaldo = round($saldoActual - $monto, 2);
 
-            // Insertar movimiento (débito)
-            $sqlMov = "
-                INSERT INTO billetera_movimiento
-                    (codigo_billetera,
-                     tipo_movimiento,
-                     monto,
-                     saldo_despues,
-                     descripcion,
-                     origen,
-                     codigo_referencia)
-                VALUES
-                    (:codigo_billetera,
-                     'D',
-                     :monto,
-                     :saldo_despues,
-                     :descripcion,
-                     :origen,
-                     :codigo_referencia)
-            ";
-            $desc = 'Destacar publicación';
-            $origen = 'PUBLICACION_DESTACADA';
+            $this->registrarMovimiento(
+                $codigoBilletera,
+                'D',
+                $monto,
+                $saldoActual,
+                $nuevoSaldo,
+                'Destacar publicación',
+                'PUBLICACION_DESTACADA',
+                $codigoPublicacion
+            );
 
-            $stmtMov = $this->dblink->prepare($sqlMov);
-            $stmtMov->bindParam(':codigo_billetera',   $codigoBilletera,   PDO::PARAM_INT);
-            $stmtMov->bindParam(':monto',              $monto);
-            $stmtMov->bindParam(':saldo_despues',      $nuevoSaldo);
-            $stmtMov->bindParam(':descripcion',        $desc,              PDO::PARAM_STR);
-            $stmtMov->bindParam(':origen',             $origen,            PDO::PARAM_STR);
-            $stmtMov->bindParam(':codigo_referencia',  $codigoPublicacion, PDO::PARAM_INT);
-            $stmtMov->execute();
-
-            // Actualizar saldo de billetera
-            $sqlUpd = "
-                UPDATE billetera
-                SET saldo_actual = :saldo_actual
-                WHERE codigo_billetera = :codigo_billetera
-            ";
-            $stmtUpd = $this->dblink->prepare($sqlUpd);
-            $stmtUpd->bindParam(':saldo_actual',     $nuevoSaldo);
-            $stmtUpd->bindParam(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
-            $stmtUpd->execute();
+            $this->actualizarSaldoBilletera($codigoBilletera, $nuevoSaldo);
 
             $this->dblink->commit();
 
@@ -202,9 +247,6 @@ class Billetera extends Conexion
         }
     }
 
-    /**
-     * NUEVO: Debita un monto por destacar un PRODUCTO.
-     */
     public function debitarPorProductoDestacado(
         int $codigoUsuario,
         int $codigoProducto,
@@ -213,36 +255,9 @@ class Billetera extends Conexion
         try {
             $this->dblink->beginTransaction();
 
-            // Bloquear billetera del usuario
-            $sql = "
-                SELECT
-                    b.codigo_billetera,
-                    b.saldo_actual
-                FROM billetera b
-                WHERE b.codigo_usuario = :codigo_usuario
-                FOR UPDATE
-            ";
-            $stmt = $this->dblink->prepare($sql);
-            $stmt->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
-            $stmt->execute();
-            $billetera = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$billetera) {
-                // Crear billetera en cero si no existe
-                $sqlInsert = "
-                    INSERT INTO billetera (codigo_usuario, saldo_actual)
-                    VALUES (:codigo_usuario, 0.00)
-                ";
-                $stmtInsert = $this->dblink->prepare($sqlInsert);
-                $stmtInsert->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
-                $stmtInsert->execute();
-
-                $codigoBilletera = (int)$this->dblink->lastInsertId();
-                $saldoActual = 0.00;
-            } else {
-                $codigoBilletera = (int)$billetera['codigo_billetera'];
-                $saldoActual     = (float)$billetera['saldo_actual'];
-            }
+            $billetera = $this->obtenerOBilleteraBloqueada($codigoUsuario);
+            $codigoBilletera = (int)$billetera['codigo_billetera'];
+            $saldoActual = (float)$billetera['saldo_actual'];
 
             if ($saldoActual < $monto) {
                 $this->dblink->rollBack();
@@ -253,49 +268,20 @@ class Billetera extends Conexion
                 ];
             }
 
-            $nuevoSaldo = $saldoActual - $monto;
+            $nuevoSaldo = round($saldoActual - $monto, 2);
 
-            // Insertar movimiento (débito)
-            $sqlMov = "
-                INSERT INTO billetera_movimiento
-                    (codigo_billetera,
-                     tipo_movimiento,
-                     monto,
-                     saldo_despues,
-                     descripcion,
-                     origen,
-                     codigo_referencia)
-                VALUES
-                    (:codigo_billetera,
-                     'D',
-                     :monto,
-                     :saldo_despues,
-                     :descripcion,
-                     :origen,
-                     :codigo_referencia)
-            ";
-            $desc   = 'Destacar producto';
-            $origen = 'PRODUCTO_DESTACADO';
+            $this->registrarMovimiento(
+                $codigoBilletera,
+                'D',
+                $monto,
+                $saldoActual,
+                $nuevoSaldo,
+                'Destacar producto',
+                'PRODUCTO_DESTACADO',
+                $codigoProducto
+            );
 
-            $stmtMov = $this->dblink->prepare($sqlMov);
-            $stmtMov->bindParam(':codigo_billetera',  $codigoBilletera, PDO::PARAM_INT);
-            $stmtMov->bindParam(':monto',             $monto);
-            $stmtMov->bindParam(':saldo_despues',     $nuevoSaldo);
-            $stmtMov->bindParam(':descripcion',       $desc, PDO::PARAM_STR);
-            $stmtMov->bindParam(':origen',            $origen, PDO::PARAM_STR);
-            $stmtMov->bindParam(':codigo_referencia', $codigoProducto, PDO::PARAM_INT);
-            $stmtMov->execute();
-
-            // Actualizar saldo de billetera
-            $sqlUpd = "
-                UPDATE billetera
-                SET saldo_actual = :saldo_actual
-                WHERE codigo_billetera = :codigo_billetera
-            ";
-            $stmtUpd = $this->dblink->prepare($sqlUpd);
-            $stmtUpd->bindParam(':saldo_actual',     $nuevoSaldo);
-            $stmtUpd->bindParam(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
-            $stmtUpd->execute();
+            $this->actualizarSaldoBilletera($codigoBilletera, $nuevoSaldo);
 
             $this->dblink->commit();
 
@@ -312,9 +298,6 @@ class Billetera extends Conexion
         }
     }
 
-    /**
-     * Acredita saldo por recarga (crédito) de forma transaccional.
-     */
     public function acreditarPorRecargaManual(
         int $codigoUsuario,
         float $monto,
@@ -330,63 +313,28 @@ class Billetera extends Conexion
 
             $this->dblink->beginTransaction();
 
-            // Bloquear billetera del usuario
-            $sql = "
-                SELECT b.codigo_billetera, b.saldo_actual
-                FROM billetera b
-                WHERE b.codigo_usuario = :codigo_usuario
-                FOR UPDATE
-            ";
-            $stmt = $this->dblink->prepare($sql);
-            $stmt->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
-            $stmt->execute();
-            $billetera = $stmt->fetch(PDO::FETCH_ASSOC);
+            $billetera = $this->obtenerOBilleteraBloqueada($codigoUsuario);
+            $codigoBilletera = (int)$billetera['codigo_billetera'];
+            $saldoAntes = (float)$billetera['saldo_actual'];
+            $saldoDespues = round($saldoAntes + $monto, 2);
 
-            if (!$billetera) {
-                // Crear billetera si no existe
-                $sqlInsert = "INSERT INTO billetera (codigo_usuario, saldo_actual) VALUES (:codigo_usuario, 0.00)";
-                $stmtInsert = $this->dblink->prepare($sqlInsert);
-                $stmtInsert->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
-                $stmtInsert->execute();
-                $codigoBilletera = (int)$this->dblink->lastInsertId();
-                $saldoAntes = 0.00;
-            } else {
-                $codigoBilletera = (int)$billetera['codigo_billetera'];
-                $saldoAntes = (float)$billetera['saldo_actual'];
-            }
-
-            $saldoDespues = $saldoAntes + $monto;
-
-            // Insert movimiento (crédito)
-            $sqlMov = "
-                INSERT INTO billetera_movimiento
-                    (codigo_billetera, tipo_movimiento, monto, saldo_antes, saldo_despues,
-                    descripcion, origen, codigo_referencia, es_promocional, fecha_expira)
-                VALUES
-                    (:codigo_billetera, 'C', :monto, :saldo_antes, :saldo_despues,
-                    :descripcion, :origen, :codigo_referencia, :es_promocional, :fecha_expira)
-            ";
             $descripcion = "Recarga manual ({$metodo})";
             $origen = "RECARGA_MANUAL";
 
-            $stmtMov = $this->dblink->prepare($sqlMov);
-            $stmtMov->bindParam(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
-            $stmtMov->bindParam(':monto', $monto);
-            $stmtMov->bindParam(':saldo_antes', $saldoAntes);
-            $stmtMov->bindParam(':saldo_despues', $saldoDespues);
-            $stmtMov->bindParam(':descripcion', $descripcion, PDO::PARAM_STR);
-            $stmtMov->bindParam(':origen', $origen, PDO::PARAM_STR);
-            $stmtMov->bindParam(':codigo_referencia', $codigoReferencia, PDO::PARAM_INT);
-            $stmtMov->bindValue(':es_promocional', $esPromocional ? 1 : 0, PDO::PARAM_INT);
-            $stmtMov->bindValue(':fecha_expira', $fechaExpira, PDO::PARAM_STR);
-            $stmtMov->execute();
+            $this->registrarMovimiento(
+                $codigoBilletera,
+                'C',
+                $monto,
+                $saldoAntes,
+                $saldoDespues,
+                $descripcion,
+                $origen,
+                $codigoReferencia,
+                $esPromocional ? 1 : 0,
+                $fechaExpira
+            );
 
-            // Actualizar saldo billetera
-            $sqlUpd = "UPDATE billetera SET saldo_actual = :saldo_actual WHERE codigo_billetera = :codigo_billetera";
-            $stmtUpd = $this->dblink->prepare($sqlUpd);
-            $stmtUpd->bindParam(':saldo_actual', $saldoDespues);
-            $stmtUpd->bindParam(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
-            $stmtUpd->execute();
+            $this->actualizarSaldoBilletera($codigoBilletera, $saldoDespues);
 
             $this->dblink->commit();
 
@@ -398,9 +346,6 @@ class Billetera extends Conexion
         }
     }
 
-    // =========================================================
-    // Blindaje anti doble acreditación (NO elimina nada)
-    // =========================================================
     public function yaFueAcreditadaRecarga(int $codigoUsuario, int $codigoRecarga): bool
     {
         $b = $this->obtenerOBilleteraPorUsuario($codigoUsuario);
@@ -423,11 +368,6 @@ class Billetera extends Conexion
         return (bool)$stmt->fetchColumn();
     }
 
-    // =========================================================
-    // ✅ NUEVO: BONO BIENVENIDA (S/ 15) AL APROBAR CUENTA
-    // - 100% transaccional
-    // - Idempotente (no duplica)
-    // =========================================================
     public function aplicarBonoBienvenida(int $codigoUsuario, float $monto = 15.00): array
     {
         try {
@@ -440,33 +380,10 @@ class Billetera extends Conexion
 
             $this->dblink->beginTransaction();
 
-            // 1) Lock billetera (FOR UPDATE)
-            $sql = "
-                SELECT b.codigo_billetera, b.saldo_actual
-                FROM billetera b
-                WHERE b.codigo_usuario = :codigo_usuario
-                FOR UPDATE
-            ";
-            $stmt = $this->dblink->prepare($sql);
-            $stmt->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
-            $stmt->execute();
-            $billetera = $stmt->fetch(PDO::FETCH_ASSOC);
+            $billetera = $this->obtenerOBilleteraBloqueada($codigoUsuario);
+            $codigoBilletera = (int)$billetera['codigo_billetera'];
+            $saldoAntes = (float)$billetera['saldo_actual'];
 
-            if (!$billetera) {
-                // Crear billetera si no existe (igual queda lockeada por la transacción)
-                $sqlInsert = "INSERT INTO billetera (codigo_usuario, saldo_actual) VALUES (:codigo_usuario, 0.00)";
-                $stmtInsert = $this->dblink->prepare($sqlInsert);
-                $stmtInsert->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
-                $stmtInsert->execute();
-
-                $codigoBilletera = (int)$this->dblink->lastInsertId();
-                $saldoAntes = 0.00;
-            } else {
-                $codigoBilletera = (int)$billetera['codigo_billetera'];
-                $saldoAntes = (float)$billetera['saldo_actual'];
-            }
-
-            // 2) Idempotencia: si ya existe un movimiento BONO_BIENVENIDA no repetir
             $sqlYa = "
                 SELECT 1
                 FROM billetera_movimiento
@@ -491,36 +408,24 @@ class Billetera extends Conexion
                 ];
             }
 
-            // 3) Insert movimiento (crédito)
-            $saldoDespues = $saldoAntes + $monto;
-
-            $sqlMov = "
-                INSERT INTO billetera_movimiento
-                    (codigo_billetera, tipo_movimiento, monto, saldo_antes, saldo_despues,
-                     descripcion, origen, codigo_referencia, es_promocional, fecha_expira)
-                VALUES
-                    (:codigo_billetera, 'C', :monto, :saldo_antes, :saldo_despues,
-                     :descripcion, :origen, :codigo_referencia, 1, NULL)
-            ";
+            $saldoDespues = round($saldoAntes + $monto, 2);
             $descripcion = 'Bono de bienvenida por aprobación de cuenta';
             $origen = 'BONO_BIENVENIDA';
 
-            $stmtMov = $this->dblink->prepare($sqlMov);
-            $stmtMov->bindParam(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
-            $stmtMov->bindParam(':monto', $monto);
-            $stmtMov->bindParam(':saldo_antes', $saldoAntes);
-            $stmtMov->bindParam(':saldo_despues', $saldoDespues);
-            $stmtMov->bindParam(':descripcion', $descripcion, PDO::PARAM_STR);
-            $stmtMov->bindParam(':origen', $origen, PDO::PARAM_STR);
-            $stmtMov->bindParam(':codigo_referencia', $codigoUsuario, PDO::PARAM_INT);
-            $stmtMov->execute();
+            $this->registrarMovimiento(
+                $codigoBilletera,
+                'C',
+                $monto,
+                $saldoAntes,
+                $saldoDespues,
+                $descripcion,
+                $origen,
+                $codigoUsuario,
+                1,
+                null
+            );
 
-            // 4) Actualizar saldo billetera
-            $sqlUpd = "UPDATE billetera SET saldo_actual = :saldo_actual WHERE codigo_billetera = :codigo_billetera";
-            $stmtUpd = $this->dblink->prepare($sqlUpd);
-            $stmtUpd->bindParam(':saldo_actual', $saldoDespues);
-            $stmtUpd->bindParam(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
-            $stmtUpd->execute();
+            $this->actualizarSaldoBilletera($codigoBilletera, $saldoDespues);
 
             $this->dblink->commit();
 

@@ -364,6 +364,31 @@
     return extraerDetalleDesdeRespuesta(json);
   }
 
+  async function obtenerSaldoBilleteraActual() {
+    const { resp, json, text } = await fetchJsonRobusto(`${BASE}/api/billetera/saldo`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'same-origin'
+    });
+
+    if (resp.status === 401) {
+      notify('error', 'Sesión expirada', 'Tu sesión ha expirado. Vuelve a iniciar sesión.');
+      setTimeout(() => { window.location.href = `${BASE}/`; }, 1200);
+      return null;
+    }
+
+    if (!json) {
+      err('SALDO no devolvió JSON:', (text || '').slice(0, 400));
+      return null;
+    }
+
+    if (!resp.ok || !json.ok) {
+      return null;
+    }
+
+    return Number(json.saldo_actual || 0);
+  }
+
   async function abrirModalDetalle(idProducto) {
     if (!idProducto) return;
 
@@ -598,6 +623,8 @@
     const fechaProgramadaEl = document.getElementById('mp_sp_fecha_programada');
     const direccionEl       = document.getElementById('mp_sp_direccion');
     const mensajeEl         = document.getElementById('mp_sp_mensaje');
+    const requierePrepEl    = document.getElementById('mp_sp_requiere_preparacion');
+    const precioUnitarioEl  = document.getElementById('mp_sp_precio_unitario');
     const btnSubmit         = document.querySelector('#mp_form_solicitud_pedido button[type="submit"]');
 
     const codigoProducto   = Number(codigoProductoEl?.value || 0);
@@ -606,6 +633,9 @@
     const fechaProgramada  = (fechaProgramadaEl?.value || '').trim();
     const direccionEntrega = (direccionEl?.value || '').trim();
     const mensajeComprador = (mensajeEl?.value || '').trim();
+    const requierePreparacion = Number(requierePrepEl?.value || 0) === 1;
+    const precioUnitario = Number(precioUnitarioEl?.value || 0);
+    const totalPedido = Number((precioUnitario * cantidad).toFixed(2));
 
     if (!codigoProducto) {
       notify('warning', 'Validación', 'No se encontró la publicación seleccionada.');
@@ -624,6 +654,19 @@
 
     try {
       if (btnSubmit) btnSubmit.disabled = true;
+
+      if (requierePreparacion) {
+        const saldoActual = await obtenerSaldoBilleteraActual();
+
+        if (saldoActual !== null && saldoActual < totalPedido) {
+          notify(
+            'warning',
+            'Saldo insuficiente',
+            `Este producto requiere preparación. Necesitas ${formatPrecio(totalPedido)} en tu billetera y actualmente tienes ${formatPrecio(saldoActual)}.`
+          );
+          return;
+        }
+      }
 
       const fd = new FormData();
       fd.append('codigo_producto', String(codigoProducto));
@@ -648,7 +691,7 @@
         return;
       }
 
-      if (resp.status === 409 && json?.redirect) {
+      if (resp.status === 409 && json?.error === 'SIN_RESIDENCIA_ACTIVA' && json?.redirect) {
         notify('warning', 'Residencia requerida', json.mensaje || 'Debes completar tu residencia.');
         setTimeout(() => { window.location.href = json.redirect; }, 1200);
         return;
@@ -674,6 +717,18 @@
           return;
         }
 
+        if (apiError === 'SALDO_INSUFICIENTE_BILLETERA') {
+          const saldoActual = Number(json?.saldo_actual || 0);
+          const montoRequerido = Number(json?.monto_requerido || totalPedido);
+
+          notify(
+            'warning',
+            'Saldo insuficiente',
+            `Este producto requiere preparación. Necesitas ${formatPrecio(montoRequerido)} en tu billetera y actualmente tienes ${formatPrecio(saldoActual)}.`
+          );
+          return;
+        }
+
         if (
           apiError === 'PUBLICACION_FUERA_DE_CONJUNTO' ||
           apiError === 'PRODUCTO_NO_APROBADO' ||
@@ -688,7 +743,19 @@
         return;
       }
 
-      notify('success', 'Solicitud registrada', json.mensaje || 'Tu solicitud fue enviada correctamente.');
+      const data = json?.data || {};
+      const tuvoDebito = Number(data?.descuento_billetera_aplicado || 0) === 1;
+      const montoDebitado = Number(data?.monto_descontado_billetera || 0);
+
+      if (tuvoDebito) {
+        notify(
+          'success',
+          'Solicitud registrada',
+          `Tu solicitud fue enviada correctamente. Se descontó ${formatPrecio(montoDebitado)} de tu billetera por tratarse de un producto con preparación.`
+        );
+      } else {
+        notify('success', 'Solicitud registrada', json.mensaje || 'Tu solicitud fue enviada correctamente.');
+      }
 
       const form = document.getElementById('mp_form_solicitud_pedido');
       try { form?.reset(); } catch (_) {}

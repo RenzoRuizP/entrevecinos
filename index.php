@@ -64,32 +64,160 @@ function evBasePathFromBaseUrl(string $baseUrl): string
     return ($path === '') ? '/' : $path;
 }
 
-function evRenderSesionFinalizada(string $loginUrl): void
-{
-    http_response_code(401);
+/**
+ * Render estándar EV para alertas de sesión / seguridad.
+ */
+function evRenderSecurityAlertPage(
+    int $statusCode,
+    string $pageTitle,
+    string $icon,
+    string $title,
+    string $text,
+    string $confirmText,
+    string $confirmColor,
+    string $redirectUrl
+): void {
+    http_response_code($statusCode);
     header('Content-Type: text/html; charset=utf-8');
     ?>
     <!doctype html>
     <html lang="es">
     <head>
         <meta charset="utf-8" />
-        <title>Sesión finalizada | Entre Vecinos</title>
+        <title><?php echo htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8'); ?></title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <style>
+            :root{
+                --ev-verde-oscuro:#0F592F;
+                --ev-verde:#16A34A;
+                --ev-naranja:#EA7C12;
+                --ev-naranja-oscuro:#C46B05;
+                --ev-texto:#1F2937;
+                --ev-texto-suave:#6B7280;
+                --ev-fondo:#F3F4F6;
+                --ev-borde:#E5E7EB;
+                --ev-sombra:0 24px 60px rgba(15,23,42,.18);
+                --ev-radio:22px;
+            }
+
+            html, body{
+                margin:0;
+                padding:0;
+                min-height:100%;
+                background:linear-gradient(180deg, #F8FAFC 0%, #F3F4F6 100%);
+                font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+            }
+
+            .swal2-popup.ev-auth-popup{
+                width:min(92vw, 560px) !important;
+                border-radius:var(--ev-radio) !important;
+                padding:28px 28px 24px !important;
+                box-shadow:var(--ev-sombra) !important;
+                border:1px solid rgba(229,231,235,.9) !important;
+            }
+
+            .swal2-icon.swal2-info,
+            .swal2-icon.swal2-warning{
+                border-width:3px !important;
+                margin-top:4px !important;
+                margin-bottom:12px !important;
+            }
+
+            .swal2-title.ev-auth-title{
+                color:var(--ev-verde-oscuro) !important;
+                font-weight:800 !important;
+                font-size:2rem !important;
+                line-height:1.15 !important;
+                letter-spacing:-.02em !important;
+                margin:0 0 10px 0 !important;
+            }
+
+            .swal2-html-container.ev-auth-text{
+                color:var(--ev-texto-suave) !important;
+                font-size:1.06rem !important;
+                line-height:1.55 !important;
+                margin:0 auto 14px auto !important;
+                max-width:430px !important;
+            }
+
+            .swal2-actions{
+                margin-top:14px !important;
+            }
+
+            .swal2-confirm.ev-auth-confirm{
+                background:linear-gradient(135deg, var(--ev-naranja), #F59E0B) !important;
+                color:#fff !important;
+                border:none !important;
+                border-radius:12px !important;
+                padding:12px 22px !important;
+                min-width:148px !important;
+                font-weight:800 !important;
+                font-size:1rem !important;
+                box-shadow:0 12px 28px rgba(234,124,18,.35) !important;
+                transition:transform .15s ease, box-shadow .15s ease, filter .15s ease !important;
+            }
+
+            .swal2-confirm.ev-auth-confirm:hover{
+                filter:brightness(1.03) !important;
+                transform:translateY(-1px) !important;
+                box-shadow:0 16px 34px rgba(234,124,18,.42) !important;
+            }
+
+            .swal2-confirm.ev-auth-confirm:focus{
+                box-shadow:
+                    0 16px 34px rgba(234,124,18,.42),
+                    0 0 0 4px rgba(234,124,18,.16) !important;
+            }
+
+            .swal2-backdrop-show{
+                background:rgba(15,23,42,.36) !important;
+                backdrop-filter:blur(2px);
+            }
+
+            @media (max-width: 575.98px){
+                .swal2-popup.ev-auth-popup{
+                    padding:24px 18px 20px !important;
+                    border-radius:18px !important;
+                }
+
+                .swal2-title.ev-auth-title{
+                    font-size:1.7rem !important;
+                }
+
+                .swal2-html-container.ev-auth-text{
+                    font-size:1rem !important;
+                    max-width:none !important;
+                }
+
+                .swal2-confirm.ev-auth-confirm{
+                    width:100% !important;
+                    min-width:0 !important;
+                }
+            }
+        </style>
     </head>
     <body>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             Swal.fire({
-                icon: 'info',
-                title: 'Tu sesión ha finalizado',
-                text: 'Por tu seguridad, la sesión expiró. Vuelve a iniciar sesión.',
-                confirmButtonText: 'Ir al login',
-                confirmButtonColor: '#EA7C12',
+                icon: <?php echo json_encode($icon); ?>,
+                title: <?php echo json_encode($title); ?>,
+                text: <?php echo json_encode($text); ?>,
+                confirmButtonText: <?php echo json_encode($confirmText); ?>,
+                confirmButtonColor: <?php echo json_encode($confirmColor); ?>,
                 allowOutsideClick: false,
-                allowEscapeKey: false
+                allowEscapeKey: false,
+                allowEnterKey: true,
+                buttonsStyling: false,
+                customClass: {
+                    popup: 'ev-auth-popup',
+                    title: 'ev-auth-title',
+                    htmlContainer: 'ev-auth-text',
+                    confirmButton: 'ev-auth-confirm'
+                }
             }).then(function () {
-                window.location.href = <?php echo json_encode($loginUrl); ?>;
+                window.location.href = <?php echo json_encode($redirectUrl); ?>;
             });
         });
     </script>
@@ -99,42 +227,35 @@ function evRenderSesionFinalizada(string $loginUrl): void
     exit;
 }
 
+function evRenderSesionFinalizada(string $loginUrl): void
+{
+    evRenderSecurityAlertPage(
+        401,
+        'Sesión finalizada | Entre Vecinos',
+        'info',
+        'Tu sesión ha finalizado',
+        'Por tu seguridad, la sesión expiró. Vuelve a iniciar sesión.',
+        'Ir al login',
+        '#EA7C12',
+        $loginUrl
+    );
+}
+
 /**
  * ✅ NUEVO: render para cuenta bloqueada/inactiva detectada en la siguiente request.
  */
 function evRenderCuentaBloqueada(string $loginUrl): void
 {
-    http_response_code(403);
-    header('Content-Type: text/html; charset=utf-8');
-    ?>
-    <!doctype html>
-    <html lang="es">
-    <head>
-        <meta charset="utf-8" />
-        <title>Cuenta bloqueada | Entre Vecinos</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    </head>
-    <body>
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Tu cuenta fue bloqueada',
-                text: 'Por seguridad, se cerró tu sesión. Si necesitas más información, comunícate con soporte.',
-                confirmButtonText: 'Ir al login',
-                confirmButtonColor: '#EA7C12',
-                allowOutsideClick: false,
-                allowEscapeKey: false
-            }).then(function () {
-                window.location.href = <?php echo json_encode($loginUrl); ?>;
-            });
-        });
-    </script>
-    </body>
-    </html>
-    <?php
-    exit;
+    evRenderSecurityAlertPage(
+        403,
+        'Cuenta bloqueada | Entre Vecinos',
+        'warning',
+        'Tu cuenta fue bloqueada',
+        'Por seguridad, se cerró tu sesión. Si necesitas más información, comunícate con soporte.',
+        'Ir al login',
+        '#EA7C12',
+        $loginUrl
+    );
 }
 
 /**
@@ -397,11 +518,10 @@ $routes = [
     ['POST', '#^/api/producto/(\d+)/anular$#',     [apiProductoController::class, 'anularProducto'],     'json'],
     ['POST', '#^/api/producto/(\d+)/publicar$#',   [apiProductoController::class, 'publicarProducto'],   'json'],
     ['GET',  '#^/api/producto/marketplace$#',      [apiProductoController::class, 'listarMarketplace'],  'json'],
-    
+
     ['GET',  '#^/api/billetera/saldo$#',               [apiBilleteraController::class, 'obtenerSaldo'],        'json'],
     ['GET',  '#^/api/billetera/movimientos$#',         [apiBilleteraController::class, 'obtenerMovimientos'],  'json'],
     ['POST', '#^/api/billetera/debitar-publicacion$#', [apiBilleteraController::class, 'debitarPublicacion'],  'json'],
-    //['POST', '#^/api/billetera/debitar-producto-destacado$#', [apiBilleteraController::class, 'debitarPublicacion'], 'json'],
     ['POST', '#^/api/billetera/debitar-producto-destacado$#', [apiBilleteraController::class, 'debitarProductoDestacado'], 'json'],
 
     ['GET',  '#^/api/pedidos/recibir$#',    [apiPedidoController::class, 'listarPedidos'],   'json'],
@@ -410,19 +530,11 @@ $routes = [
     ['GET',  '#^/api/soporte/recargas$#',              [apiSoporteRecargasController::class, 'listar'],           'json'],
     ['POST', '#^/api/soporte/recargas/(\d+)/estado$#', [apiSoporteRecargasController::class, 'actualizarEstado'], 'json'],
 
-    // ==========================================================
-    // SOPORTE PRODUCTOS - RUTAS OFICIALES (las que ya tenías)
-    // ==========================================================
     ['GET',  '#^/api/soporte/productos$#',              [apiSoporteProductosController::class, 'listar'], 'json'],
     ['GET',  '#^/api/soporte/productos/(\d+)$#',        [apiSoporteProductosController::class, 'detalle'], 'json'],
     ['POST', '#^/api/soporte/productos/(\d+)/estado$#', [apiSoporteProductosController::class, 'actualizarEstado'], 'json'],
-    // ✅ NUEVO: revisión de publicación (aprobar / rechazar / observar)
     ['POST', '#^/api/soporte/productos/(\d+)/revisar$#', [apiSoporteProductosController::class, 'revisar'], 'json'],
 
-    // ==========================================================
-    // ✅ ALIAS COMPATIBILIDAD (tu front llama /api/soporte-productos/...)
-    //    Esto elimina RUTA_NO_ENCONTRADA sin romper nada.
-    // ==========================================================
     ['GET',  '#^/api/soporte-productos/listar$#',       [apiSoporteProductosController::class, 'listar'], 'json'],
     ['GET',  '#^/api/soporte-productos/(\d+)$#',        [apiSoporteProductosController::class, 'detalle'], 'json'],
     ['POST', '#^/api/soporte-productos/(\d+)/estado$#', [apiSoporteProductosController::class, 'actualizarEstado'], 'json'],
@@ -438,10 +550,8 @@ $routes = [
 
     ['GET',  '#^/api/soporte/dashboard$#', [apiSoporteDashboardController::class, 'resumen'], 'json'],
 
-    // --- API Recargas ---
     ['POST', '#^/api/recargas/registrar$#', [apiRecargaSaldoController::class, 'registrar'], 'json'],
     ['POST', '#^/api/recargas/(\d+)/subsanar$#', [apiRecargaSaldoController::class, 'subsanar'], 'json'],
-    // ✅ NUEVO: Mis recargas (Mi billetera)
     ['GET',  '#^/api/recargas/mis$#',       [apiRecargaSaldoController::class, 'mis'], 'json'],
 
     ['GET', '#^/notificaciones-residencia$#', [notificacionesResidenciaController::class, 'index'], 'html'],
@@ -454,9 +564,6 @@ $routes = [
 
     ['GET',  '#^/api/usuario/disponibilidad-pedidos$#', [apiDisponibilidadPedidosController::class, 'obtenerEstado'], 'json'],
     ['POST', '#^/api/usuario/disponibilidad-pedidos$#', [apiDisponibilidadPedidosController::class, 'actualizarEstado'], 'json'],
-
-    
-    
 ];
 
 // ============================================================
@@ -492,7 +599,13 @@ foreach ($routes as $r) {
             if (esPeticionParcial() || $type === 'json' || str_starts_with($uri, '/api/')) {
                 header('Content-Type: application/json; charset=utf-8');
                 http_response_code(401);
-                echo json_encode(['ok' => false, 'error' => 'UNAUTHORIZED', 'motivo' => $motivo], JSON_UNESCAPED_UNICODE);
+                echo json_encode([
+                    'ok' => false,
+                    'error' => 'UNAUTHORIZED',
+                    'motivo' => $motivo,
+                    'mensaje' => 'Tu sesión expiró o ya no es válida. Vuelve a iniciar sesión.',
+                    'redirect' => $loginUrl
+                ], JSON_UNESCAPED_UNICODE);
                 exit;
             }
 
@@ -511,10 +624,6 @@ foreach ($routes as $r) {
         $esVecino = ($codigoUsuario > 0 && $codigoRol !== $adminId && $codigoRol !== $soporteId);
 
         if ($esVecino && $codigoUsuario > 0) {
-            // =========================================================
-            // ✅ NUEVO: si soporte bloqueó al usuario (estado=0),
-            // se expulsa en la siguiente request y se elimina el token.
-            // =========================================================
             if (evUsuarioEstaBloqueado($codigoUsuario)) {
                 if (esPeticionParcial() || $type === 'json' || str_starts_with($uri, '/api/')) {
                     header('Content-Type: application/json; charset=utf-8');

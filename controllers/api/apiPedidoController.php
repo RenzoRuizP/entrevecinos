@@ -100,7 +100,8 @@ class apiPedidoController
                     'PRODUCTO_NO_APROBADO',
                     'PUBLICACION_NO_VIGENTE',
                     'VENDEDOR_NO_HABILITADO',
-                    'PRODUCTO_PROPIO' => 409,
+                    'PRODUCTO_PROPIO',
+                    'SALDO_INSUFICIENTE_BILLETERA' => 409,
 
                     'CANTIDAD_INVALIDA',
                     'DIRECCION_REQUERIDA',
@@ -122,6 +123,12 @@ class apiPedidoController
 
                 if ($error === 'SIN_RESIDENCIA_ACTIVA') {
                     $payload['redirect'] = rtrim(BASE_URL, '/') . '/mi-perfil';
+                }
+
+                if ($error === 'SALDO_INSUFICIENTE_BILLETERA') {
+                    $payload['saldo_actual'] = (float)($resultado['saldo_actual'] ?? 0);
+                    $payload['monto_requerido'] = (float)($resultado['monto_requerido'] ?? 0);
+                    $payload['redirect'] = rtrim(BASE_URL, '/') . '/billetera';
                 }
 
                 $this->json($status, $payload);

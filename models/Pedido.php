@@ -54,6 +54,302 @@ class Pedido extends Conexion
         return null;
     }
 
+    private function obtenerOCrearBilleteraBloqueada(int $codigoUsuario): array
+    {
+        $sql = "
+            SELECT
+                b.codigo_billetera,
+                b.codigo_usuario,
+                b.saldo_actual
+            FROM billetera b
+            WHERE b.codigo_usuario = :codigo_usuario
+            FOR UPDATE
+        ";
+
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+        $st->execute();
+
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            return [
+                'codigo_billetera' => (int)$row['codigo_billetera'],
+                'codigo_usuario'   => (int)$row['codigo_usuario'],
+                'saldo_actual'     => (float)$row['saldo_actual']
+            ];
+        }
+
+        $sqlInsert = "
+            INSERT INTO billetera (codigo_usuario, saldo_actual)
+            VALUES (:codigo_usuario, 0.00)
+        ";
+        $stInsert = $this->dblink->prepare($sqlInsert);
+        $stInsert->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+        $stInsert->execute();
+
+        return [
+            'codigo_billetera' => (int)$this->dblink->lastInsertId(),
+            'codigo_usuario'   => $codigoUsuario,
+            'saldo_actual'     => 0.00
+        ];
+    }
+
+    private function existeMovimientoBilletera(string $origen, int $codigoReferencia): bool
+    {
+        $sql = "
+            SELECT 1
+            FROM billetera_movimiento
+            WHERE origen = :origen
+              AND codigo_referencia = :codigo_referencia
+            LIMIT 1
+        ";
+
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':origen', $origen, PDO::PARAM_STR);
+        $st->bindValue(':codigo_referencia', $codigoReferencia, PDO::PARAM_INT);
+        $st->execute();
+
+        return (bool)$st->fetchColumn();
+    }
+
+    private function registrarMovimientoBilletera(
+        int $codigoBilletera,
+        string $tipoMovimiento,
+        float $monto,
+        float $saldoAntes,
+        float $saldoDespues,
+        string $descripcion,
+        string $origen,
+        ?int $codigoReferencia = null
+    ): void {
+        $sql = "
+            INSERT INTO billetera_movimiento
+            (
+                codigo_billetera,
+                tipo_movimiento,
+                monto,
+                saldo_antes,
+                saldo_despues,
+                descripcion,
+                origen,
+                codigo_referencia
+            )
+            VALUES
+            (
+                :codigo_billetera,
+                :tipo_movimiento,
+                :monto,
+                :saldo_antes,
+                :saldo_despues,
+                :descripcion,
+                :origen,
+                :codigo_referencia
+            )
+        ";
+
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
+        $st->bindValue(':tipo_movimiento', $tipoMovimiento, PDO::PARAM_STR);
+        $st->bindValue(':monto', $monto);
+        $st->bindValue(':saldo_antes', $saldoAntes);
+        $st->bindValue(':saldo_despues', $saldoDespues);
+        $st->bindValue(':descripcion', $descripcion, PDO::PARAM_STR);
+        $st->bindValue(':origen', $origen, PDO::PARAM_STR);
+
+        if ($codigoReferencia !== null) {
+            $st->bindValue(':codigo_referencia', $codigoReferencia, PDO::PARAM_INT);
+        } else {
+            $st->bindValue(':codigo_referencia', null, PDO::PARAM_NULL);
+        }
+
+        $st->execute();
+    }
+
+    private function actualizarSaldoBilletera(int $codigoBilletera, float $nuevoSaldo): void
+    {
+        $sql = "
+            UPDATE billetera
+            SET saldo_actual = :saldo_actual
+            WHERE codigo_billetera = :codigo_billetera
+        ";
+
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':saldo_actual', $nuevoSaldo);
+        $st->bindValue(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
+        $st->execute();
+    }
+
+    private function limpiarTituloParaMovimiento(string $titulo): string
+    {
+        $titulo = trim(preg_replace('/\s+/u', ' ', $titulo));
+        if ($titulo === '') {
+            return 'producto';
+        }
+
+        if (mb_strlen($titulo, 'UTF-8') > 70) {
+            $titulo = mb_substr($titulo, 0, 67, 'UTF-8') . '...';
+        }
+
+        return $titulo;
+    }
+
+    private function debitarBilleteraPorSolicitudPreparada(
+        int $codigoUsuarioComprador,
+        int $codigoPedido,
+        float $monto,
+        string $tituloProducto
+    ): array {
+        $origenDebito = 'PEDIDO_PREPARADO_DEBITO';
+
+        if ($this->existeMovimientoBilletera($origenDebito, $codigoPedido)) {
+            return [
+                'ok'       => true,
+                'aplicado' => false,
+                'mensaje'  => 'El débito ya se encontraba registrado.'
+            ];
+        }
+
+        $billetera = $this->obtenerOCrearBilleteraBloqueada($codigoUsuarioComprador);
+        $codigoBilletera = (int)$billetera['codigo_billetera'];
+        $saldoActual = (float)$billetera['saldo_actual'];
+
+        if ($saldoActual < $monto) {
+            return [
+                'ok'              => false,
+                'error'           => 'SALDO_INSUFICIENTE_BILLETERA',
+                'mensaje'         => 'No tienes saldo suficiente en tu billetera para solicitar este producto preparado.',
+                'saldo_actual'    => $saldoActual,
+                'monto_requerido' => $monto
+            ];
+        }
+
+        $nuevoSaldo = round($saldoActual - $monto, 2);
+        $tituloLimpio = $this->limpiarTituloParaMovimiento($tituloProducto);
+        $descripcion = "Débito por solicitud de producto: {$tituloLimpio} (con preparación)";
+
+        $this->registrarMovimientoBilletera(
+            $codigoBilletera,
+            'D',
+            $monto,
+            $saldoActual,
+            $nuevoSaldo,
+            $descripcion,
+            $origenDebito,
+            $codigoPedido
+        );
+
+        $this->actualizarSaldoBilletera($codigoBilletera, $nuevoSaldo);
+
+        return [
+            'ok'           => true,
+            'aplicado'     => true,
+            'saldo_actual' => $nuevoSaldo,
+            'saldo_antes'  => $saldoActual,
+            'monto'        => $monto
+        ];
+    }
+
+    public function devolverBilleteraPorSolicitudPreparada(
+        int $codigoPedido,
+        string $motivoDevolucion = 'Devolución por cierre no exitoso de solicitud preparada.'
+    ): array {
+        $sqlPedido = "
+            SELECT
+                p.codigo_pedido,
+                p.codigo_usuario_comprador,
+                p.total,
+                p.requiere_preparacion,
+                p.descuento_billetera_aplicado,
+                p.devolucion_billetera_aplicada
+            FROM pedido p
+            WHERE p.codigo_pedido = :codigo_pedido
+            LIMIT 1
+        ";
+
+        $stPedido = $this->dblink->prepare($sqlPedido);
+        $stPedido->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+        $stPedido->execute();
+
+        $pedido = $stPedido->fetch(PDO::FETCH_ASSOC);
+        if (!$pedido) {
+            return [
+                'ok'      => false,
+                'error'   => 'PEDIDO_NO_ENCONTRADO',
+                'mensaje' => 'No se encontró el pedido.'
+            ];
+        }
+
+        if ((int)$pedido['requiere_preparacion'] !== 1 || (int)$pedido['descuento_billetera_aplicado'] !== 1) {
+            return [
+                'ok'       => true,
+                'aplicado' => false,
+                'mensaje'  => 'El pedido no tiene débito aplicado por preparación.'
+            ];
+        }
+
+        if ((int)$pedido['devolucion_billetera_aplicada'] === 1 || $this->existeMovimientoBilletera('PEDIDO_PREPARADO_DEVOLUCION', $codigoPedido)) {
+            return [
+                'ok'       => true,
+                'aplicado' => false,
+                'mensaje'  => 'La devolución ya había sido aplicada.'
+            ];
+        }
+
+        try {
+            $this->dblink->beginTransaction();
+
+            $codigoUsuarioComprador = (int)$pedido['codigo_usuario_comprador'];
+            $monto = (float)$pedido['total'];
+
+            $billetera = $this->obtenerOCrearBilleteraBloqueada($codigoUsuarioComprador);
+            $codigoBilletera = (int)$billetera['codigo_billetera'];
+            $saldoAntes = (float)$billetera['saldo_actual'];
+            $saldoDespues = round($saldoAntes + $monto, 2);
+
+            $this->registrarMovimientoBilletera(
+                $codigoBilletera,
+                'C',
+                $monto,
+                $saldoAntes,
+                $saldoDespues,
+                $motivoDevolucion,
+                'PEDIDO_PREPARADO_DEVOLUCION',
+                $codigoPedido
+            );
+
+            $this->actualizarSaldoBilletera($codigoBilletera, $saldoDespues);
+
+            $sqlUpdatePedido = "
+                UPDATE pedido
+                SET devolucion_billetera_aplicada = 1
+                WHERE codigo_pedido = :codigo_pedido
+            ";
+            $stUpdatePedido = $this->dblink->prepare($sqlUpdatePedido);
+            $stUpdatePedido->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+            $stUpdatePedido->execute();
+
+            $this->dblink->commit();
+
+            return [
+                'ok'           => true,
+                'aplicado'     => true,
+                'saldo_actual' => $saldoDespues
+            ];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+
+            error_log('[EV][Pedido][devolverBilleteraPorSolicitudPreparada] ' . $e->getMessage());
+
+            return [
+                'ok'      => false,
+                'error'   => 'ERROR_DEVOLUCION_BILLETERA',
+                'mensaje' => 'No se pudo aplicar la devolución de billetera.'
+            ];
+        }
+    }
+
     public function validarProductoParaSolicitud(int $codigoProducto, int $codigoUsuarioComprador): array
     {
         $resComprador = $this->obtenerResidenciaActivaUsuario($codigoUsuarioComprador);
@@ -326,6 +622,9 @@ class Pedido extends Conexion
                     mensaje_comprador,
                     motivo_estado,
                     requiere_preparacion,
+                    monto_descontado_billetera,
+                    descuento_billetera_aplicado,
+                    devolucion_billetera_aplicada,
                     fecha_limite_respuesta
                 )
                 VALUES
@@ -344,6 +643,9 @@ class Pedido extends Conexion
                     :mensaje_comprador,
                     :motivo_estado,
                     :requiere_preparacion,
+                    0.00,
+                    0,
+                    0,
                     :fecha_limite_respuesta
                 )
             ";
@@ -379,6 +681,32 @@ class Pedido extends Conexion
             $st->execute();
 
             $codigoPedido = (int)$this->dblink->lastInsertId();
+
+            if ($requierePrep === 1) {
+                $resDebito = $this->debitarBilleteraPorSolicitudPreparada(
+                    $codigoUsuarioComprador,
+                    $codigoPedido,
+                    $total,
+                    (string)($producto['titulo'] ?? '')
+                );
+
+                if (!$resDebito['ok']) {
+                    $this->dblink->rollBack();
+                    return $resDebito;
+                }
+
+                $sqlUpdPedidoBilletera = "
+                    UPDATE pedido
+                    SET
+                        monto_descontado_billetera = :monto,
+                        descuento_billetera_aplicado = 1
+                    WHERE codigo_pedido = :codigo_pedido
+                ";
+                $stUpdPedidoBilletera = $this->dblink->prepare($sqlUpdPedidoBilletera);
+                $stUpdPedidoBilletera->bindValue(':monto', $total);
+                $stUpdPedidoBilletera->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+                $stUpdPedidoBilletera->execute();
+            }
 
             $sqlHist = "
                 INSERT INTO pedido_historial_estado
@@ -428,16 +756,19 @@ class Pedido extends Conexion
             return [
                 'ok'   => true,
                 'data' => [
-                    'codigo_pedido'           => $codigoPedido,
-                    'codigo_producto'         => $codigoProducto,
-                    'titulo_producto'         => $producto['titulo'],
-                    'cantidad'                => $cantidad,
-                    'total'                   => $total,
-                    'tipo_entrega'            => $tipoEntrega,
-                    'fecha_hora_programada'   => $fechaProgramadaMySql,
-                    'fecha_limite_respuesta'  => $fechaLimite,
-                    'estado_actual'           => $estadoActual,
-                    'fase'                    => $fase
+                    'codigo_pedido'                => $codigoPedido,
+                    'codigo_producto'              => $codigoProducto,
+                    'titulo_producto'              => $producto['titulo'],
+                    'cantidad'                     => $cantidad,
+                    'total'                        => $total,
+                    'tipo_entrega'                 => $tipoEntrega,
+                    'fecha_hora_programada'        => $fechaProgramadaMySql,
+                    'fecha_limite_respuesta'       => $fechaLimite,
+                    'estado_actual'                => $estadoActual,
+                    'fase'                         => $fase,
+                    'requiere_preparacion'         => $requierePrep,
+                    'descuento_billetera_aplicado' => $requierePrep === 1 ? 1 : 0,
+                    'monto_descontado_billetera'   => $requierePrep === 1 ? $total : 0.00
                 ]
             ];
         } catch (Throwable $e) {
@@ -472,6 +803,10 @@ class Pedido extends Conexion
                 p.mensaje_comprador,
                 p.fecha_limite_respuesta,
                 p.created_at,
+                p.requiere_preparacion,
+                p.monto_descontado_billetera,
+                p.descuento_billetera_aplicado,
+                p.devolucion_billetera_aplicada,
 
                 pr.titulo AS titulo_publicacion,
                 pr.imagen_portada,
@@ -513,23 +848,27 @@ class Pedido extends Conexion
             }
 
             $out[] = [
-                'id_pedido'                 => (int)$r['codigo_pedido'],
-                'codigo_producto'           => (int)$r['codigo_producto'],
-                'titulo_publicacion'        => (string)($r['titulo_publicacion'] ?? ''),
-                'nombre_vecino'             => (string)($r['nombre_vecino'] ?? 'Vecino'),
-                'fecha_hora'                => !empty($r['created_at']) ? date('d/m/Y H:i', strtotime((string)$r['created_at'])) : '',
-                'monto_total'               => (string)($r['total'] ?? '0.00'),
-                'cantidad'                  => (int)($r['cantidad'] ?? 0),
-                'precio_unitario'           => (string)($r['costo_unitario'] ?? '0.00'),
-                'tipo_entrega'              => (string)($r['tipo_entrega'] ?? 'inmediata'),
-                'fecha_hora_programada'     => $r['fecha_hora_programada'],
-                'direccion_entrega'         => (string)($r['direccion_entrega'] ?? ''),
-                'mensaje_comprador'         => (string)($r['mensaje_comprador'] ?? ''),
-                'estado_actual'             => (string)($r['estado_actual'] ?? ''),
-                'fase'                      => (string)($r['fase'] ?? ''),
-                'fecha_limite_respuesta'    => $r['fecha_limite_respuesta'],
-                'tiempo_restante_segundos'  => $segundosRestantes,
-                'imagen_portada'            => (string)($r['imagen_portada'] ?? '')
+                'id_pedido'                    => (int)$r['codigo_pedido'],
+                'codigo_producto'              => (int)$r['codigo_producto'],
+                'titulo_publicacion'           => (string)($r['titulo_publicacion'] ?? ''),
+                'nombre_vecino'                => (string)($r['nombre_vecino'] ?? 'Vecino'),
+                'fecha_hora'                   => !empty($r['created_at']) ? date('d/m/Y H:i', strtotime((string)$r['created_at'])) : '',
+                'monto_total'                  => (string)($r['total'] ?? '0.00'),
+                'cantidad'                     => (int)($r['cantidad'] ?? 0),
+                'precio_unitario'              => (string)($r['costo_unitario'] ?? '0.00'),
+                'tipo_entrega'                 => (string)($r['tipo_entrega'] ?? 'inmediata'),
+                'fecha_hora_programada'        => $r['fecha_hora_programada'],
+                'direccion_entrega'            => (string)($r['direccion_entrega'] ?? ''),
+                'mensaje_comprador'            => (string)($r['mensaje_comprador'] ?? ''),
+                'estado_actual'                => (string)($r['estado_actual'] ?? ''),
+                'fase'                         => (string)($r['fase'] ?? ''),
+                'fecha_limite_respuesta'       => $r['fecha_limite_respuesta'],
+                'tiempo_restante_segundos'     => $segundosRestantes,
+                'imagen_portada'               => (string)($r['imagen_portada'] ?? ''),
+                'requiere_preparacion'         => (int)($r['requiere_preparacion'] ?? 0),
+                'monto_descontado_billetera'   => (string)($r['monto_descontado_billetera'] ?? '0.00'),
+                'descuento_billetera_aplicado' => (int)($r['descuento_billetera_aplicado'] ?? 0),
+                'devolucion_billetera_aplicada'=> (int)($r['devolucion_billetera_aplicada'] ?? 0)
             ];
         }
 

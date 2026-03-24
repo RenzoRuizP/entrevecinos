@@ -14,6 +14,8 @@
     saldo: null,
     emptyState: null,
     movimientos: null,
+    totalMovimientos: null,
+    totalRecargas: null,
 
     recargasEmpty: null,
     recargasTable: null,
@@ -71,6 +73,8 @@
     refs.saldo = document.getElementById('ev_wallet_saldo');
     refs.emptyState = document.getElementById('ev_wallet_empty_state');
     refs.movimientos = document.getElementById('ev_wallet_movimientos');
+    refs.totalMovimientos = document.getElementById('ev_wallet_total_movimientos');
+    refs.totalRecargas = document.getElementById('ev_wallet_total_recargas');
 
     refs.recargaForm = document.getElementById('formRecargaSaldo');
     refs.recargaCodigo = document.getElementById('recarga_codigo');
@@ -247,6 +251,34 @@
     return false;
   }
 
+  function actualizarContadores({ movimientos = null, recargas = null } = {}) {
+    if (refs.totalMovimientos && movimientos !== null) {
+      refs.totalMovimientos.textContent = String(movimientos);
+    }
+    if (refs.totalRecargas && recargas !== null) {
+      refs.totalRecargas.textContent = String(recargas);
+    }
+  }
+
+  function obtenerNombreOrigen(origen) {
+    const v = String(origen || '').toUpperCase();
+    const mapa = {
+      PEDIDO_PREPARADO_DEBITO: 'Solicitud preparada',
+      PEDIDO_PREPARADO_DEVOLUCION: 'Devolución',
+      BONO_BIENVENIDA: 'Bono de bienvenida',
+      RECARGA_MANUAL: 'Recarga manual',
+      PRODUCTO_DESTACADO: 'Producto destacado',
+      PUBLICACION_DESTACADA: 'Publicación destacada'
+    };
+    return mapa[v] || (origen || 'Movimiento');
+  }
+
+  function obtenerIconoMovimiento(esDebito) {
+    return esDebito
+      ? 'bi-arrow-down-right-circle-fill ev-wallet-mov-icon ev-wallet-mov-icon--debito'
+      : 'bi-arrow-up-right-circle-fill ev-wallet-mov-icon ev-wallet-mov-icon--credito';
+  }
+
   function actualizarQRDesdeSelect() {
     if (!refs.recargaTipo) return;
     const tipo = (refs.recargaTipo.value || '').toLowerCase();
@@ -374,7 +406,10 @@
   function renderizarMovimientos(lista) {
     if (!refs.movimientos || !refs.emptyState) return;
 
-    if (!lista || !lista.length) {
+    const items = Array.isArray(lista) ? lista : [];
+    actualizarContadores({ movimientos: items.length });
+
+    if (!items.length) {
       refs.emptyState.classList.remove('d-none');
       refs.movimientos.classList.add('d-none');
       refs.movimientos.innerHTML = '';
@@ -384,68 +419,64 @@
     refs.emptyState.classList.add('d-none');
     refs.movimientos.classList.remove('d-none');
 
-    const filas = lista.map((m) => {
+    const cards = items.map((m) => {
       const tipoRaw = (m.tipo_movimiento || m.tipo || '').toUpperCase();
       const esDebito = (tipoRaw === 'D' || tipoRaw === 'CARGO');
       const signo = esDebito ? '-' : '+';
 
       const claseMonto = esDebito ? 'ev-wallet-monto--debito' : 'ev-wallet-monto--credito';
-
-      const iconClass = esDebito
-        ? 'bi-arrow-down-right-circle-fill ev-wallet-mov-icon ev-wallet-mov-icon--debito'
-        : 'bi-arrow-up-right-circle-fill ev-wallet-mov-icon ev-wallet-mov-icon--credito';
+      const claseCard = esDebito ? 'ev-wallet-mov-card--debito' : 'ev-wallet-mov-card--credito';
+      const iconClass = obtenerIconoMovimiento(esDebito);
 
       const desc = (m.descripcion || 'Movimiento en billetera');
-      const origen = (m.origen || '');
-      const ref = m.codigo_referencia ? ` · Ref: ${String(m.codigo_referencia)}` : '';
+      const origen = obtenerNombreOrigen(m.origen || '');
+      const refTxt = m.codigo_referencia ? `Ref. ${String(m.codigo_referencia)}` : 'Sin referencia';
 
       const monto = (typeof m.monto !== 'undefined') ? m.monto : 0;
 
       const saldoDespues = (typeof m.saldo_despues !== 'undefined' && m.saldo_despues !== null)
         ? formatearMonto(m.saldo_despues)
-        : '';
+        : '—';
+
+      const fechaTxt = m.fecha || 'Fecha no disponible';
 
       return `
-        <tr>
-          <td>
-            <div class="ev-wallet-mov-concepto">
-              <div class="ev-wallet-mov-header">
-                <i class="${iconClass}"></i>
-                <span class="ev-wallet-mov-titulo">${desc}</span>
-              </div>
-              <div class="ev-wallet-mov-detalle text-muted small">
-                ${origen}${ref}
-              </div>
+        <article class="ev-wallet-mov-card ${claseCard}">
+          <div class="ev-wallet-mov-icon-wrap">
+            <i class="${iconClass}"></i>
+          </div>
+
+          <div class="ev-wallet-mov-main">
+            <div class="ev-wallet-mov-titulo">${esc(desc)}</div>
+
+            <div class="ev-wallet-mov-meta">
+              <span class="ev-wallet-mov-chip">
+                <i class="bi bi-tag"></i>
+                <span>${esc(origen)}</span>
+              </span>
+              <span class="ev-wallet-mov-chip">
+                <i class="bi bi-hash"></i>
+                <span>${esc(refTxt)}</span>
+              </span>
+              <span class="ev-wallet-mov-chip">
+                <i class="bi bi-clock"></i>
+                <span>${esc(fechaTxt)}</span>
+              </span>
             </div>
-          </td>
-          <td class="text-end">
-            <span class="ev-wallet-mov-monto ${claseMonto}">
+          </div>
+
+          <div class="ev-wallet-mov-side">
+            <div class="ev-wallet-mov-monto ${claseMonto}">
               ${signo} ${formatearMonto(monto)}
-            </span>
-          </td>
-          <td class="text-end">
-            <span class="ev-wallet-mov-saldo text-muted">
-              ${saldoDespues}
-            </span>
-          </td>
-        </tr>
+            </div>
+            <span class="ev-wallet-mov-saldo-label">Saldo después</span>
+            <div class="ev-wallet-mov-saldo">${esc(saldoDespues)}</div>
+          </div>
+        </article>
       `;
     }).join('');
 
-    refs.movimientos.innerHTML = `
-      <div class="table-responsive ev-wallet-table-wrapper">
-        <table class="table align-middle ev-wallet-table">
-          <thead>
-            <tr>
-              <th>Movimiento</th>
-              <th class="text-end">Monto</th>
-              <th class="text-end">Saldo después</th>
-            </tr>
-          </thead>
-          <tbody>${filas}</tbody>
-        </table>
-      </div>
-    `;
+    refs.movimientos.innerHTML = `<div class="ev-wallet-mov-list">${cards}</div>`;
   }
 
   function badgeEstadoRecarga(estado) {
@@ -463,6 +494,7 @@
     if (!refs.recargasEmpty || !refs.recargasTable) return;
 
     state.misRecargas = Array.isArray(items) ? items : [];
+    actualizarContadores({ recargas: state.misRecargas.length });
 
     if (!state.misRecargas.length) {
       refs.recargasEmpty.classList.remove('d-none');
@@ -481,26 +513,30 @@
 
       const comentarioHtml = (est === 'observada' || est === 'rechazada')
         ? `
-          <div class="mt-2 p-3 rounded bg-light border">
-            <div class="fw-semibold small mb-1">
-              <i class="bi bi-chat-left-text me-1"></i> Mensaje de soporte
-            </div>
-            <div class="small text-muted">${comentario ? esc(comentario) : '—'}</div>
-            ${puedeSubsanar ? `
-              <div class="mt-2">
-                <button type="button"
-                        class="btn btn-sm btn-ev-orange"
-                        data-ev-action="subsanar-recarga"
-                        data-id="${esc(r.id)}">
-                  <i class="bi bi-pencil-square me-1"></i> Subsanar recarga
-                </button>
+          <tr>
+            <td colspan="5" class="p-3">
+              <div class="mt-1 p-3 rounded bg-light border">
+                <div class="fw-semibold small mb-1">
+                  <i class="bi bi-chat-left-text me-1"></i> Mensaje de soporte
+                </div>
+                <div class="small text-muted">${comentario ? esc(comentario) : '—'}</div>
+                ${puedeSubsanar ? `
+                  <div class="mt-2">
+                    <button type="button"
+                            class="btn btn-sm btn-ev-orange"
+                            data-ev-action="subsanar-recarga"
+                            data-id="${esc(r.id)}">
+                      <i class="bi bi-pencil-square me-1"></i> Subsanar recarga
+                    </button>
+                  </div>
+                ` : `
+                  <div class="small text-muted mt-1">
+                    Esta recarga ya no puede reenviarse desde esta vista.
+                  </div>
+                `}
               </div>
-            ` : `
-              <div class="small text-muted mt-1">
-                Esta recarga ya no puede reenviarse desde esta vista.
-              </div>
-            `}
-          </div>
+            </td>
+          </tr>
         `
         : '';
 
@@ -515,12 +551,12 @@
           <td><span class="ev-mono small">${esc(r.id_operacion || '—')}</span></td>
           <td class="text-center"><span class="${badgeEstadoRecarga(est)}">${esc(est)}</span></td>
         </tr>
-        ${comentarioHtml ? `<tr><td colspan="5">${comentarioHtml}</td></tr>` : ''}
+        ${comentarioHtml}
       `;
     }).join('');
 
     refs.recargasTable.innerHTML = `
-      <div class="table-responsive">
+      <div class="table-responsive ev-wallet-table-shell">
         <table class="table align-middle">
           <thead>
             <tr>
@@ -763,6 +799,7 @@
     log('Vista Mi Billetera detectada. BASE_URL:', BASE || '(vacía)');
 
     if (refs.saldo) refs.saldo.textContent = formatearMonto(0);
+    actualizarContadores({ movimientos: 0, recargas: 0 });
 
     if (refs.emptyState) refs.emptyState.classList.remove('d-none');
     if (refs.movimientos) {
