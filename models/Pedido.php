@@ -308,15 +308,19 @@ class Pedido extends Conexion
     private function construirDataEstadoSolicitud(array $pedido): array
     {
         $ahoraTs = time();
-        $createdTs = !empty($pedido['created_at']) ? strtotime((string)$pedido['created_at']) : $ahoraTs;
-        $limiteTs  = !empty($pedido['fecha_limite_respuesta']) ? strtotime((string)$pedido['fecha_limite_respuesta']) : null;
+        $limiteTs = !empty($pedido['fecha_limite_respuesta'])
+            ? strtotime((string)$pedido['fecha_limite_respuesta'])
+            : null;
 
-        $segundosTranscurridos = max(0, $ahoraTs - $createdTs);
-        $segundosRestantes = $limiteTs !== null ? max(0, $limiteTs - $ahoraTs) : null;
+        $segundosRestantes = $limiteTs !== null ? max(0, $limiteTs - $ahoraTs) : 0;
+
+        $ventanaCancelacion = self::SEGUNDOS_TIMEOUT - self::SEGUNDOS_CANCELACION;
+        $segundosParaCancelarRestantes = max(0, $segundosRestantes - $ventanaCancelacion);
+
         $puedeCancelar = (
             (string)$pedido['fase'] === 'solicitud'
             && (string)$pedido['estado_actual'] === 'pendiente_vendedor'
-            && $segundosTranscurridos >= self::SEGUNDOS_CANCELACION
+            && $segundosParaCancelarRestantes <= 0
         );
 
         $estadosFinales = [
@@ -329,33 +333,41 @@ class Pedido extends Conexion
         $finalizado = in_array((string)$pedido['estado_actual'], $estadosFinales, true);
 
         $mensajeEstado = match ((string)$pedido['estado_actual']) {
-            'pendiente_vendedor'      => 'Tu solicitud está esperando respuesta del vendedor.',
-            'cancelado_comprador'     => 'Cancelaste la solicitud antes de que fuera atendida.',
-            'sin_respuesta_vendedor'  => 'El vendedor no respondió a tiempo.',
-            default                   => (string)($pedido['motivo_estado'] ?? 'Estado actualizado.')
+            'pendiente_vendedor'     => 'Tu solicitud está esperando respuesta del vendedor.',
+            'cancelado_comprador'    => 'Cancelaste la solicitud antes de que fuera atendida.',
+            'sin_respuesta_vendedor' => 'El vendedor no respondió a tiempo.',
+            default                  => (string)($pedido['motivo_estado'] ?? 'Estado actualizado.')
         };
 
+        $fechaCancelableDesde = null;
+        if ($limiteTs !== null) {
+            $fechaCancelableDesde = date(
+                'Y-m-d H:i:s',
+                $limiteTs - (self::SEGUNDOS_TIMEOUT - self::SEGUNDOS_CANCELACION)
+            );
+        }
+
         return [
-            'codigo_pedido'                  => (int)$pedido['codigo_pedido'],
-            'codigo_producto'                => (int)$pedido['codigo_producto'],
-            'titulo_producto'                => (string)($pedido['titulo_producto'] ?? ''),
-            'fase'                           => (string)$pedido['fase'],
-            'estado_actual'                  => (string)$pedido['estado_actual'],
-            'motivo_estado'                  => (string)($pedido['motivo_estado'] ?? ''),
-            'mensaje_estado'                 => $mensajeEstado,
-            'requiere_preparacion'           => (int)($pedido['requiere_preparacion'] ?? 0),
-            'monto_descontado_billetera'     => (float)($pedido['monto_descontado_billetera'] ?? 0),
-            'descuento_billetera_aplicado'   => (int)($pedido['descuento_billetera_aplicado'] ?? 0),
-            'devolucion_billetera_aplicada'  => (int)($pedido['devolucion_billetera_aplicada'] ?? 0),
-            'fecha_limite_respuesta'         => $pedido['fecha_limite_respuesta'],
-            'fecha_cancelacion'              => $pedido['fecha_cancelacion'],
-            'fecha_cierre'                   => $pedido['fecha_cierre'],
-            'created_at'                     => $pedido['created_at'],
-            'segundos_transcurridos'         => $segundosTranscurridos,
-            'segundos_restantes'             => $segundosRestantes,
-            'puede_cancelar'                 => $puedeCancelar ? 1 : 0,
-            'finalizado'                     => $finalizado ? 1 : 0,
-            'fecha_cancelable_desde'         => date('Y-m-d H:i:s', $createdTs + self::SEGUNDOS_CANCELACION)
+            'codigo_pedido'                    => (int)$pedido['codigo_pedido'],
+            'codigo_producto'                  => (int)$pedido['codigo_producto'],
+            'titulo_producto'                  => (string)($pedido['titulo_producto'] ?? ''),
+            'fase'                             => (string)$pedido['fase'],
+            'estado_actual'                    => (string)$pedido['estado_actual'],
+            'motivo_estado'                    => (string)($pedido['motivo_estado'] ?? ''),
+            'mensaje_estado'                   => $mensajeEstado,
+            'requiere_preparacion'             => (int)($pedido['requiere_preparacion'] ?? 0),
+            'monto_descontado_billetera'       => (float)($pedido['monto_descontado_billetera'] ?? 0),
+            'descuento_billetera_aplicado'     => (int)($pedido['descuento_billetera_aplicado'] ?? 0),
+            'devolucion_billetera_aplicada'    => (int)($pedido['devolucion_billetera_aplicada'] ?? 0),
+            'fecha_limite_respuesta'           => $pedido['fecha_limite_respuesta'],
+            'fecha_cancelacion'                => $pedido['fecha_cancelacion'],
+            'fecha_cierre'                     => $pedido['fecha_cierre'],
+            'created_at'                       => $pedido['created_at'],
+            'segundos_restantes'               => $segundosRestantes,
+            'segundos_para_cancelar_restantes' => $segundosParaCancelarRestantes,
+            'puede_cancelar'                   => $puedeCancelar ? 1 : 0,
+            'finalizado'                       => $finalizado ? 1 : 0,
+            'fecha_cancelable_desde'           => $fechaCancelableDesde
         ];
     }
 
@@ -1030,22 +1042,25 @@ class Pedido extends Conexion
             return [
                 'ok'   => true,
                 'data' => [
-                    'codigo_pedido'                => $codigoPedido,
-                    'codigo_producto'              => $codigoProducto,
-                    'titulo_producto'              => $producto['titulo'],
-                    'cantidad'                     => $cantidad,
-                    'total'                        => $total,
-                    'tipo_entrega'                 => $tipoEntrega,
-                    'fecha_hora_programada'        => $fechaProgramadaMySql,
-                    'fecha_limite_respuesta'       => $fechaLimite,
-                    'fecha_cancelable_desde'       => $fechaCancelableDesde,
-                    'estado_actual'                => $estadoActual,
-                    'fase'                         => $fase,
-                    'requiere_preparacion'         => $requierePrep,
-                    'descuento_billetera_aplicado' => $requierePrep === 1 ? 1 : 0,
-                    'monto_descontado_billetera'   => $requierePrep === 1 ? $total : 0.00,
-                    'segundos_para_cancelar'       => self::SEGUNDOS_CANCELACION,
-                    'segundos_timeout'             => self::SEGUNDOS_TIMEOUT
+                    'codigo_pedido'                         => $codigoPedido,
+                    'codigo_producto'                       => $codigoProducto,
+                    'titulo_producto'                       => $producto['titulo'],
+                    'cantidad'                              => $cantidad,
+                    'total'                                 => $total,
+                    'tipo_entrega'                          => $tipoEntrega,
+                    'fecha_hora_programada'                 => $fechaProgramadaMySql,
+                    'fecha_limite_respuesta'                => $fechaLimite,
+                    'fecha_cancelable_desde'                => $fechaCancelableDesde,
+                    'estado_actual'                         => $estadoActual,
+                    'fase'                                  => $fase,
+                    'requiere_preparacion'                  => $requierePrep,
+                    'descuento_billetera_aplicado'          => $requierePrep === 1 ? 1 : 0,
+                    'monto_descontado_billetera'            => $requierePrep === 1 ? $total : 0.00,
+                    'segundos_restantes'                    => self::SEGUNDOS_TIMEOUT,
+                    'segundos_para_cancelar'                => self::SEGUNDOS_CANCELACION,
+                    'segundos_para_cancelar_restantes'      => self::SEGUNDOS_CANCELACION,
+                    'puede_cancelar'                        => 0,
+                    'finalizado'                            => 0
                 ]
             ];
         } catch (Throwable $e) {
@@ -1115,7 +1130,7 @@ class Pedido extends Conexion
 
             if ((string)$pedido['estado_actual'] !== 'pendiente_vendedor' || (string)$pedido['fase'] !== 'solicitud') {
                 if ($this->dblink->inTransaction()) {
-                    $this->dblink->rollBack();
+                    $this->dblink->commit();
                 }
 
                 return [
@@ -1126,12 +1141,17 @@ class Pedido extends Conexion
                 ];
             }
 
-            $createdTs = !empty($pedido['created_at']) ? strtotime((string)$pedido['created_at']) : time();
-            $segundosTranscurridos = max(0, time() - $createdTs);
+            $limiteTs = !empty($pedido['fecha_limite_respuesta'])
+                ? strtotime((string)$pedido['fecha_limite_respuesta'])
+                : null;
 
-            if ($segundosTranscurridos < self::SEGUNDOS_CANCELACION) {
-                if ($this->dblink->rollBack()) {
-                    // noop
+            $segundosRestantes = $limiteTs !== null ? max(0, $limiteTs - time()) : 0;
+            $ventanaCancelacion = self::SEGUNDOS_TIMEOUT - self::SEGUNDOS_CANCELACION;
+            $segundosParaCancelarRestantes = max(0, $segundosRestantes - $ventanaCancelacion);
+
+            if ($segundosParaCancelarRestantes > 0) {
+                if ($this->dblink->inTransaction()) {
+                    $this->dblink->rollBack();
                 }
 
                 return [

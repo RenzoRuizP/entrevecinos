@@ -311,7 +311,6 @@
 }
 
 /* Barra superior de disponibilidad */
-
 .ev-mp-card-top-status{
   display:flex;
   align-items:center;
@@ -611,6 +610,136 @@
   box-shadow:0 10px 24px rgba(217,119,6,0.45);
 }
 
+/* ==========================================================
+   SWEETALERT EV - MARKETPLACE
+========================================================== */
+.ev-mp-swal-popup{
+  border-radius:22px !important;
+  padding:24px 22px 20px !important;
+  box-shadow:0 24px 60px rgba(15,23,42,.22) !important;
+  border:1px solid rgba(229,231,235,.96) !important;
+}
+
+.ev-mp-swal-title{
+  color:var(--ev-verde-oscuro) !important;
+  font-weight:800 !important;
+  letter-spacing:-.02em !important;
+  font-size:2rem !important;
+  line-height:1.1 !important;
+}
+
+.ev-mp-swal-html{
+  color:var(--ev-texto-suave) !important;
+  font-size:1rem !important;
+  line-height:1.55 !important;
+}
+
+.ev-mp-swal-confirm{
+  background:linear-gradient(135deg, #EA7C12, #F59E0B) !important;
+  border:none !important;
+  color:#fff !important;
+  border-radius:12px !important;
+  padding:12px 22px !important;
+  min-width:148px !important;
+  font-weight:800 !important;
+  box-shadow:0 12px 28px rgba(234,124,18,.35) !important;
+}
+
+.ev-mp-swal-confirm:hover{
+  filter:brightness(1.03) !important;
+  box-shadow:0 16px 34px rgba(234,124,18,.42) !important;
+}
+
+.ev-mp-swal-cancel{
+  background:#fff !important;
+  border:1px solid #EF4444 !important;
+  color:#EF4444 !important;
+  border-radius:12px !important;
+  padding:12px 22px !important;
+  min-width:148px !important;
+  font-weight:800 !important;
+  box-shadow:none !important;
+}
+
+.ev-mp-swal-cancel:hover{
+  background:#FEF2F2 !important;
+}
+
+.ev-mp-swal-loader{
+  width:58px;
+  height:58px;
+  border-radius:50%;
+  border:5px solid rgba(22,163,74,.18);
+  border-top-color:rgba(15,89,47,.96);
+  margin:4px auto 16px auto;
+  animation:evMpSpin .85s linear infinite;
+}
+
+@keyframes evMpSpin{
+  to{ transform:rotate(360deg); }
+}
+
+.ev-mp-swal-timer-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  padding:12px 16px;
+  border-radius:999px;
+  background:#E6F4EC;
+  color:#0F592F;
+  font-weight:800;
+  font-size:14px;
+}
+
+.ev-mp-swal-note{
+  margin-top:12px;
+  padding:12px 14px;
+  border-radius:14px;
+  background:#FFF7ED;
+  border:1px solid rgba(234,124,18,.18);
+  color:#9A3412;
+  font-size:13px;
+  line-height:1.45;
+}
+
+.ev-mp-swal-subtitle{
+  font-weight:800;
+  font-size:16px;
+  color:#0F592F;
+  margin-bottom:8px;
+}
+
+.ev-mp-swal-soft-text{
+  font-size:13px;
+  color:#6B7280;
+  line-height:1.5;
+}
+
+.ev-mp-swal-product{
+  margin-top:14px;
+  font-size:13px;
+  color:#6B7280;
+}
+
+.ev-mp-swal-product strong{
+  color:#1A1F36;
+}
+
+.ev-mp-swal-cancel-hint{
+  margin-top:10px;
+  font-size:12px;
+  color:#6B7280;
+}
+
+.ev-mp-swal-danger{
+  color:#B91C1C !important;
+}
+
+.ev-mp-swal-success{
+  color:#0F592F !important;
+}
+
 @media(max-width:575.98px){
   .ev-mp-modal-body{ padding:14px; }
   .ev-mp-preview-card{ border-radius:16px; }
@@ -622,6 +751,21 @@
     min-height:32px;
     padding:7px 10px;
     font-size:12px;
+  }
+
+  .ev-mp-swal-popup{
+    padding:20px 16px 18px !important;
+    border-radius:18px !important;
+  }
+
+  .ev-mp-swal-title{
+    font-size:1.7rem !important;
+  }
+
+  .ev-mp-swal-confirm,
+  .ev-mp-swal-cancel{
+    width:100% !important;
+    min-width:0 !important;
   }
 }
 
