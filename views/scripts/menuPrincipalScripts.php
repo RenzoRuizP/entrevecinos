@@ -23,7 +23,6 @@ $evVer = defined('EV_APP_VER') ? (string)EV_APP_VER : (string)time();
 <script src="<?= $baseUrl ?>/views/js/menuArriba.js?v=<?= $evVer ?>"></script>
 <script src="<?= $baseUrl ?>/views/js/menuPrincipal.js?v=<?= $evVer ?>"></script>
 
-<!-- Global porque lo usan soporte y admin -->
 <script src="<?= $baseUrl ?>/views/js/atenderCuentasUsuario.js?v=<?= $evVer ?>"></script>
 
 <?php if ($rolUsuario === 'soporte' || $rolUsuario === 'admin'): ?>

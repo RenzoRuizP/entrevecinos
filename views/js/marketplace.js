@@ -195,10 +195,19 @@
   function swalBaseConfig(opts = {}) {
     return Object.assign({
       buttonsStyling: false,
-      allowOutsideClick: false,
+      allowOutsideClick: () => {
+        const popup = window.Swal?.getPopup ? Swal.getPopup() : null;
+        if (popup) {
+          popup.classList.remove('ev-mp-swal-bounce');
+          void popup.offsetWidth;
+          popup.classList.add('ev-mp-swal-bounce');
+        }
+        return false;
+      },
       allowEscapeKey: false,
       customClass: {
-        popup: 'ev-mp-swal-popup',
+        container: 'ev-mp-swal-container',
+        popup: 'ev-mp-swal-popup ev-mp-swal-actions-gap',
         title: 'ev-mp-swal-title',
         htmlContainer: 'ev-mp-swal-html',
         confirmButton: 'ev-mp-swal-confirm',
@@ -537,57 +546,71 @@ function tickSeguimientoSolicitud() {
   });
 }
 
-    function htmlSeguimientoSolicitud(opts = {}) {
-      const {
-        tituloProducto = 'tu solicitud',
-        estadoTexto = 'Esperando ser atendido...',
-        detalle = 'El vendedor aún no responde.',
-        segundosRestantes = 0,
-        requierePreparacion = false,
-        montoDescontado = 0
-      } = opts;
+  function htmlSeguimientoSolicitud(opts = {}) {
+    const {
+      tituloProducto = 'tu solicitud',
+      estadoTexto = 'Esperando ser atendido...',
+      detalle = 'El vendedor aún no responde.',
+      segundosRestantes = 0,
+      requierePreparacion = false,
+      montoDescontado = 0,
+      variant = 'success'
+    } = opts;
 
-      const notaBilletera = requierePreparacion && Number(montoDescontado || 0) > 0
-        ? `
-          <div class="ev-mp-swal-note">
-            Se reservó <strong>${formatPrecio(montoDescontado)}</strong> de tu billetera por tratarse de un producto con preparación.
-            Si la solicitud no continúa, el saldo se devolverá automáticamente.
-          </div>
-        `
-        : '';
-
-      return `
-        <div class="ev-mp-swal-seguimiento-wrap" style="text-align:center;">
-          <div class="ev-mp-swal-status-icon" aria-hidden="true">
-            <i class="bi bi-check-lg"></i>
-          </div>
-
-          <div class="ev-mp-swal-subtitle">${escapeHtml(estadoTexto)}</div>
-
-          <div class="ev-mp-swal-soft-text">
-            ${escapeHtml(detalle)}
-          </div>
-
-          <div class="ev-mp-swal-timer-wrap">
-            <div class="ev-mp-swal-timer-pill">
-              <i class="bi bi-clock-history"></i>
-              <span id="ev_sp_timer_text">Tiempo restante: ${formatDuracionSegundos(segundosRestantes)}</span>
-            </div>
-          </div>
-
-          <div class="ev-mp-swal-product-card">
-            <span class="ev-mp-swal-product-label">Solicitud de pedido</span>
-            <div class="ev-mp-swal-product">${escapeHtml(tituloProducto)}</div>
-          </div>
-
-          <div id="ev_sp_cancel_hint" class="ev-mp-swal-cancel-hint"></div>
-
-          ${notaBilletera}
-
-          <div class="ev-mp-swal-divider"></div>
+    const iconHtml = variant === 'info'
+      ? `
+        <div class="ev-mp-swal-status-icon ev-mp-swal-status-icon--info" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none">
+            <circle cx="32" cy="32" r="30" fill="none"></circle>
+            <path d="M32 18.5C34.5 18.5 36.3 20.2 36.3 22.6C36.3 25 34.5 26.8 32 26.8C29.5 26.8 27.7 25 27.7 22.6C27.7 20.2 29.5 18.5 32 18.5Z" fill="#38BDF8"/>
+            <path d="M32 31.5V45.5" stroke="#38BDF8" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+        </div>
+      `
+      : `
+        <div class="ev-mp-swal-status-icon ev-mp-swal-status-icon--success" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none">
+            <path d="M18 33.5L27.5 43L46 23.5" stroke="#84CC16" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </div>
       `;
-    }
+
+    const notaBilletera = requierePreparacion && Number(montoDescontado || 0) > 0
+      ? `
+        <div class="ev-mp-swal-note">
+          Se reservó <strong>${formatPrecio(montoDescontado)}</strong> de tu billetera por tratarse de un producto con preparación.
+          Si la solicitud no continúa, el saldo se devolverá automáticamente.
+        </div>
+      `
+      : '';
+
+    return `
+      <div style="text-align:center;">
+        ${iconHtml}
+
+        <div class="ev-mp-swal-subtitle">${escapeHtml(estadoTexto)}</div>
+
+        <div class="ev-mp-swal-soft-text">
+          ${escapeHtml(detalle)}
+        </div>
+
+        <div class="ev-mp-swal-timer-wrap">
+          <div class="ev-mp-swal-timer-pill">
+            <i class="bi bi-clock-history"></i>
+            <span id="ev_sp_timer_text">Tiempo restante: ${formatDuracionSegundos(segundosRestantes)}</span>
+          </div>
+        </div>
+
+        <div class="ev-mp-swal-product">
+          Solicitud de: <strong>${escapeHtml(tituloProducto)}</strong>
+        </div>
+
+        <div id="ev_sp_cancel_hint" class="ev-mp-swal-cancel-hint"></div>
+
+        ${notaBilletera}
+      </div>
+    `;
+  }
 
   async function consultarEstadoSolicitud(codigoPedido) {
     const { resp, json, text } = await fetchJsonRobusto(`${BASE}/api/pedidos/${encodeURIComponent(codigoPedido)}/estado`, {
@@ -754,7 +777,21 @@ function tickSeguimientoSolicitud() {
         ? `El vendedor no respondió dentro del tiempo esperado. Se devolvió ${formatPrecio(montoDebitado)} a tu billetera.`
         : 'El vendedor no respondió dentro del tiempo esperado.';
 
-      await notify('info', 'Solicitud sin respuesta', texto, { confirmButtonText: 'Entendido' });
+      await Swal.fire(swalBaseConfig({
+        title: 'Solicitud sin respuesta',
+        html: htmlSeguimientoSolicitud({
+          tituloProducto: String(data?.titulo_producto || 'tu solicitud'),
+          estadoTexto: 'El vendedor no respondió a tiempo',
+          detalle: texto,
+          segundosRestantes: 0,
+          requierePreparacion: false,
+          montoDescontado: 0,
+          variant: 'info'
+        }),
+        showConfirmButton: true,
+        confirmButtonText: 'Entendido',
+        showCancelButton: false
+      }));
       return;
     }
   }
@@ -797,13 +834,14 @@ function tickSeguimientoSolicitud() {
         icon: undefined,
         title: 'Solicitud enviada',
         html: htmlSeguimientoSolicitud({
-          tituloProducto,
-          estadoTexto: 'Esperando ser atendido...',
-          detalle: 'Tu solicitud fue registrada correctamente. Estamos esperando la respuesta del vendedor.',
-          segundosRestantes: solicitudFlow.segundosRestantes,
-          requierePreparacion,
-          montoDescontado
-        }),
+        tituloProducto,
+        estadoTexto: 'Esperando ser atendido...',
+        detalle: 'Tu solicitud fue registrada correctamente. Estamos esperando la respuesta del vendedor.',
+        segundosRestantes: solicitudFlow.segundosRestantes,
+        requierePreparacion,
+        montoDescontado,
+        variant: 'success'
+      }),
         showConfirmButton: false,
         showCancelButton: false,
         allowOutsideClick: () => {
