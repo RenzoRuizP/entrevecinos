@@ -90,6 +90,29 @@ require_once __DIR__ . '/../Config/config.php';
         </div>
       </div>
 
+      <div class="ev-wallet-section ev-wallet-section-recargas">
+        <div class="ev-wallet-section-head ev-wallet-section-head-recargas">
+          <div>
+            <h3 class="ev-wallet-section-title">
+              <i class="bi bi-receipt-cutoff me-2"></i> Mis recargas
+            </h3>
+            <p class="ev-wallet-section-subtitle mb-0">
+              Consulta el estado de tus recargas y revisa cualquier observación enviada por soporte.
+            </p>
+          </div>
+
+          <button type="button" class="btn btn-sm btn-ev-outline" id="btnRefrescarRecargas">
+            <i class="bi bi-arrow-clockwise me-1"></i> Refrescar
+          </button>
+        </div>
+
+        <div id="ev_recargas_empty" class="text-center text-muted small py-3">
+          Aún no registras recargas.
+        </div>
+
+        <div id="ev_recargas_table" class="d-none"></div>
+      </div>
+
       <div class="ev-wallet-section">
         <div class="ev-wallet-section-head">
           <div>
@@ -113,29 +136,6 @@ require_once __DIR__ . '/../Config/config.php';
         </div>
 
         <div id="ev_wallet_movimientos" class="ev-wallet-movimientos d-none"></div>
-      </div>
-
-      <div class="ev-wallet-section ev-wallet-section-recargas">
-        <div class="ev-wallet-section-head ev-wallet-section-head-recargas">
-          <div>
-            <h3 class="ev-wallet-section-title">
-              <i class="bi bi-receipt-cutoff me-2"></i> Mis recargas
-            </h3>
-            <p class="ev-wallet-section-subtitle mb-0">
-              Consulta el estado de tus recargas y revisa cualquier observación enviada por soporte.
-            </p>
-          </div>
-
-          <button type="button" class="btn btn-sm btn-ev-outline" id="btnRefrescarRecargas">
-            <i class="bi bi-arrow-clockwise me-1"></i> Refrescar
-          </button>
-        </div>
-
-        <div id="ev_recargas_empty" class="text-center text-muted small py-3">
-          Aún no registras recargas.
-        </div>
-
-        <div id="ev_recargas_table" class="d-none"></div>
       </div>
 
     </div>

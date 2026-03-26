@@ -7,6 +7,106 @@
 
   const params = new URLSearchParams(window.location.search);
 
+  function aplicarSweetAlertGlobalFix() {
+    if (!window.Swal || typeof window.Swal.fire !== 'function') return;
+    if (window.__EV_SWAL_GLOBAL_FIX__ === true) return;
+
+    window.__EV_SWAL_GLOBAL_FIX__ = true;
+
+    const fireOriginal = window.Swal.fire.bind(window.Swal);
+
+    function aplicarRebotePopup() {
+      const popup = window.Swal.getPopup ? window.Swal.getPopup() : null;
+      if (!popup) return;
+
+      popup.classList.remove('ev-swal-bounce-premium');
+      void popup.offsetWidth;
+      popup.classList.add('ev-swal-bounce-premium');
+
+      window.setTimeout(() => {
+        popup.classList.remove('ev-swal-bounce-premium');
+      }, 520);
+    }
+
+    window.Swal.fire = function (opts) {
+      const config = (opts && typeof opts === 'object') ? { ...opts } : opts;
+
+      if (config && typeof config === 'object') {
+        const userAllowOutsideClick = config.allowOutsideClick;
+        const userDidOpen = config.didOpen;
+
+        config.allowOutsideClick = () => {
+          aplicarRebotePopup();
+
+          if (typeof userAllowOutsideClick === 'function') {
+            try {
+              return !!userAllowOutsideClick();
+            } catch (_) {
+              return false;
+            }
+          }
+
+          if (typeof userAllowOutsideClick === 'boolean') {
+            return userAllowOutsideClick;
+          }
+
+          return false;
+        };
+
+        config.didOpen = (popup) => {
+          if (popup) {
+            popup.classList.add('ev-swal-ev-theme');
+          }
+
+          if (typeof userDidOpen === 'function') {
+            userDidOpen(popup);
+          }
+        };
+      }
+
+      return fireOriginal(config);
+    };
+  }
+
+  function inyectarEstilosSweetAlertGlobales() {
+    if (document.getElementById('ev-swal-global-fix-style')) return;
+
+    const style = document.createElement('style');
+    style.id = 'ev-swal-global-fix-style';
+    style.textContent = `
+      .swal2-popup.ev-swal-bounce-premium{
+        transform-origin:center center;
+        animation: evSwalBouncePremium .48s cubic-bezier(.22,.9,.3,1);
+        will-change: transform, box-shadow;
+      }
+
+      @keyframes evSwalBouncePremium{
+        0%{
+          transform: translate3d(0,0,0) scale(1);
+        }
+        18%{
+          transform: translate3d(-10px,0,0) scale(1.008);
+        }
+        34%{
+          transform: translate3d(9px,0,0) scale(1.01);
+        }
+        50%{
+          transform: translate3d(-6px,0,0) scale(1.006);
+        }
+        66%{
+          transform: translate3d(5px,0,0) scale(1.003);
+        }
+        82%{
+          transform: translate3d(-2px,0,0) scale(1.001);
+        }
+        100%{
+          transform: translate3d(0,0,0) scale(1);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   async function mostrarLoginExitosoSiAplica() {
     if (!params.has('success')) return;
 
@@ -56,6 +156,8 @@
   }
 
   async function initShell() {
+    inyectarEstilosSweetAlertGlobales();
+    aplicarSweetAlertGlobalFix();
     initOverlayScrollbars();
     await mostrarLoginExitosoSiAplica();
     await restaurarSolicitudActivaGlobal();
