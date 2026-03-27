@@ -43,4 +43,6 @@ $evVer = defined('EV_APP_VER') ? (string)EV_APP_VER : (string)time();
   <script src="<?= $baseUrl ?>/views/js/credenciales.js?v=<?= $evVer ?>"></script>
   <script src="<?= $baseUrl ?>/views/js/recibirPedidos.js?v=<?= $evVer ?>"></script>
   <script src="<?= $baseUrl ?>/views/js/pedidosEntrantes.js?v=<?= $evVer ?>"></script>
+  <script src="<?= $baseUrl ?>/views/js/misPedidosComprador.js?v=<?= $evVer ?>"></script>
+  <script src="<?= $baseUrl ?>/views/js/misPedidosVendedor.js?v=<?= $evVer ?>"></script>
 <?php endif; ?>

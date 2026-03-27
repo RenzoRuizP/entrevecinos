@@ -372,7 +372,6 @@ safeRequire(__DIR__ . '/models/Conexion.php');
 if (!defined('EV_ADMIN_ROLE_ID')) {
     define('EV_ADMIN_ROLE_ID', 1);
 }
-// ✅ IMPORTANTE: define soporte si no existe (tu router abajo lo usa)
 if (!defined('EV_SOPORTE_ROLE_ID')) {
     define('EV_SOPORTE_ROLE_ID', 3);
 }
@@ -415,6 +414,9 @@ safeRequire(__DIR__ . '/controllers/api/apiSoporteDashboardController.php');
 safeRequire(__DIR__ . '/models/SoporteDashboard.php');
 
 safeRequire(__DIR__ . '/controllers/api/apiDisponibilidadPedidosController.php');
+
+safeRequire(__DIR__ . '/controllers/misPedidosCompradorController.php');
+safeRequire(__DIR__ . '/controllers/misPedidosVendedorController.php');
 
 // ------------------------------
 // 2) Normalización BASE_URL / basePath
@@ -495,11 +497,17 @@ $routes = [
     ['GET', '#^/marketplace$#',      [marketplaceController::class, 'index'],     'html'],
     ['GET', '#^/billetera$#',        [billeteraController::class, 'index'],       'html'],
     ['GET', '#^/credencial$#',       [credencialController::class, 'index'],      'html'],
+
+    // ✅ Mantener ruta actual por compatibilidad. Internamente será "Mis pedidos".
     ['GET', '#^/recibir$#',          [recibirPedidosController::class, 'index'],  'html'],
+
     ['GET', '#^/atender-recargas$#', [atenderRecargasController::class, 'index'], 'html'],
     ['GET', '#^/atender-publicacion$#', [atenderPublicacionController::class, 'index'], 'html'],
     ['GET', '#^/atender-cuentas$#',  [atenderCuentasUsuarioController::class, 'index'], 'html'],
     ['GET', '#^/atender-cuentas-usuario$#', [atenderCuentasUsuarioController::class, 'index'], 'html'],
+
+    ['GET', '#^/mis-pedidos-comprador$#', [misPedidosCompradorController::class, 'index'], 'html'],
+    ['GET', '#^/mis-pedidos-vendedor$#',  [misPedidosVendedorController::class, 'index'],  'html'],
 
     ['GET',  '#^/api/usuario/datos$#',       [usuarioDatosController::class, 'obtenerDatos'],     'json'],
     ['POST', '#^/api/usuario/actualizar$#',  [usuarioDatosController::class, 'actualizarDatos'],  'json'],
@@ -524,11 +532,22 @@ $routes = [
     ['POST', '#^/api/billetera/debitar-publicacion$#', [apiBilleteraController::class, 'debitarPublicacion'],  'json'],
     ['POST', '#^/api/billetera/debitar-producto-destacado$#', [apiBilleteraController::class, 'debitarProductoDestacado'], 'json'],
 
+    // ===========================
+    // PEDIDOS - COMPRADOR
+    // ===========================
     ['GET',  '#^/api/pedidos/recibir$#',    [apiPedidoController::class, 'listarPedidos'],   'json'],
     ['POST', '#^/api/pedidos/registrar$#',  [apiPedidoController::class, 'registrarPedido'],  'json'],
     ['GET',  '#^/api/pedidos/solicitud-activa$#', [apiPedidoController::class, 'obtenerSolicitudActiva'], 'json'],
     ['GET',  '#^/api/pedidos/(\d+)/estado$#',    [apiPedidoController::class, 'obtenerEstadoSolicitud'], 'json'],
     ['POST', '#^/api/pedidos/(\d+)/cancelar$#',  [apiPedidoController::class, 'cancelarSolicitud'], 'json'],
+
+    // ===========================
+    // PEDIDOS - VENDEDOR (MIS PEDIDOS)
+    // ===========================
+    ['GET',  '#^/api/pedidos/mis$#',                [apiPedidoController::class, 'listarMisPedidos'], 'json'],
+    ['POST', '#^/api/pedidos/(\d+)/aceptar$#',      [apiPedidoController::class, 'aceptarSolicitud'], 'json'],
+    ['POST', '#^/api/pedidos/(\d+)/rechazar$#',     [apiPedidoController::class, 'rechazarSolicitud'], 'json'],
+    ['POST', '#^/api/pedidos/(\d+)/estado$#',       [apiPedidoController::class, 'actualizarEstadoPedido'], 'json'],
 
     ['GET',  '#^/api/soporte/recargas$#',              [apiSoporteRecargasController::class, 'listar'],           'json'],
     ['POST', '#^/api/soporte/recargas/(\d+)/estado$#', [apiSoporteRecargasController::class, 'actualizarEstado'], 'json'],
@@ -567,6 +586,10 @@ $routes = [
 
     ['GET',  '#^/api/usuario/disponibilidad-pedidos$#', [apiDisponibilidadPedidosController::class, 'obtenerEstado'], 'json'],
     ['POST', '#^/api/usuario/disponibilidad-pedidos$#', [apiDisponibilidadPedidosController::class, 'actualizarEstado'], 'json'],
+
+    ['GET',  '#^/api/pedidos/mis-comprador$#',          [apiPedidoController::class, 'listarMisPedidosComprador'], 'json'],
+    ['POST', '#^/api/pedidos/(\d+)/confirmar-entrega$#', [apiPedidoController::class, 'confirmarEntrega'], 'json'],
+
 ];
 
 // ============================================================

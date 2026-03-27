@@ -40,6 +40,9 @@ class apiPedidoController
         return is_array($json) ? $json : [];
     }
 
+    // =========================================================
+    // COMPRADOR
+    // =========================================================
     public function registrarPedido(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -330,7 +333,6 @@ class apiPedidoController
         }
     }
 
-    
     public function obtenerSolicitudActiva(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
@@ -376,4 +378,390 @@ class apiPedidoController
         }
     }
 
+    // =========================================================
+    // VENDEDOR - MIS PEDIDOS
+    // =========================================================
+    public function listarMisPedidos(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            $this->json(405, [
+                'ok'      => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuarioVendedor = $this->obtenerUsuarioAuth();
+
+            $model = new Pedido();
+            $resultado = $model->listarMisPedidosVendedor($codigoUsuarioVendedor);
+
+            if (!$resultado['ok']) {
+                $this->json(500, [
+                    'ok'      => false,
+                    'error'   => (string)($resultado['error'] ?? 'ERROR_LISTAR_MIS_PEDIDOS'),
+                    'mensaje' => (string)($resultado['mensaje'] ?? 'No se pudo obtener la lista de pedidos.')
+                ]);
+                return;
+            }
+
+            $baseUrl = rtrim(BASE_URL, '/');
+            foreach (['pendientes', 'en_proceso', 'finalizados'] as $grupo) {
+                if (!isset($resultado['data'][$grupo]) || !is_array($resultado['data'][$grupo])) {
+                    continue;
+                }
+
+                foreach ($resultado['data'][$grupo] as &$item) {
+                    $ruta = trim((string)($item['imagen_portada'] ?? ''));
+                    $item['imagen_portada_url'] = $ruta !== ''
+                        ? $baseUrl . '/' . ltrim($ruta, '/')
+                        : '';
+                }
+                unset($item);
+            }
+
+            $this->json(200, [
+                'ok'   => true,
+                'data' => $resultado['data']
+            ]);
+            return;
+
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][listarMisPedidos] ' . $e->getMessage());
+
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'No se pudo obtener el módulo Mis pedidos.'
+            ]);
+            return;
+        }
+    }
+
+    public function aceptarSolicitud($codigoPedido): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(405, [
+                'ok'      => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuarioVendedor = $this->obtenerUsuarioAuth();
+            $codigoPedido = (int)$codigoPedido;
+
+            if ($codigoPedido <= 0) {
+                $this->json(400, [
+                    'ok'      => false,
+                    'mensaje' => 'Código de pedido inválido.'
+                ]);
+                return;
+            }
+
+            $model = new Pedido();
+            $resultado = $model->aceptarSolicitudPorVendedor($codigoPedido, $codigoUsuarioVendedor);
+
+            if (!$resultado['ok']) {
+                $error = (string)($resultado['error'] ?? 'ERROR_ACEPTAR_SOLICITUD');
+                $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo aceptar la solicitud.');
+
+                $status = match ($error) {
+                    'PEDIDO_NO_ENCONTRADO'        => 404,
+                    'PEDIDO_NO_PERTENECE_VENDEDOR',
+                    'ESTADO_NO_ACEPTABLE'         => 409,
+                    default                       => 500
+                };
+
+                $this->json($status, [
+                    'ok'      => false,
+                    'error'   => $error,
+                    'mensaje' => $mensaje
+                ]);
+                return;
+            }
+
+            $this->json(200, [
+                'ok'      => true,
+                'mensaje' => 'Solicitud aceptada correctamente.',
+                'data'    => $resultado['data'] ?? null
+            ]);
+            return;
+
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][aceptarSolicitud] ' . $e->getMessage());
+
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'Ocurrió un error al aceptar la solicitud.'
+            ]);
+            return;
+        }
+    }
+
+    public function rechazarSolicitud($codigoPedido): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(405, [
+                'ok'      => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuarioVendedor = $this->obtenerUsuarioAuth();
+            $codigoPedido = (int)$codigoPedido;
+            $input = $this->leerInput();
+
+            if ($codigoPedido <= 0) {
+                $this->json(400, [
+                    'ok'      => false,
+                    'mensaje' => 'Código de pedido inválido.'
+                ]);
+                return;
+            }
+
+            $motivo = trim((string)($input['motivo'] ?? $input['motivo_rechazo'] ?? ''));
+            if ($motivo === '') {
+                $this->json(400, [
+                    'ok'      => false,
+                    'error'   => 'MOTIVO_REQUERIDO',
+                    'mensaje' => 'Debes indicar el motivo de rechazo.'
+                ]);
+                return;
+            }
+
+            $model = new Pedido();
+            $resultado = $model->rechazarSolicitudPorVendedor($codigoPedido, $codigoUsuarioVendedor, $motivo);
+
+            if (!$resultado['ok']) {
+                $error = (string)($resultado['error'] ?? 'ERROR_RECHAZAR_SOLICITUD');
+                $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo rechazar la solicitud.');
+
+                $status = match ($error) {
+                    'PEDIDO_NO_ENCONTRADO'         => 404,
+                    'PEDIDO_NO_PERTENECE_VENDEDOR',
+                    'ESTADO_NO_RECHAZABLE'         => 409,
+                    default                        => 500
+                };
+
+                $this->json($status, [
+                    'ok'      => false,
+                    'error'   => $error,
+                    'mensaje' => $mensaje
+                ]);
+                return;
+            }
+
+            $this->json(200, [
+                'ok'      => true,
+                'mensaje' => 'Solicitud rechazada correctamente.',
+                'data'    => $resultado['data'] ?? null
+            ]);
+            return;
+
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][rechazarSolicitud] ' . $e->getMessage());
+
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'Ocurrió un error al rechazar la solicitud.'
+            ]);
+            return;
+        }
+    }
+
+    public function actualizarEstadoPedido($codigoPedido): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(405, [
+                'ok'      => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuarioVendedor = $this->obtenerUsuarioAuth();
+            $codigoPedido = (int)$codigoPedido;
+            $input = $this->leerInput();
+
+            if ($codigoPedido <= 0) {
+                $this->json(400, [
+                    'ok'      => false,
+                    'mensaje' => 'Código de pedido inválido.'
+                ]);
+                return;
+            }
+
+            $nuevoEstado = trim((string)($input['nuevo_estado'] ?? $input['estado'] ?? ''));
+            if ($nuevoEstado === '') {
+                $this->json(400, [
+                    'ok'      => false,
+                    'error'   => 'ESTADO_REQUERIDO',
+                    'mensaje' => 'Debes indicar el nuevo estado.'
+                ]);
+                return;
+            }
+
+            $model = new Pedido();
+            $resultado = $model->actualizarEstadoPedidoPorVendedor($codigoPedido, $codigoUsuarioVendedor, $nuevoEstado);
+
+            if (!$resultado['ok']) {
+                $error = (string)($resultado['error'] ?? 'ERROR_ACTUALIZAR_ESTADO_PEDIDO');
+                $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo actualizar el estado del pedido.');
+
+                $status = match ($error) {
+                    'PEDIDO_NO_ENCONTRADO'          => 404,
+                    'PEDIDO_NO_PERTENECE_VENDEDOR',
+                    'ESTADO_NO_ACTUALIZABLE',
+                    'TRANSICION_INVALIDA'           => 409,
+                    default                         => 500
+                };
+
+                $this->json($status, [
+                    'ok'      => false,
+                    'error'   => $error,
+                    'mensaje' => $mensaje
+                ]);
+                return;
+            }
+
+            $this->json(200, [
+                'ok'      => true,
+                'mensaje' => 'Estado del pedido actualizado correctamente.',
+                'data'    => $resultado['data'] ?? null
+            ]);
+            return;
+
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][actualizarEstadoPedido] ' . $e->getMessage());
+
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'Ocurrió un error al actualizar el estado del pedido.'
+            ]);
+            return;
+        }
+    }
+
+    public function listarMisPedidosComprador(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            $this->json(405, [
+                'ok'      => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuarioComprador = $this->obtenerUsuarioAuth();
+
+            $model = new Pedido();
+            $resultado = $model->listarMisPedidosComprador($codigoUsuarioComprador);
+
+            if (!$resultado['ok']) {
+                $this->json(500, [
+                    'ok'      => false,
+                    'error'   => (string)($resultado['error'] ?? 'ERROR_LISTAR_MIS_PEDIDOS_COMPRADOR'),
+                    'mensaje' => (string)($resultado['mensaje'] ?? 'No se pudo obtener la lista de pedidos del comprador.')
+                ]);
+                return;
+            }
+
+            $baseUrl = rtrim(BASE_URL, '/');
+            foreach (['pendientes', 'en_proceso', 'finalizados'] as $grupo) {
+                if (!isset($resultado['data'][$grupo]) || !is_array($resultado['data'][$grupo])) {
+                    continue;
+                }
+
+                foreach ($resultado['data'][$grupo] as &$item) {
+                    $ruta = trim((string)($item['imagen_portada'] ?? ''));
+                    $item['imagen_portada_url'] = $ruta !== ''
+                        ? $baseUrl . '/' . ltrim($ruta, '/')
+                        : '';
+                }
+                unset($item);
+            }
+
+            $this->json(200, [
+                'ok'   => true,
+                'data' => $resultado['data']
+            ]);
+            return;
+
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][listarMisPedidosComprador] ' . $e->getMessage());
+
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'No se pudo obtener el módulo Mis pedidos del comprador.'
+            ]);
+            return;
+        }
+    }
+
+    public function confirmarEntrega($codigoPedido): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(405, [
+                'ok'      => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuarioComprador = $this->obtenerUsuarioAuth();
+            $codigoPedido = (int)$codigoPedido;
+
+            if ($codigoPedido <= 0) {
+                $this->json(400, [
+                    'ok'      => false,
+                    'mensaje' => 'Código de pedido inválido.'
+                ]);
+                return;
+            }
+
+            $model = new Pedido();
+            $resultado = $model->confirmarEntregaPorComprador($codigoPedido, $codigoUsuarioComprador);
+
+            if (!$resultado['ok']) {
+                $error = (string)($resultado['error'] ?? 'ERROR_CONFIRMAR_ENTREGA');
+                $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo confirmar la entrega.');
+
+                $status = match ($error) {
+                    'PEDIDO_NO_ENCONTRADO' => 404,
+                    'ESTADO_NO_CONFIRMABLE' => 409,
+                    default => 500
+                };
+
+                $this->json($status, [
+                    'ok'      => false,
+                    'error'   => $error,
+                    'mensaje' => $mensaje
+                ]);
+                return;
+            }
+
+            $this->json(200, [
+                'ok'      => true,
+                'mensaje' => 'La entrega fue confirmada correctamente.',
+                'data'    => $resultado['data'] ?? null
+            ]);
+            return;
+
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][confirmarEntrega] ' . $e->getMessage());
+
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'No se pudo confirmar la entrega.'
+            ]);
+            return;
+        }
+    }
 }

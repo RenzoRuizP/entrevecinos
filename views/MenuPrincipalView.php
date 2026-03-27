@@ -350,6 +350,35 @@ function ev_ver($pathAbs) {
         flex-direction: column-reverse !important;
       }
     }
+
+    /* ==========================================================
+      SWEETALERT GENERAL EV
+      Aplica a alerts normales del sistema fuera de las clases
+      específicas del marketplace.
+    ========================================================== */
+    .swal2-popup .swal2-confirm:not(.ev-mp-swal-confirm){
+      background: linear-gradient(135deg, var(--ev-naranja), #F59E0B) !important;
+      border: none !important;
+      color: #fff !important;
+      border-radius: 14px !important;
+      padding: 12px 22px !important;
+      font-weight: 800 !important;
+      box-shadow: 0 14px 28px rgba(234,124,18,.28) !important;
+    }
+
+    .swal2-popup .swal2-confirm:not(.ev-mp-swal-confirm):hover{
+      filter: brightness(1.03) !important;
+      transform: translateY(-1px) !important;
+    }
+
+    .swal2-popup .swal2-cancel:not(.ev-mp-swal-cancel){
+      background: #fff !important;
+      color: #6B7280 !important;
+      border: 1px solid #D1D5DB !important;
+      border-radius: 14px !important;
+      padding: 12px 22px !important;
+      font-weight: 800 !important;
+    }
   </style>
 </head>
 

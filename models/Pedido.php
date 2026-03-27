@@ -6,6 +6,10 @@ class Pedido extends Conexion
     private const SEGUNDOS_CANCELACION = 120;
     private const SEGUNDOS_TIMEOUT = 240;
 
+    // =========================================================
+    // HELPERS GENERALES
+    // =========================================================
+
     private function obtenerResidenciaActivaUsuario(int $codigoUsuario): ?array
     {
         $sql = "
@@ -299,6 +303,61 @@ class Pedido extends Conexion
         $st = $this->dblink->prepare($sql);
         $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
         $st->bindValue(':codigo_usuario_comprador', $codigoUsuarioComprador, PDO::PARAM_INT);
+        $st->execute();
+
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    private function obtenerPedidoVendedor(int $codigoPedido, int $codigoUsuarioVendedor, bool $forUpdate = false): ?array
+    {
+        $forUpdateSql = $forUpdate ? ' FOR UPDATE' : '';
+
+        $sql = "
+            SELECT
+                p.codigo_pedido,
+                p.codigo_producto,
+                p.codigo_usuario_comprador,
+                p.codigo_usuario_vendedor,
+                p.fase,
+                p.estado_actual,
+                p.cantidad,
+                p.costo_unitario,
+                p.total,
+                p.tipo_entrega,
+                p.fecha_hora_programada,
+                p.direccion_entrega,
+                p.mensaje_comprador,
+                p.posicion_cola,
+                p.motivo_estado,
+                p.requiere_preparacion,
+                p.monto_descontado_billetera,
+                p.descuento_billetera_aplicado,
+                p.devolucion_billetera_aplicada,
+                p.fecha_limite_respuesta,
+                p.fecha_aceptacion,
+                p.fecha_rechazo,
+                p.fecha_cancelacion,
+                p.fecha_cierre,
+                p.created_at,
+                p.updated_at,
+                pr.titulo AS titulo_producto,
+                pr.imagen_portada,
+                TRIM(COALESCE(u.nombre, '')) AS nombre_comprador
+            FROM pedido p
+            INNER JOIN producto pr
+                ON pr.codigo_producto = p.codigo_producto
+            INNER JOIN usuario u
+                ON u.codigo_usuario = p.codigo_usuario_comprador
+            WHERE p.codigo_pedido = :codigo_pedido
+              AND p.codigo_usuario_vendedor = :codigo_usuario_vendedor
+            LIMIT 1
+            {$forUpdateSql}
+        ";
+
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+        $st->bindValue(':codigo_usuario_vendedor', $codigoUsuarioVendedor, PDO::PARAM_INT);
         $st->execute();
 
         $row = $st->fetch(PDO::FETCH_ASSOC);
@@ -664,6 +723,10 @@ class Pedido extends Conexion
             ];
         }
     }
+
+    // =========================================================
+    // COMPRADOR
+    // =========================================================
 
     public function validarProductoParaSolicitud(int $codigoProducto, int $codigoUsuarioComprador): array
     {
@@ -1396,5 +1459,753 @@ class Pedido extends Conexion
         }
     }
 
+    // =========================================================
+    // VENDEDOR - MIS PEDIDOS
+    // =========================================================
 
+    private function normalizarTipoEntrega(?string $tipo, ?string $fechaProgramada): string
+    {
+        $tipo = strtolower(trim((string)$tipo));
+        if ($tipo === 'programada' && !empty($fechaProgramada)) {
+            return 'Programado';
+        }
+        return 'Inmediato';
+    }
+
+    private function formatearPedidoVendedor(array $r): array
+    {
+        $estado = (string)($r['estado_actual'] ?? '');
+        $fase = (string)($r['fase'] ?? '');
+
+        $esPendiente = ($fase === 'solicitud' && $estado === 'pendiente_vendedor');
+
+        $fecha = !empty($r['created_at']) ? date('d/m/Y H:i', strtotime((string)$r['created_at'])) : '';
+
+        $segundosRestantes = null;
+        if ($esPendiente && !empty($r['fecha_limite_respuesta'])) {
+            try {
+                $limite = new DateTime((string)$r['fecha_limite_respuesta']);
+                $segundosRestantes = max(0, $limite->getTimestamp() - time());
+            } catch (Throwable $e) {
+                $segundosRestantes = null;
+            }
+        }
+
+        return [
+            'codigo_pedido'                  => (int)$r['codigo_pedido'],
+            'codigo_producto'                => (int)$r['codigo_producto'],
+            'titulo_publicacion'             => (string)($r['titulo_publicacion'] ?? ''),
+            'nombre_vecino'                  => (string)($r['nombre_vecino'] ?? 'Vecino'),
+            'imagen_portada'                 => (string)($r['imagen_portada'] ?? ''),
+            'fase'                           => $fase,
+            'estado_actual'                  => $estado,
+            'motivo_estado'                  => (string)($r['motivo_estado'] ?? ''),
+            'cantidad'                       => (int)($r['cantidad'] ?? 0),
+            'precio_unitario'                => (string)($r['costo_unitario'] ?? '0.00'),
+            'monto_total'                    => (string)($r['total'] ?? '0.00'),
+            'tipo_entrega'                   => $this->normalizarTipoEntrega($r['tipo_entrega'] ?? null, $r['fecha_hora_programada'] ?? null),
+            'tipo_entrega_raw'               => (string)($r['tipo_entrega'] ?? 'inmediata'),
+            'fecha_hora_programada'          => $r['fecha_hora_programada'],
+            'direccion_entrega'              => (string)($r['direccion_entrega'] ?? ''),
+            'mensaje_comprador'              => (string)($r['mensaje_comprador'] ?? ''),
+            'fecha_hora'                     => $fecha,
+            'fecha_limite_respuesta'         => $r['fecha_limite_respuesta'],
+            'tiempo_restante_segundos'       => $segundosRestantes,
+            'requiere_preparacion'           => (int)($r['requiere_preparacion'] ?? 0),
+            'descuento_billetera_aplicado'   => (int)($r['descuento_billetera_aplicado'] ?? 0),
+            'devolucion_billetera_aplicada'  => (int)($r['devolucion_billetera_aplicada'] ?? 0),
+            'monto_descontado_billetera'     => (string)($r['monto_descontado_billetera'] ?? '0.00'),
+        ];
+    }
+
+    private function determinarGrupoPedidoVendedor(array $pedido): string
+    {
+        $fase = (string)($pedido['fase'] ?? '');
+        $estado = (string)($pedido['estado_actual'] ?? '');
+
+        if ($fase === 'solicitud' && $estado === 'pendiente_vendedor') {
+            return 'pendientes';
+        }
+
+        $finales = [
+            'entrega_confirmada_comprador',
+            'rechazado_vendedor',
+            'cancelado_vendedor',
+            'cancelado_comprador',
+            'sin_respuesta_vendedor'
+        ];
+
+        if (in_array($estado, $finales, true)) {
+            return 'finalizados';
+        }
+
+        return 'en_proceso';
+    }
+
+    public function listarMisPedidosVendedor(int $codigoUsuarioVendedor): array
+    {
+        try {
+            $sql = "
+                SELECT
+                    p.codigo_pedido,
+                    p.codigo_producto,
+                    p.codigo_usuario_comprador,
+                    p.codigo_usuario_vendedor,
+                    p.fase,
+                    p.estado_actual,
+                    p.cantidad,
+                    p.costo_unitario,
+                    p.total,
+                    p.tipo_entrega,
+                    p.fecha_hora_programada,
+                    p.direccion_entrega,
+                    p.mensaje_comprador,
+                    p.posicion_cola,
+                    p.motivo_estado,
+                    p.requiere_preparacion,
+                    p.monto_descontado_billetera,
+                    p.descuento_billetera_aplicado,
+                    p.devolucion_billetera_aplicada,
+                    p.fecha_limite_respuesta,
+                    p.fecha_aceptacion,
+                    p.fecha_rechazo,
+                    p.fecha_cancelacion,
+                    p.fecha_cierre,
+                    p.created_at,
+                    p.updated_at,
+                    pr.titulo AS titulo_publicacion,
+                    pr.imagen_portada,
+                    TRIM(COALESCE(u.nombre, '')) AS nombre_vecino
+                FROM pedido p
+                INNER JOIN producto pr
+                    ON pr.codigo_producto = p.codigo_producto
+                INNER JOIN usuario u
+                    ON u.codigo_usuario = p.codigo_usuario_comprador
+                WHERE p.codigo_usuario_vendedor = :codigo_usuario_vendedor
+                ORDER BY
+                    CASE
+                        WHEN p.fase = 'solicitud' AND p.estado_actual = 'pendiente_vendedor' THEN 1
+                        WHEN p.estado_actual IN (
+                            'solicitud_aceptada',
+                            'en_preparacion',
+                            'despachando',
+                            'listo_para_entrega',
+                            'en_camino',
+                            'en_punto_entrega',
+                            'entregado_vendedor'
+                        ) THEN 2
+                        ELSE 3
+                    END,
+                    p.codigo_pedido DESC
+            ";
+
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':codigo_usuario_vendedor', $codigoUsuarioVendedor, PDO::PARAM_INT);
+            $st->execute();
+
+            $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+            $data = [
+                'pendientes'  => [],
+                'en_proceso'  => [],
+                'finalizados' => []
+            ];
+
+            foreach ($rows as $row) {
+                if ((string)$row['fase'] === 'solicitud' && (string)$row['estado_actual'] === 'pendiente_vendedor') {
+                    $cierre = $this->cerrarSolicitudPorSinRespuestaInterno($row);
+                    if ($cierre['ok']) {
+                        $row = $cierre['data'] ?: $row;
+                    }
+                }
+
+                $item = $this->formatearPedidoVendedor($row);
+                $grupo = $this->determinarGrupoPedidoVendedor($item);
+                $data[$grupo][] = $item;
+            }
+
+            return [
+                'ok'   => true,
+                'data' => $data
+            ];
+        } catch (Throwable $e) {
+            error_log('[EV][Pedido][listarMisPedidosVendedor] ' . $e->getMessage());
+
+            return [
+                'ok'      => false,
+                'error'   => 'ERROR_LISTAR_MIS_PEDIDOS',
+                'mensaje' => 'No se pudo obtener la lista de pedidos del vendedor.'
+            ];
+        }
+    }
+
+    public function aceptarSolicitudPorVendedor(int $codigoPedido, int $codigoUsuarioVendedor): array
+    {
+        try {
+            $this->dblink->beginTransaction();
+
+            $pedido = $this->obtenerPedidoVendedor($codigoPedido, $codigoUsuarioVendedor, true);
+
+            if (!$pedido) {
+                $this->dblink->rollBack();
+                return [
+                    'ok'      => false,
+                    'error'   => 'PEDIDO_NO_ENCONTRADO',
+                    'mensaje' => 'No se encontró el pedido.'
+                ];
+            }
+
+            if ((int)$pedido['codigo_usuario_vendedor'] !== $codigoUsuarioVendedor) {
+                $this->dblink->rollBack();
+                return [
+                    'ok'      => false,
+                    'error'   => 'PEDIDO_NO_PERTENECE_VENDEDOR',
+                    'mensaje' => 'El pedido no pertenece al vendedor autenticado.'
+                ];
+            }
+
+            if ((string)$pedido['fase'] !== 'solicitud' || (string)$pedido['estado_actual'] !== 'pendiente_vendedor') {
+                $this->dblink->rollBack();
+                return [
+                    'ok'      => false,
+                    'error'   => 'ESTADO_NO_ACEPTABLE',
+                    'mensaje' => 'La solicitud ya no se puede aceptar.'
+                ];
+            }
+
+            $siguienteEstado = ((int)$pedido['requiere_preparacion'] === 1)
+                ? 'en_preparacion'
+                : 'despachando';
+
+            $sql = "
+                UPDATE pedido
+                SET
+                    fase = 'pedido',
+                    estado_actual = :estado_actual,
+                    motivo_estado = :motivo_estado,
+                    fecha_aceptacion = NOW()
+                WHERE codigo_pedido = :codigo_pedido
+            ";
+
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':estado_actual', $siguienteEstado, PDO::PARAM_STR);
+            $st->bindValue(':motivo_estado', 'Pedido aceptado por el vendedor.', PDO::PARAM_STR);
+            $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+            $st->execute();
+
+            $this->registrarHistorialEstado(
+                $codigoPedido,
+                (string)$pedido['fase'],
+                (string)$pedido['estado_actual'],
+                'pedido',
+                $siguienteEstado,
+                $codigoUsuarioVendedor,
+                'vendedor',
+                'aceptacion_solicitud',
+                'El vendedor aceptó la solicitud.'
+            );
+
+            $pedidoActualizado = $this->obtenerPedidoVendedor($codigoPedido, $codigoUsuarioVendedor, false);
+
+            $this->dblink->commit();
+
+            return [
+                'ok'   => true,
+                'data' => $pedidoActualizado ? $this->formatearPedidoVendedor($pedidoActualizado) : null
+            ];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+
+            error_log('[EV][Pedido][aceptarSolicitudPorVendedor] ' . $e->getMessage());
+
+            return [
+                'ok'      => false,
+                'error'   => 'ERROR_ACEPTAR_SOLICITUD',
+                'mensaje' => 'No se pudo aceptar la solicitud.'
+            ];
+        }
+    }
+
+    public function rechazarSolicitudPorVendedor(int $codigoPedido, int $codigoUsuarioVendedor, string $motivo): array
+    {
+        try {
+            $motivo = trim($motivo);
+            if ($motivo === '') {
+                return [
+                    'ok'      => false,
+                    'error'   => 'MOTIVO_REQUERIDO',
+                    'mensaje' => 'Debes indicar el motivo de rechazo.'
+                ];
+            }
+
+            $this->dblink->beginTransaction();
+
+            $pedido = $this->obtenerPedidoVendedor($codigoPedido, $codigoUsuarioVendedor, true);
+
+            if (!$pedido) {
+                $this->dblink->rollBack();
+                return [
+                    'ok'      => false,
+                    'error'   => 'PEDIDO_NO_ENCONTRADO',
+                    'mensaje' => 'No se encontró el pedido.'
+                ];
+            }
+
+            if ((int)$pedido['codigo_usuario_vendedor'] !== $codigoUsuarioVendedor) {
+                $this->dblink->rollBack();
+                return [
+                    'ok'      => false,
+                    'error'   => 'PEDIDO_NO_PERTENECE_VENDEDOR',
+                    'mensaje' => 'El pedido no pertenece al vendedor autenticado.'
+                ];
+            }
+
+            if ((string)$pedido['fase'] !== 'solicitud' || (string)$pedido['estado_actual'] !== 'pendiente_vendedor') {
+                $this->dblink->rollBack();
+                return [
+                    'ok'      => false,
+                    'error'   => 'ESTADO_NO_RECHAZABLE',
+                    'mensaje' => 'La solicitud ya no se puede rechazar.'
+                ];
+            }
+
+            $sql = "
+                UPDATE pedido
+                SET
+                    fase = 'pedido',
+                    estado_actual = 'rechazado_vendedor',
+                    motivo_estado = :motivo_estado,
+                    fecha_rechazo = NOW(),
+                    fecha_cierre = NOW()
+                WHERE codigo_pedido = :codigo_pedido
+            ";
+
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':motivo_estado', $motivo, PDO::PARAM_STR);
+            $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+            $st->execute();
+
+            if ((int)$pedido['requiere_preparacion'] === 1 && (int)$pedido['descuento_billetera_aplicado'] === 1) {
+                $tituloLimpio = $this->limpiarTituloParaMovimiento((string)($pedido['titulo_producto'] ?? 'producto'));
+                $motivoDevolucion = "Devolución por rechazo del vendedor: {$tituloLimpio}";
+                $this->devolverBilleteraPorSolicitudPreparada($codigoPedido, $motivoDevolucion);
+            }
+
+            $this->registrarHistorialEstado(
+                $codigoPedido,
+                (string)$pedido['fase'],
+                (string)$pedido['estado_actual'],
+                'pedido',
+                'rechazado_vendedor',
+                $codigoUsuarioVendedor,
+                'vendedor',
+                'rechazo_solicitud',
+                $motivo
+            );
+
+            $pedidoActualizado = $this->obtenerPedidoVendedor($codigoPedido, $codigoUsuarioVendedor, false);
+
+            $this->dblink->commit();
+
+            return [
+                'ok'   => true,
+                'data' => $pedidoActualizado ? $this->formatearPedidoVendedor($pedidoActualizado) : null
+            ];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+
+            error_log('[EV][Pedido][rechazarSolicitudPorVendedor] ' . $e->getMessage());
+
+            return [
+                'ok'      => false,
+                'error'   => 'ERROR_RECHAZAR_SOLICITUD',
+                'mensaje' => 'No se pudo rechazar la solicitud.'
+            ];
+        }
+    }
+
+    private function obtenerMapaTransicionesVendedor(bool $requierePreparacion): array
+    {
+        return [
+            'en_preparacion' => [
+                'listo_para_entrega',
+                'en_camino',
+                'cancelado_vendedor'
+            ],
+            'despachando' => [
+                'en_camino',
+                'en_punto_entrega',
+                'entregado_vendedor',
+                'cancelado_vendedor'
+            ],
+            'listo_para_entrega' => [
+                'en_camino',
+                'en_punto_entrega',
+                'entregado_vendedor',
+                'cancelado_vendedor'
+            ],
+            'en_camino' => [
+                'en_punto_entrega',
+                'entregado_vendedor',
+                'cancelado_vendedor'
+            ],
+            'en_punto_entrega' => [
+                'entregado_vendedor',
+                'cancelado_vendedor'
+            ],
+            'entregado_vendedor' => [],
+            'solicitud_aceptada' => $requierePreparacion
+                ? ['en_preparacion', 'cancelado_vendedor']
+                : ['despachando', 'cancelado_vendedor'],
+        ];
+    }
+
+    private function motivoEstadoPorNuevoEstado(string $estado): string
+    {
+        return match ($estado) {
+            'en_preparacion'                => 'El pedido está en preparación.',
+            'despachando'                   => 'El pedido está siendo despachado.',
+            'listo_para_entrega'            => 'El pedido está listo para entrega.',
+            'en_camino'                     => 'El pedido va en camino.',
+            'en_punto_entrega'              => 'El pedido llegó al punto de entrega.',
+            'entregado_vendedor'            => 'El vendedor marcó el pedido como entregado.',
+            'cancelado_vendedor'            => 'El vendedor canceló el pedido.',
+            'entrega_confirmada_comprador'  => 'El comprador confirmó la entrega.',
+            default                         => 'Estado actualizado.'
+        };
+    }
+
+    public function actualizarEstadoPedidoPorVendedor(int $codigoPedido, int $codigoUsuarioVendedor, string $nuevoEstado): array
+    {
+        try {
+            $nuevoEstado = trim($nuevoEstado);
+            if ($nuevoEstado === '') {
+                return [
+                    'ok'      => false,
+                    'error'   => 'ESTADO_NO_ACTUALIZABLE',
+                    'mensaje' => 'Debes indicar el nuevo estado.'
+                ];
+            }
+
+            $this->dblink->beginTransaction();
+
+            $pedido = $this->obtenerPedidoVendedor($codigoPedido, $codigoUsuarioVendedor, true);
+
+            if (!$pedido) {
+                $this->dblink->rollBack();
+                return [
+                    'ok'      => false,
+                    'error'   => 'PEDIDO_NO_ENCONTRADO',
+                    'mensaje' => 'No se encontró el pedido.'
+                ];
+            }
+
+            if ((int)$pedido['codigo_usuario_vendedor'] !== $codigoUsuarioVendedor) {
+                $this->dblink->rollBack();
+                return [
+                    'ok'      => false,
+                    'error'   => 'PEDIDO_NO_PERTENECE_VENDEDOR',
+                    'mensaje' => 'El pedido no pertenece al vendedor autenticado.'
+                ];
+            }
+
+            $estadoActual = (string)$pedido['estado_actual'];
+            $faseActual = (string)$pedido['fase'];
+
+            if ($faseActual !== 'pedido') {
+                $this->dblink->rollBack();
+                return [
+                    'ok'      => false,
+                    'error'   => 'ESTADO_NO_ACTUALIZABLE',
+                    'mensaje' => 'Este pedido aún no está en una fase actualizable por el vendedor.'
+                ];
+            }
+
+            $transiciones = $this->obtenerMapaTransicionesVendedor((int)$pedido['requiere_preparacion'] === 1);
+
+            if (!isset($transiciones[$estadoActual])) {
+                $this->dblink->rollBack();
+                return [
+                    'ok'      => false,
+                    'error'   => 'TRANSICION_INVALIDA',
+                    'mensaje' => 'El estado actual no permite más actualizaciones desde vendedor.'
+                ];
+            }
+
+            if (!in_array($nuevoEstado, $transiciones[$estadoActual], true)) {
+                $this->dblink->rollBack();
+                return [
+                    'ok'      => false,
+                    'error'   => 'TRANSICION_INVALIDA',
+                    'mensaje' => 'La transición de estado no es válida.'
+                ];
+            }
+
+            $sql = "
+                UPDATE pedido
+                SET
+                    estado_actual = :estado_actual,
+                    motivo_estado = :motivo_estado,
+                    fecha_cierre = CASE WHEN :cerrar = 1 THEN NOW() ELSE fecha_cierre END
+                WHERE codigo_pedido = :codigo_pedido
+            ";
+
+            $cerrar = ($nuevoEstado === 'cancelado_vendedor') ? 1 : 0;
+
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':estado_actual', $nuevoEstado, PDO::PARAM_STR);
+            $st->bindValue(':motivo_estado', $this->motivoEstadoPorNuevoEstado($nuevoEstado), PDO::PARAM_STR);
+            $st->bindValue(':cerrar', $cerrar, PDO::PARAM_INT);
+            $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+            $st->execute();
+
+            if ($nuevoEstado === 'cancelado_vendedor') {
+                if ((int)$pedido['requiere_preparacion'] === 1 && (int)$pedido['descuento_billetera_aplicado'] === 1) {
+                    $tituloLimpio = $this->limpiarTituloParaMovimiento((string)($pedido['titulo_producto'] ?? 'producto'));
+                    $motivoDevolucion = "Devolución por cancelación del vendedor: {$tituloLimpio}";
+                    $this->devolverBilleteraPorSolicitudPreparada($codigoPedido, $motivoDevolucion);
+                }
+            }
+
+            $this->registrarHistorialEstado(
+                $codigoPedido,
+                $faseActual,
+                $estadoActual,
+                $faseActual,
+                $nuevoEstado,
+                $codigoUsuarioVendedor,
+                'vendedor',
+                'actualizacion_estado_pedido',
+                $this->motivoEstadoPorNuevoEstado($nuevoEstado)
+            );
+
+            $pedidoActualizado = $this->obtenerPedidoVendedor($codigoPedido, $codigoUsuarioVendedor, false);
+
+            $this->dblink->commit();
+
+            return [
+                'ok'   => true,
+                'data' => $pedidoActualizado ? $this->formatearPedidoVendedor($pedidoActualizado) : null
+            ];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+
+            error_log('[EV][Pedido][actualizarEstadoPedidoPorVendedor] ' . $e->getMessage());
+
+            return [
+                'ok'      => false,
+                'error'   => 'ERROR_ACTUALIZAR_ESTADO_PEDIDO',
+                'mensaje' => 'No se pudo actualizar el estado del pedido.'
+            ];
+        }
+    }
+    
+
+    public function listarMisPedidosComprador(int $codigoUsuarioComprador): array
+    {
+        try {
+            $sql = "
+                SELECT
+                    p.codigo_pedido,
+                    p.codigo_producto,
+                    p.codigo_usuario_comprador,
+                    p.codigo_usuario_vendedor,
+                    p.fase,
+                    p.estado_actual,
+                    p.cantidad,
+                    p.costo_unitario,
+                    p.total,
+                    p.tipo_entrega,
+                    p.fecha_hora_programada,
+                    p.direccion_entrega,
+                    p.mensaje_comprador,
+                    p.posicion_cola,
+                    p.motivo_estado,
+                    p.requiere_preparacion,
+                    p.monto_descontado_billetera,
+                    p.descuento_billetera_aplicado,
+                    p.devolucion_billetera_aplicada,
+                    p.fecha_limite_respuesta,
+                    p.fecha_aceptacion,
+                    p.fecha_rechazo,
+                    p.fecha_cancelacion,
+                    p.fecha_cierre,
+                    p.created_at,
+                    p.updated_at,
+                    pr.titulo AS titulo_publicacion,
+                    pr.imagen_portada,
+                    TRIM(COALESCE(u.nombre, '')) AS nombre_vendedor
+                FROM pedido p
+                INNER JOIN producto pr
+                    ON pr.codigo_producto = p.codigo_producto
+                INNER JOIN usuario u
+                    ON u.codigo_usuario = p.codigo_usuario_vendedor
+                WHERE p.codigo_usuario_comprador = :codigo_usuario_comprador
+                ORDER BY p.codigo_pedido DESC
+            ";
+
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':codigo_usuario_comprador', $codigoUsuarioComprador, PDO::PARAM_INT);
+            $st->execute();
+
+            $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+            $data = [
+                'pendientes'  => [],
+                'en_proceso'  => [],
+                'finalizados' => []
+            ];
+
+            foreach ($rows as $row) {
+                if ((string)$row['fase'] === 'solicitud' && (string)$row['estado_actual'] === 'pendiente_vendedor') {
+                    $cierre = $this->cerrarSolicitudPorSinRespuestaInterno($row);
+                    if ($cierre['ok']) {
+                        $row = $cierre['data'] ?: $row;
+                    }
+                }
+
+                $item = [
+                    'codigo_pedido'                 => (int)$row['codigo_pedido'],
+                    'codigo_producto'               => (int)$row['codigo_producto'],
+                    'titulo_publicacion'            => (string)($row['titulo_publicacion'] ?? ''),
+                    'nombre_vendedor'               => (string)($row['nombre_vendedor'] ?? 'Vecino'),
+                    'nombre_vecino'                 => (string)($row['nombre_vendedor'] ?? 'Vecino'),
+                    'imagen_portada'                => (string)($row['imagen_portada'] ?? ''),
+                    'fase'                          => (string)($row['fase'] ?? ''),
+                    'estado_actual'                 => (string)($row['estado_actual'] ?? ''),
+                    'motivo_estado'                 => (string)($row['motivo_estado'] ?? ''),
+                    'cantidad'                      => (int)($row['cantidad'] ?? 0),
+                    'precio_unitario'               => (string)($row['costo_unitario'] ?? '0.00'),
+                    'monto_total'                   => (string)($row['total'] ?? '0.00'),
+                    'tipo_entrega'                  => ((string)($row['tipo_entrega'] ?? '') === 'programada' && !empty($row['fecha_hora_programada'])) ? 'Programado' : 'Inmediato',
+                    'tipo_entrega_raw'              => (string)($row['tipo_entrega'] ?? 'inmediata'),
+                    'fecha_hora_programada'         => $row['fecha_hora_programada'],
+                    'direccion_entrega'             => (string)($row['direccion_entrega'] ?? ''),
+                    'mensaje_comprador'             => (string)($row['mensaje_comprador'] ?? ''),
+                    'fecha_hora'                    => $row['created_at'] ?? null,
+                    'created_at'                    => $row['created_at'] ?? null,
+                    'requiere_preparacion'          => (int)($row['requiere_preparacion'] ?? 0),
+                    'descuento_billetera_aplicado'  => (int)($row['descuento_billetera_aplicado'] ?? 0),
+                    'devolucion_billetera_aplicada' => (int)($row['devolucion_billetera_aplicada'] ?? 0),
+                    'monto_descontado_billetera'    => (string)($row['monto_descontado_billetera'] ?? '0.00'),
+                ];
+
+                $estado = (string)$item['estado_actual'];
+                $fase   = (string)$item['fase'];
+
+                if ($fase === 'solicitud' && $estado === 'pendiente_vendedor') {
+                    $data['pendientes'][] = $item;
+                    continue;
+                }
+
+                if (in_array($estado, [
+                    'en_preparacion',
+                    'despachando',
+                    'listo_para_entrega',
+                    'en_camino',
+                    'en_punto_entrega',
+                    'entregado_vendedor'
+                ], true)) {
+                    $data['en_proceso'][] = $item;
+                    continue;
+                }
+
+                $data['finalizados'][] = $item;
+            }
+
+            return [
+                'ok'   => true,
+                'data' => $data
+            ];
+        } catch (Throwable $e) {
+            error_log('[EV][Pedido][listarMisPedidosComprador] ' . $e->getMessage());
+
+            return [
+                'ok'      => false,
+                'error'   => 'ERROR_LISTAR_MIS_PEDIDOS_COMPRADOR',
+                'mensaje' => 'No se pudo obtener la lista de pedidos del comprador.'
+            ];
+        }
+    }
+
+    public function confirmarEntregaPorComprador(int $codigoPedido, int $codigoUsuarioComprador): array
+    {
+        try {
+            $this->dblink->beginTransaction();
+
+            $pedido = $this->obtenerSolicitudComprador($codigoPedido, $codigoUsuarioComprador, true);
+
+            if (!$pedido) {
+                $this->dblink->rollBack();
+                return [
+                    'ok'      => false,
+                    'error'   => 'PEDIDO_NO_ENCONTRADO',
+                    'mensaje' => 'No se encontró el pedido.'
+                ];
+            }
+
+            if ((string)$pedido['estado_actual'] !== 'entregado_vendedor') {
+                $this->dblink->rollBack();
+                return [
+                    'ok'      => false,
+                    'error'   => 'ESTADO_NO_CONFIRMABLE',
+                    'mensaje' => 'Este pedido aún no puede confirmarse.'
+                ];
+            }
+
+            $sql = "
+                UPDATE pedido
+                SET
+                    estado_actual = 'entrega_confirmada_comprador',
+                    motivo_estado = :motivo_estado,
+                    fecha_cierre = NOW()
+                WHERE codigo_pedido = :codigo_pedido
+            ";
+
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':motivo_estado', 'El comprador confirmó la entrega del pedido.', PDO::PARAM_STR);
+            $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+            $st->execute();
+
+            $this->registrarHistorialEstado(
+                $codigoPedido,
+                (string)$pedido['fase'],
+                (string)$pedido['estado_actual'],
+                (string)$pedido['fase'],
+                'entrega_confirmada_comprador',
+                $codigoUsuarioComprador,
+                'comprador',
+                'confirmacion_entrega',
+                'El comprador confirmó la entrega satisfactoria del pedido.'
+            );
+
+            $this->dblink->commit();
+
+            return [
+                'ok'   => true,
+                'data' => [
+                    'codigo_pedido' => $codigoPedido,
+                    'estado_actual' => 'entrega_confirmada_comprador'
+                ]
+            ];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+
+            error_log('[EV][Pedido][confirmarEntregaPorComprador] ' . $e->getMessage());
+
+            return [
+                'ok'      => false,
+                'error'   => 'ERROR_CONFIRMAR_ENTREGA',
+                'mensaje' => 'No se pudo confirmar la entrega del pedido.'
+            ];
+        }
+    }
 }

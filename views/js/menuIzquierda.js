@@ -6,6 +6,7 @@
 // - Mantiene shell /MenuPrincipal?ev_goto=...
 // - Maneja 401 / 403 / cuenta bloqueada / cuenta observada
 // - Mantiene overlay, watchdog, scripts dinámicos y popstate
+// - ✅ Inicializa módulos EV después de inyectar parciales
 
 document.addEventListener('DOMContentLoaded', () => {
   'use strict';
@@ -358,6 +359,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // ✅ NUEVO: inicializador central de módulos EV
+  function initLoadedModules(path) {
+    try {
+      if (window.EVMarketplace && typeof window.EVMarketplace.init === 'function') {
+        window.EVMarketplace.init();
+      }
+
+      if (window.EVMarketplace && typeof window.EVMarketplace.restoreSolicitudActiva === 'function') {
+        window.EVMarketplace.restoreSolicitudActiva();
+      }
+
+      if (window.EVMisPedidosComprador && typeof window.EVMisPedidosComprador.init === 'function') {
+        window.EVMisPedidosComprador.init();
+      }
+
+      if (window.EVMisPedidosVendedor && typeof window.EVMisPedidosVendedor.init === 'function') {
+        window.EVMisPedidosVendedor.init();
+      }
+
+      if (typeof window.initRecibirPedidos === 'function') {
+        window.initRecibirPedidos();
+      }
+
+      if (typeof window.initPedidosEntrantes === 'function') {
+        window.initPedidosEntrantes();
+      }
+
+      document.dispatchEvent(new CustomEvent('ev:module-initialized', {
+        detail: { path }
+      }));
+    } catch (e) {
+      console.error('[EV][NAV] Error inicializando módulos cargados:', e);
+    }
+  }
+
   let currentLoadId = 0;
 
   async function loadPage(path, { pushState = true, replaceState = false } = {}) {
@@ -467,6 +503,9 @@ document.addEventListener('DOMContentLoaded', () => {
       main.innerHTML = text;
 
       await processScripts(main, signal);
+
+      // ✅ NUEVO: inicialización explícita del módulo cargado
+      initLoadedModules(cleanPath);
 
       document.dispatchEvent(new CustomEvent('ev:content-loaded', {
         detail: { url: moduleUrl, path: cleanPath }

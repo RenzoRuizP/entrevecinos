@@ -45,14 +45,14 @@
   let restaurandoSolicitudActiva = false;
 
   let solicitudFlow = {
-  codigoPedido: 0,
-  pollingTimer: null,
-  intervalUi: null,
-  activo: false,
-  cancelButtonVisible: false,
-  segundosRestantes: 0,
-  segundosParaCancelarRestantes: SEGUNDOS_CANCELACION_SOLICITUD
-};
+    codigoPedido: 0,
+    pollingTimer: null,
+    intervalUi: null,
+    activo: false,
+    cancelButtonVisible: false,
+    segundosRestantes: 0,
+    segundosParaCancelarRestantes: SEGUNDOS_CANCELACION_SOLICITUD
+  };
 
   function log()  { if (console && console.log)  console.log(LOG_PREFIX, ...arguments); }
   function warn() { if (console && console.warn) console.warn(LOG_PREFIX, ...arguments); }
@@ -222,12 +222,11 @@
     }
   }
 
+  function triggerSwalBounce() {
+    const popup = window.Swal?.getPopup ? Swal.getPopup() : null;
+    if (!popup) return;
 
-    function triggerSwalBounce() {
-      const popup = window.Swal?.getPopup ? Swal.getPopup() : null;
-      if (!popup) return;
-
-      popup.classList.remove('ev-mp-swal-popup-bounce');
+    popup.classList.remove('ev-mp-swal-popup-bounce');
     void popup.offsetWidth;
     popup.classList.add('ev-mp-swal-popup-bounce');
   }
@@ -246,7 +245,6 @@
       }
     });
   }
-
 
   async function notify(icon, title, text, extra = {}) {
     if (!window.Swal?.fire) {
@@ -513,38 +511,38 @@
   }
 
   function sincronizarSeguimientoDesdeData(data = {}) {
-  if (typeof data.segundos_restantes !== 'undefined') {
-    solicitudFlow.segundosRestantes = Math.max(0, Number(data.segundos_restantes || 0));
+    if (typeof data.segundos_restantes !== 'undefined') {
+      solicitudFlow.segundosRestantes = Math.max(0, Number(data.segundos_restantes || 0));
+    }
+
+    if (typeof data.segundos_para_cancelar_restantes !== 'undefined') {
+      solicitudFlow.segundosParaCancelarRestantes = Math.max(0, Number(data.segundos_para_cancelar_restantes || 0));
+    } else if (typeof data.segundos_para_cancelar !== 'undefined') {
+      solicitudFlow.segundosParaCancelarRestantes = Math.max(0, Number(data.segundos_para_cancelar || 0));
+    }
+
+    if (Number(data.puede_cancelar || 0) === 1) {
+      solicitudFlow.segundosParaCancelarRestantes = 0;
+    }
   }
 
-  if (typeof data.segundos_para_cancelar_restantes !== 'undefined') {
-    solicitudFlow.segundosParaCancelarRestantes = Math.max(0, Number(data.segundos_para_cancelar_restantes || 0));
-  } else if (typeof data.segundos_para_cancelar !== 'undefined') {
-    solicitudFlow.segundosParaCancelarRestantes = Math.max(0, Number(data.segundos_para_cancelar || 0));
+  function tickSeguimientoSolicitud() {
+    if (!solicitudFlow.activo) return;
+
+    if (solicitudFlow.segundosRestantes > 0) {
+      solicitudFlow.segundosRestantes -= 1;
+    }
+
+    if (solicitudFlow.segundosParaCancelarRestantes > 0) {
+      solicitudFlow.segundosParaCancelarRestantes -= 1;
+    }
+
+    actualizarUiSeguimiento({
+      segundos_restantes: solicitudFlow.segundosRestantes,
+      segundos_para_cancelar_restantes: solicitudFlow.segundosParaCancelarRestantes,
+      puede_cancelar: solicitudFlow.segundosParaCancelarRestantes <= 0 ? 1 : 0
+    });
   }
-
-  if (Number(data.puede_cancelar || 0) === 1) {
-    solicitudFlow.segundosParaCancelarRestantes = 0;
-  }
-}
-
-function tickSeguimientoSolicitud() {
-  if (!solicitudFlow.activo) return;
-
-  if (solicitudFlow.segundosRestantes > 0) {
-    solicitudFlow.segundosRestantes -= 1;
-  }
-
-  if (solicitudFlow.segundosParaCancelarRestantes > 0) {
-    solicitudFlow.segundosParaCancelarRestantes -= 1;
-  }
-
-  actualizarUiSeguimiento({
-    segundos_restantes: solicitudFlow.segundosRestantes,
-    segundos_para_cancelar_restantes: solicitudFlow.segundosParaCancelarRestantes,
-    puede_cancelar: solicitudFlow.segundosParaCancelarRestantes <= 0 ? 1 : 0
-  });
-}
 
   function htmlSeguimientoSolicitud(opts = {}) {
     const {
@@ -754,6 +752,72 @@ function tickSeguimientoSolicitud() {
     }
   }
 
+  function obtenerMensajeCambioEstadoSolicitud(data) {
+    const estado = String(data?.estado_actual || '').trim();
+
+    switch (estado) {
+      case 'rechazado_vendedor':
+        return {
+          title: 'Solicitud rechazada',
+          text: data?.motivo_estado || 'El vendedor rechazó tu solicitud.'
+        };
+
+      case 'cancelado_vendedor':
+        return {
+          title: 'Pedido cancelado',
+          text: data?.motivo_estado || 'El vendedor canceló el pedido.'
+        };
+
+      case 'en_preparacion':
+        return {
+          title: 'Pedido aceptado',
+          text: 'El vendedor aceptó tu solicitud y tu pedido está en preparación.'
+        };
+
+      case 'despachando':
+        return {
+          title: 'Pedido aceptado',
+          text: 'El vendedor aceptó tu solicitud y está preparando el despacho.'
+        };
+
+      case 'listo_para_entrega':
+        return {
+          title: 'Pedido listo',
+          text: 'Tu pedido ya se encuentra listo para entrega.'
+        };
+
+      case 'en_camino':
+        return {
+          title: 'Pedido en camino',
+          text: 'Tu pedido ya va en camino.'
+        };
+
+      case 'en_punto_entrega':
+        return {
+          title: 'Pedido en punto de entrega',
+          text: 'Tu pedido ya llegó al punto de entrega.'
+        };
+
+      case 'entregado_vendedor':
+        return {
+          title: 'Pedido entregado',
+          text: 'El vendedor marcó el pedido como entregado.'
+        };
+
+      case 'entrega_confirmada_comprador':
+        return {
+          title: 'Entrega confirmada',
+          text: 'La entrega del pedido fue confirmada correctamente.'
+        };
+
+      default:
+        return {
+          title: 'Estado actualizado',
+          text: data?.mensaje_estado || data?.motivo_estado || 'El estado de tu solicitud cambió.'
+        };
+    }
+  }
+
   async function finalizarSeguimientoSolicitud(data) {
     limpiarSeguimientoSolicitud();
     swalCloseIfVisible();
@@ -794,6 +858,23 @@ function tickSeguimientoSolicitud() {
       }));
       return;
     }
+
+    if (estado === 'rechazado_vendedor' || estado === 'cancelado_vendedor') {
+      const base = obtenerMensajeCambioEstadoSolicitud(data);
+      const texto = (tuvoDebito && devolvio)
+        ? `${base.text} Se devolvió ${formatPrecio(montoDebitado)} a tu billetera.`
+        : base.text;
+
+      await notify('info', base.title, texto, { confirmButtonText: 'Entendido' });
+      return;
+    }
+
+    const cambio = obtenerMensajeCambioEstadoSolicitud(data);
+    await notify('success', cambio.title, cambio.text, { confirmButtonText: 'Entendido' });
+  }
+
+  function estadoSigueEsperandoRespuesta(estado) {
+    return String(estado || '').trim() === 'pendiente_vendedor';
   }
 
   async function refrescarSeguimientoSolicitud() {
@@ -805,35 +886,38 @@ function tickSeguimientoSolicitud() {
     sincronizarSeguimientoDesdeData(data);
     actualizarUiSeguimiento(data);
 
-    if (Number(data.finalizado || 0) === 1) {
+    const estado = String(data?.estado_actual || '').trim();
+    const finalizado = Number(data?.finalizado || 0) === 1;
+
+    if (finalizado || !estadoSigueEsperandoRespuesta(estado)) {
       await finalizarSeguimientoSolicitud(data);
     }
   }
 
-    async function iniciarSeguimientoSolicitud(data = {}) {
-      limpiarSeguimientoSolicitud();
+  async function iniciarSeguimientoSolicitud(data = {}) {
+    limpiarSeguimientoSolicitud();
 
-      const codigoPedido = Number(data.codigo_pedido || 0);
-      if (!codigoPedido) return;
+    const codigoPedido = Number(data.codigo_pedido || 0);
+    if (!codigoPedido) return;
 
-      solicitudFlow.codigoPedido = codigoPedido;
-      solicitudFlow.activo = true;
-      solicitudFlow.cancelButtonVisible = false;
+    solicitudFlow.codigoPedido = codigoPedido;
+    solicitudFlow.activo = true;
+    solicitudFlow.cancelButtonVisible = false;
 
-      sincronizarSeguimientoDesdeData({
-        segundos_restantes: data.segundos_restantes ?? data.segundos_timeout ?? 0,
-        segundos_para_cancelar_restantes: data.segundos_para_cancelar_restantes ?? data.segundos_para_cancelar ?? SEGUNDOS_CANCELACION_SOLICITUD,
-        puede_cancelar: data.puede_cancelar ?? 0
-      });
+    sincronizarSeguimientoDesdeData({
+      segundos_restantes: data.segundos_restantes ?? data.segundos_timeout ?? 0,
+      segundos_para_cancelar_restantes: data.segundos_para_cancelar_restantes ?? data.segundos_para_cancelar ?? SEGUNDOS_CANCELACION_SOLICITUD,
+      puede_cancelar: data.puede_cancelar ?? 0
+    });
 
-      const tituloProducto = String(data.titulo_producto || 'tu solicitud');
-      const requierePreparacion = Number(data.requiere_preparacion || 0) === 1;
-      const montoDescontado = Number(data.monto_descontado_billetera || 0);
+    const tituloProducto = String(data.titulo_producto || 'tu solicitud');
+    const requierePreparacion = Number(data.requiere_preparacion || 0) === 1;
+    const montoDescontado = Number(data.monto_descontado_billetera || 0);
 
-      const result = await Swal.fire(swalBaseConfig({
-        icon: undefined,
-        title: 'Solicitud enviada',
-        html: htmlSeguimientoSolicitud({
+    const result = await Swal.fire(swalBaseConfig({
+      icon: undefined,
+      title: 'Solicitud enviada',
+      html: htmlSeguimientoSolicitud({
         tituloProducto,
         estadoTexto: 'Esperando ser atendido...',
         detalle: 'Tu solicitud fue registrada correctamente. Estamos esperando la respuesta del vendedor.',
@@ -842,70 +926,70 @@ function tickSeguimientoSolicitud() {
         montoDescontado,
         variant: 'success'
       }),
-        showConfirmButton: false,
-        showCancelButton: false,
-        allowOutsideClick: () => {
-          triggerSwalBounce();
-          return false;
-        },
-        allowEscapeKey: false,
-        customClass: {
-          popup: 'ev-mp-swal-popup ev-mp-swal-popup-seguimiento',
-          title: 'ev-mp-swal-title',
-          htmlContainer: 'ev-mp-swal-html',
-          confirmButton: 'ev-mp-swal-confirm',
-          cancelButton: 'ev-mp-swal-cancel'
-        },
-        didOpen: () => {
-          attachBounceOutsideBehavior();
+      showConfirmButton: false,
+      showCancelButton: false,
+      allowOutsideClick: () => {
+        triggerSwalBounce();
+        return false;
+      },
+      allowEscapeKey: false,
+      customClass: {
+        popup: 'ev-mp-swal-popup ev-mp-swal-popup-seguimiento',
+        title: 'ev-mp-swal-title',
+        htmlContainer: 'ev-mp-swal-html',
+        confirmButton: 'ev-mp-swal-confirm',
+        cancelButton: 'ev-mp-swal-cancel'
+      },
+      didOpen: () => {
+        attachBounceOutsideBehavior();
 
-          actualizarUiSeguimiento({
-            segundos_restantes: solicitudFlow.segundosRestantes,
-            segundos_para_cancelar_restantes: solicitudFlow.segundosParaCancelarRestantes,
-            puede_cancelar: 0
-          });
+        actualizarUiSeguimiento({
+          segundos_restantes: solicitudFlow.segundosRestantes,
+          segundos_para_cancelar_restantes: solicitudFlow.segundosParaCancelarRestantes,
+          puede_cancelar: 0
+        });
 
-          solicitudFlow.intervalUi = setInterval(() => {
-            tickSeguimientoSolicitud();
-          }, 1000);
+        solicitudFlow.intervalUi = setInterval(() => {
+          tickSeguimientoSolicitud();
+        }, 1000);
 
-          solicitudFlow.pollingTimer = setInterval(() => {
-            refrescarSeguimientoSolicitud();
-          }, SOLICITUD_POLLING_MS);
-        },
-        willClose: () => {
-          if (solicitudFlow.activo) {
-            if (solicitudFlow.intervalUi) {
-              clearInterval(solicitudFlow.intervalUi);
-              solicitudFlow.intervalUi = null;
-            }
-            if (solicitudFlow.pollingTimer) {
-              clearInterval(solicitudFlow.pollingTimer);
-              solicitudFlow.pollingTimer = null;
-            }
+        solicitudFlow.pollingTimer = setInterval(() => {
+          refrescarSeguimientoSolicitud();
+        }, SOLICITUD_POLLING_MS);
+      },
+      willClose: () => {
+        if (solicitudFlow.activo) {
+          if (solicitudFlow.intervalUi) {
+            clearInterval(solicitudFlow.intervalUi);
+            solicitudFlow.intervalUi = null;
+          }
+          if (solicitudFlow.pollingTimer) {
+            clearInterval(solicitudFlow.pollingTimer);
+            solicitudFlow.pollingTimer = null;
           }
         }
-      }));
-
-      if (result.dismiss === Swal.DismissReason.cancel && solicitudFlow.activo && solicitudFlow.codigoPedido) {
-        const r = await cancelarSolicitudBackend(solicitudFlow.codigoPedido);
-        if (!r || !r.json) {
-          await notify('error', 'Error', 'No se pudo cancelar la solicitud.');
-          return;
-        }
-
-        if (!r.resp.ok || !r.json.ok) {
-          await notify('warning', 'No se pudo cancelar', r.json.mensaje || 'La solicitud ya no se puede cancelar.');
-          const dataEstado = r.json.data || null;
-          if (dataEstado && Number(dataEstado.finalizado || 0) === 1) {
-            await finalizarSeguimientoSolicitud(dataEstado);
-          }
-          return;
-        }
-
-        await finalizarSeguimientoSolicitud(r.json.data || {});
       }
+    }));
+
+    if (result.dismiss === Swal.DismissReason.cancel && solicitudFlow.activo && solicitudFlow.codigoPedido) {
+      const r = await cancelarSolicitudBackend(solicitudFlow.codigoPedido);
+      if (!r || !r.json) {
+        await notify('error', 'Error', 'No se pudo cancelar la solicitud.');
+        return;
+      }
+
+      if (!r.resp.ok || !r.json.ok) {
+        await notify('warning', 'No se pudo cancelar', r.json.mensaje || 'La solicitud ya no se puede cancelar.');
+        const dataEstado = r.json.data || null;
+        if (dataEstado && Number(dataEstado.finalizado || 0) === 1) {
+          await finalizarSeguimientoSolicitud(dataEstado);
+        }
+        return;
+      }
+
+      await finalizarSeguimientoSolicitud(r.json.data || {});
     }
+  }
 
   async function abrirModalDetalle(idProducto) {
     if (!idProducto) return;
@@ -1343,6 +1427,8 @@ function tickSeguimientoSolicitud() {
 
     const estadoLabel = vendedorDisponible ? 'Disponible' : 'No disponible';
 
+    const pedirAttrs = vendedorDisponible ? '' : 'disabled aria-disabled="true"';
+
     return `
       <div class="ev-mp-card" data-id="${escapeHtml(String(id))}">
         <div class="${estadoClass}" title="${estadoLabel}" aria-label="${estadoLabel}">
@@ -1363,7 +1449,7 @@ function tickSeguimientoSolicitud() {
 
           <div class="ev-mp-card-actions">
             <button type="button" class="btn btn-outline-success ev-mp-btn-detalle">Ver detalle</button>
-            <button type="button" class="btn btn-success ev-mp-btn-pedir">Pedir ahora</button>
+            <button type="button" class="btn btn-success ev-mp-btn-pedir" ${pedirAttrs}>Pedir ahora</button>
           </div>
         </div>
       </div>
@@ -1388,6 +1474,8 @@ function tickSeguimientoSolicitud() {
       if (btnPedir && !btnPedir.dataset.boundPedir) {
         btnPedir.dataset.boundPedir = '1';
         btnPedir.addEventListener('click', async () => {
+          if (btnPedir.disabled) return;
+
           const detalle = await obtenerDetalleProducto(id);
           if (!detalle) return;
 
@@ -1807,6 +1895,7 @@ function tickSeguimientoSolicitud() {
     }
 
     await cargarPublicaciones();
+    await restoreSolicitudActiva();
     iniciarPollingDisponibilidad();
   }
 

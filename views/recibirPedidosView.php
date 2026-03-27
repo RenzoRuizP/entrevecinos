@@ -1,8 +1,7 @@
-<?php 
+<?php
 require_once __DIR__ . '/../Config/config.php';
 ?>
 <script>
-  // Exponer BASE_URL para los fetch del front
   window.BASE_URL = "<?= rtrim(BASE_URL, '/'); ?>";
 </script>
 
@@ -10,36 +9,27 @@ require_once __DIR__ . '/../Config/config.php';
 
 <div class="container-fluid py-4 ev-recibir-wrapper fade-in">
 
-  <!-- =========================================
-       CARD: RECIBIR PEDIDOS (ESTADO + TOGGLE)
-  ========================================== -->
   <div class="card ev-recibir-card">
-
-    <!-- HEADER -->
-    <div class="card-header ev-recibir-header d-flex justify-content-between align-items-center">
+    <div class="card-header ev-recibir-header d-flex justify-content-between align-items-center flex-wrap gap-3">
       <div class="d-flex align-items-center gap-2">
         <div class="ev-recibir-icon-wrapper d-flex align-items-center justify-content-center">
           <i class="bi bi-bag-check-fill"></i>
         </div>
         <div>
-          <h5 class="mb-0 ev-recibir-title">Recibir pedidos</h5>
+          <h5 class="mb-0 ev-recibir-title">Mis pedidos</h5>
           <small class="ev-recibir-subtitle">
-            Activa tu disponibilidad para que los vecinos puedan enviarte pedidos desde el marketplace.
+            Activa tu disponibilidad para recibir solicitudes y gestiona tus pedidos como vendedor.
           </small>
         </div>
       </div>
 
-      <!-- BADGE DE ESTADO -->
       <div id="estadoBadge" class="ev-status-pill ev-status-off d-flex align-items-center gap-2">
         <span id="estadoDot" class="ev-status-dot ev-status-dot-off"></span>
         <span id="estadoBadgeText" class="ev-status-text">Desconectado</span>
       </div>
     </div>
 
-    <!-- CUERPO -->
     <div class="card-body ev-recibir-body">
-
-      <!-- BLOQUE TOGGLE PRINCIPAL -->
       <div class="ev-toggle-row d-flex flex-column flex-md-row align-items-md-center gap-3">
         <div class="ev-switch-wrapper">
           <label class="ev-switch">
@@ -58,57 +48,83 @@ require_once __DIR__ . '/../Config/config.php';
             Actualmente: <strong>Desconectado</strong>
           </span>
           <p class="mb-0 ev-estado-secundario-help">
-            Conéctate cuando quieras para empezar a recibir pedidos de tus vecinos.
+            Cuando estés conectado, los vecinos podrán enviarte solicitudes desde el marketplace.
           </p>
         </div>
       </div>
-
     </div>
   </div>
 
-  <!-- =========================================
-       SECCIÓN: PEDIDOS ENTRANTES (TIEMPO REAL)
-  ========================================== -->
   <section class="ev-pedidos-section mt-4">
     <div class="card ev-pedidos-card">
-
-      <div class="card-header d-flex justify-content-between align-items-center">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div class="d-flex align-items-center gap-2">
           <div class="ev-pedidos-icon d-flex align-items-center justify-content-center">
             <i class="bi bi-bag-plus-fill"></i>
           </div>
           <div>
-            <h5 class="mb-0 ev-pedidos-title">Pedidos entrantes</h5>
+            <h5 class="mb-0 ev-pedidos-title">Gestión de pedidos</h5>
             <small class="ev-pedidos-subtitle">
-              Aquí verás los pedidos que recibas mientras estés conectado.
+              Revisa solicitudes pendientes, pedidos en proceso y pedidos finalizados.
             </small>
           </div>
         </div>
 
-        <span id="evPedidosCounter" class="ev-pedidos-counter">
-          0 pedidos activos
-        </span>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span id="evPedidosCounter" class="ev-pedidos-counter">0 pedidos</span>
+          <button type="button" id="btnRefrescarPedidos" class="btn btn-sm ev-btn-detalle">
+            <i class="bi bi-arrow-clockwise me-1"></i>Actualizar
+          </button>
+        </div>
       </div>
 
       <div class="card-body">
 
-        <!-- Mensaje cuando está desconectado -->
         <div id="evPedidosDesconectado" class="ev-pedidos-info-alert ev-pedidos-info-alert-off">
-          Conéctate usando el botón superior. Los pedidos nuevos aparecerán aquí automáticamente.
+          Conéctate usando el interruptor superior. Mientras estés desconectado, no podrás recibir nuevas solicitudes.
         </div>
 
-        <!-- Mensaje cuando está conectado pero no hay pedidos -->
-        <div id="evPedidosEmpty" class="ev-pedidos-info-alert ev-pedidos-info-alert-empty d-none">
-          Aún no tienes pedidos. Cuando un vecino haga un pedido, lo verás aquí en tiempo real.
+        <div id="evPedidosError" class="ev-pedidos-info-alert ev-pedidos-info-alert-off d-none">
+          No se pudieron cargar tus pedidos en este momento.
         </div>
 
-        <!-- Contenedor de cards de pedidos -->
-        <div id="evPedidosLista" class="ev-pedidos-lista">
-          <!-- Aquí el JS irá renderizando las cards de pedidos -->
-        </div>
+        <div id="evPedidosBloque" class="d-none">
 
+          <div class="mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+              <h6 class="mb-0 ev-pedidos-title">Pendientes</h6>
+              <span id="evPendientesCounter" class="ev-pedidos-counter">0</span>
+            </div>
+            <div id="evPendientesEmpty" class="ev-pedidos-info-alert ev-pedidos-info-alert-empty d-none">
+              No tienes solicitudes pendientes por atender.
+            </div>
+            <div id="evPendientesLista" class="ev-pedidos-lista"></div>
+          </div>
+
+          <div class="mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+              <h6 class="mb-0 ev-pedidos-title">En proceso</h6>
+              <span id="evProcesoCounter" class="ev-pedidos-counter">0</span>
+            </div>
+            <div id="evProcesoEmpty" class="ev-pedidos-info-alert ev-pedidos-info-alert-empty d-none">
+              No tienes pedidos en proceso en este momento.
+            </div>
+            <div id="evProcesoLista" class="ev-pedidos-lista"></div>
+          </div>
+
+          <div>
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+              <h6 class="mb-0 ev-pedidos-title">Finalizados</h6>
+              <span id="evFinalizadosCounter" class="ev-pedidos-counter">0</span>
+            </div>
+            <div id="evFinalizadosEmpty" class="ev-pedidos-info-alert ev-pedidos-info-alert-empty d-none">
+              Aún no tienes pedidos finalizados.
+            </div>
+            <div id="evFinalizadosLista" class="ev-pedidos-lista"></div>
+          </div>
+
+        </div>
       </div>
-
     </div>
   </section>
 </div>
