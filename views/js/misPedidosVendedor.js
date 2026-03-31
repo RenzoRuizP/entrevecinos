@@ -2,13 +2,13 @@
 (function () {
   'use strict';
 
-  if (window.__EV_MIS_PEDIDOS_VENDEDOR_V8__ === true) {
+  if (window.__EV_MIS_PEDIDOS_VENDEDOR_V12__ === true) {
     if (window.EVMisPedidosVendedor && typeof window.EVMisPedidosVendedor.init === 'function') {
       window.EVMisPedidosVendedor.init();
     }
     return;
   }
-  window.__EV_MIS_PEDIDOS_VENDEDOR_V8__ = true;
+  window.__EV_MIS_PEDIDOS_VENDEDOR_V12__ = true;
 
   const BASE = (window.BASE_URL || '').replace(/\/+$/, '');
   const POLLING_MS = 5000;
@@ -51,30 +51,6 @@
     });
   }
 
-  function formatFechaSolo(v) {
-    if (!v) return '—';
-    const raw = String(v).trim();
-    const d = new Date(raw.replace(' ', 'T'));
-    if (Number.isNaN(d.getTime())) return raw;
-    return d.toLocaleDateString('es-PE', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
-  }
-
-  function formatHoraSolo(v) {
-    if (!v) return '—';
-    const raw = String(v).trim();
-    const d = new Date(raw.replace(' ', 'T'));
-    if (Number.isNaN(d.getTime())) return raw;
-    return d.toLocaleTimeString('es-PE', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-  }
-
   function formatTiempoCorto(segundos) {
     const s = Math.max(0, Number(segundos || 0));
     const min = Math.floor(s / 60);
@@ -85,6 +61,25 @@
   function normalizarUrlImagen(url) {
     const raw = String(url || '').trim();
     return raw !== '' ? raw : PLACEHOLDER;
+  }
+
+  function textoEntrega(item) {
+    const tipoRaw = String(item.tipo_entrega_raw || item.tipo_entrega || '').trim().toLowerCase();
+    if (tipoRaw === 'programada' || tipoRaw === 'programado') return 'Programada';
+    return 'Inmediato';
+  }
+
+  function esEstadoNegativo(estado) {
+    return [
+      'rechazado_vendedor',
+      'cancelado_vendedor',
+      'cancelado_comprador',
+      'sin_respuesta_vendedor'
+    ].includes(String(estado || '').trim());
+  }
+
+  function esEstadoInfo(estado) {
+    return String(estado || '').trim() === 'entregado_vendedor';
   }
 
   function estadoLegible(estado) {
@@ -102,7 +97,6 @@
       cancelado_comprador: 'Cancelado por comprador',
       sin_respuesta_vendedor: 'Sin respuesta del vendedor'
     };
-
     return mapa[String(estado || '').trim()] || estado || 'Sin estado';
   }
 
@@ -113,13 +107,21 @@
       return { texto: 'Pendiente', clase: 'ev-mpv-badge ev-mpv-badge-pendiente' };
     }
 
+    if (esEstadoNegativo(e)) {
+      return { texto: estadoLegible(e), clase: 'ev-mpv-badge ev-mpv-badge-negative' };
+    }
+
+    if (esEstadoInfo(e)) {
+      return { texto: estadoLegible(e), clase: 'ev-mpv-badge ev-mpv-badge-info' };
+    }
+
     if (
       e === 'en_preparacion' ||
       e === 'despachando' ||
       e === 'listo_para_entrega' ||
       e === 'en_camino' ||
       e === 'en_punto_entrega' ||
-      e === 'entregado_vendedor'
+      e === 'entrega_confirmada_comprador'
     ) {
       return { texto: estadoLegible(e), clase: 'ev-mpv-badge ev-mpv-badge-proceso' };
     }
@@ -194,35 +196,38 @@
   function getLineaEstado(item) {
     const estado = String(item.estado_actual || '').trim();
     const requierePreparacion = Number(item.requiere_preparacion || 0) === 1;
-
     const flujo = requierePreparacion
       ? ['en_preparacion', 'listo_para_entrega', 'en_camino', 'en_punto_entrega', 'entregado_vendedor', 'entrega_confirmada_comprador']
       : ['despachando', 'en_camino', 'en_punto_entrega', 'entregado_vendedor', 'entrega_confirmada_comprador'];
 
-    const finales = ['rechazado_vendedor', 'cancelado_vendedor', 'cancelado_comprador', 'sin_respuesta_vendedor'];
-
-    if (finales.includes(estado)) {
+    if (esEstadoNegativo(estado)) {
       return `
         <div class="ev-mpv-stepper ev-mpv-stepper-final">
-          <div class="ev-mpv-step is-final">${escapeHtml(estadoLegible(estado))}</div>
+          <div class="ev-mpv-step is-final is-negative">
+            <span class="ev-mpv-step-dot"></span>
+            <span class="ev-mpv-step-text">${escapeHtml(estadoLegible(estado))}</span>
+          </div>
         </div>
       `;
     }
 
-    const html = flujo.map((step, index) => {
-      const currentIndex = flujo.indexOf(estado);
-      const isDone = currentIndex > index;
-      const isCurrent = currentIndex === index;
+    const currentIndex = flujo.indexOf(estado);
 
-      return `
-        <div class="ev-mpv-step ${isDone ? 'is-done' : ''} ${isCurrent ? 'is-current' : ''}">
-          <span class="ev-mpv-step-dot"></span>
-          <span class="ev-mpv-step-text">${escapeHtml(estadoLegible(step))}</span>
-        </div>
-      `;
-    }).join('');
+    return `
+      <div class="ev-mpv-stepper">
+        ${flujo.map((step, index) => {
+          const isDone = currentIndex > index;
+          const isCurrent = currentIndex === index;
 
-    return `<div class="ev-mpv-stepper">${html}</div>`;
+          return `
+            <div class="ev-mpv-step ${isDone ? 'is-done' : ''} ${isCurrent ? 'is-current' : ''}">
+              <span class="ev-mpv-step-dot"></span>
+              <span class="ev-mpv-step-text">${escapeHtml(estadoLegible(step))}</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
   }
 
   function getSiguienteAccion(item) {
@@ -314,7 +319,7 @@
         <div class="ev-mpv-state-box ev-mpv-state-box-pending">
           <div class="ev-mpv-state-title">Solicitud pendiente de atención</div>
           <div class="ev-mpv-state-text">
-            Atiende esta solicitud antes de que finalice el tiempo de espera.
+            Atiende esta solicitud antes de que termine el tiempo de espera para evitar que quede sin respuesta.
           </div>
           ${
             item.tiempo_restante_segundos !== null
@@ -330,24 +335,29 @@
         <div class="ev-mpv-state-box ev-mpv-state-box-info">
           <div class="ev-mpv-state-title">Esperando confirmación del comprador</div>
           <div class="ev-mpv-state-text">
-            Ya marcaste el pedido como entregado. Ahora el comprador debe confirmar la recepción.
+            Ya registraste la entrega. Ahora el comprador debe confirmar la recepción del pedido.
           </div>
         </div>
       `;
     }
 
-    if (
-      estado === 'rechazado_vendedor' ||
-      estado === 'cancelado_vendedor' ||
-      estado === 'cancelado_comprador' ||
-      estado === 'sin_respuesta_vendedor' ||
-      estado === 'entrega_confirmada_comprador'
-    ) {
+    if (esEstadoNegativo(estado)) {
       return `
-        <div class="ev-mpv-state-box ev-mpv-state-box-final">
+        <div class="ev-mpv-state-box ev-mpv-state-box-negative">
           <div class="ev-mpv-state-title">${escapeHtml(estadoLegible(estado))}</div>
           <div class="ev-mpv-state-text">
-            ${escapeHtml(item.motivo_estado || 'Este pedido ya se encuentra cerrado.')}
+            ${escapeHtml(item.motivo_estado || 'Este pedido se cerró sin concretarse.')}
+          </div>
+        </div>
+      `;
+    }
+
+    if (estado === 'entrega_confirmada_comprador') {
+      return `
+        <div class="ev-mpv-state-box ev-mpv-state-box-final">
+          <div class="ev-mpv-state-title">Entrega confirmada</div>
+          <div class="ev-mpv-state-text">
+            ${escapeHtml(item.motivo_estado || 'El comprador confirmó la recepción del pedido.')}
           </div>
         </div>
       `;
@@ -364,23 +374,36 @@
   }
 
   function renderQuickPills(item) {
-    const pills = [];
-
-    pills.push(`
+    return `
       <span class="ev-mpv-pill">
         <i class="bi bi-box-seam"></i>
         Cant. ${escapeHtml(item.cantidad || 0)}
       </span>
-    `);
-
-    pills.push(`
       <span class="ev-mpv-pill">
         <i class="bi bi-lightning-charge"></i>
-        ${escapeHtml(item.tipo_entrega || 'Inmediata')}
+        ${escapeHtml(textoEntrega(item))}
       </span>
-    `);
+    `;
+  }
 
-    return pills.join('');
+  function renderFlujo(item) {
+    if (esEstadoNegativo(item.estado_actual)) {
+      return `
+        <div class="ev-mpv-section-title">
+          <i class="bi bi-diagram-3"></i>
+          Estado del pedido
+        </div>
+        ${getLineaEstado(item)}
+      `;
+    }
+
+    return `
+      <div class="ev-mpv-section-title">
+        <i class="bi bi-diagram-3"></i>
+        Flujo del pedido
+      </div>
+      ${getLineaEstado(item)}
+    `;
   }
 
   function renderCard(item) {
@@ -398,10 +421,10 @@
 
           <div class="ev-mpv-order-head">
             <div class="ev-mpv-order-head-row">
-              <div>
+              <div class="ev-mpv-order-head-main">
                 <div class="ev-mpv-order-title">${escapeHtml(item.titulo_publicacion || 'Pedido')}</div>
                 <div class="ev-mpv-order-meta">
-                  Pedido #${Number(item.codigo_pedido || 0)} · ${escapeHtml(formatFechaSolo(fechaBase))} ${escapeHtml(formatHoraSolo(fechaBase))}
+                  Pedido #${Number(item.codigo_pedido || 0)} · ${escapeHtml(formatFecha(fechaBase))}
                 </div>
               </div>
               <span class="${badge.clase}">${escapeHtml(badge.texto)}</span>
@@ -410,11 +433,13 @@
             <div class="ev-mpv-order-quick">
               ${renderQuickPills(item)}
             </div>
+          </div>
 
+          <div class="ev-mpv-order-top-data">
             <div class="ev-mpv-order-data">
-              <div class="ev-mpv-data-box ev-mpv-data-box-buyer">
-                <span>Comprador</span>
-                <strong>${escapeHtml(item.nombre_vecino || 'Vecino')}</strong>
+              <div class="ev-mpv-data-box ev-mpv-data-box-date">
+                <span>Fecha</span>
+                <strong>${escapeHtml(formatFecha(fechaBase))}</strong>
               </div>
 
               <div class="ev-mpv-data-box ev-mpv-data-box-total">
@@ -422,21 +447,16 @@
                 <strong>S/ ${escapeHtml(formatMoney(item.monto_total || item.total || 0))}</strong>
               </div>
 
-              <div class="ev-mpv-data-box ev-mpv-data-box-date">
-                <span>Fecha</span>
-                <strong>${escapeHtml(formatFechaSolo(fechaBase))}</strong>
+              <div class="ev-mpv-data-box ev-mpv-data-box-buyer">
+                <span>Comprador</span>
+                <strong>${escapeHtml(item.nombre_vecino || 'Vecino')}</strong>
               </div>
             </div>
           </div>
         </div>
 
         <div class="ev-mpv-order-body">
-          <div class="ev-mpv-section-title">
-            <i class="bi bi-diagram-3"></i>
-            Flujo del pedido
-          </div>
-
-          ${getLineaEstado(item)}
+          ${renderFlujo(item)}
 
           <div class="ev-mpv-info-card">
             <div class="ev-mpv-line">
@@ -555,8 +575,7 @@
       confirmButtonColor: '#EA7C12'
     });
 
-    const refs = getRefs();
-    showTab(refs, 'pendientes');
+    showTab(getRefs(), 'pendientes');
   }
 
   async function cargarPedidos(opciones = {}) {
@@ -809,20 +828,20 @@
 
             <div class="ev-mpv-modal-grid">
               <div class="ev-mpv-modal-item">
-                <span>Comprador</span>
-                <strong>${escapeHtml(item.nombre_vecino || 'Vecino')}</strong>
+                <span>Fecha</span>
+                <strong>${escapeHtml(formatFecha(item.fecha_hora || item.created_at || null))}</strong>
               </div>
               <div class="ev-mpv-modal-item">
                 <span>Total</span>
                 <strong>S/ ${escapeHtml(formatMoney(item.monto_total || item.total || 0))}</strong>
               </div>
               <div class="ev-mpv-modal-item">
-                <span>Cantidad</span>
-                <strong>${escapeHtml(item.cantidad || 0)}</strong>
+                <span>Comprador</span>
+                <strong>${escapeHtml(item.nombre_vecino || 'Vecino')}</strong>
               </div>
               <div class="ev-mpv-modal-item">
                 <span>Entrega</span>
-                <strong>${escapeHtml(item.tipo_entrega || 'Inmediata')}</strong>
+                <strong>${escapeHtml(textoEntrega(item))}</strong>
               </div>
             </div>
           </div>
@@ -883,7 +902,7 @@
     await Swal.fire({
       title: 'Detalle del pedido',
       html: buildDetalleHtml(item),
-      width: 860,
+      width: 880,
       confirmButtonText: 'Cerrar',
       confirmButtonColor: '#EA7C12',
       customClass: {

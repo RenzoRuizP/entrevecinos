@@ -15,11 +15,12 @@ require_once __DIR__ . '/../Config/config.php';
           <div class="ev-mpv-title-icon">
             <i class="bi bi-bag-check"></i>
           </div>
+
           <div>
             <div class="ev-mpv-kicker">VENDER</div>
             <h2 class="ev-mpv-title">Mis pedidos</h2>
             <p class="ev-mpv-subtitle">
-              Administra tus solicitudes recibidas y da seguimiento a cada pedido con una experiencia clara y amigable.
+              Da seguimiento a tus pedidos recibidos, atiende nuevas solicitudes y avanza cada entrega con una experiencia clara, ágil y alineada al estilo EV.
             </p>
           </div>
         </div>
@@ -29,10 +30,12 @@ require_once __DIR__ . '/../Config/config.php';
             <span class="ev-mpv-summary-label">Pendientes</span>
             <strong id="mpvCountPendientes">0</strong>
           </div>
+
           <div class="ev-mpv-summary-card">
             <span class="ev-mpv-summary-label">En proceso</span>
             <strong id="mpvCountProceso">0</strong>
           </div>
+
           <div class="ev-mpv-summary-card">
             <span class="ev-mpv-summary-label">Finalizados</span>
             <strong id="mpvCountFinalizados">0</strong>
@@ -48,37 +51,40 @@ require_once __DIR__ . '/../Config/config.php';
         <div>
           <h5 class="ev-mpv-block-title">Panel operativo</h5>
           <p class="ev-mpv-block-subtitle">
-            Atiende nuevas solicitudes, avanza el estado de cada pedido y revisa los casos no concretados.
+            Revisa las solicitudes activas, gestiona el avance del pedido y consulta rápidamente los casos cerrados o no concretados.
           </p>
         </div>
 
         <div class="ev-mpv-actions-top">
           <div class="ev-mpv-tab-groups">
             <div class="ev-mpv-tab-group">
-              <span class="ev-mpv-tab-group-label">Solicitudes atendidas</span>
+              <span class="ev-mpv-tab-group-label">Pedidos atendidos</span>
               <div class="ev-mpv-tabs">
                 <button type="button" class="btn ev-mpv-tab active" data-tab="pendientes">
                   Pendientes
                   <span class="ev-mpv-tab-badge" id="mpvBadgePendientes">0</span>
                 </button>
+
                 <button type="button" class="btn ev-mpv-tab" data-tab="proceso">
                   En proceso
                   <span class="ev-mpv-tab-badge" id="mpvBadgeProceso">0</span>
                 </button>
+
                 <button type="button" class="btn ev-mpv-tab" data-tab="finalizados">
-                  Finalizadas
+                  Finalizados
                   <span class="ev-mpv-tab-badge" id="mpvBadgeFinalizados">0</span>
                 </button>
               </div>
             </div>
 
             <div class="ev-mpv-tab-group">
-              <span class="ev-mpv-tab-group-label">Solicitudes no concretadas</span>
+              <span class="ev-mpv-tab-group-label">Pedidos no concretados</span>
               <div class="ev-mpv-tabs">
                 <button type="button" class="btn ev-mpv-tab" data-tab="rechazadas">
                   Rechazadas
                   <span class="ev-mpv-tab-badge" id="mpvBadgeRechazadas">0</span>
                 </button>
+
                 <button type="button" class="btn ev-mpv-tab" data-tab="sin-respuesta">
                   Sin respuesta
                   <span class="ev-mpv-tab-badge" id="mpvBadgeSinRespuesta">0</span>

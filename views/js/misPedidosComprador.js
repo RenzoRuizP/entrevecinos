@@ -2,13 +2,13 @@
 (function () {
   'use strict';
 
-  if (window.__EV_MIS_PEDIDOS_COMPRADOR_V2__ === true) {
+  if (window.__EV_MIS_PEDIDOS_COMPRADOR_V3__ === true) {
     if (window.EVMisPedidosComprador && typeof window.EVMisPedidosComprador.init === 'function') {
       window.EVMisPedidosComprador.init();
     }
     return;
   }
-  window.__EV_MIS_PEDIDOS_COMPRADOR_V2__ = true;
+  window.__EV_MIS_PEDIDOS_COMPRADOR_V3__ = true;
 
   const BASE = (window.BASE_URL || '').replace(/\/+$/, '');
   const PLACEHOLDER = `${BASE}/public/img/placeholder-ev.png`;
@@ -51,6 +51,25 @@
     return raw !== '' ? raw : PLACEHOLDER;
   }
 
+  function textoEntrega(item) {
+    const tipoRaw = String(item.tipo_entrega_raw || item.tipo_entrega || '').trim().toLowerCase();
+    if (tipoRaw === 'programada' || tipoRaw === 'programado') return 'Programada';
+    return 'Inmediato';
+  }
+
+  function esEstadoNegativo(estado) {
+    return [
+      'rechazado_vendedor',
+      'cancelado_vendedor',
+      'cancelado_comprador',
+      'sin_respuesta_vendedor'
+    ].includes(String(estado || '').trim());
+  }
+
+  function esEstadoInfo(estado) {
+    return String(estado || '').trim() === 'entregado_vendedor';
+  }
+
   function estadoLegible(estado) {
     const mapa = {
       pendiente_vendedor: 'Pendiente',
@@ -77,13 +96,21 @@
       return { texto: 'Pendiente', clase: 'ev-mpc-badge ev-mpc-badge-pendiente' };
     }
 
+    if (esEstadoNegativo(e)) {
+      return { texto: estadoLegible(e), clase: 'ev-mpc-badge ev-mpc-badge-negative' };
+    }
+
+    if (esEstadoInfo(e)) {
+      return { texto: estadoLegible(e), clase: 'ev-mpc-badge ev-mpc-badge-info' };
+    }
+
     if (
       e === 'en_preparacion' ||
       e === 'despachando' ||
       e === 'listo_para_entrega' ||
       e === 'en_camino' ||
       e === 'en_punto_entrega' ||
-      e === 'entregado_vendedor'
+      e === 'entrega_confirmada_comprador'
     ) {
       return { texto: estadoLegible(e), clase: 'ev-mpc-badge ev-mpc-badge-proceso' };
     }
@@ -94,9 +121,14 @@
   function getRefs() {
     return {
       root: document.querySelector('.ev-mpc-page'),
+
       countPendientes: document.getElementById('mpcCountPendientes'),
       countProceso: document.getElementById('mpcCountProceso'),
       countFinalizados: document.getElementById('mpcCountFinalizados'),
+
+      badgePendientes: document.getElementById('mpcBadgePendientes'),
+      badgeProceso: document.getElementById('mpcBadgeProceso'),
+      badgeFinalizados: document.getElementById('mpcBadgeFinalizados'),
 
       tabButtons: Array.from(document.querySelectorAll('.ev-mpc-tab')),
       tabPendientes: document.getElementById('mpcTabPendientes'),
@@ -142,12 +174,13 @@
       ? ['pendiente_vendedor', 'en_preparacion', 'listo_para_entrega', 'en_camino', 'en_punto_entrega', 'entregado_vendedor', 'entrega_confirmada_comprador']
       : ['pendiente_vendedor', 'despachando', 'en_camino', 'en_punto_entrega', 'entregado_vendedor', 'entrega_confirmada_comprador'];
 
-    const finales = ['rechazado_vendedor', 'cancelado_vendedor', 'cancelado_comprador', 'sin_respuesta_vendedor'];
-
-    if (finales.includes(estado)) {
+    if (esEstadoNegativo(estado)) {
       return `
         <div class="ev-mpc-stepper ev-mpc-stepper-final">
-          <div class="ev-mpc-step is-final">${escapeHtml(estadoLegible(estado))}</div>
+          <div class="ev-mpc-step is-final is-negative">
+            <span class="ev-mpc-step-dot"></span>
+            <span class="ev-mpc-step-text">${escapeHtml(estadoLegible(estado))}</span>
+          </div>
         </div>
       `;
     }
@@ -187,39 +220,77 @@
 
     if (estado === 'entregado_vendedor') {
       return `
-        <div class="ev-mpc-state-box ev-mpc-state-box-process">
+        <div class="ev-mpc-state-box ev-mpc-state-box-info">
           <div class="ev-mpc-state-title">Pedido marcado como entregado</div>
           <div class="ev-mpc-state-text">
-            Verifica que recibiste correctamente tu pedido antes de confirmarlo.
+            Verifica que recibiste correctamente tu pedido antes de confirmar la entrega.
           </div>
         </div>
       `;
     }
 
-    if (
-      estado === 'rechazado_vendedor' ||
-      estado === 'cancelado_vendedor' ||
-      estado === 'cancelado_comprador' ||
-      estado === 'sin_respuesta_vendedor' ||
-      estado === 'entrega_confirmada_comprador'
-    ) {
+    if (esEstadoNegativo(estado)) {
       return `
-        <div class="ev-mpc-state-box ev-mpc-state-box-final">
+        <div class="ev-mpc-state-box ev-mpc-state-box-negative">
           <div class="ev-mpc-state-title">${escapeHtml(estadoLegible(estado))}</div>
           <div class="ev-mpc-state-text">
-            ${escapeHtml(item.motivo_estado || item.mensaje_estado || 'Este pedido ya se encuentra cerrado.')}
+            ${escapeHtml(item.motivo_estado || item.mensaje_estado || 'Este pedido se cerró sin concretarse.')}
+          </div>
+        </div>
+      `;
+    }
+
+    if (estado === 'entrega_confirmada_comprador') {
+      return `
+        <div class="ev-mpc-state-box ev-mpc-state-box-final">
+          <div class="ev-mpc-state-title">Entrega confirmada</div>
+          <div class="ev-mpc-state-text">
+            ${escapeHtml(item.motivo_estado || item.mensaje_estado || 'Confirmaste correctamente la recepción del pedido.')}
           </div>
         </div>
       `;
     }
 
     return `
-      <div class="ev-mpc-state-box ev-mpc-state-box-info">
+      <div class="ev-mpc-state-box ev-mpc-state-box-process">
         <div class="ev-mpc-state-title">Pedido en avance</div>
         <div class="ev-mpc-state-text">
           ${escapeHtml(item.motivo_estado || item.mensaje_estado || 'Tu pedido continúa avanzando.')}
         </div>
       </div>
+    `;
+  }
+
+  function renderQuickPills(item) {
+    return `
+      <span class="ev-mpc-pill">
+        <i class="bi bi-box-seam"></i>
+        Cant. ${escapeHtml(item.cantidad || 0)}
+      </span>
+      <span class="ev-mpc-pill">
+        <i class="bi bi-lightning-charge"></i>
+        ${escapeHtml(textoEntrega(item))}
+      </span>
+    `;
+  }
+
+  function renderFlujo(item) {
+    if (esEstadoNegativo(item.estado_actual)) {
+      return `
+        <div class="ev-mpc-section-title">
+          <i class="bi bi-diagram-3"></i>
+          Estado del pedido
+        </div>
+        ${getLineaEstado(item)}
+      `;
+    }
+
+    return `
+      <div class="ev-mpc-section-title">
+        <i class="bi bi-diagram-3"></i>
+        Flujo del pedido
+      </div>
+      ${getLineaEstado(item)}
     `;
   }
 
@@ -250,9 +321,9 @@
             <img src="${escapeHtml(imagen)}" alt="${escapeHtml(item.titulo_publicacion || 'Pedido')}">
           </div>
 
-          <div class="ev-mpc-order-head-main">
+          <div class="ev-mpc-order-head">
             <div class="ev-mpc-order-head-row">
-              <div>
+              <div class="ev-mpc-order-head-main">
                 <div class="ev-mpc-order-title">${escapeHtml(item.titulo_publicacion || 'Pedido')}</div>
                 <div class="ev-mpc-order-meta">
                   Pedido #${Number(item.codigo_pedido || 0)} · ${escapeHtml(formatFecha(item.fecha_hora || item.created_at || null))}
@@ -261,29 +332,33 @@
               <span class="${badge.clase}">${escapeHtml(badge.texto)}</span>
             </div>
 
-            <div class="ev-mpc-order-mini-grid">
-              <div class="ev-mpc-mini-item">
-                <span>Vendedor</span>
-                <strong>${escapeHtml(item.nombre_vecino || item.nombre_vendedor || 'Vecino')}</strong>
+            <div class="ev-mpc-order-quick">
+              ${renderQuickPills(item)}
+            </div>
+          </div>
+
+          <div class="ev-mpc-order-top-data">
+            <div class="ev-mpc-order-data">
+              <div class="ev-mpc-data-box ev-mpc-data-box-date">
+                <span>Fecha</span>
+                <strong>${escapeHtml(formatFecha(item.fecha_hora || item.created_at || null))}</strong>
               </div>
-              <div class="ev-mpc-mini-item">
+
+              <div class="ev-mpc-data-box ev-mpc-data-box-total">
                 <span>Total</span>
                 <strong>S/ ${escapeHtml(formatMoney(item.monto_total || item.total || 0))}</strong>
               </div>
-              <div class="ev-mpc-mini-item">
-                <span>Cantidad</span>
-                <strong>${escapeHtml(item.cantidad || 0)}</strong>
-              </div>
-              <div class="ev-mpc-mini-item">
-                <span>Entrega</span>
-                <strong>${escapeHtml(item.tipo_entrega || 'Inmediata')}</strong>
+
+              <div class="ev-mpc-data-box ev-mpc-data-box-seller">
+                <span>Vendedor</span>
+                <strong>${escapeHtml(item.nombre_vecino || item.nombre_vendedor || 'Vecino')}</strong>
               </div>
             </div>
           </div>
         </div>
 
         <div class="ev-mpc-order-body">
-          ${getLineaEstado(item)}
+          ${renderFlujo(item)}
 
           <div class="ev-mpc-info-card">
             <div class="ev-mpc-line">
@@ -387,6 +462,10 @@
       if (refs.countProceso) refs.countProceso.textContent = String(proceso.length);
       if (refs.countFinalizados) refs.countFinalizados.textContent = String(finalizados.length);
 
+      if (refs.badgePendientes) refs.badgePendientes.textContent = String(pendientes.length);
+      if (refs.badgeProceso) refs.badgeProceso.textContent = String(proceso.length);
+      if (refs.badgeFinalizados) refs.badgeFinalizados.textContent = String(finalizados.length);
+
       pintarGrupo(pendientes, refs.listaPendientes, refs.emptyPendientes);
       pintarGrupo(proceso, refs.listaProceso, refs.emptyProceso);
       pintarGrupo(finalizados, refs.listaFinalizados, refs.emptyFinalizados);
@@ -476,20 +555,20 @@
 
             <div class="ev-mpc-modal-grid">
               <div class="ev-mpc-modal-item">
-                <span>Vendedor</span>
-                <strong>${escapeHtml(item.nombre_vecino || item.nombre_vendedor || 'Vecino')}</strong>
+                <span>Fecha</span>
+                <strong>${escapeHtml(formatFecha(item.fecha_hora || item.created_at || null))}</strong>
               </div>
               <div class="ev-mpc-modal-item">
                 <span>Total</span>
                 <strong>S/ ${escapeHtml(formatMoney(item.monto_total || item.total || 0))}</strong>
               </div>
               <div class="ev-mpc-modal-item">
-                <span>Cantidad</span>
-                <strong>${escapeHtml(item.cantidad || 0)}</strong>
+                <span>Vendedor</span>
+                <strong>${escapeHtml(item.nombre_vecino || item.nombre_vendedor || 'Vecino')}</strong>
               </div>
               <div class="ev-mpc-modal-item">
                 <span>Entrega</span>
-                <strong>${escapeHtml(item.tipo_entrega || 'Inmediata')}</strong>
+                <strong>${escapeHtml(textoEntrega(item))}</strong>
               </div>
             </div>
           </div>
@@ -550,7 +629,7 @@
     await Swal.fire({
       title: 'Detalle del pedido',
       html: buildDetalleHtml(item),
-      width: 860,
+      width: 880,
       confirmButtonText: 'Cerrar',
       confirmButtonColor: '#EA7C12',
       customClass: {
