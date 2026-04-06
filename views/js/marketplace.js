@@ -673,6 +673,52 @@
         return;
       }
 
+      const estadoActual = String(solicitud.estado_actual || '').trim();
+
+      if (estadoActual === 'cola_pendiente_confirmacion') {
+        const deseaEsperar = await Swal.fire(swalBaseConfig({
+          icon: 'question',
+          title: 'Hay una cola de atención',
+          text: solicitud?.mensaje_estado || 'El vendedor tiene pedidos en atención. ¿Deseas continuar en cola?',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, esperar',
+          cancelButtonText: 'No, cancelar'
+        }));
+
+        if (deseaEsperar.isConfirmed) {
+          const confirmar = await fetchJsonRobusto(`${BASE}/api/pedidos/${encodeURIComponent(solicitud.codigo_pedido)}/confirmar-cola`, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin'
+          });
+
+          if (await manejarRespuestaAuth(confirmar.resp, confirmar.json)) return;
+
+          if (!confirmar.json || !confirmar.resp.ok || !confirmar.json.ok) {
+            await notify('error', 'Error', confirmar.json?.mensaje || 'No se pudo confirmar tu permanencia en la cola.');
+            return;
+          }
+
+          await iniciarSeguimientoSolicitud(confirmar.json.data || solicitud);
+          return;
+        }
+
+        const cancelado = await cancelarSolicitudBackend(solicitud.codigo_pedido);
+
+        if (!cancelado || !cancelado.json) {
+          await notify('warning', 'Solicitud no enviada', 'Decidiste no continuar en la cola de atención.');
+          return;
+        }
+
+        if (!cancelado.resp.ok || !cancelado.json.ok) {
+          await notify('warning', 'No se pudo cancelar', cancelado.json?.mensaje || 'La solicitud ya no se puede cancelar.');
+          return;
+        }
+
+        await finalizarSeguimientoSolicitud(cancelado.json.data || {});
+        return;
+      }
+
       await iniciarSeguimientoSolicitud(solicitud);
     } catch (e) {
       err('EXCEPTION restoreSolicitudActiva', e);
@@ -874,7 +920,13 @@
   }
 
   function estadoSigueEsperandoRespuesta(estado) {
-    return String(estado || '').trim() === 'pendiente_vendedor';
+    const e = String(estado || '').trim();
+
+    return [
+      'pendiente_vendedor',
+      'cola_pendiente_confirmacion',
+      'cola_aceptada'
+    ].includes(e);
   }
 
   async function refrescarSeguimientoSolicitud() {
@@ -910,21 +962,36 @@
       puede_cancelar: data.puede_cancelar ?? 0
     });
 
+    const estadoActual = String(data.estado_actual || '').trim();
     const tituloProducto = String(data.titulo_producto || 'tu solicitud');
     const requierePreparacion = Number(data.requiere_preparacion || 0) === 1;
     const montoDescontado = Number(data.monto_descontado_billetera || 0);
 
+    let tituloSwal = 'Solicitud enviada';
+    let estadoTexto = 'Esperando ser atendido...';
+    let detalle = 'Tu solicitud fue registrada correctamente. Estamos esperando la respuesta del vendedor.';
+
+    if (estadoActual === 'cola_pendiente_confirmacion') {
+      tituloSwal = 'Solicitud en cola';
+      estadoTexto = 'Confirmación pendiente';
+      detalle = data.mensaje_estado || 'Tu solicitud está en cola. Debes confirmar si deseas continuar en espera.';
+    } else if (estadoActual === 'cola_aceptada') {
+      tituloSwal = 'Solicitud en cola';
+      estadoTexto = 'Esperando turno de atención';
+      detalle = data.mensaje_estado || 'Tu solicitud quedó en cola y avanzará cuando el vendedor termine el pedido anterior.';
+    }
+
     const result = await Swal.fire(swalBaseConfig({
       icon: undefined,
-      title: 'Solicitud enviada',
+      title: tituloSwal,
       html: htmlSeguimientoSolicitud({
         tituloProducto,
-        estadoTexto: 'Esperando ser atendido...',
-        detalle: 'Tu solicitud fue registrada correctamente. Estamos esperando la respuesta del vendedor.',
+        estadoTexto,
+        detalle,
         segundosRestantes: solicitudFlow.segundosRestantes,
         requierePreparacion,
         montoDescontado,
-        variant: 'success'
+        variant: estadoActual === 'cola_pendiente_confirmacion' || estadoActual === 'cola_aceptada' ? 'info' : 'success'
       }),
       showConfirmButton: false,
       showCancelButton: false,
@@ -946,7 +1013,7 @@
         actualizarUiSeguimiento({
           segundos_restantes: solicitudFlow.segundosRestantes,
           segundos_para_cancelar_restantes: solicitudFlow.segundosParaCancelarRestantes,
-          puede_cancelar: 0
+          puede_cancelar: Number(data.puede_cancelar || 0)
         });
 
         solicitudFlow.intervalUi = setInterval(() => {
@@ -1327,6 +1394,7 @@
 
         if (
           apiError === 'PUBLICACION_FUERA_DE_CONJUNTO' ||
+          apiError === 'PUBLICACION_FUERA_DE_RESIDENCIA' ||
           apiError === 'PRODUCTO_NO_APROBADO' ||
           apiError === 'PUBLICACION_NO_VIGENTE' ||
           apiError === 'VENDEDOR_NO_HABILITADO'
@@ -1340,6 +1408,7 @@
       }
 
       const data = json?.data || {};
+      const estadoRegistrado = String(data?.estado_actual || '').trim();
 
       const form = document.getElementById('mp_form_solicitud_pedido');
       try { form?.reset(); } catch (_) {}
@@ -1357,6 +1426,51 @@
       actualizarVisibilidadEntregaProgramada();
 
       swalCloseIfVisible();
+
+      if (estadoRegistrado === 'cola_pendiente_confirmacion' && data?.codigo_pedido) {
+        const deseaEsperar = await Swal.fire(swalBaseConfig({
+          icon: 'question',
+          title: 'Hay una cola de atención',
+          text: data?.mensaje_estado || 'El vendedor tiene pedidos en atención. ¿Deseas continuar en cola?',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, esperar',
+          cancelButtonText: 'No, cancelar'
+        }));
+
+        if (deseaEsperar.isConfirmed) {
+          const confirmar = await fetchJsonRobusto(`${BASE}/api/pedidos/${encodeURIComponent(data.codigo_pedido)}/confirmar-cola`, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin'
+          });
+
+          if (await manejarRespuestaAuth(confirmar.resp, confirmar.json)) return;
+
+          if (!confirmar.json || !confirmar.resp.ok || !confirmar.json.ok) {
+            await notify('error', 'Error', confirmar.json?.mensaje || 'No se pudo confirmar tu permanencia en la cola.');
+            return;
+          }
+
+          await iniciarSeguimientoSolicitud(confirmar.json.data || data);
+          return;
+        }
+
+        const cancelado = await cancelarSolicitudBackend(data.codigo_pedido);
+
+        if (!cancelado || !cancelado.json) {
+          await notify('warning', 'Solicitud no enviada', 'Decidiste no continuar en la cola de atención.');
+          return;
+        }
+
+        if (!cancelado.resp.ok || !cancelado.json.ok) {
+          await notify('warning', 'No se pudo cancelar', cancelado.json?.mensaje || 'La solicitud ya no se puede cancelar.');
+          return;
+        }
+
+        await finalizarSeguimientoSolicitud(cancelado.json.data || {});
+        return;
+      }
+
       await iniciarSeguimientoSolicitud(data);
 
     } catch (e) {
@@ -1497,9 +1611,9 @@
     try {
       const url = `${BASE}/tipos`;
       const { resp, json, text } = await fetchJsonRobusto(url, {
-        method:'GET',
-        headers:{'Accept':'application/json'},
-        credentials:'same-origin'
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin'
       });
 
       if (!resp.ok || !json) {
@@ -1524,6 +1638,7 @@
           if (k.includes('product')) { tipoIdProducto = v; break; }
         }
       }
+
       if (!tipoIdServicio) {
         for (const [k, v] of mapByName.entries()) {
           if (k.includes('servic')) { tipoIdServicio = v; break; }
@@ -1534,10 +1649,8 @@
 
       if (tipoIdProducto) {
         await cargarCategoriasProductos(tipoIdProducto);
-      } else {
-        if (refs.selectCategoriaProductos) {
-          refs.selectCategoriaProductos.innerHTML = `<option value="0">Todas las categorías</option>`;
-        }
+      } else if (refs.selectCategoriaProductos) {
+        refs.selectCategoriaProductos.innerHTML = `<option value="0">Todas las categorías</option>`;
       }
     } catch (e) {
       warn('Error cargando tipos/categorías:', e);
@@ -1550,9 +1663,9 @@
     try {
       const url = `${BASE}/tipos/${encodeURIComponent(tipoId)}/categoria_grupo`;
       const { resp, json, text } = await fetchJsonRobusto(url, {
-        method:'GET',
-        headers:{'Accept':'application/json'},
-        credentials:'same-origin'
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin'
       });
 
       if (!resp.ok || !json) {
@@ -1568,12 +1681,11 @@
         const id = Number(r.codigo_categoria || 0) || 0;
         const grupo = (r.grupo || '').toString().trim();
         const cat = (r.categoria || '').toString().trim();
-        const label = (grupo ? `${grupo} — ${cat}` : cat);
+        const label = grupo ? `${grupo} — ${cat}` : cat;
         return `<option value="${id}">${escapeHtml(label)}</option>`;
       }).join('');
 
       refs.selectCategoriaProductos.innerHTML = opt0 + options;
-
     } catch (e) {
       warn('Error cargando categorias productos:', e);
       refs.selectCategoriaProductos.innerHTML = `<option value="0">Todas las categorías</option>`;
@@ -1584,11 +1696,17 @@
     let lista = Array.isArray(listaBase) ? [...listaBase] : [];
 
     if (scope === 'productos') {
-      if (tipoIdProducto) lista = lista.filter(p => Number(p.__codigo_tipo || 0) === tipoIdProducto);
-      else lista = lista.filter(p => normalizar(p.__tipo_nombre || p.__tipo_slug || '').includes('producto'));
+      if (tipoIdProducto) {
+        lista = lista.filter(p => Number(p.__codigo_tipo || 0) === tipoIdProducto);
+      } else {
+        lista = lista.filter(p => normalizar(p.__tipo_nombre || p.__tipo_slug || '').includes('producto'));
+      }
     } else if (scope === 'servicios') {
-      if (tipoIdServicio) lista = lista.filter(p => Number(p.__codigo_tipo || 0) === tipoIdServicio);
-      else lista = lista.filter(p => normalizar(p.__tipo_nombre || p.__tipo_slug || '').includes('servicio'));
+      if (tipoIdServicio) {
+        lista = lista.filter(p => Number(p.__codigo_tipo || 0) === tipoIdServicio);
+      } else {
+        lista = lista.filter(p => normalizar(p.__tipo_nombre || p.__tipo_slug || '').includes('servicio'));
+      }
     }
 
     if (textoBusqueda.trim() !== '') {
@@ -1612,16 +1730,19 @@
     }
 
     lista.sort((a, b) => {
-      const precioA  = Number(a.__precio || 0);
-      const precioB  = Number(b.__precio || 0);
-      const recA     = Number(a.__orden_reciente || a.__id || 0);
-      const recB     = Number(b.__orden_reciente || b.__id || 0);
+      const precioA = Number(a.__precio || 0);
+      const precioB = Number(b.__precio || 0);
+      const recA = Number(a.__orden_reciente || a.__id || 0);
+      const recB = Number(b.__orden_reciente || b.__id || 0);
 
       switch (criterioOrden) {
-        case 'precio_menor': return precioA - precioB;
-        case 'precio_mayor': return precioB - precioA;
+        case 'precio_menor':
+          return precioA - precioB;
+        case 'precio_mayor':
+          return precioB - precioA;
         case 'recientes':
-        default:             return recB - recA;
+        default:
+          return recB - recA;
       }
     });
 
@@ -1666,9 +1787,11 @@
     bindCardActions(refs.gridServicios);
     bindCardActions(refs.gridProductos);
 
-    const total = (scope === 'servicios') ? servicios.length
-               : (scope === 'productos') ? productos.length
-               : (servicios.length + productos.length);
+    const total = (scope === 'servicios')
+      ? servicios.length
+      : (scope === 'productos')
+        ? productos.length
+        : (servicios.length + productos.length);
 
     setResumen(`Mostrando ${total} resultado${total === 1 ? '' : 's'} en ${CONDO_NOMBRE_RESUMEN}`);
   }
@@ -1757,7 +1880,6 @@
       }
 
       aplicarYRedibujar();
-
     } catch (e) {
       err('EXCEPTION cargarPublicaciones', e);
       publicaciones = [];
@@ -1917,4 +2039,4 @@
   };
 
   log('Cargado. BASE:', BASE || '(vacío)', '| Condominio:', CONDO_NOMBRE_RESUMEN);
-})();
+  })();
