@@ -35,6 +35,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let disponibilidadActual = 0;
   let pollingId = null;
+  let loadingPedidos = false;
+  let cachePedidos = {
+    pendientes: [],
+    en_proceso: [],
+    finalizados: []
+  };
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -67,7 +73,21 @@ document.addEventListener('DOMContentLoaded', () => {
   function formatearFechaProgramada(valor) {
     if (!valor) return '';
     const fecha = new Date(String(valor).replace(' ', 'T'));
-    if (Number.isNaN(fecha.getTime())) return valor;
+    if (Number.isNaN(fecha.getTime())) return String(valor);
+
+    return fecha.toLocaleString('es-PE', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  function formatearFechaRegistro(valor) {
+    if (!valor) return '';
+    const fecha = new Date(String(valor).replace(' ', 'T'));
+    if (Number.isNaN(fecha.getTime())) return String(valor);
 
     return fecha.toLocaleString('es-PE', {
       year: 'numeric',
@@ -81,6 +101,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function badgeEstado(estado) {
     const mapa = {
       pendiente_vendedor: { texto: 'Pendiente', clase: 'ev-status-off' },
+      cola_aceptada: { texto: 'En cola', clase: 'ev-status-off' },
+      cola_pendiente_confirmacion: { texto: 'Esperando confirmación', clase: 'ev-status-off' },
       en_preparacion: { texto: 'En preparación', clase: 'ev-status-on' },
       despachando: { texto: 'Despachando', clase: 'ev-status-on' },
       listo_para_entrega: { texto: 'Listo para entrega', clase: 'ev-status-on' },
@@ -145,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'GET',
         credentials: 'include',
         headers: {
-          'Accept': 'application/json'
+          Accept: 'application/json'
         }
       });
 
@@ -153,8 +175,9 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error(`HTTP ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       const disponibilidad = Number(data?.data?.disponibilidad ?? 0);
+
       aplicarEstadoUI(disponibilidad === 1);
 
       if (disponibilidad === 1) {
@@ -176,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          Accept: 'application/json'
         },
         body: JSON.stringify({
           disponibilidad: nuevoEstado ? 1 : 0
@@ -190,7 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (window.Swal) {
-        Swal.fire({
+        await Swal.fire({
           icon: 'success',
           title: nuevoEstado ? 'Ahora estás disponible' : 'Te has desconectado',
           text: data?.mensaje || (nuevoEstado
@@ -206,13 +229,12 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         limpiarListas();
       }
-
     } catch (err) {
       console.error('[RecibirPedidos] Error al actualizar disponibilidad:', err);
       aplicarEstadoUI(!nuevoEstado);
 
       if (window.Swal) {
-        Swal.fire({
+        await Swal.fire({
           icon: 'error',
           title: 'No se pudo actualizar tu estado',
           text: err.message || 'Inténtalo nuevamente en unos segundos.',
@@ -228,6 +250,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function limpiarListas() {
+    cachePedidos = {
+      pendientes: [],
+      en_proceso: [],
+      finalizados: []
+    };
+
     limpiarContenedor(pendientesLista);
     limpiarContenedor(procesoLista);
     limpiarContenedor(finalizadosLista);
@@ -244,6 +272,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pedidosError) pedidosError.classList.add('d-none');
   }
 
+  function obtenerTextoEntrega(item) {
+    const raw = String(item?.tipo_entrega_raw || '').toLowerCase();
+    if (raw === 'programada' && item?.fecha_hora_programada) return 'Programado';
+    return item?.tipo_entrega || 'Inmediato';
+  }
+
+  function construirPillCola(item) {
+    const pos = Number(item?.posicion_cola || 0);
+    if (pos <= 1) return '';
+    return `<span class="ev-status-pill ev-status-off">Cola #${escapeHtml(pos)}</span>`;
+  }
+
   function construirBloqueDetalle(item) {
     const programado = item.tipo_entrega_raw === 'programada' && item.fecha_hora_programada
       ? `<div class="ev-pedido-detalle-line"><strong>Entrega programada:</strong> ${escapeHtml(formatearFechaProgramada(item.fecha_hora_programada))}</div>`
@@ -254,16 +294,26 @@ document.addEventListener('DOMContentLoaded', () => {
       : '';
 
     const motivo = item.motivo_estado
-      ? `<div class="ev-pedido-comentario"><strong>Estado:</strong> ${escapeHtml(item.motivo_estado)}</div>`
+      ? `<div class="ev-pedido-comentario"><strong>Detalle de estado:</strong> ${escapeHtml(item.motivo_estado)}</div>`
+      : '';
+
+    const cola = Number(item.posicion_cola || 0) > 1
+      ? `<div class="ev-pedido-detalle-line"><strong>Posición en cola:</strong> ${escapeHtml(item.posicion_cola)}</div>`
+      : '';
+
+    const fechaRegistro = item.fecha_hora
+      ? `<div class="ev-pedido-detalle-line"><strong>Registrado:</strong> ${escapeHtml(item.fecha_hora)}</div>`
       : '';
 
     return `
+      ${fechaRegistro}
       <div class="ev-pedido-detalle-line"><strong>Vecino:</strong> ${escapeHtml(item.nombre_vecino || 'Vecino')}</div>
       <div class="ev-pedido-detalle-line"><strong>Cantidad:</strong> ${escapeHtml(item.cantidad)}</div>
       <div class="ev-pedido-detalle-line"><strong>Precio unitario:</strong> S/ ${escapeHtml(formatoMoneda(item.precio_unitario))}</div>
       <div class="ev-pedido-detalle-line"><strong>Total:</strong> S/ ${escapeHtml(formatoMoneda(item.monto_total))}</div>
-      <div class="ev-pedido-detalle-line"><strong>Entrega:</strong> ${escapeHtml(item.tipo_entrega || 'Inmediato')}</div>
+      <div class="ev-pedido-detalle-line"><strong>Entrega:</strong> ${escapeHtml(obtenerTextoEntrega(item))}</div>
       ${programado}
+      ${cola}
       <div class="ev-pedido-detalle-line"><strong>Dirección:</strong> ${escapeHtml(item.direccion_entrega || '-')}</div>
       ${mensaje}
       ${motivo}
@@ -271,9 +321,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function construirAcciones(item) {
-    const estado = item.estado_actual;
+    const estado = String(item.estado_actual || '');
     const codigoPedido = Number(item.codigo_pedido || 0);
-
     const botones = [];
 
     if (estado === 'pendiente_vendedor') {
@@ -323,6 +372,11 @@ document.addEventListener('DOMContentLoaded', () => {
           <i class="bi bi-check2-square me-1"></i>Entregado
         </button>
       `);
+      botones.push(`
+        <button type="button" class="btn ev-btn-rechazar" data-action="estado" data-id="${codigoPedido}" data-estado="cancelado_vendedor">
+          <i class="bi bi-slash-circle me-1"></i>Cancelar
+        </button>
+      `);
     }
 
     if (estado === 'listo_para_entrega') {
@@ -341,6 +395,11 @@ document.addEventListener('DOMContentLoaded', () => {
           <i class="bi bi-check2-square me-1"></i>Entregado
         </button>
       `);
+      botones.push(`
+        <button type="button" class="btn ev-btn-rechazar" data-action="estado" data-id="${codigoPedido}" data-estado="cancelado_vendedor">
+          <i class="bi bi-slash-circle me-1"></i>Cancelar
+        </button>
+      `);
     }
 
     if (estado === 'en_camino') {
@@ -354,12 +413,22 @@ document.addEventListener('DOMContentLoaded', () => {
           <i class="bi bi-check2-square me-1"></i>Entregado
         </button>
       `);
+      botones.push(`
+        <button type="button" class="btn ev-btn-rechazar" data-action="estado" data-id="${codigoPedido}" data-estado="cancelado_vendedor">
+          <i class="bi bi-slash-circle me-1"></i>Cancelar
+        </button>
+      `);
     }
 
     if (estado === 'en_punto_entrega') {
       botones.push(`
         <button type="button" class="btn ev-btn-aceptar" data-action="estado" data-id="${codigoPedido}" data-estado="entregado_vendedor">
           <i class="bi bi-check2-square me-1"></i>Entregado
+        </button>
+      `);
+      botones.push(`
+        <button type="button" class="btn ev-btn-rechazar" data-action="estado" data-id="${codigoPedido}" data-estado="cancelado_vendedor">
+          <i class="bi bi-slash-circle me-1"></i>Cancelar
         </button>
       `);
     }
@@ -381,6 +450,8 @@ document.addEventListener('DOMContentLoaded', () => {
       ? `<span class="ev-pedido-tiempo"><i class="bi bi-clock-history"></i>${escapeHtml(formatearTiempo(tiempo))}</span>`
       : '';
 
+    const colaHtml = construirPillCola(item);
+
     const img = item.imagen_portada_url
       ? `<img src="${escapeHtml(item.imagen_portada_url)}" alt="${escapeHtml(item.titulo_publicacion || 'Producto')}">`
       : `<div class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"><i class="bi bi-image"></i></div>`;
@@ -401,8 +472,9 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
             </div>
 
-            <div class="mt-2">
+            <div class="mt-2 d-flex flex-wrap gap-2">
               <span class="ev-status-pill ${escapeHtml(estado.clase)}">${escapeHtml(estado.texto)}</span>
+              ${colaHtml}
             </div>
 
             <div class="mt-2">
@@ -422,7 +494,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!listaEl || !emptyEl || !counterEl) return;
 
     const registros = Array.isArray(items) ? items : [];
-
     counterEl.textContent = String(registros.length);
     listaEl.innerHTML = '';
 
@@ -442,7 +513,24 @@ document.addEventListener('DOMContentLoaded', () => {
     return pendientes + enProceso + finalizados;
   }
 
+  function buscarPedidoEnCache(codigoPedido) {
+    const id = Number(codigoPedido || 0);
+    if (id <= 0) return null;
+
+    const grupos = ['pendientes', 'en_proceso', 'finalizados'];
+    for (const grupo of grupos) {
+      const items = Array.isArray(cachePedidos[grupo]) ? cachePedidos[grupo] : [];
+      const encontrado = items.find(item => Number(item.codigo_pedido || 0) === id);
+      if (encontrado) return encontrado;
+    }
+
+    return null;
+  }
+
   async function cargarMisPedidos() {
+    if (loadingPedidos) return;
+    loadingPedidos = true;
+
     if (pedidosError) pedidosError.classList.add('d-none');
 
     try {
@@ -450,7 +538,7 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'GET',
         credentials: 'include',
         headers: {
-          'Accept': 'application/json'
+          Accept: 'application/json'
         }
       });
 
@@ -465,6 +553,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const enProceso = Array.isArray(payload.en_proceso) ? payload.en_proceso : [];
       const finalizados = Array.isArray(payload.finalizados) ? payload.finalizados : [];
 
+      cachePedidos = {
+        pendientes,
+        en_proceso: enProceso,
+        finalizados
+      };
+
       pintarGrupo(pendientesLista, pendientesEmpty, pendientesCounter, pendientes);
       pintarGrupo(procesoLista, procesoEmpty, procesoCounter, enProceso);
       pintarGrupo(finalizadosLista, finalizadosEmpty, finalizadosCounter, finalizados);
@@ -473,11 +567,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const total = totalPedidos(payload);
         pedidosCounter.textContent = `${total} pedido${total === 1 ? '' : 's'}`;
       }
-
     } catch (err) {
       console.error('[RecibirPedidos] Error al cargar pedidos:', err);
       limpiarListas();
       if (pedidosError) pedidosError.classList.remove('d-none');
+    } finally {
+      loadingPedidos = false;
     }
   }
 
@@ -547,25 +642,85 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   }
 
+  function construirHtmlDetalle(item) {
+    const estado = badgeEstado(item.estado_actual);
+    const imagen = item.imagen_portada_url
+      ? `
+        <div style="margin-bottom:16px;text-align:center;">
+          <img
+            src="${escapeHtml(item.imagen_portada_url)}"
+            alt="${escapeHtml(item.titulo_publicacion || 'Producto')}"
+            style="max-width:220px;width:100%;border-radius:16px;object-fit:cover;"
+          >
+        </div>
+      `
+      : '';
+
+    const programado = item.tipo_entrega_raw === 'programada' && item.fecha_hora_programada
+      ? `
+        <div style="margin-bottom:8px;">
+          <strong>Entrega programada:</strong> ${escapeHtml(formatearFechaProgramada(item.fecha_hora_programada))}
+        </div>
+      `
+      : '';
+
+    const cola = Number(item.posicion_cola || 0) > 1
+      ? `
+        <div style="margin-bottom:8px;">
+          <strong>Posición en cola:</strong> ${escapeHtml(item.posicion_cola)}
+        </div>
+      `
+      : '';
+
+    const mensaje = item.mensaje_comprador
+      ? `
+        <div style="margin-top:12px;text-align:left;">
+          <strong>Mensaje del vecino:</strong><br>
+          ${escapeHtml(item.mensaje_comprador)}
+        </div>
+      `
+      : '';
+
+    const motivo = item.motivo_estado
+      ? `
+        <div style="margin-top:12px;text-align:left;">
+          <strong>Detalle de estado:</strong><br>
+          ${escapeHtml(item.motivo_estado)}
+        </div>
+      `
+      : '';
+
+    return `
+      <div class="text-start">
+        ${imagen}
+
+        <div style="margin-bottom:10px;">
+          <span class="ev-status-pill ${escapeHtml(estado.clase)}">${escapeHtml(estado.texto)}</span>
+        </div>
+
+        <div style="margin-bottom:8px;"><strong>Producto:</strong> ${escapeHtml(item.titulo_publicacion || 'Publicación')}</div>
+        <div style="margin-bottom:8px;"><strong>Vecino:</strong> ${escapeHtml(item.nombre_vecino || 'Vecino')}</div>
+        <div style="margin-bottom:8px;"><strong>Cantidad:</strong> ${escapeHtml(item.cantidad)}</div>
+        <div style="margin-bottom:8px;"><strong>Precio unitario:</strong> S/ ${escapeHtml(formatoMoneda(item.precio_unitario))}</div>
+        <div style="margin-bottom:8px;"><strong>Total:</strong> S/ ${escapeHtml(formatoMoneda(item.monto_total))}</div>
+        <div style="margin-bottom:8px;"><strong>Entrega:</strong> ${escapeHtml(obtenerTextoEntrega(item))}</div>
+        ${programado}
+        ${cola}
+        <div style="margin-bottom:8px;"><strong>Dirección:</strong> ${escapeHtml(item.direccion_entrega || '-')}</div>
+        <div style="margin-bottom:8px;"><strong>Registrado:</strong> ${escapeHtml(formatearFechaRegistro(item.fecha_hora || item.created_at || ''))}</div>
+        ${mensaje}
+        ${motivo}
+      </div>
+    `;
+  }
+
   async function verDetalle(codigoPedido) {
-    const bloques = [
-      pendientesLista,
-      procesoLista,
-      finalizadosLista
-    ];
-
-    let card = null;
-    for (const bloque of bloques) {
-      if (!bloque) continue;
-      card = bloque.querySelector(`[data-pedido-id="${codigoPedido}"]`);
-      if (card) break;
-    }
-
-    if (!card || !window.Swal) return;
+    const item = buscarPedidoEnCache(codigoPedido);
+    if (!item || !window.Swal) return;
 
     await Swal.fire({
       title: 'Detalle del pedido',
-      html: card.innerHTML,
+      html: construirHtmlDetalle(item),
       width: 760,
       showConfirmButton: true,
       confirmButtonText: 'Cerrar',
@@ -596,7 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          Accept: 'application/json'
         },
         body: JSON.stringify(body || {})
       });
@@ -622,7 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('[RecibirPedidos] Error en acción:', err);
 
       if (window.Swal) {
-        Swal.fire({
+        await Swal.fire({
           icon: 'error',
           title: 'No se pudo completar la acción',
           text: err.message || 'Inténtalo nuevamente.',

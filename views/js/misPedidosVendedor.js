@@ -2,13 +2,13 @@
 (function () {
   'use strict';
 
-  if (window.__EV_MIS_PEDIDOS_VENDEDOR_V12__ === true) {
+  if (window.__EV_MIS_PEDIDOS_VENDEDOR_V13__ === true) {
     if (window.EVMisPedidosVendedor && typeof window.EVMisPedidosVendedor.init === 'function') {
       window.EVMisPedidosVendedor.init();
     }
     return;
   }
-  window.__EV_MIS_PEDIDOS_VENDEDOR_V12__ = true;
+  window.__EV_MIS_PEDIDOS_VENDEDOR_V13__ = true;
 
   const BASE = (window.BASE_URL || '').replace(/\/+$/, '');
   const POLLING_MS = 5000;
@@ -20,6 +20,7 @@
   let vistaActiva = false;
   let tabActiva = 'pendientes';
   let cachePedidos = new Map();
+  let cargando = false;
 
   function escapeHtml(v) {
     return String(v ?? '')
@@ -66,7 +67,14 @@
   function textoEntrega(item) {
     const tipoRaw = String(item.tipo_entrega_raw || item.tipo_entrega || '').trim().toLowerCase();
     if (tipoRaw === 'programada' || tipoRaw === 'programado') return 'Programada';
-    return 'Inmediato';
+    return 'Inmediata';
+  }
+
+  function esEstadoCola(estado) {
+    return [
+      'cola_aceptada',
+      'cola_pendiente_confirmacion'
+    ].includes(String(estado || '').trim());
   }
 
   function esEstadoNegativo(estado) {
@@ -85,6 +93,8 @@
   function estadoLegible(estado) {
     const mapa = {
       pendiente_vendedor: 'Pendiente',
+      cola_aceptada: 'En cola',
+      cola_pendiente_confirmacion: 'Pendiente de confirmación',
       en_preparacion: 'En preparación',
       despachando: 'Despachando',
       listo_para_entrega: 'Listo para entrega',
@@ -105,6 +115,10 @@
 
     if (e === 'pendiente_vendedor') {
       return { texto: 'Pendiente', clase: 'ev-mpv-badge ev-mpv-badge-pendiente' };
+    }
+
+    if (e === 'cola_aceptada' || e === 'cola_pendiente_confirmacion') {
+      return { texto: estadoLegible(e), clase: 'ev-mpv-badge ev-mpv-badge-info' };
     }
 
     if (esEstadoNegativo(e)) {
@@ -196,6 +210,18 @@
   function getLineaEstado(item) {
     const estado = String(item.estado_actual || '').trim();
     const requierePreparacion = Number(item.requiere_preparacion || 0) === 1;
+
+    if (esEstadoCola(estado)) {
+      return `
+        <div class="ev-mpv-stepper ev-mpv-stepper-final">
+          <div class="ev-mpv-step is-final is-current">
+            <span class="ev-mpv-step-dot"></span>
+            <span class="ev-mpv-step-text">${escapeHtml(estadoLegible(estado))}</span>
+          </div>
+        </div>
+      `;
+    }
+
     const flujo = requierePreparacion
       ? ['en_preparacion', 'listo_para_entrega', 'en_camino', 'en_punto_entrega', 'entregado_vendedor', 'entrega_confirmada_comprador']
       : ['despachando', 'en_camino', 'en_punto_entrega', 'entregado_vendedor', 'entrega_confirmada_comprador'];
@@ -322,10 +348,21 @@
             Atiende esta solicitud antes de que termine el tiempo de espera para evitar que quede sin respuesta.
           </div>
           ${
-            item.tiempo_restante_segundos !== null
+            item.tiempo_restante_segundos !== null && item.tiempo_restante_segundos !== undefined
               ? `<div class="ev-mpv-time-pill"><i class="bi bi-clock-history"></i>${escapeHtml(formatTiempoCorto(item.tiempo_restante_segundos))}</div>`
               : ''
           }
+        </div>
+      `;
+    }
+
+    if (estado === 'cola_aceptada') {
+      return `
+        <div class="ev-mpv-state-box ev-mpv-state-box-info">
+          <div class="ev-mpv-state-title">Solicitud en cola</div>
+          <div class="ev-mpv-state-text">
+            Este pedido quedó en cola y será atendido cuando se libere el turno actual.
+          </div>
         </div>
       `;
     }
@@ -374,20 +411,35 @@
   }
 
   function renderQuickPills(item) {
-    return `
+    const pills = [
+      `
       <span class="ev-mpv-pill">
         <i class="bi bi-box-seam"></i>
         Cant. ${escapeHtml(item.cantidad || 0)}
       </span>
+      `,
+      `
       <span class="ev-mpv-pill">
         <i class="bi bi-lightning-charge"></i>
         ${escapeHtml(textoEntrega(item))}
       </span>
-    `;
+      `
+    ];
+
+    if (Number(item.posicion_cola || 0) > 1 || String(item.estado_actual || '').trim() === 'cola_aceptada') {
+      pills.push(`
+        <span class="ev-mpv-pill">
+          <i class="bi bi-list-ol"></i>
+          Cola #${escapeHtml(item.posicion_cola || 0)}
+        </span>
+      `);
+    }
+
+    return pills.join('');
   }
 
   function renderFlujo(item) {
-    if (esEstadoNegativo(item.estado_actual)) {
+    if (esEstadoNegativo(item.estado_actual) || esEstadoCola(item.estado_actual)) {
       return `
         <div class="ev-mpv-section-title">
           <i class="bi bi-diagram-3"></i>
@@ -476,6 +528,17 @@
             }
 
             ${
+              Number(item.posicion_cola || 0) > 1 || String(item.estado_actual || '').trim() === 'cola_aceptada'
+                ? `
+                <div class="ev-mpv-line">
+                  <span class="ev-mpv-line-label">Posición en cola</span>
+                  <span class="ev-mpv-line-value">#${escapeHtml(item.posicion_cola || 0)}</span>
+                </div>
+              `
+                : ''
+            }
+
+            ${
               String(item.mensaje_comprador || '').trim() !== ''
                 ? `
                 <div class="ev-mpv-note">
@@ -540,6 +603,15 @@
     });
   }
 
+  function dividirPendientes(lista) {
+    const items = Array.isArray(lista) ? lista : [];
+
+    return {
+      pendientesAtendibles: items.filter((item) => String(item.estado_actual || '').trim() === 'pendiente_vendedor'),
+      enCola: items.filter((item) => String(item.estado_actual || '').trim() === 'cola_aceptada')
+    };
+  }
+
   function dividirFinalizados(lista) {
     const items = Array.isArray(lista) ? lista : [];
 
@@ -580,8 +652,9 @@
 
   async function cargarPedidos(opciones = {}) {
     const refs = getRefs();
-    if (!refs.root) return;
+    if (!refs.root || cargando) return;
 
+    cargando = true;
     const silent = opciones.silent === true;
 
     try {
@@ -590,9 +663,12 @@
       const data = await fetchPedidos();
       refrescarCache(data);
 
-      const pendientes = Array.isArray(data.pendientes) ? data.pendientes : [];
+      const pendientesRaw = Array.isArray(data.pendientes) ? data.pendientes : [];
       const proceso = Array.isArray(data.en_proceso) ? data.en_proceso : [];
       const finalizadosRaw = Array.isArray(data.finalizados) ? data.finalizados : [];
+
+      const { pendientesAtendibles, enCola } = dividirPendientes(pendientesRaw);
+      const pendientes = [...pendientesAtendibles, ...enCola];
 
       const { finalizadas, rechazadas, sinRespuesta } = dividirFinalizados(finalizadosRaw);
 
@@ -614,14 +690,16 @@
 
       showTab(refs, tabActiva);
 
-      const snapshotNuevo = new Set(pendientes.map((x) => Number(x.codigo_pedido || 0)).filter(Boolean));
+      const snapshotNuevo = new Set(
+        pendientesAtendibles.map((x) => Number(x.codigo_pedido || 0)).filter(Boolean)
+      );
 
       if (!silent && ultimoSnapshotPendientes.size === 0) {
         ultimoSnapshotPendientes = snapshotNuevo;
         return;
       }
 
-      const nuevos = pendientes.filter((item) => {
+      const nuevos = pendientesAtendibles.filter((item) => {
         const id = Number(item.codigo_pedido || 0);
         return id > 0 && !ultimoSnapshotPendientes.has(id);
       });
@@ -631,7 +709,6 @@
       if (nuevos.length > 0 && vistaActiva) {
         await mostrarAlertaNuevaSolicitud(nuevos[0]);
       }
-
     } catch (e) {
       console.error('[MIS_PEDIDOS_VENDEDOR]', e);
       limpiarListas(refs);
@@ -643,6 +720,8 @@
         refs.emptyRechazadas,
         refs.emptySinRespuesta
       ].forEach((el) => el?.classList.add('d-none'));
+    } finally {
+      cargando = false;
     }
   }
 
@@ -863,6 +942,17 @@
               <div class="ev-mpv-modal-row">
                 <span>Entrega programada</span>
                 <strong>${escapeHtml(formatFecha(item.fecha_hora_programada))}</strong>
+              </div>
+            `
+              : ''
+          }
+
+          ${
+            Number(item.posicion_cola || 0) > 1 || String(item.estado_actual || '').trim() === 'cola_aceptada'
+              ? `
+              <div class="ev-mpv-modal-row">
+                <span>Posición en cola</span>
+                <strong>#${escapeHtml(item.posicion_cola || 0)}</strong>
               </div>
             `
               : ''

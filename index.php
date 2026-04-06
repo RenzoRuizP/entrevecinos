@@ -541,6 +541,11 @@ $routes = [
     ['GET',  '#^/api/pedidos/(\d+)/estado$#',    [apiPedidoController::class, 'obtenerEstadoSolicitud'], 'json'],
     ['POST', '#^/api/pedidos/(\d+)/cancelar$#',  [apiPedidoController::class, 'cancelarSolicitud'], 'json'],
 
+    ['POST', '#^/api/pedidos/(\d+)/confirmar-cola$#', [apiPedidoController::class, 'confirmarCola'], 'json'],
+    ['POST', '#^/api/pedidos/(\d+)/confirmar-entrega$#', [apiPedidoController::class, 'confirmarEntrega'], 'json'],
+    ['GET',  '#^/api/pedidos/mis-comprador$#', [apiPedidoController::class, 'listarMisPedidosComprador'], 'json'],
+
+
     // ===========================
     // PEDIDOS - VENDEDOR (MIS PEDIDOS)
     // ===========================

@@ -31,13 +31,48 @@ class apiPedidoController
     {
         $input = $_POST;
         if (!empty($input)) {
-            return $input;
+            return is_array($input) ? $input : [];
         }
 
         $raw = file_get_contents('php://input');
-        $json = json_decode($raw, true);
+        if (!is_string($raw) || trim($raw) === '') {
+            return [];
+        }
 
+        $json = json_decode($raw, true);
         return is_array($json) ? $json : [];
+    }
+
+    private function construirUrlImagen(?string $ruta): string
+    {
+        $ruta = trim((string)$ruta);
+        if ($ruta === '') {
+            return '';
+        }
+
+        return rtrim(BASE_URL, '/') . '/' . ltrim($ruta, '/');
+    }
+
+    private function agregarUrlImagenAItem(array $item): array
+    {
+        $item['imagen_portada_url'] = $this->construirUrlImagen($item['imagen_portada'] ?? '');
+        return $item;
+    }
+
+    private function agregarUrlImagenAGrupos(array $data): array
+    {
+        foreach (['pendientes', 'en_proceso', 'finalizados'] as $grupo) {
+            if (!isset($data[$grupo]) || !is_array($data[$grupo])) {
+                continue;
+            }
+
+            foreach ($data[$grupo] as &$item) {
+                $item = $this->agregarUrlImagenAItem($item);
+            }
+            unset($item);
+        }
+
+        return $data;
     }
 
     // =========================================================
@@ -57,12 +92,13 @@ class apiPedidoController
             $codigoUsuarioComprador = $this->obtenerUsuarioAuth();
             $input = $this->leerInput();
 
-            $codigoProducto       = (int)($input['codigo_producto'] ?? 0);
-            $cantidad             = (int)($input['cantidad'] ?? 0);
-            $tipoEntrega          = trim((string)($input['tipo_entrega'] ?? 'inmediata'));
-            $fechaHoraProgramada  = $input['fecha_hora_programada'] ?? null;
-            $direccionEntrega     = trim((string)($input['direccion_entrega'] ?? ''));
-            $mensajeComprador     = trim((string)($input['mensaje_comprador'] ?? ''));
+            $codigoProducto      = (int)($input['codigo_producto'] ?? 0);
+            $cantidad            = (int)($input['cantidad'] ?? 0);
+            $tipoEntrega         = trim((string)($input['tipo_entrega'] ?? 'inmediata'));
+            $fechaHoraProgramada = $input['fecha_hora_programada'] ?? null;
+            $direccionEntrega    = trim((string)($input['direccion_entrega'] ?? ''));
+            $mensajeComprador    = trim((string)($input['mensaje_comprador'] ?? ''));
+            $aceptaCola          = (int)($input['acepta_cola'] ?? 0);
 
             if ($codigoProducto <= 0) {
                 $this->json(400, [
@@ -97,7 +133,8 @@ class apiPedidoController
                 'tipo_entrega'             => $tipoEntrega,
                 'fecha_hora_programada'    => $fechaHoraProgramada,
                 'direccion_entrega'        => $direccionEntrega,
-                'mensaje_comprador'        => $mensajeComprador
+                'mensaje_comprador'        => $mensajeComprador,
+                'acepta_cola'              => $aceptaCola
             ]);
 
             if (!$resultado['ok']) {
@@ -107,7 +144,7 @@ class apiPedidoController
                 $status = match ($error) {
                     'SIN_RESIDENCIA_ACTIVA',
                     'VENDEDOR_NO_DISPONIBLE',
-                    'PUBLICACION_FUERA_DE_CONJUNTO',
+                    'PUBLICACION_FUERA_DE_RESIDENCIA',
                     'PRODUCTO_NO_APROBADO',
                     'PUBLICACION_NO_VIGENTE',
                     'VENDEDOR_NO_HABILITADO',
@@ -146,19 +183,81 @@ class apiPedidoController
                 return;
             }
 
+            $data = is_array($resultado['data'] ?? null) ? $resultado['data'] : [];
+
             $this->json(201, [
                 'ok'      => true,
                 'mensaje' => 'Solicitud de pedido registrada correctamente.',
-                'data'    => $resultado['data']
+                'data'    => $data
             ]);
             return;
-
         } catch (Throwable $e) {
             error_log('[EV][apiPedidoController][registrarPedido] ' . $e->getMessage());
 
             $this->json(500, [
                 'ok'      => false,
                 'mensaje' => 'Ocurrió un error al registrar la solicitud de pedido.'
+            ]);
+            return;
+        }
+    }
+
+    public function confirmarCola($codigoPedido): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(405, [
+                'ok'      => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuarioComprador = $this->obtenerUsuarioAuth();
+            $codigoPedido = (int)$codigoPedido;
+
+            if ($codigoPedido <= 0) {
+                $this->json(400, [
+                    'ok'      => false,
+                    'mensaje' => 'Código de pedido inválido.'
+                ]);
+                return;
+            }
+
+            $model = new Pedido();
+            $resultado = $model->confirmarColaPorComprador($codigoPedido, $codigoUsuarioComprador);
+
+            if (!$resultado['ok']) {
+                $error = (string)($resultado['error'] ?? 'ERROR_CONFIRMAR_COLA');
+                $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo confirmar la cola.');
+
+                $status = match ($error) {
+                    'PEDIDO_NO_ENCONTRADO' => 404,
+                    'ESTADO_NO_CONFIRMABLE' => 409,
+                    default => 500
+                };
+
+                $this->json($status, [
+                    'ok'      => false,
+                    'error'   => $error,
+                    'mensaje' => $mensaje,
+                    'data'    => $resultado['data'] ?? null
+                ]);
+                return;
+            }
+
+            $this->json(200, [
+                'ok'      => true,
+                'mensaje' => 'Aceptaste continuar en la cola.',
+                'data'    => $resultado['data'] ?? null
+            ]);
+            return;
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][confirmarCola] ' . $e->getMessage());
+
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'No se pudo confirmar la cola.'
             ]);
             return;
         }
@@ -211,7 +310,6 @@ class apiPedidoController
                 'data' => $resultado['data']
             ]);
             return;
-
         } catch (Throwable $e) {
             error_log('[EV][apiPedidoController][obtenerEstadoSolicitud] ' . $e->getMessage());
 
@@ -246,7 +344,7 @@ class apiPedidoController
                 return;
             }
 
-            $motivo = trim((string)($input['motivo_cancelacion'] ?? ''));
+            $motivo = trim((string)($input['motivo_cancelacion'] ?? $input['motivo'] ?? ''));
             if ($motivo === '') {
                 $motivo = 'Solicitud cancelada por el comprador.';
             }
@@ -259,9 +357,9 @@ class apiPedidoController
                 $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo cancelar la solicitud.');
 
                 $status = match ($error) {
-                    'PEDIDO_NO_ENCONTRADO'  => 404,
-                    'ESTADO_NO_CANCELABLE'  => 409,
-                    default                 => 500
+                    'PEDIDO_NO_ENCONTRADO' => 404,
+                    'ESTADO_NO_CANCELABLE' => 409,
+                    default => 500
                 };
 
                 $this->json($status, [
@@ -279,7 +377,6 @@ class apiPedidoController
                 'data'    => $resultado['data']
             ]);
             return;
-
         } catch (Throwable $e) {
             error_log('[EV][apiPedidoController][cancelarSolicitud] ' . $e->getMessage());
 
@@ -307,21 +404,16 @@ class apiPedidoController
             $model = new Pedido();
             $pedidos = $model->listarPedidosEntrantes($codigoUsuario);
 
-            $baseUrl = rtrim(BASE_URL, '/');
             foreach ($pedidos as &$p) {
-                $ruta = trim((string)($p['imagen_portada'] ?? ''));
-                $p['imagen_portada_url'] = $ruta !== ''
-                    ? $baseUrl . '/' . ltrim($ruta, '/')
-                    : '';
+                $p = $this->agregarUrlImagenAItem($p);
             }
             unset($p);
 
             $this->json(200, [
-                'ok'      => true,
-                'pedidos' => $pedidos
+                'ok'   => true,
+                'data' => $pedidos
             ]);
             return;
-
         } catch (Throwable $e) {
             error_log('[EV][apiPedidoController][listarPedidos] ' . $e->getMessage());
 
@@ -366,7 +458,6 @@ class apiPedidoController
                 'data' => $resultado['data'] ?? null
             ]);
             return;
-
         } catch (Throwable $e) {
             error_log('[EV][apiPedidoController][obtenerSolicitudActiva] ' . $e->getMessage());
 
@@ -406,27 +497,14 @@ class apiPedidoController
                 return;
             }
 
-            $baseUrl = rtrim(BASE_URL, '/');
-            foreach (['pendientes', 'en_proceso', 'finalizados'] as $grupo) {
-                if (!isset($resultado['data'][$grupo]) || !is_array($resultado['data'][$grupo])) {
-                    continue;
-                }
-
-                foreach ($resultado['data'][$grupo] as &$item) {
-                    $ruta = trim((string)($item['imagen_portada'] ?? ''));
-                    $item['imagen_portada_url'] = $ruta !== ''
-                        ? $baseUrl . '/' . ltrim($ruta, '/')
-                        : '';
-                }
-                unset($item);
-            }
+            $data = is_array($resultado['data'] ?? null) ? $resultado['data'] : [];
+            $data = $this->agregarUrlImagenAGrupos($data);
 
             $this->json(200, [
                 'ok'   => true,
-                'data' => $resultado['data']
+                'data' => $data
             ]);
             return;
-
         } catch (Throwable $e) {
             error_log('[EV][apiPedidoController][listarMisPedidos] ' . $e->getMessage());
 
@@ -468,10 +546,9 @@ class apiPedidoController
                 $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo aceptar la solicitud.');
 
                 $status = match ($error) {
-                    'PEDIDO_NO_ENCONTRADO'        => 404,
-                    'PEDIDO_NO_PERTENECE_VENDEDOR',
-                    'ESTADO_NO_ACEPTABLE'         => 409,
-                    default                       => 500
+                    'PEDIDO_NO_ENCONTRADO' => 404,
+                    'ESTADO_NO_ACEPTABLE' => 409,
+                    default => 500
                 };
 
                 $this->json($status, [
@@ -482,13 +559,17 @@ class apiPedidoController
                 return;
             }
 
+            $data = $resultado['data'] ?? null;
+            if (is_array($data)) {
+                $data = $this->agregarUrlImagenAItem($data);
+            }
+
             $this->json(200, [
                 'ok'      => true,
                 'mensaje' => 'Solicitud aceptada correctamente.',
-                'data'    => $resultado['data'] ?? null
+                'data'    => $data
             ]);
             return;
-
         } catch (Throwable $e) {
             error_log('[EV][apiPedidoController][aceptarSolicitud] ' . $e->getMessage());
 
@@ -541,10 +622,10 @@ class apiPedidoController
                 $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo rechazar la solicitud.');
 
                 $status = match ($error) {
-                    'PEDIDO_NO_ENCONTRADO'         => 404,
-                    'PEDIDO_NO_PERTENECE_VENDEDOR',
-                    'ESTADO_NO_RECHAZABLE'         => 409,
-                    default                        => 500
+                    'PEDIDO_NO_ENCONTRADO' => 404,
+                    'ESTADO_NO_RECHAZABLE' => 409,
+                    'MOTIVO_REQUERIDO' => 400,
+                    default => 500
                 };
 
                 $this->json($status, [
@@ -555,13 +636,17 @@ class apiPedidoController
                 return;
             }
 
+            $data = $resultado['data'] ?? null;
+            if (is_array($data)) {
+                $data = $this->agregarUrlImagenAItem($data);
+            }
+
             $this->json(200, [
                 'ok'      => true,
                 'mensaje' => 'Solicitud rechazada correctamente.',
-                'data'    => $resultado['data'] ?? null
+                'data'    => $data
             ]);
             return;
-
         } catch (Throwable $e) {
             error_log('[EV][apiPedidoController][rechazarSolicitud] ' . $e->getMessage());
 
@@ -614,11 +699,10 @@ class apiPedidoController
                 $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo actualizar el estado del pedido.');
 
                 $status = match ($error) {
-                    'PEDIDO_NO_ENCONTRADO'          => 404,
-                    'PEDIDO_NO_PERTENECE_VENDEDOR',
+                    'PEDIDO_NO_ENCONTRADO' => 404,
                     'ESTADO_NO_ACTUALIZABLE',
-                    'TRANSICION_INVALIDA'           => 409,
-                    default                         => 500
+                    'TRANSICION_INVALIDA' => 409,
+                    default => 500
                 };
 
                 $this->json($status, [
@@ -629,13 +713,17 @@ class apiPedidoController
                 return;
             }
 
+            $data = $resultado['data'] ?? null;
+            if (is_array($data)) {
+                $data = $this->agregarUrlImagenAItem($data);
+            }
+
             $this->json(200, [
                 'ok'      => true,
                 'mensaje' => 'Estado del pedido actualizado correctamente.',
-                'data'    => $resultado['data'] ?? null
+                'data'    => $data
             ]);
             return;
-
         } catch (Throwable $e) {
             error_log('[EV][apiPedidoController][actualizarEstadoPedido] ' . $e->getMessage());
 
@@ -672,27 +760,14 @@ class apiPedidoController
                 return;
             }
 
-            $baseUrl = rtrim(BASE_URL, '/');
-            foreach (['pendientes', 'en_proceso', 'finalizados'] as $grupo) {
-                if (!isset($resultado['data'][$grupo]) || !is_array($resultado['data'][$grupo])) {
-                    continue;
-                }
-
-                foreach ($resultado['data'][$grupo] as &$item) {
-                    $ruta = trim((string)($item['imagen_portada'] ?? ''));
-                    $item['imagen_portada_url'] = $ruta !== ''
-                        ? $baseUrl . '/' . ltrim($ruta, '/')
-                        : '';
-                }
-                unset($item);
-            }
+            $data = is_array($resultado['data'] ?? null) ? $resultado['data'] : [];
+            $data = $this->agregarUrlImagenAGrupos($data);
 
             $this->json(200, [
                 'ok'   => true,
-                'data' => $resultado['data']
+                'data' => $data
             ]);
             return;
-
         } catch (Throwable $e) {
             error_log('[EV][apiPedidoController][listarMisPedidosComprador] ' . $e->getMessage());
 
@@ -753,7 +828,6 @@ class apiPedidoController
                 'data'    => $resultado['data'] ?? null
             ]);
             return;
-
         } catch (Throwable $e) {
             error_log('[EV][apiPedidoController][confirmarEntrega] ' . $e->getMessage());
 
