@@ -463,6 +463,84 @@ class Pedido extends Conexion
         $this->recalcularColaVendedor($codigoUsuarioVendedor);
     }
 
+    private function obtenerSegundosRestantesRespuestaSolicitud(array $pedido): int
+    {
+        if ((string)($pedido['estado_actual'] ?? '') !== 'pendiente_vendedor') {
+            return 0;
+        }
+
+        $fechaLimite = trim((string)($pedido['fecha_limite_respuesta'] ?? ''));
+        if ($fechaLimite === '') {
+            return 0;
+        }
+
+        $tsLimite = strtotime($fechaLimite);
+        if ($tsLimite === false) {
+            return 0;
+        }
+
+        return max(0, (int)($tsLimite - time()));
+    }
+
+    private function obtenerSegundosTranscurridosVentanaCancelacion(array $pedido): int
+    {
+        $estado = (string)($pedido['estado_actual'] ?? '');
+
+        if ($estado !== 'pendiente_vendedor') {
+            return 0;
+        }
+
+        $fechaLimite = trim((string)($pedido['fecha_limite_respuesta'] ?? ''));
+        if ($fechaLimite !== '') {
+            $tsLimite = strtotime($fechaLimite);
+            if ($tsLimite !== false) {
+                $tsInicioTurno = $tsLimite - self::SEGUNDOS_TIMEOUT;
+                return max(0, (int)(time() - $tsInicioTurno));
+            }
+        }
+
+        $createdAt = trim((string)($pedido['created_at'] ?? ''));
+        if ($createdAt !== '') {
+            $tsCreated = strtotime($createdAt);
+            if ($tsCreated !== false) {
+                return max(0, (int)(time() - $tsCreated));
+            }
+        }
+
+        return 0;
+    }
+
+    private function obtenerSegundosParaCancelarSolicitud(array $pedido): int
+    {
+        $estado = (string)($pedido['estado_actual'] ?? '');
+
+        if ($estado === 'pendiente_vendedor') {
+            $segundosTranscurridos = $this->obtenerSegundosTranscurridosVentanaCancelacion($pedido);
+            return max(0, self::SEGUNDOS_CANCELACION - $segundosTranscurridos);
+        }
+
+        if (in_array($estado, ['cola_pendiente_confirmacion', 'cola_aceptada'], true)) {
+            return 0;
+        }
+
+        return 0;
+    }
+
+    private function puedeCancelarSolicitudSegunRegla(array $pedido): bool
+    {
+        $estado = (string)($pedido['estado_actual'] ?? '');
+
+        if (!in_array($estado, ['pendiente_vendedor', 'cola_pendiente_confirmacion', 'cola_aceptada'], true)) {
+            return false;
+        }
+
+        if ($estado === 'pendiente_vendedor') {
+            return $this->obtenerSegundosParaCancelarSolicitud($pedido) <= 0;
+        }
+
+        return true;
+    }
+
     private function construirDataEstadoSolicitud(array $pedido): array
     {
         $estado = (string)($pedido['estado_actual'] ?? '');
@@ -504,35 +582,9 @@ class Pedido extends Conexion
                     : 'Estado actualizado.'
         };
 
-        $segundosRestantes = 0;
-        if (
-            $estado === 'pendiente_vendedor' &&
-            !empty($pedido['fecha_limite_respuesta'])
-        ) {
-            $segundosRestantes = max(
-                0,
-                (int)(strtotime((string)$pedido['fecha_limite_respuesta']) - time())
-            );
-        }
-
-        $segundosParaCancelarRestantes = 0;
-        if (in_array($estado, ['pendiente_vendedor', 'cola_pendiente_confirmacion', 'cola_aceptada'], true)) {
-            $segundosTranscurridos = 0;
-
-            if (!empty($pedido['created_at'])) {
-                $segundosTranscurridos = max(
-                    0,
-                    (int)(time() - strtotime((string)$pedido['created_at']))
-                );
-            }
-
-            $segundosParaCancelarRestantes = max(
-                0,
-                self::SEGUNDOS_CANCELACION - $segundosTranscurridos
-            );
-        }
-
-        $puedeCancelar = in_array($estado, ['pendiente_vendedor', 'cola_pendiente_confirmacion', 'cola_aceptada'], true) ? 1 : 0;
+        $segundosRestantes = $this->obtenerSegundosRestantesRespuestaSolicitud($pedido);
+        $segundosParaCancelarRestantes = $this->obtenerSegundosParaCancelarSolicitud($pedido);
+        $puedeCancelar = $this->puedeCancelarSolicitudSegunRegla($pedido) ? 1 : 0;
 
         return [
             'codigo_pedido'                         => (int)($pedido['codigo_pedido'] ?? 0),
@@ -945,6 +997,27 @@ class Pedido extends Conexion
                     'mensaje' => 'La solicitud ya no se puede cancelar.',
                     'data'    => $this->construirDataEstadoSolicitud($pedido)
                 ];
+            }
+
+            // Blindaje backend:
+            // solo se bloquea por tiempo la espera inicial con vendedor pendiente.
+            // la cola sigue pudiéndose cancelar de inmediato.
+            if ($estadoAnterior === 'pendiente_vendedor') {
+                $segundosParaCancelarRestantes = $this->obtenerSegundosParaCancelarSolicitud($pedido);
+
+                if ($segundosParaCancelarRestantes > 0) {
+                    $this->dblink->rollBack();
+
+                    $min = str_pad((string)floor($segundosParaCancelarRestantes / 60), 2, '0', STR_PAD_LEFT);
+                    $sec = str_pad((string)($segundosParaCancelarRestantes % 60), 2, '0', STR_PAD_LEFT);
+
+                    return [
+                        'ok'      => false,
+                        'error'   => 'CANCELACION_AUN_NO_DISPONIBLE',
+                        'mensaje' => "Podrás cancelar esta solicitud cuando se cumplan 2 minutos de espera. Tiempo restante: {$min}:{$sec}.",
+                        'data'    => $this->construirDataEstadoSolicitud($pedido)
+                    ];
+                }
             }
 
             if ($motivo === '') {

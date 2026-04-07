@@ -358,7 +358,8 @@ class apiPedidoController
 
                 $status = match ($error) {
                     'PEDIDO_NO_ENCONTRADO' => 404,
-                    'ESTADO_NO_CANCELABLE' => 409,
+                    'ESTADO_NO_CANCELABLE',
+                    'CANCELACION_AUN_NO_DISPONIBLE' => 409,
                     default => 500
                 };
 

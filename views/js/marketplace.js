@@ -8,6 +8,7 @@
 
   const SOLICITUD_POLLING_MS = 5000;
   const SEGUNDOS_CANCELACION_SOLICITUD = 120;
+  const SEGUNDOS_TIMEOUT_SOLICITUD = 240;
 
   const CONDO_NOMBRE_RESUMEN = (typeof window !== 'undefined' && window.EV_CONDOMINIO_NOMBRE)
     ? window.EV_CONDOMINIO_NOMBRE
@@ -510,20 +511,41 @@
     return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   }
 
+  function calcularSegundosParaCancelarDesdeRestante(segundosRestantes) {
+    const total = Math.max(0, Number(segundosRestantes || 0));
+    const ventanaNoCancelable = SEGUNDOS_TIMEOUT_SOLICITUD - SEGUNDOS_CANCELACION_SOLICITUD; // 240 - 120 = 120
+    return Math.max(0, total - ventanaNoCancelable);
+  }
+
   function sincronizarSeguimientoDesdeData(data = {}) {
     if (typeof data.segundos_restantes !== 'undefined') {
-      solicitudFlow.segundosRestantes = Math.max(0, Number(data.segundos_restantes || 0));
+      const segundosRestantes = Math.max(0, Number(data.segundos_restantes || 0));
+      solicitudFlow.segundosRestantes = segundosRestantes;
+      solicitudFlow.segundosParaCancelarRestantes =
+        calcularSegundosParaCancelarDesdeRestante(segundosRestantes);
+      return;
     }
 
     if (typeof data.segundos_para_cancelar_restantes !== 'undefined') {
-      solicitudFlow.segundosParaCancelarRestantes = Math.max(0, Number(data.segundos_para_cancelar_restantes || 0));
-    } else if (typeof data.segundos_para_cancelar !== 'undefined') {
-      solicitudFlow.segundosParaCancelarRestantes = Math.max(0, Number(data.segundos_para_cancelar || 0));
+      solicitudFlow.segundosParaCancelarRestantes = Math.max(
+        0,
+        Number(data.segundos_para_cancelar_restantes || 0)
+      );
+      return;
     }
 
-    if (Number(data.puede_cancelar || 0) === 1) {
-      solicitudFlow.segundosParaCancelarRestantes = 0;
+    if (typeof data.segundos_para_cancelar !== 'undefined') {
+      solicitudFlow.segundosParaCancelarRestantes = Math.max(
+        0,
+        Number(data.segundos_para_cancelar || 0)
+      );
+      return;
     }
+
+    solicitudFlow.segundosParaCancelarRestantes = Math.max(
+      0,
+      Number(solicitudFlow.segundosParaCancelarRestantes || SEGUNDOS_CANCELACION_SOLICITUD)
+    );
   }
 
   function tickSeguimientoSolicitud() {
@@ -763,16 +785,24 @@
       )
     );
 
-    const segundosParaCancelarRestantes = Math.max(
-      0,
-      Number(
-        typeof data?.segundos_para_cancelar_restantes !== 'undefined'
-          ? data.segundos_para_cancelar_restantes
-          : solicitudFlow.segundosParaCancelarRestantes
-      )
-    );
+    let segundosParaCancelarRestantes;
 
-    const yaPuedeCancelar = Number(data?.puede_cancelar || 0) === 1 || segundosParaCancelarRestantes <= 0;
+    if (typeof data?.segundos_restantes !== 'undefined') {
+      segundosParaCancelarRestantes =
+        calcularSegundosParaCancelarDesdeRestante(segundosRestantes);
+    } else if (typeof data?.segundos_para_cancelar_restantes !== 'undefined') {
+      segundosParaCancelarRestantes = Math.max(
+        0,
+        Number(data.segundos_para_cancelar_restantes || 0)
+      );
+    } else {
+      segundosParaCancelarRestantes = Math.max(
+        0,
+        Number(solicitudFlow.segundosParaCancelarRestantes || 0)
+      );
+    }
+
+    const yaPuedeCancelar = segundosParaCancelarRestantes <= 0;
 
     solicitudFlow.segundosRestantes = segundosRestantes;
     solicitudFlow.segundosParaCancelarRestantes = segundosParaCancelarRestantes;
@@ -789,12 +819,19 @@
       }
     }
 
-    if (yaPuedeCancelar && !solicitudFlow.cancelButtonVisible && window.Swal?.isVisible()) {
-      solicitudFlow.cancelButtonVisible = true;
-      Swal.update({
-        showCancelButton: true,
-        cancelButtonText: 'Cancelar solicitud'
-      });
+    if (window.Swal?.isVisible()) {
+      if (yaPuedeCancelar && !solicitudFlow.cancelButtonVisible) {
+        solicitudFlow.cancelButtonVisible = true;
+        Swal.update({
+          showCancelButton: true,
+          cancelButtonText: 'Cancelar solicitud'
+        });
+      } else if (!yaPuedeCancelar && solicitudFlow.cancelButtonVisible) {
+        solicitudFlow.cancelButtonVisible = false;
+        Swal.update({
+          showCancelButton: false
+        });
+      }
     }
   }
 
@@ -936,7 +973,10 @@
     if (!data) return;
 
     sincronizarSeguimientoDesdeData(data);
-    actualizarUiSeguimiento(data);
+    actualizarUiSeguimiento({
+      segundos_restantes: solicitudFlow.segundosRestantes,
+      segundos_para_cancelar_restantes: solicitudFlow.segundosParaCancelarRestantes
+    });
 
     const estado = String(data?.estado_actual || '').trim();
     const finalizado = Number(data?.finalizado || 0) === 1;
@@ -956,11 +996,21 @@
     solicitudFlow.activo = true;
     solicitudFlow.cancelButtonVisible = false;
 
-    sincronizarSeguimientoDesdeData({
-      segundos_restantes: data.segundos_restantes ?? data.segundos_timeout ?? 0,
-      segundos_para_cancelar_restantes: data.segundos_para_cancelar_restantes ?? data.segundos_para_cancelar ?? SEGUNDOS_CANCELACION_SOLICITUD,
-      puede_cancelar: data.puede_cancelar ?? 0
-    });
+    const payloadSync = {};
+
+    if (typeof data.segundos_restantes !== 'undefined') {
+      payloadSync.segundos_restantes = data.segundos_restantes;
+    } else if (typeof data.segundos_timeout !== 'undefined') {
+      payloadSync.segundos_restantes = data.segundos_timeout;
+    }
+
+    if (typeof data.segundos_para_cancelar_restantes !== 'undefined') {
+      payloadSync.segundos_para_cancelar_restantes = data.segundos_para_cancelar_restantes;
+    } else if (typeof data.segundos_para_cancelar !== 'undefined') {
+      payloadSync.segundos_para_cancelar = data.segundos_para_cancelar;
+    }
+
+    sincronizarSeguimientoDesdeData(payloadSync);
 
     const estadoActual = String(data.estado_actual || '').trim();
     const tituloProducto = String(data.titulo_producto || 'tu solicitud');
@@ -1013,7 +1063,7 @@
         actualizarUiSeguimiento({
           segundos_restantes: solicitudFlow.segundosRestantes,
           segundos_para_cancelar_restantes: solicitudFlow.segundosParaCancelarRestantes,
-          puede_cancelar: Number(data.puede_cancelar || 0)
+          puede_cancelar: 0
         });
 
         solicitudFlow.intervalUi = setInterval(() => {
@@ -1039,6 +1089,15 @@
     }));
 
     if (result.dismiss === Swal.DismissReason.cancel && solicitudFlow.activo && solicitudFlow.codigoPedido) {
+      if (solicitudFlow.segundosParaCancelarRestantes > 0) {
+        await notify(
+          'info',
+          'Aún no puedes cancelar',
+          `Podrás cancelar esta solicitud cuando se cumplan 2 minutos de espera. Tiempo restante: ${formatDuracionSegundos(solicitudFlow.segundosParaCancelarRestantes)}.`
+        );
+        return;
+      }
+
       const r = await cancelarSolicitudBackend(solicitudFlow.codigoPedido);
       if (!r || !r.json) {
         await notify('error', 'Error', 'No se pudo cancelar la solicitud.');
