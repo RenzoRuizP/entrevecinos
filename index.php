@@ -592,8 +592,8 @@ $routes = [
     ['GET',  '#^/api/usuario/disponibilidad-pedidos$#', [apiDisponibilidadPedidosController::class, 'obtenerEstado'], 'json'],
     ['POST', '#^/api/usuario/disponibilidad-pedidos$#', [apiDisponibilidadPedidosController::class, 'actualizarEstado'], 'json'],
 
-    ['GET',  '#^/api/pedidos/mis-comprador$#',          [apiPedidoController::class, 'listarMisPedidosComprador'], 'json'],
-    ['POST', '#^/api/pedidos/(\d+)/confirmar-entrega$#', [apiPedidoController::class, 'confirmarEntrega'], 'json'],
+    //['GET',  '#^/api/pedidos/mis-comprador$#',          [apiPedidoController::class, 'listarMisPedidosComprador'], 'json'],
+    //['POST', '#^/api/pedidos/(\d+)/confirmar-entrega$#', [apiPedidoController::class, 'confirmarEntrega'], 'json'],
 
 ];
 

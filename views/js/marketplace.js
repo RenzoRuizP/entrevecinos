@@ -51,6 +51,7 @@
     intervalUi: null,
     activo: false,
     cancelButtonVisible: false,
+    modo: '',
     segundosRestantes: 0,
     segundosParaCancelarRestantes: SEGUNDOS_CANCELACION_SOLICITUD
   };
@@ -199,9 +200,9 @@
       allowOutsideClick: () => {
         const popup = window.Swal?.getPopup ? Swal.getPopup() : null;
         if (popup) {
-          popup.classList.remove('ev-mp-swal-bounce');
+          popup.classList.remove('ev-mp-swal-popup-bounce');
           void popup.offsetWidth;
-          popup.classList.add('ev-mp-swal-bounce');
+          popup.classList.add('ev-mp-swal-popup-bounce');
         }
         return false;
       },
@@ -421,13 +422,41 @@
   }
 
   async function manejarRespuestaAuth(resp, json) {
+    const error = String(json?.error || '').trim();
+
     if (resp.status === 401) {
-      await notify('info', 'Sesión finalizada', (json && json.mensaje) || 'Tu sesión expiró. Vuelve a iniciar sesión.', {
-        confirmButtonText: 'Ir al login'
-      });
+      await notify(
+        'info',
+        'Sesión finalizada',
+        (json && json.mensaje) || 'Tu sesión expiró. Vuelve a iniciar sesión.',
+        { confirmButtonText: 'Ir al login' }
+      );
       window.location.href = (json && json.redirect) ? json.redirect : `${BASE}/login`;
       return true;
     }
+
+    if (resp.status === 403 && error === 'CUENTA_BLOQUEADA') {
+      await notify(
+        'warning',
+        'Cuenta bloqueada',
+        (json && json.mensaje) || 'Tu cuenta fue bloqueada. Debes volver a iniciar sesión.',
+        { confirmButtonText: 'Ir al login' }
+      );
+      window.location.href = (json && json.redirect) ? json.redirect : `${BASE}/login`;
+      return true;
+    }
+
+    if (resp.status === 409 && error === 'CUENTA_OBSERVADA') {
+      await notify(
+        'warning',
+        'Cuenta observada',
+        (json && json.mensaje) || 'Tu cuenta está observada. Debes revisar tu estado.',
+        { confirmButtonText: 'Ir a revisión' }
+      );
+      window.location.href = (json && json.redirect) ? json.redirect : `${BASE}/cuenta-observada`;
+      return true;
+    }
+
     return false;
   }
 
@@ -500,6 +529,7 @@
     solicitudFlow.codigoPedido = 0;
     solicitudFlow.activo = false;
     solicitudFlow.cancelButtonVisible = false;
+    solicitudFlow.modo = '';
     solicitudFlow.segundosRestantes = 0;
     solicitudFlow.segundosParaCancelarRestantes = SEGUNDOS_CANCELACION_SOLICITUD;
   }
@@ -511,9 +541,154 @@
     return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   }
 
+  function obtenerQueueAckKey(codigoPedido) {
+    return `ev_mp_queue_ack_${Number(codigoPedido || 0)}`;
+  }
+
+  function marcarQueueAckVisto(codigoPedido) {
+    const id = Number(codigoPedido || 0);
+    if (!id) return;
+    try {
+      sessionStorage.setItem(obtenerQueueAckKey(id), '1');
+    } catch (_) {}
+  }
+
+  function limpiarQueueAckVisto(codigoPedido) {
+    const id = Number(codigoPedido || 0);
+    if (!id) return;
+    try {
+      sessionStorage.removeItem(obtenerQueueAckKey(id));
+    } catch (_) {}
+  }
+
+  function yaSeMostroQueueAck(codigoPedido) {
+    const id = Number(codigoPedido || 0);
+    if (!id) return false;
+    try {
+      return sessionStorage.getItem(obtenerQueueAckKey(id)) === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function estaVistaMarketplaceActiva() {
+    return !!document.getElementById('mp_grid_publicaciones');
+  }
+
+  async function abrirVistaMisPedidosComprador() {
+    const ruta = '/mis-pedidos-comprador';
+
+    if (window.EVNav && typeof window.EVNav.loadPage === 'function') {
+      await window.EVNav.loadPage(ruta, { pushState: true, replaceState: false });
+      return;
+    }
+
+    window.location.href = `${BASE}/MenuPrincipal?ev_goto=${encodeURIComponent(ruta)}`;
+  }
+
+  function htmlSeguimientoCola(opts = {}) {
+    const {
+      tituloProducto = 'tu solicitud',
+      detalle = 'Tu solicitud quedó en cola y avanzará cuando el vendedor termine el pedido anterior.',
+      posicionCola = 0
+    } = opts;
+
+    const detalleFinal = posicionCola > 0 && !/posici[oó]n/i.test(String(detalle))
+      ? `${detalle} Posición actual: ${posicionCola}.`
+      : detalle;
+
+    return `
+      <div style="text-align:center;">
+        <div class="ev-mp-swal-status-icon ev-mp-swal-status-icon--info" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none">
+            <circle cx="32" cy="32" r="30" fill="none"></circle>
+            <path d="M32 18.5C34.5 18.5 36.3 20.2 36.3 22.6C36.3 25 34.5 26.8 32 26.8C29.5 26.8 27.7 25 27.7 22.6C27.7 20.2 29.5 18.5 32 18.5Z" fill="#38BDF8"/>
+            <path d="M32 31.5V45.5" stroke="#38BDF8" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+        </div>
+
+        <div class="ev-mp-swal-subtitle">Esperando turno de atención</div>
+
+        <div class="ev-mp-swal-soft-text">
+          ${escapeHtml(detalleFinal)}
+        </div>
+
+        <div class="ev-mp-swal-product-card">
+          <span class="ev-mp-swal-product-label">Solicitud</span>
+          <div class="ev-mp-swal-product">${escapeHtml(tituloProducto)}</div>
+        </div>
+
+        <div class="ev-mp-swal-note">
+          Puedes seguir usando el sistema sin bloqueo. También puedes revisar esta solicitud desde <strong>Mis pedidos</strong>.
+        </div>
+      </div>
+    `;
+  }
+
+  async function mostrarPopupColaNoBloqueante(data = {}, forzar = false) {
+    const codigoPedido = Number(data?.codigo_pedido || 0);
+
+    if (!forzar && codigoPedido > 0 && yaSeMostroQueueAck(codigoPedido)) {
+      return;
+    }
+
+    if (!estaVistaMarketplaceActiva()) {
+      if (codigoPedido > 0) marcarQueueAckVisto(codigoPedido);
+      return;
+    }
+
+    if (!window.Swal?.fire) {
+      if (codigoPedido > 0) marcarQueueAckVisto(codigoPedido);
+      return;
+    }
+
+    swalCloseIfVisible();
+
+    const r = await Swal.fire(swalBaseConfig({
+      title: 'Solicitud en cola',
+      html: htmlSeguimientoCola({
+        tituloProducto: String(data?.titulo_producto || data?.titulo_publicacion || 'tu solicitud'),
+        detalle: data?.mensaje_estado || 'Tu solicitud quedó en cola y avanzará cuando el vendedor termine el pedido anterior.',
+        posicionCola: Number(data?.posicion_cola || 0)
+      }),
+      showConfirmButton: true,
+      confirmButtonText: 'Esperar',
+      showCancelButton: true,
+      cancelButtonText: 'Ir a mis pedidos',
+      allowOutsideClick: false,
+      allowEscapeKey: true
+    }));
+
+    if (codigoPedido > 0) {
+      marcarQueueAckVisto(codigoPedido);
+    }
+
+    if (r.dismiss === Swal.DismissReason.cancel) {
+      await abrirVistaMisPedidosComprador();
+    }
+  }
+
+  function iniciarMonitoreoCola(data = {}) {
+    limpiarSeguimientoSolicitud();
+
+    const codigoPedido = Number(data?.codigo_pedido || 0);
+    if (!codigoPedido) return;
+
+    solicitudFlow.codigoPedido = codigoPedido;
+    solicitudFlow.activo = true;
+    solicitudFlow.modo = 'cola';
+    solicitudFlow.cancelButtonVisible = false;
+    solicitudFlow.segundosRestantes = 0;
+    solicitudFlow.segundosParaCancelarRestantes = 0;
+
+    solicitudFlow.pollingTimer = setInterval(() => {
+      refrescarSeguimientoSolicitud();
+    }, SOLICITUD_POLLING_MS);
+  }
+
   function calcularSegundosParaCancelarDesdeRestante(segundosRestantes) {
     const total = Math.max(0, Number(segundosRestantes || 0));
-    const ventanaNoCancelable = SEGUNDOS_TIMEOUT_SOLICITUD - SEGUNDOS_CANCELACION_SOLICITUD; // 240 - 120 = 120
+    const ventanaNoCancelable = SEGUNDOS_TIMEOUT_SOLICITUD - SEGUNDOS_CANCELACION_SOLICITUD;
     return Math.max(0, total - ventanaNoCancelable);
   }
 
@@ -550,6 +725,7 @@
 
   function tickSeguimientoSolicitud() {
     if (!solicitudFlow.activo) return;
+    if (solicitudFlow.modo !== 'respuesta') return;
 
     if (solicitudFlow.segundosRestantes > 0) {
       solicitudFlow.segundosRestantes -= 1;
@@ -674,6 +850,34 @@
     return json.data || null;
   }
 
+  async function reanudarSeguimientoDespuesDeCancelarFallido(codigoPedido, fallbackData = null) {
+    let data = (fallbackData && typeof fallbackData === 'object') ? fallbackData : null;
+
+    if (!data && Number(codigoPedido || 0) > 0) {
+      data = await consultarEstadoSolicitud(Number(codigoPedido || 0));
+    }
+
+    if (!data) {
+      data = await obtenerSolicitudActivaActual();
+    }
+
+    if (!data) {
+      limpiarSeguimientoSolicitud();
+      return;
+    }
+
+    const estado = String(data.estado_actual || '').trim();
+    const finalizado = Number(data.finalizado || 0) === 1;
+
+    if (finalizado || !estadoSigueEsperandoRespuesta(estado)) {
+      await finalizarSeguimientoSolicitud(data);
+      return;
+    }
+
+    limpiarSeguimientoSolicitud();
+    await restoreSolicitudActiva(data);
+  }
+
   async function restoreSolicitudActiva(data = null) {
     if (restaurandoSolicitudActiva) return;
     if (solicitudFlow.activo && solicitudFlow.codigoPedido > 0) return;
@@ -718,26 +922,44 @@
 
           if (!confirmar.json || !confirmar.resp.ok || !confirmar.json.ok) {
             await notify('error', 'Error', confirmar.json?.mensaje || 'No se pudo confirmar tu permanencia en la cola.');
+            await reanudarSeguimientoDespuesDeCancelarFallido(solicitud.codigo_pedido, confirmar.json?.data || null);
             return;
           }
 
-          await iniciarSeguimientoSolicitud(confirmar.json.data || solicitud);
+          const dataConfirmada = confirmar.json.data || solicitud;
+          const estadoConfirmado = String(dataConfirmada.estado_actual || '').trim();
+
+          if (estadoConfirmado === 'cola_aceptada' || estadoConfirmado === 'cola_pendiente_confirmacion') {
+            iniciarMonitoreoCola(dataConfirmada);
+            await mostrarPopupColaNoBloqueante(dataConfirmada, true);
+            return;
+          }
+
+          await iniciarSeguimientoSolicitud(dataConfirmada);
           return;
         }
 
         const cancelado = await cancelarSolicitudBackend(solicitud.codigo_pedido);
 
         if (!cancelado || !cancelado.json) {
-          await notify('warning', 'Solicitud no enviada', 'Decidiste no continuar en la cola de atención.');
+          await notify('warning', 'Solicitud no enviada', 'No se pudo cancelar en este momento. Se volverá a sincronizar el seguimiento.');
+          await reanudarSeguimientoDespuesDeCancelarFallido(solicitud.codigo_pedido);
           return;
         }
 
         if (!cancelado.resp.ok || !cancelado.json.ok) {
           await notify('warning', 'No se pudo cancelar', cancelado.json?.mensaje || 'La solicitud ya no se puede cancelar.');
+          await reanudarSeguimientoDespuesDeCancelarFallido(solicitud.codigo_pedido, cancelado.json?.data || null);
           return;
         }
 
         await finalizarSeguimientoSolicitud(cancelado.json.data || {});
+        return;
+      }
+
+      if (estadoActual === 'cola_aceptada') {
+        iniciarMonitoreoCola(solicitud);
+        await mostrarPopupColaNoBloqueante(solicitud, false);
         return;
       }
 
@@ -902,13 +1124,15 @@
   }
 
   async function finalizarSeguimientoSolicitud(data) {
-    limpiarSeguimientoSolicitud();
-    swalCloseIfVisible();
-
+    const codigoPedidoFinal = Number(data?.codigo_pedido || solicitudFlow.codigoPedido || 0);
     const estado = String(data?.estado_actual || '').trim();
     const tuvoDebito = Number(data?.descuento_billetera_aplicado || 0) === 1;
     const montoDebitado = Number(data?.monto_descontado_billetera || 0);
     const devolvio = Number(data?.devolucion_billetera_aplicada || 0) === 1;
+
+    limpiarQueueAckVisto(codigoPedidoFinal);
+    limpiarSeguimientoSolicitud();
+    swalCloseIfVisible();
 
     if (estado === 'cancelado_comprador') {
       const texto = tuvoDebito && devolvio
@@ -969,17 +1193,61 @@
   async function refrescarSeguimientoSolicitud() {
     if (!solicitudFlow.activo || !solicitudFlow.codigoPedido) return;
 
+    if (solicitudFlow.modo === 'cola' && !estaVistaMarketplaceActiva()) {
+      limpiarSeguimientoSolicitud();
+      return;
+    }
+
     const data = await consultarEstadoSolicitud(solicitudFlow.codigoPedido);
     if (!data) return;
+
+    const estado = String(data?.estado_actual || '').trim();
+    const finalizado = Number(data?.finalizado || 0) === 1;
+
+    if (solicitudFlow.modo === 'cola') {
+      if (estado === 'cola_pendiente_confirmacion') {
+        limpiarSeguimientoSolicitud();
+        await restoreSolicitudActiva(data);
+        return;
+      }
+
+      if (estado === 'cola_aceptada') {
+        if (!yaSeMostroQueueAck(Number(data?.codigo_pedido || 0))) {
+          await mostrarPopupColaNoBloqueante(data, false);
+        }
+        return;
+      }
+
+      if (estado === 'pendiente_vendedor') {
+        await iniciarSeguimientoSolicitud(data);
+        return;
+      }
+
+      if (finalizado || !estadoSigueEsperandoRespuesta(estado)) {
+        await finalizarSeguimientoSolicitud(data);
+        return;
+      }
+
+      return;
+    }
+
+    if (estado === 'cola_pendiente_confirmacion') {
+      limpiarSeguimientoSolicitud();
+      await restoreSolicitudActiva(data);
+      return;
+    }
+
+    if (estado === 'cola_aceptada') {
+      iniciarMonitoreoCola(data);
+      await mostrarPopupColaNoBloqueante(data, true);
+      return;
+    }
 
     sincronizarSeguimientoDesdeData(data);
     actualizarUiSeguimiento({
       segundos_restantes: solicitudFlow.segundosRestantes,
       segundos_para_cancelar_restantes: solicitudFlow.segundosParaCancelarRestantes
     });
-
-    const estado = String(data?.estado_actual || '').trim();
-    const finalizado = Number(data?.finalizado || 0) === 1;
 
     if (finalizado || !estadoSigueEsperandoRespuesta(estado)) {
       await finalizarSeguimientoSolicitud(data);
@@ -992,8 +1260,19 @@
     const codigoPedido = Number(data.codigo_pedido || 0);
     if (!codigoPedido) return;
 
+    const estadoActual = String(data.estado_actual || '').trim();
+
+    if (estadoActual === 'cola_aceptada' || estadoActual === 'cola_pendiente_confirmacion') {
+      iniciarMonitoreoCola(data);
+      await mostrarPopupColaNoBloqueante(data, true);
+      return;
+    }
+
+    limpiarQueueAckVisto(codigoPedido);
+
     solicitudFlow.codigoPedido = codigoPedido;
     solicitudFlow.activo = true;
+    solicitudFlow.modo = 'respuesta';
     solicitudFlow.cancelButtonVisible = false;
 
     const payloadSync = {};
@@ -1012,24 +1291,13 @@
 
     sincronizarSeguimientoDesdeData(payloadSync);
 
-    const estadoActual = String(data.estado_actual || '').trim();
     const tituloProducto = String(data.titulo_producto || 'tu solicitud');
     const requierePreparacion = Number(data.requiere_preparacion || 0) === 1;
     const montoDescontado = Number(data.monto_descontado_billetera || 0);
 
-    let tituloSwal = 'Solicitud enviada';
-    let estadoTexto = 'Esperando ser atendido...';
-    let detalle = 'Tu solicitud fue registrada correctamente. Estamos esperando la respuesta del vendedor.';
-
-    if (estadoActual === 'cola_pendiente_confirmacion') {
-      tituloSwal = 'Solicitud en cola';
-      estadoTexto = 'Confirmación pendiente';
-      detalle = data.mensaje_estado || 'Tu solicitud está en cola. Debes confirmar si deseas continuar en espera.';
-    } else if (estadoActual === 'cola_aceptada') {
-      tituloSwal = 'Solicitud en cola';
-      estadoTexto = 'Esperando turno de atención';
-      detalle = data.mensaje_estado || 'Tu solicitud quedó en cola y avanzará cuando el vendedor termine el pedido anterior.';
-    }
+    const tituloSwal = 'Solicitud enviada';
+    const estadoTexto = 'Esperando ser atendido...';
+    const detalle = 'Tu solicitud fue registrada correctamente. Estamos esperando la respuesta del vendedor.';
 
     const result = await Swal.fire(swalBaseConfig({
       icon: undefined,
@@ -1041,7 +1309,7 @@
         segundosRestantes: solicitudFlow.segundosRestantes,
         requierePreparacion,
         montoDescontado,
-        variant: estadoActual === 'cola_pendiente_confirmacion' || estadoActual === 'cola_aceptada' ? 'info' : 'success'
+        variant: 'success'
       }),
       showConfirmButton: false,
       showCancelButton: false,
@@ -1089,27 +1357,29 @@
     }));
 
     if (result.dismiss === Swal.DismissReason.cancel && solicitudFlow.activo && solicitudFlow.codigoPedido) {
+      const codigoPedidoActual = solicitudFlow.codigoPedido;
+
       if (solicitudFlow.segundosParaCancelarRestantes > 0) {
         await notify(
           'info',
           'Aún no puedes cancelar',
           `Podrás cancelar esta solicitud cuando se cumplan 2 minutos de espera. Tiempo restante: ${formatDuracionSegundos(solicitudFlow.segundosParaCancelarRestantes)}.`
         );
+        await reanudarSeguimientoDespuesDeCancelarFallido(codigoPedidoActual);
         return;
       }
 
-      const r = await cancelarSolicitudBackend(solicitudFlow.codigoPedido);
+      const r = await cancelarSolicitudBackend(codigoPedidoActual);
+
       if (!r || !r.json) {
-        await notify('error', 'Error', 'No se pudo cancelar la solicitud.');
+        await notify('error', 'Error', 'No se pudo cancelar la solicitud. Se volverá a sincronizar el seguimiento.');
+        await reanudarSeguimientoDespuesDeCancelarFallido(codigoPedidoActual);
         return;
       }
 
       if (!r.resp.ok || !r.json.ok) {
         await notify('warning', 'No se pudo cancelar', r.json.mensaje || 'La solicitud ya no se puede cancelar.');
-        const dataEstado = r.json.data || null;
-        if (dataEstado && Number(dataEstado.finalizado || 0) === 1) {
-          await finalizarSeguimientoSolicitud(dataEstado);
-        }
+        await reanudarSeguimientoDespuesDeCancelarFallido(codigoPedidoActual, r.json.data || null);
         return;
       }
 
@@ -1486,7 +1756,13 @@
 
       swalCloseIfVisible();
 
-      if (estadoRegistrado === 'cola_pendiente_confirmacion' && data?.codigo_pedido) {
+      if ((estadoRegistrado === 'cola_pendiente_confirmacion' || estadoRegistrado === 'cola_aceptada') && data?.codigo_pedido) {
+        if (estadoRegistrado === 'cola_aceptada') {
+          iniciarMonitoreoCola(data);
+          await mostrarPopupColaNoBloqueante(data, true);
+          return;
+        }
+
         const deseaEsperar = await Swal.fire(swalBaseConfig({
           icon: 'question',
           title: 'Hay una cola de atención',
@@ -1507,22 +1783,34 @@
 
           if (!confirmar.json || !confirmar.resp.ok || !confirmar.json.ok) {
             await notify('error', 'Error', confirmar.json?.mensaje || 'No se pudo confirmar tu permanencia en la cola.');
+            await reanudarSeguimientoDespuesDeCancelarFallido(data.codigo_pedido, confirmar.json?.data || null);
             return;
           }
 
-          await iniciarSeguimientoSolicitud(confirmar.json.data || data);
+          const dataConfirmada = confirmar.json.data || data;
+          const estadoConfirmado = String(dataConfirmada.estado_actual || '').trim();
+
+          if (estadoConfirmado === 'cola_aceptada' || estadoConfirmado === 'cola_pendiente_confirmacion') {
+            iniciarMonitoreoCola(dataConfirmada);
+            await mostrarPopupColaNoBloqueante(dataConfirmada, true);
+            return;
+          }
+
+          await iniciarSeguimientoSolicitud(dataConfirmada);
           return;
         }
 
         const cancelado = await cancelarSolicitudBackend(data.codigo_pedido);
 
         if (!cancelado || !cancelado.json) {
-          await notify('warning', 'Solicitud no enviada', 'Decidiste no continuar en la cola de atención.');
+          await notify('warning', 'Solicitud no enviada', 'No se pudo cancelar en este momento. Se volverá a sincronizar el seguimiento.');
+          await reanudarSeguimientoDespuesDeCancelarFallido(data.codigo_pedido);
           return;
         }
 
         if (!cancelado.resp.ok || !cancelado.json.ok) {
           await notify('warning', 'No se pudo cancelar', cancelado.json?.mensaje || 'La solicitud ya no se puede cancelar.');
+          await reanudarSeguimientoDespuesDeCancelarFallido(data.codigo_pedido, cancelado.json?.data || null);
           return;
         }
 
@@ -2098,4 +2386,4 @@
   };
 
   log('Cargado. BASE:', BASE || '(vacío)', '| Condominio:', CONDO_NOMBRE_RESUMEN);
-  })();
+})();

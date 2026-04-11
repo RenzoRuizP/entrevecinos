@@ -155,6 +155,56 @@
     return { texto: estadoLegible(e), clase: 'ev-mpc-badge ev-mpc-badge-final' };
   }
 
+  async function alerta(icon, title, text) {
+    if (!window.Swal?.fire) {
+      alert(title ? `${title}\n\n${text}` : text);
+      return;
+    }
+
+    return Swal.fire({
+      icon,
+      title,
+      text,
+      confirmButtonColor: '#EA7C12'
+    });
+  }
+
+  async function manejarRespuestaSeguridad(resp, json) {
+    const error = String(json?.error || '').trim();
+
+    if (resp.status === 401) {
+      await alerta(
+        'info',
+        'Sesión finalizada',
+        json?.mensaje || 'Tu sesión expiró. Vuelve a iniciar sesión.'
+      );
+      window.location.href = json?.redirect || `${BASE}/login`;
+      return true;
+    }
+
+    if (resp.status === 403 && error === 'CUENTA_BLOQUEADA') {
+      await alerta(
+        'warning',
+        'Cuenta bloqueada',
+        json?.mensaje || 'Tu cuenta fue bloqueada. Debes volver a iniciar sesión.'
+      );
+      window.location.href = json?.redirect || `${BASE}/login`;
+      return true;
+    }
+
+    if (resp.status === 409 && error === 'CUENTA_OBSERVADA') {
+      await alerta(
+        'warning',
+        'Cuenta observada',
+        json?.mensaje || 'Tu cuenta está observada. Debes revisar tu estado.'
+      );
+      window.location.href = json?.redirect || `${BASE}/cuenta-observada`;
+      return true;
+    }
+
+    return false;
+  }
+
   function getRefs() {
     return {
       root: document.querySelector('.ev-mpc-page'),
@@ -540,6 +590,10 @@
 
     const json = await resp.json().catch(() => ({}));
 
+    if (await manejarRespuestaSeguridad(resp, json)) {
+      return null;
+    }
+
     if (!resp.ok || json?.ok === false) {
       throw new Error(json?.mensaje || 'No se pudieron cargar los pedidos.');
     }
@@ -571,6 +625,8 @@
       }
 
       const data = await fetchPedidos();
+      if (data === null) return;
+
       refrescarCache(data);
 
       const pendientes = Array.isArray(data.pendientes) ? data.pendientes : [];
@@ -629,6 +685,8 @@
 
     const json = await resp.json().catch(() => ({}));
 
+    if (await manejarRespuestaSeguridad(resp, json)) return;
+
     if (!resp.ok || json?.ok === false) {
       await Swal.fire({
         icon: 'error',
@@ -636,6 +694,7 @@
         text: json?.mensaje || 'No se pudo confirmar la entrega.',
         confirmButtonColor: '#EA7C12'
       });
+      await cargarPedidos({ silent: true });
       return;
     }
 
@@ -677,6 +736,8 @@
 
     const json = await resp.json().catch(() => ({}));
 
+    if (await manejarRespuestaSeguridad(resp, json)) return;
+
     if (!resp.ok || json?.ok === false) {
       await Swal.fire({
         icon: 'error',
@@ -684,6 +745,7 @@
         text: json?.mensaje || 'No se pudo confirmar la cola.',
         confirmButtonColor: '#EA7C12'
       });
+      await cargarPedidos({ silent: true });
       return;
     }
 
@@ -728,6 +790,8 @@
 
     const json = await resp.json().catch(() => ({}));
 
+    if (await manejarRespuestaSeguridad(resp, json)) return;
+
     if (!resp.ok || json?.ok === false) {
       await Swal.fire({
         icon: 'error',
@@ -735,6 +799,7 @@
         text: json?.mensaje || 'No se pudo cancelar la solicitud.',
         confirmButtonColor: '#EA7C12'
       });
+      await cargarPedidos({ silent: true });
       return;
     }
 
