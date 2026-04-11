@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let disponibilidadActual = 0;
   let pollingId = null;
   let loadingPedidos = false;
+  let accionEnCurso = false;
   let cachePedidos = {
     pendientes: [],
     en_proceso: [],
@@ -98,6 +99,364 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function ensureSwalStyles() {
+    const ID = 'ev-rp-swal-premium-style';
+    if (document.getElementById(ID)) return;
+
+    const css = `
+      .ev-rp-swal-container{
+        backdrop-filter: blur(2px);
+      }
+
+      .ev-rp-swal-popup-premium{
+        border-radius: 28px !important;
+        padding: 28px 24px 22px !important;
+        box-shadow:
+          0 28px 70px rgba(15,23,42,.20),
+          0 10px 24px rgba(15,89,47,.08) !important;
+        border: 1px solid rgba(229,231,235,.96) !important;
+        background:
+          radial-gradient(circle at top, rgba(230,244,236,.65) 0%, rgba(255,255,255,1) 26%, rgba(255,255,255,1) 100%) !important;
+      }
+
+      .ev-rp-swal-title{
+        color: #0F592F !important;
+        font-weight: 900 !important;
+        letter-spacing: -.03em !important;
+        font-size: 2rem !important;
+        line-height: 1.05 !important;
+        margin: 0 0 8px 0 !important;
+      }
+
+      .ev-rp-swal-html{
+        color: #6B7280 !important;
+        font-size: 1rem !important;
+        line-height: 1.55 !important;
+        margin-top: 0 !important;
+      }
+
+      .ev-rp-swal-confirm{
+        background: linear-gradient(135deg, #EA7C12, #F59E0B) !important;
+        border: none !important;
+        color: #fff !important;
+        border-radius: 16px !important;
+        padding: 13px 24px !important;
+        min-width: 156px !important;
+        font-weight: 900 !important;
+        font-size: 1rem !important;
+        box-shadow: 0 14px 30px rgba(234,124,18,.32) !important;
+      }
+
+      .ev-rp-swal-cancel{
+        background: #fff !important;
+        border: 1.6px solid #E5E7EB !important;
+        color: #374151 !important;
+        border-radius: 16px !important;
+        padding: 13px 24px !important;
+        min-width: 156px !important;
+        font-weight: 900 !important;
+        font-size: 1rem !important;
+        box-shadow: 0 8px 18px rgba(15,23,42,.06) !important;
+      }
+
+      .ev-rp-swal-loader{
+        width: 62px;
+        height: 62px;
+        border-radius: 50%;
+        border: 5px solid rgba(22,163,74,.16);
+        border-top-color: rgba(15,89,47,.96);
+        margin: 4px auto 16px auto;
+        animation: evRpSpin .85s linear infinite;
+      }
+
+      @keyframes evRpSpin{
+        to{ transform: rotate(360deg); }
+      }
+
+      .ev-rp-swal-status-icon{
+        width: 94px;
+        height: 94px;
+        margin: 0 auto 14px auto;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(180deg, rgba(230,244,236,.88), rgba(255,255,255,.98));
+        border: 2px solid rgba(22,163,74,.20);
+        box-shadow:
+          inset 0 1px 0 rgba(255,255,255,.9),
+          0 10px 28px rgba(15,89,47,.08);
+      }
+
+      .ev-rp-swal-status-icon--info{
+        border-color: rgba(59,130,246,.18);
+        background: linear-gradient(180deg, rgba(239,246,255,.92), rgba(255,255,255,.98));
+      }
+
+      .ev-rp-swal-status-icon--warning{
+        border-color: rgba(234,124,18,.22);
+        background: linear-gradient(180deg, rgba(255,247,237,.92), rgba(255,255,255,.98));
+      }
+
+      .ev-rp-swal-status-icon svg{
+        width: 52px;
+        height: 52px;
+      }
+
+      .ev-rp-swal-subtitle{
+        font-weight: 900;
+        font-size: 1.1rem;
+        color: #0F592F;
+        margin-bottom: 8px;
+        letter-spacing: -.02em;
+        text-align: center;
+      }
+
+      .ev-rp-swal-soft-text{
+        font-size: 14px;
+        color: #6B7280;
+        line-height: 1.6;
+        text-align: center;
+      }
+
+      .ev-rp-swal-note{
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: linear-gradient(180deg, #FFF7ED, #FFFDF9);
+        border: 1px solid rgba(234,124,18,.22);
+        color: #9A3412;
+        font-size: 13.5px;
+        line-height: 1.55;
+        box-shadow: 0 8px 18px rgba(234,124,18,.08);
+        text-align: left;
+      }
+
+      .ev-rp-swal-note strong{
+        font-weight: 900;
+      }
+
+      .ev-rp-swal-product-card{
+        margin-top: 16px;
+        padding: 13px 16px;
+        border-radius: 18px;
+        background: #fff;
+        border: 1px solid rgba(229,231,235,.95);
+        box-shadow: 0 8px 22px rgba(15,23,42,.05);
+        text-align: left;
+      }
+
+      .ev-rp-swal-product-label{
+        display: block;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        color: #9CA3AF;
+        margin-bottom: 5px;
+      }
+
+      .ev-rp-swal-product{
+        font-size: 15px;
+        color: #1A1F36;
+        font-weight: 800;
+        word-break: break-word;
+      }
+
+      .ev-rp-swal-danger-note{
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: #FEF2F2;
+        border: 1px solid #FECACA;
+        color: #991B1B;
+        font-size: 13px;
+        line-height: 1.5;
+        text-align: left;
+      }
+
+      @media (max-width: 575.98px){
+        .ev-rp-swal-popup-premium{
+          padding: 22px 16px 18px !important;
+          border-radius: 22px !important;
+        }
+
+        .ev-rp-swal-title{
+          font-size: 1.7rem !important;
+        }
+
+        .ev-rp-swal-confirm,
+        .ev-rp-swal-cancel{
+          width: 100% !important;
+          min-width: 0 !important;
+        }
+      }
+    `;
+
+    const style = document.createElement('style');
+    style.id = ID;
+    style.type = 'text/css';
+    style.appendChild(document.createTextNode(css));
+    document.head.appendChild(style);
+  }
+
+  function swalBaseConfig(opts = {}) {
+    ensureSwalStyles();
+
+    return Object.assign({
+      buttonsStyling: false,
+      allowOutsideClick: false,
+      allowEscapeKey: true,
+      customClass: {
+        container: 'ev-rp-swal-container',
+        popup: 'ev-rp-swal-popup-premium',
+        title: 'ev-rp-swal-title',
+        htmlContainer: 'ev-rp-swal-html',
+        confirmButton: 'ev-rp-swal-confirm',
+        cancelButton: 'ev-rp-swal-cancel'
+      }
+    }, opts || {});
+  }
+
+  function iconSvg(tipo) {
+    if (tipo === 'info') {
+      return `
+        <div class="ev-rp-swal-status-icon ev-rp-swal-status-icon--info" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none">
+            <circle cx="32" cy="32" r="30" fill="none"></circle>
+            <path d="M32 18.5C34.5 18.5 36.3 20.2 36.3 22.6C36.3 25 34.5 26.8 32 26.8C29.5 26.8 27.7 25 27.7 22.6C27.7 20.2 29.5 18.5 32 18.5Z" fill="#38BDF8"/>
+            <path d="M32 31.5V45.5" stroke="#38BDF8" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+        </div>
+      `;
+    }
+
+    if (tipo === 'warning') {
+      return `
+        <div class="ev-rp-swal-status-icon ev-rp-swal-status-icon--warning" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none">
+            <path d="M32 12L53 49H11L32 12Z" stroke="#EA7C12" stroke-width="4" fill="rgba(234,124,18,.08)"></path>
+            <path d="M32 24V36" stroke="#EA7C12" stroke-width="5" stroke-linecap="round"></path>
+            <circle cx="32" cy="43.5" r="2.8" fill="#EA7C12"></circle>
+          </svg>
+        </div>
+      `;
+    }
+
+    if (tipo === 'error') {
+      return `
+        <div class="ev-rp-swal-status-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none">
+            <circle cx="32" cy="32" r="28" stroke="#DC2626" stroke-width="4" fill="rgba(220,38,38,.06)"></circle>
+            <path d="M24 24L40 40M40 24L24 40" stroke="#DC2626" stroke-width="5" stroke-linecap="round"></path>
+          </svg>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="ev-rp-swal-status-icon" aria-hidden="true">
+        <svg viewBox="0 0 64 64" fill="none">
+          <path d="M18 33.5L27.5 43L46 23.5" stroke="#84CC16" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    `;
+  }
+
+  function htmlMessage(tipo, subtitulo, texto, extra = '') {
+    return `
+      <div>
+        ${iconSvg(tipo)}
+        <div class="ev-rp-swal-subtitle">${escapeHtml(subtitulo)}</div>
+        <div class="ev-rp-swal-soft-text">${escapeHtml(texto)}</div>
+        ${extra || ''}
+      </div>
+    `;
+  }
+
+  function htmlProductNote(label, value, note = '') {
+    return `
+      <div class="ev-rp-swal-product-card">
+        <span class="ev-rp-swal-product-label">${escapeHtml(label)}</span>
+        <div class="ev-rp-swal-product">${escapeHtml(value)}</div>
+      </div>
+      ${note ? `<div class="ev-rp-swal-note">${note}</div>` : ''}
+    `;
+  }
+
+  async function notify(tipo, title, subtitle, text, extra = {}) {
+    if (!window.Swal?.fire) {
+      alert(`${title}\n\n${text}`);
+      return { isConfirmed: true };
+    }
+
+    return Swal.fire(swalBaseConfig(Object.assign({
+      title,
+      html: htmlMessage(tipo, subtitle, text, extra.htmlExtra || ''),
+      confirmButtonText: extra.confirmButtonText || 'Entendido',
+      showCancelButton: !!extra.showCancelButton,
+      cancelButtonText: extra.cancelButtonText || 'Cancelar'
+    }, extra || {})));
+  }
+
+  async function confirmAction({ title, subtitle, text, productText, note, confirmText, cancelText }) {
+    if (!window.Swal?.fire) {
+      return window.confirm(text);
+    }
+
+    const result = await Swal.fire(swalBaseConfig({
+      title,
+      html: htmlMessage(
+        'info',
+        subtitle,
+        text,
+        htmlProductNote('Pedido', productText || 'Solicitud seleccionada', note || '')
+      ),
+      showCancelButton: true,
+      confirmButtonText: confirmText || 'Sí, continuar',
+      cancelButtonText: cancelText || 'Cancelar'
+    }));
+
+    return !!result.isConfirmed;
+  }
+
+  async function promptReject(item) {
+    if (!window.Swal?.fire) return { isConfirmed: false, value: '' };
+
+    return Swal.fire(swalBaseConfig({
+      title: 'Rechazar solicitud',
+      html: `
+        ${htmlMessage(
+          'warning',
+          'Indica el motivo del rechazo',
+          'Este mensaje se mostrará al comprador para que entienda por qué no continuó el pedido.',
+          htmlProductNote(
+            'Solicitud',
+            item?.titulo_publicacion || 'Pedido seleccionado',
+            'Es recomendable ser claro y cordial para mantener una buena experiencia entre vecinos.'
+          )
+        )}
+      `,
+      input: 'textarea',
+      inputPlaceholder: 'Escribe el motivo del rechazo...',
+      inputAttributes: {
+        'aria-label': 'Motivo de rechazo',
+        maxlength: '500'
+      },
+      showCancelButton: true,
+      confirmButtonText: 'Rechazar solicitud',
+      cancelButtonText: 'Cancelar',
+      preConfirm: (value) => {
+        const txt = String(value || '').trim();
+        if (!txt) {
+          Swal.showValidationMessage('Debes indicar el motivo de rechazo.');
+          return false;
+        }
+        return txt;
+      }
+    }));
+  }
+
   function badgeEstado(estado) {
     const mapa = {
       pendiente_vendedor: { texto: 'Pendiente', clase: 'ev-status-off' },
@@ -118,6 +477,45 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     return mapa[estado] || { texto: estado || 'Sin estado', clase: 'ev-status-off' };
+  }
+
+  async function manejarRespuestaAuth(response, data) {
+    const error = String(data?.error || '').trim();
+
+    if (response.status === 401) {
+      await notify(
+        'info',
+        'Sesión finalizada',
+        'Tu sesión ya no está activa',
+        data?.mensaje || 'Vuelve a iniciar sesión para continuar.'
+      );
+      window.location.href = data?.redirect || `${BASE_URL}/login`;
+      return true;
+    }
+
+    if (response.status === 403 && error === 'CUENTA_BLOQUEADA') {
+      await notify(
+        'warning',
+        'Cuenta bloqueada',
+        'Tu cuenta ya no está disponible',
+        data?.mensaje || 'Por seguridad, debes volver a iniciar sesión.'
+      );
+      window.location.href = data?.redirect || `${BASE_URL}/login`;
+      return true;
+    }
+
+    if (response.status === 409 && error === 'CUENTA_OBSERVADA') {
+      await notify(
+        'warning',
+        'Cuenta observada',
+        'Debes revisar el estado de tu cuenta',
+        data?.mensaje || 'Tu cuenta se encuentra observada.'
+      );
+      window.location.href = data?.redirect || `${BASE_URL}/cuenta-observada`;
+      return true;
+    }
+
+    return false;
   }
 
   function aplicarEstadoUI(estaConectado) {
@@ -171,11 +569,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
+      const data = await response.json().catch(() => ({}));
+
+      if (await manejarRespuestaAuth(response, data)) return;
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
 
-      const data = await response.json().catch(() => ({}));
       const disponibilidad = Number(data?.data?.disponibilidad ?? 0);
 
       aplicarEstadoUI(disponibilidad === 1);
@@ -208,21 +609,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const data = await response.json().catch(() => ({}));
 
+      if (await manejarRespuestaAuth(response, data)) return;
+
       if (!response.ok || data?.ok === false) {
         throw new Error(data?.mensaje || `HTTP ${response.status}`);
       }
 
-      if (window.Swal) {
-        await Swal.fire({
-          icon: 'success',
-          title: nuevoEstado ? 'Ahora estás disponible' : 'Te has desconectado',
-          text: data?.mensaje || (nuevoEstado
-            ? 'Ahora puedes recibir solicitudes.'
-            : 'Ya no recibirás nuevas solicitudes.'),
-          confirmButtonText: 'Entendido',
-          confirmButtonColor: '#EA7C12'
-        });
-      }
+      await notify(
+        'success',
+        nuevoEstado ? 'Ahora estás disponible' : 'Te has desconectado',
+        nuevoEstado ? 'Ya puedes recibir solicitudes' : 'Ya no recibirás nuevas solicitudes',
+        data?.mensaje || (nuevoEstado
+          ? 'Ahora puedes recibir solicitudes.'
+          : 'Ya no recibirás nuevas solicitudes.'),
+        {
+          htmlExtra: htmlProductNote(
+            'Estado actual',
+            nuevoEstado ? 'Conectado' : 'Desconectado'
+          )
+        }
+      );
 
       if (nuevoEstado) {
         await cargarMisPedidos();
@@ -233,15 +639,12 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('[RecibirPedidos] Error al actualizar disponibilidad:', err);
       aplicarEstadoUI(!nuevoEstado);
 
-      if (window.Swal) {
-        await Swal.fire({
-          icon: 'error',
-          title: 'No se pudo actualizar tu estado',
-          text: err.message || 'Inténtalo nuevamente en unos segundos.',
-          confirmButtonText: 'Entendido',
-          confirmButtonColor: '#EA7C12'
-        });
-      }
+      await notify(
+        'error',
+        'No se pudo actualizar tu estado',
+        'Ocurrió un problema al guardar el cambio',
+        err.message || 'Inténtalo nuevamente en unos segundos.'
+      );
     }
   }
 
@@ -544,6 +947,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const data = await response.json().catch(() => ({}));
 
+      if (await manejarRespuestaAuth(response, data)) return;
+
       if (!response.ok || data?.ok === false) {
         throw new Error(data?.mensaje || `HTTP ${response.status}`);
       }
@@ -577,69 +982,141 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function aceptarSolicitud(codigoPedido) {
-    const ok = await confirmarAccion({
+    if (accionEnCurso) return;
+    const item = buscarPedidoEnCache(codigoPedido);
+    if (!item) return;
+
+    const ok = await confirmAction({
       title: 'Aceptar solicitud',
-      text: '¿Deseas aceptar esta solicitud?',
-      confirmButtonText: 'Sí, aceptar'
+      subtitle: 'Confirmar recepción del pedido',
+      text: 'Al aceptarlo, este pedido pasará al flujo de atención y seguirá ocupando tu turno actual.',
+      productText: item.titulo_publicacion || `Pedido #${codigoPedido}`,
+      note: 'Mientras este pedido siga activo, las siguientes solicitudes permanecerán en cola hasta que el turno se libere.',
+      confirmText: 'Sí, aceptar',
+      cancelText: 'Cancelar'
     });
     if (!ok) return;
 
-    await ejecutarAccion(`${BASE_URL}/api/pedidos/${codigoPedido}/aceptar`, {}, 'Solicitud aceptada correctamente.');
+    accionEnCurso = true;
+
+    try {
+      await ejecutarAccion(
+        `${BASE_URL}/api/pedidos/${codigoPedido}/aceptar`,
+        {},
+        {
+          title: 'Solicitud aceptada',
+          subtitle: 'El pedido ya está en atención',
+          text: 'La solicitud fue aceptada correctamente.',
+          productText: item.titulo_publicacion || `Pedido #${codigoPedido}`
+        }
+      );
+    } finally {
+      accionEnCurso = false;
+    }
   }
 
   async function rechazarSolicitud(codigoPedido) {
-    if (!window.Swal) return;
+    if (accionEnCurso) return;
+    const item = buscarPedidoEnCache(codigoPedido);
+    if (!item) return;
 
-    const { value: motivo } = await Swal.fire({
-      title: 'Rechazar solicitud',
-      input: 'textarea',
-      inputLabel: 'Motivo de rechazo',
-      inputPlaceholder: 'Escribe el motivo del rechazo...',
-      inputAttributes: { 'aria-label': 'Motivo de rechazo' },
-      showCancelButton: true,
-      confirmButtonText: 'Rechazar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#EA7C12',
-      preConfirm: (value) => {
-        const txt = String(value || '').trim();
-        if (!txt) {
-          Swal.showValidationMessage('Debes indicar el motivo de rechazo.');
-          return false;
+    const result = await promptReject(item);
+    if (!result.isConfirmed || !result.value) return;
+
+    accionEnCurso = true;
+
+    try {
+      await ejecutarAccion(
+        `${BASE_URL}/api/pedidos/${codigoPedido}/rechazar`,
+        { motivo_rechazo: result.value },
+        {
+          title: 'Solicitud rechazada',
+          subtitle: 'El pedido fue cerrado correctamente',
+          text: 'La solicitud fue rechazada correctamente.',
+          productText: item.titulo_publicacion || `Pedido #${codigoPedido}`
         }
-        return txt;
+      );
+    } finally {
+      accionEnCurso = false;
+    }
+  }
+
+  function obtenerMetaCambioEstado(nuevoEstado) {
+    const etiquetas = {
+      listo_para_entrega: {
+        title: 'Marcar listo para entrega',
+        subtitle: 'Confirmar nuevo avance',
+        text: 'Usa esta opción solo cuando el pedido realmente ya esté listo para ser entregado.',
+        confirmText: 'Sí, marcar listo'
+      },
+      en_camino: {
+        title: 'Marcar en camino',
+        subtitle: 'Confirmar salida del pedido',
+        text: 'Usa esta opción cuando el pedido ya salió hacia el punto de entrega.',
+        confirmText: 'Sí, marcar en camino'
+      },
+      en_punto_entrega: {
+        title: 'Marcar punto de entrega',
+        subtitle: 'Confirmar llegada al destino',
+        text: 'Usa esta opción cuando ya llegaste al punto acordado con el comprador.',
+        confirmText: 'Sí, marcar punto'
+      },
+      entregado_vendedor: {
+        title: 'Marcar entregado',
+        subtitle: 'Confirmar entrega realizada',
+        text: 'Después de esto, el comprador deberá confirmar la recepción del pedido.',
+        confirmText: 'Sí, marcar entregado'
+      },
+      cancelado_vendedor: {
+        title: 'Cancelar pedido',
+        subtitle: 'Confirmar cancelación',
+        text: 'Esta acción cerrará el pedido actual y puede liberar el siguiente turno en cola.',
+        confirmText: 'Sí, cancelar pedido'
       }
-    });
+    };
 
-    if (!motivo) return;
-
-    await ejecutarAccion(
-      `${BASE_URL}/api/pedidos/${codigoPedido}/rechazar`,
-      { motivo_rechazo: motivo },
-      'Solicitud rechazada correctamente.'
-    );
+    return etiquetas[nuevoEstado] || {
+      title: 'Actualizar estado',
+      subtitle: 'Confirmar cambio',
+      text: '¿Deseas continuar con este cambio de estado?',
+      confirmText: 'Sí, continuar'
+    };
   }
 
   async function actualizarEstadoPedido(codigoPedido, nuevoEstado) {
-    const etiquetas = {
-      listo_para_entrega: 'marcar como listo para entrega',
-      en_camino: 'marcar como en camino',
-      en_punto_entrega: 'marcar como en punto de entrega',
-      entregado_vendedor: 'marcar como entregado',
-      cancelado_vendedor: 'cancelar este pedido'
-    };
+    if (accionEnCurso) return;
+    const item = buscarPedidoEnCache(codigoPedido);
+    if (!item) return;
 
-    const ok = await confirmarAccion({
-      title: 'Actualizar estado',
-      text: `¿Deseas ${etiquetas[nuevoEstado] || 'actualizar este pedido'}?`,
-      confirmButtonText: 'Sí, continuar'
+    const meta = obtenerMetaCambioEstado(nuevoEstado);
+
+    const ok = await confirmAction({
+      title: meta.title,
+      subtitle: meta.subtitle,
+      text: meta.text,
+      productText: item.titulo_publicacion || `Pedido #${codigoPedido}`,
+      note: 'Mantén el estado alineado con el avance real del pedido para evitar confusión al comprador.',
+      confirmText: meta.confirmText,
+      cancelText: 'Cancelar'
     });
     if (!ok) return;
 
-    await ejecutarAccion(
-      `${BASE_URL}/api/pedidos/${codigoPedido}/estado`,
-      { nuevo_estado: nuevoEstado },
-      'Estado actualizado correctamente.'
-    );
+    accionEnCurso = true;
+
+    try {
+      await ejecutarAccion(
+        `${BASE_URL}/api/pedidos/${codigoPedido}/estado`,
+        { nuevo_estado: nuevoEstado },
+        {
+          title: 'Estado actualizado',
+          subtitle: 'El avance del pedido fue registrado',
+          text: 'El estado del pedido fue actualizado correctamente.',
+          productText: item.titulo_publicacion || `Pedido #${codigoPedido}`
+        }
+      );
+    } finally {
+      accionEnCurso = false;
+    }
   }
 
   function construirHtmlDetalle(item) {
@@ -718,33 +1195,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const item = buscarPedidoEnCache(codigoPedido);
     if (!item || !window.Swal) return;
 
-    await Swal.fire({
+    await Swal.fire(swalBaseConfig({
       title: 'Detalle del pedido',
       html: construirHtmlDetalle(item),
       width: 760,
       showConfirmButton: true,
-      confirmButtonText: 'Cerrar',
-      confirmButtonColor: '#EA7C12'
-    });
+      confirmButtonText: 'Cerrar'
+    }));
   }
 
-  async function confirmarAccion({ title, text, confirmButtonText }) {
-    if (!window.Swal) return window.confirm(text);
-
-    const result = await Swal.fire({
-      icon: 'question',
-      title,
-      text,
-      showCancelButton: true,
-      confirmButtonText,
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#EA7C12'
-    });
-
-    return !!result.isConfirmed;
-  }
-
-  async function ejecutarAccion(url, body, successText) {
+  async function ejecutarAccion(url, body, successMeta) {
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -758,33 +1218,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const data = await response.json().catch(() => ({}));
 
+      if (await manejarRespuestaAuth(response, data)) return;
+
       if (!response.ok || data?.ok === false) {
-        throw new Error(data?.mensaje || `HTTP ${response.status}`);
+        await notify(
+          'warning',
+          'No se pudo completar la acción',
+          'El pedido mantiene su estado actual',
+          data?.mensaje || 'Inténtalo nuevamente.'
+        );
+        return;
       }
 
-      if (window.Swal) {
-        await Swal.fire({
-          icon: 'success',
-          title: 'Listo',
-          text: data?.mensaje || successText,
-          confirmButtonText: 'Entendido',
-          confirmButtonColor: '#EA7C12'
-        });
-      }
+      await notify(
+        'success',
+        successMeta?.title || 'Listo',
+        successMeta?.subtitle || 'Acción completada',
+        data?.mensaje || successMeta?.text || 'La acción se completó correctamente.',
+        {
+          htmlExtra: successMeta?.productText
+            ? htmlProductNote('Pedido', successMeta.productText)
+            : ''
+        }
+      );
 
       await cargarMisPedidos();
     } catch (err) {
       console.error('[RecibirPedidos] Error en acción:', err);
 
-      if (window.Swal) {
-        await Swal.fire({
-          icon: 'error',
-          title: 'No se pudo completar la acción',
-          text: err.message || 'Inténtalo nuevamente.',
-          confirmButtonText: 'Entendido',
-          confirmButtonColor: '#EA7C12'
-        });
-      }
+      await notify(
+        'error',
+        'No se pudo completar la acción',
+        'Ocurrió un problema al procesar la solicitud',
+        err.message || 'Inténtalo nuevamente.'
+      );
     }
   }
 

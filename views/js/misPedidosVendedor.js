@@ -2,13 +2,13 @@
 (function () {
   'use strict';
 
-  if (window.__EV_MIS_PEDIDOS_VENDEDOR_V13__ === true) {
+  if (window.__EV_MIS_PEDIDOS_VENDEDOR_V14__ === true) {
     if (window.EVMisPedidosVendedor && typeof window.EVMisPedidosVendedor.init === 'function') {
       window.EVMisPedidosVendedor.init();
     }
     return;
   }
-  window.__EV_MIS_PEDIDOS_VENDEDOR_V13__ = true;
+  window.__EV_MIS_PEDIDOS_VENDEDOR_V14__ = true;
 
   const BASE = (window.BASE_URL || '').replace(/\/+$/, '');
   const POLLING_MS = 5000;
@@ -21,6 +21,7 @@
   let tabActiva = 'pendientes';
   let cachePedidos = new Map();
   let cargando = false;
+  let accionEnCurso = false;
 
   function escapeHtml(v) {
     return String(v ?? '')
@@ -71,10 +72,7 @@
   }
 
   function esEstadoCola(estado) {
-    return [
-      'cola_aceptada',
-      'cola_pendiente_confirmacion'
-    ].includes(String(estado || '').trim());
+    return ['cola_aceptada', 'cola_pendiente_confirmacion'].includes(String(estado || '').trim());
   }
 
   function esEstadoNegativo(estado) {
@@ -179,6 +177,359 @@
       errorBox: document.getElementById('mpvError'),
       btnRefresh: document.getElementById('btnRefrescarMisPedidosVendedor')
     };
+  }
+
+  function ensureSwalStyles() {
+    const ID = 'ev-mpv-swal-premium-style';
+    if (document.getElementById(ID)) return;
+
+    const css = `
+      .ev-mpv-swal-container{
+        backdrop-filter: blur(2px);
+      }
+
+      .ev-mpv-swal-popup-premium{
+        border-radius: 28px !important;
+        padding: 28px 24px 22px !important;
+        box-shadow:
+          0 28px 70px rgba(15,23,42,.20),
+          0 10px 24px rgba(15,89,47,.08) !important;
+        border: 1px solid rgba(229,231,235,.96) !important;
+        background:
+          radial-gradient(circle at top, rgba(230,244,236,.65) 0%, rgba(255,255,255,1) 26%, rgba(255,255,255,1) 100%) !important;
+      }
+
+      .ev-mpv-swal-title{
+        color: #0F592F !important;
+        font-weight: 900 !important;
+        letter-spacing: -.03em !important;
+        font-size: 2rem !important;
+        line-height: 1.05 !important;
+        margin: 0 0 8px 0 !important;
+      }
+
+      .ev-mpv-swal-html{
+        color: #6B7280 !important;
+        font-size: 1rem !important;
+        line-height: 1.55 !important;
+        margin-top: 0 !important;
+      }
+
+      .ev-mpv-swal-confirm{
+        background: linear-gradient(135deg, #EA7C12, #F59E0B) !important;
+        border: none !important;
+        color: #fff !important;
+        border-radius: 16px !important;
+        padding: 13px 24px !important;
+        min-width: 156px !important;
+        font-weight: 900 !important;
+        font-size: 1rem !important;
+        box-shadow: 0 14px 30px rgba(234,124,18,.32) !important;
+      }
+
+      .ev-mpv-swal-cancel{
+        background: #fff !important;
+        border: 1.6px solid #E5E7EB !important;
+        color: #374151 !important;
+        border-radius: 16px !important;
+        padding: 13px 24px !important;
+        min-width: 156px !important;
+        font-weight: 900 !important;
+        font-size: 1rem !important;
+        box-shadow: 0 8px 18px rgba(15,23,42,.06) !important;
+      }
+
+      .ev-mpv-swal-loader{
+        width: 62px;
+        height: 62px;
+        border-radius: 50%;
+        border: 5px solid rgba(22,163,74,.16);
+        border-top-color: rgba(15,89,47,.96);
+        margin: 4px auto 16px auto;
+        animation: evMpvSpin .85s linear infinite;
+      }
+
+      @keyframes evMpvSpin{
+        to{ transform: rotate(360deg); }
+      }
+
+      .ev-mpv-swal-status-icon{
+        width: 94px;
+        height: 94px;
+        margin: 0 auto 14px auto;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(180deg, rgba(230,244,236,.88), rgba(255,255,255,.98));
+        border: 2px solid rgba(22,163,74,.20);
+        box-shadow:
+          inset 0 1px 0 rgba(255,255,255,.9),
+          0 10px 28px rgba(15,89,47,.08);
+      }
+
+      .ev-mpv-swal-status-icon--info{
+        border-color: rgba(59,130,246,.18);
+        background: linear-gradient(180deg, rgba(239,246,255,.92), rgba(255,255,255,.98));
+      }
+
+      .ev-mpv-swal-status-icon svg{
+        width: 52px;
+        height: 52px;
+      }
+
+      .ev-mpv-swal-subtitle{
+        font-weight: 900;
+        font-size: 1.1rem;
+        color: #0F592F;
+        margin-bottom: 8px;
+        letter-spacing: -.02em;
+        text-align: center;
+      }
+
+      .ev-mpv-swal-soft-text{
+        font-size: 14px;
+        color: #6B7280;
+        line-height: 1.6;
+        text-align: center;
+      }
+
+      .ev-mpv-swal-note{
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: linear-gradient(180deg, #FFF7ED, #FFFDF9);
+        border: 1px solid rgba(234,124,18,.22);
+        color: #9A3412;
+        font-size: 13.5px;
+        line-height: 1.55;
+        box-shadow: 0 8px 18px rgba(234,124,18,.08);
+        text-align: left;
+      }
+
+      .ev-mpv-swal-note strong{
+        font-weight: 900;
+      }
+
+      .ev-mpv-swal-product-card{
+        margin-top: 16px;
+        padding: 13px 16px;
+        border-radius: 18px;
+        background: #fff;
+        border: 1px solid rgba(229,231,235,.95);
+        box-shadow: 0 8px 22px rgba(15,23,42,.05);
+        text-align: left;
+      }
+
+      .ev-mpv-swal-product-label{
+        display: block;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        color: #9CA3AF;
+        margin-bottom: 5px;
+      }
+
+      .ev-mpv-swal-product{
+        font-size: 15px;
+        color: #1A1F36;
+        font-weight: 800;
+        word-break: break-word;
+      }
+
+      .ev-mpv-swal-danger-note{
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: #FEF2F2;
+        border: 1px solid #FECACA;
+        color: #991B1B;
+        font-size: 13px;
+        line-height: 1.5;
+        text-align: left;
+      }
+
+      @media (max-width: 575.98px){
+        .ev-mpv-swal-popup-premium{
+          padding: 22px 16px 18px !important;
+          border-radius: 22px !important;
+        }
+
+        .ev-mpv-swal-title{
+          font-size: 1.7rem !important;
+        }
+
+        .ev-mpv-swal-confirm,
+        .ev-mpv-swal-cancel{
+          width: 100% !important;
+          min-width: 0 !important;
+        }
+      }
+    `;
+
+    const style = document.createElement('style');
+    style.id = ID;
+    style.type = 'text/css';
+    style.appendChild(document.createTextNode(css));
+    document.head.appendChild(style);
+  }
+
+  function swalBaseConfig(opts = {}) {
+    ensureSwalStyles();
+
+    return Object.assign({
+      buttonsStyling: false,
+      allowOutsideClick: false,
+      allowEscapeKey: true,
+      customClass: {
+        container: 'ev-mpv-swal-container',
+        popup: 'ev-mpv-swal-popup-premium',
+        title: 'ev-mpv-swal-title',
+        htmlContainer: 'ev-mpv-swal-html',
+        confirmButton: 'ev-mpv-swal-confirm',
+        cancelButton: 'ev-mpv-swal-cancel'
+      }
+    }, opts || {});
+  }
+
+  function iconSvg(tipo) {
+    if (tipo === 'info') {
+      return `
+        <div class="ev-mpv-swal-status-icon ev-mpv-swal-status-icon--info" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none">
+            <circle cx="32" cy="32" r="30" fill="none"></circle>
+            <path d="M32 18.5C34.5 18.5 36.3 20.2 36.3 22.6C36.3 25 34.5 26.8 32 26.8C29.5 26.8 27.7 25 27.7 22.6C27.7 20.2 29.5 18.5 32 18.5Z" fill="#38BDF8"/>
+            <path d="M32 31.5V45.5" stroke="#38BDF8" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+        </div>
+      `;
+    }
+
+    if (tipo === 'warning') {
+      return `
+        <div class="ev-mpv-swal-status-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none">
+            <path d="M32 12L53 49H11L32 12Z" stroke="#EA7C12" stroke-width="4" fill="rgba(234,124,18,.08)"></path>
+            <path d="M32 24V36" stroke="#EA7C12" stroke-width="5" stroke-linecap="round"></path>
+            <circle cx="32" cy="43.5" r="2.8" fill="#EA7C12"></circle>
+          </svg>
+        </div>
+      `;
+    }
+
+    if (tipo === 'error') {
+      return `
+        <div class="ev-mpv-swal-status-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none">
+            <circle cx="32" cy="32" r="28" stroke="#DC2626" stroke-width="4" fill="rgba(220,38,38,.06)"></circle>
+            <path d="M24 24L40 40M40 24L24 40" stroke="#DC2626" stroke-width="5" stroke-linecap="round"></path>
+          </svg>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="ev-mpv-swal-status-icon" aria-hidden="true">
+        <svg viewBox="0 0 64 64" fill="none">
+          <path d="M18 33.5L27.5 43L46 23.5" stroke="#84CC16" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    `;
+  }
+
+  function htmlMessage(tipo, subtitulo, texto, extra = '') {
+    return `
+      <div>
+        ${iconSvg(tipo)}
+        <div class="ev-mpv-swal-subtitle">${escapeHtml(subtitulo)}</div>
+        <div class="ev-mpv-swal-soft-text">${escapeHtml(texto)}</div>
+        ${extra || ''}
+      </div>
+    `;
+  }
+
+  function htmlProductNote(label, value, note = '') {
+    return `
+      <div class="ev-mpv-swal-product-card">
+        <span class="ev-mpv-swal-product-label">${escapeHtml(label)}</span>
+        <div class="ev-mpv-swal-product">${escapeHtml(value)}</div>
+      </div>
+      ${note ? `<div class="ev-mpv-swal-note">${note}</div>` : ''}
+    `;
+  }
+
+  async function notify(tipo, title, subtitle, text, extra = {}) {
+    if (!window.Swal?.fire) {
+      alert(`${title}\n\n${text}`);
+      return { isConfirmed: true };
+    }
+
+    return Swal.fire(swalBaseConfig(Object.assign({
+      title,
+      html: htmlMessage(tipo, subtitle, text, extra.htmlExtra || ''),
+      confirmButtonText: extra.confirmButtonText || 'Entendido',
+      showCancelButton: !!extra.showCancelButton,
+      cancelButtonText: extra.cancelButtonText || 'Cancelar'
+    }, extra || {})));
+  }
+
+  async function confirmAction({ title, subtitle, text, productText, note, confirmText, cancelText }) {
+    if (!window.Swal?.fire) {
+      return window.confirm(text);
+    }
+
+    const result = await Swal.fire(swalBaseConfig({
+      title,
+      html: htmlMessage(
+        'info',
+        subtitle,
+        text,
+        htmlProductNote('Pedido', productText || 'Solicitud seleccionada', note || '')
+      ),
+      showCancelButton: true,
+      confirmButtonText: confirmText || 'Sí, continuar',
+      cancelButtonText: cancelText || 'Cancelar'
+    }));
+
+    return !!result.isConfirmed;
+  }
+
+  async function promptReject(item) {
+    if (!window.Swal?.fire) return { isConfirmed: false, value: '' };
+
+    return Swal.fire(swalBaseConfig({
+      title: 'Rechazar solicitud',
+      html: `
+        ${htmlMessage(
+          'warning',
+          'Indica el motivo del rechazo',
+          'Este mensaje se mostrará al comprador para que entienda por qué no continuó el pedido.',
+          htmlProductNote(
+            'Solicitud',
+            item?.titulo_publicacion || 'Pedido seleccionado',
+            'Es recomendable ser claro y cordial para mantener una buena experiencia entre vecinos.'
+          )
+        )}
+      `,
+      input: 'textarea',
+      inputPlaceholder: 'Ejemplo: En este momento no tengo disponibilidad para atender el pedido.',
+      inputAttributes: {
+        'aria-label': 'Motivo del rechazo',
+        maxlength: '500'
+      },
+      showCancelButton: true,
+      confirmButtonText: 'Rechazar solicitud',
+      cancelButtonText: 'Cancelar',
+      preConfirm: (value) => {
+        const txt = String(value || '').trim();
+        if (!txt) {
+          Swal.showValidationMessage('Debes indicar un motivo de rechazo.');
+          return false;
+        }
+        return txt;
+      }
+    }));
   }
 
   function showTab(refs, tab) {
@@ -361,7 +712,18 @@
         <div class="ev-mpv-state-box ev-mpv-state-box-info">
           <div class="ev-mpv-state-title">Solicitud en cola</div>
           <div class="ev-mpv-state-text">
-            Este pedido quedó en cola y será atendido cuando se libere el turno actual.
+            Este pedido aún no está aceptado por el vendedor. Quedó en espera y avanzará cuando se libere el turno actual.
+          </div>
+        </div>
+      `;
+    }
+
+    if (estado === 'cola_pendiente_confirmacion') {
+      return `
+        <div class="ev-mpv-state-box ev-mpv-state-box-info">
+          <div class="ev-mpv-state-title">Cola pendiente de confirmación</div>
+          <div class="ev-mpv-state-text">
+            El comprador todavía no confirma si desea mantenerse en la cola. Hasta entonces no pasa al turno de atención.
           </div>
         </div>
       `;
@@ -575,14 +937,55 @@
     target.innerHTML = items.map(renderCard).join('');
   }
 
+  async function handleAuthFromResponse(resp, json) {
+    if (resp.status === 401) {
+      await notify(
+        'info',
+        'Sesión finalizada',
+        'Tu sesión ya no está activa',
+        json?.mensaje || 'Vuelve a iniciar sesión para continuar.'
+      );
+      window.location.href = json?.redirect || `${BASE}/login`;
+      return true;
+    }
+
+    if (resp.status === 403 && String(json?.error || '').trim() === 'CUENTA_BLOQUEADA') {
+      await notify(
+        'warning',
+        'Cuenta bloqueada',
+        'Tu cuenta ya no está disponible',
+        json?.mensaje || 'Por seguridad, debes volver a iniciar sesión.'
+      );
+      window.location.href = json?.redirect || `${BASE}/login`;
+      return true;
+    }
+
+    if (resp.status === 409 && String(json?.error || '').trim() === 'CUENTA_OBSERVADA') {
+      await notify(
+        'warning',
+        'Cuenta observada',
+        'Debes revisar el estado de tu cuenta',
+        json?.mensaje || 'Tu cuenta se encuentra observada.'
+      );
+      window.location.href = json?.redirect || `${BASE}/cuenta-observada`;
+      return true;
+    }
+
+    return false;
+  }
+
   async function fetchPedidos() {
     const resp = await fetch(`${BASE}/api/pedidos/mis`, {
       method: 'GET',
       credentials: 'include',
-      headers: { 'Accept': 'application/json' }
+      headers: { Accept: 'application/json' }
     });
 
     const json = await resp.json().catch(() => ({}));
+
+    if (await handleAuthFromResponse(resp, json)) {
+      return { __authHandled: true, data: {} };
+    }
 
     if (!resp.ok || json?.ok === false) {
       throw new Error(json?.mensaje || 'No se pudieron cargar los pedidos.');
@@ -639,13 +1042,20 @@
 
     alertasMostradas.add(id);
 
-    await Swal.fire({
-      icon: 'info',
-      title: 'Nueva solicitud recibida',
-      text: `Tienes una nueva solicitud para: ${item.titulo_publicacion || 'tu publicación'}.`,
-      confirmButtonText: 'Ver ahora',
-      confirmButtonColor: '#EA7C12'
-    });
+    await notify(
+      'info',
+      'Nueva solicitud recibida',
+      'Tienes una nueva solicitud pendiente',
+      `Ya puedes revisar y atender el pedido de ${item.titulo_publicacion || 'tu publicación'}.`,
+      {
+        htmlExtra: htmlProductNote(
+          'Publicación',
+          item.titulo_publicacion || 'Solicitud recibida',
+          'Recuerda: solo puedes atender una solicitud activa a la vez. Las demás se mantendrán en cola.'
+        ),
+        confirmButtonText: 'Ver ahora'
+      }
+    );
 
     showTab(getRefs(), 'pendientes');
   }
@@ -661,6 +1071,10 @@
       refs.errorBox?.classList.add('d-none');
 
       const data = await fetchPedidos();
+      if (data && data.__authHandled) {
+        return;
+      }
+
       refrescarCache(data);
 
       const pendientesRaw = Array.isArray(data.pendientes) ? data.pendientes : [];
@@ -726,160 +1140,236 @@
   }
 
   async function aceptar(id) {
-    if (!window.Swal) return;
+    if (accionEnCurso) return;
+    const item = cachePedidos.get(Number(id || 0));
+    if (!item) return;
 
-    const c = await Swal.fire({
-      icon: 'question',
+    const ok = await confirmAction({
       title: 'Aceptar solicitud',
-      text: '¿Deseas aceptar esta solicitud?',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, aceptar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#EA7C12'
+      subtitle: 'Confirmar recepción del pedido',
+      text: 'Al aceptarlo, este pedido pasará al flujo de atención y seguirá ocupando tu turno actual.',
+      productText: item.titulo_publicacion || `Pedido #${id}`,
+      note: 'Mientras este pedido siga activo, las siguientes solicitudes permanecerán en cola hasta que el turno se libere.',
+      confirmText: 'Sí, aceptar',
+      cancelText: 'Cancelar'
     });
 
-    if (!c.isConfirmed) return;
+    if (!ok) return;
 
-    const resp = await fetch(`${BASE}/api/pedidos/${id}/aceptar`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Accept': 'application/json' }
-    });
+    accionEnCurso = true;
 
-    const json = await resp.json().catch(() => ({}));
-
-    if (!resp.ok || json?.ok === false) {
-      await Swal.fire({
-        icon: 'error',
-        title: 'No se pudo aceptar',
-        text: json?.mensaje || 'No se pudo aceptar la solicitud.',
-        confirmButtonColor: '#EA7C12'
+    try {
+      const resp = await fetch(`${BASE}/api/pedidos/${id}/aceptar`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { Accept: 'application/json' }
       });
-      return;
+
+      const json = await resp.json().catch(() => ({}));
+
+      if (await handleAuthFromResponse(resp, json)) return;
+
+      if (!resp.ok || json?.ok === false) {
+        await notify(
+          'warning',
+          'No se pudo aceptar',
+          'La solicitud no pudo pasar a atención',
+          json?.mensaje || 'Valida el estado actual del pedido e inténtalo nuevamente.',
+          {
+            htmlExtra: htmlProductNote('Pedido', item.titulo_publicacion || `Pedido #${id}`)
+          }
+        );
+        return;
+      }
+
+      await notify(
+        'success',
+        'Solicitud aceptada',
+        'El pedido ya está en atención',
+        json?.mensaje || 'La solicitud fue aceptada correctamente.',
+        {
+          htmlExtra: htmlProductNote(
+            'Pedido',
+            item.titulo_publicacion || `Pedido #${id}`,
+            'Ahora puedes continuar con los cambios de estado según el avance real del pedido.'
+          )
+        }
+      );
+
+      tabActiva = 'proceso';
+      await cargarPedidos({ silent: true });
+    } finally {
+      accionEnCurso = false;
     }
-
-    await Swal.fire({
-      icon: 'success',
-      title: 'Solicitud aceptada',
-      text: json?.mensaje || 'La solicitud fue aceptada correctamente.',
-      confirmButtonColor: '#EA7C12'
-    });
-
-    tabActiva = 'proceso';
-    await cargarPedidos({ silent: true });
   }
 
   async function rechazar(id) {
-    if (!window.Swal) return;
+    if (accionEnCurso) return;
+    const item = cachePedidos.get(Number(id || 0));
+    if (!item) return;
 
-    const r = await Swal.fire({
-      title: 'Rechazar solicitud',
-      input: 'textarea',
-      inputLabel: 'Motivo',
-      inputPlaceholder: 'Escribe el motivo del rechazo...',
-      showCancelButton: true,
-      confirmButtonText: 'Rechazar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#EA7C12',
-      preConfirm: (v) => {
-        const txt = String(v || '').trim();
-        if (!txt) {
-          Swal.showValidationMessage('Debes indicar un motivo.');
-          return false;
-        }
-        return txt;
-      }
-    });
-
+    const r = await promptReject(item);
     if (!r.isConfirmed || !r.value) return;
 
-    const resp = await fetch(`${BASE}/api/pedidos/${id}/rechazar`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ motivo_rechazo: r.value })
-    });
+    accionEnCurso = true;
 
-    const json = await resp.json().catch(() => ({}));
-
-    if (!resp.ok || json?.ok === false) {
-      await Swal.fire({
-        icon: 'error',
-        title: 'No se pudo rechazar',
-        text: json?.mensaje || 'No se pudo rechazar la solicitud.',
-        confirmButtonColor: '#EA7C12'
+    try {
+      const resp = await fetch(`${BASE}/api/pedidos/${id}/rechazar`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ motivo_rechazo: r.value })
       });
-      return;
+
+      const json = await resp.json().catch(() => ({}));
+
+      if (await handleAuthFromResponse(resp, json)) return;
+
+      if (!resp.ok || json?.ok === false) {
+        await notify(
+          'error',
+          'No se pudo rechazar',
+          'La solicitud sigue pendiente',
+          json?.mensaje || 'No se pudo registrar el rechazo de la solicitud.',
+          {
+            htmlExtra: htmlProductNote('Pedido', item.titulo_publicacion || `Pedido #${id}`)
+          }
+        );
+        return;
+      }
+
+      await notify(
+        'success',
+        'Solicitud rechazada',
+        'El pedido fue cerrado correctamente',
+        json?.mensaje || 'La solicitud fue rechazada correctamente.',
+        {
+          htmlExtra: htmlProductNote(
+            'Pedido',
+            item.titulo_publicacion || `Pedido #${id}`,
+            'Si había otras solicitudes en cola, el sistema avanzará la siguiente según el orden de atención.'
+          )
+        }
+      );
+
+      tabActiva = 'rechazadas';
+      await cargarPedidos({ silent: true });
+    } finally {
+      accionEnCurso = false;
     }
+  }
 
-    await Swal.fire({
-      icon: 'success',
-      title: 'Solicitud rechazada',
-      text: json?.mensaje || 'La solicitud fue rechazada correctamente.',
-      confirmButtonColor: '#EA7C12'
-    });
+  function obtenerMetaCambioEstado(estado) {
+    const mapa = {
+      listo_para_entrega: {
+        title: 'Marcar listo para entrega',
+        subtitle: 'Confirmar nuevo avance',
+        text: 'Usa esta opción solo cuando el pedido realmente ya esté listo para ser entregado.',
+        confirmText: 'Sí, marcar listo'
+      },
+      en_camino: {
+        title: 'Marcar en camino',
+        subtitle: 'Confirmar salida del pedido',
+        text: 'Usa esta opción cuando el pedido ya salió hacia el punto de entrega.',
+        confirmText: 'Sí, marcar en camino'
+      },
+      en_punto_entrega: {
+        title: 'Marcar punto de entrega',
+        subtitle: 'Confirmar llegada al destino',
+        text: 'Usa esta opción cuando ya llegaste al punto acordado con el comprador.',
+        confirmText: 'Sí, marcar punto de entrega'
+      },
+      entregado_vendedor: {
+        title: 'Marcar entregado',
+        subtitle: 'Confirmar entrega realizada',
+        text: 'Después de esto, el comprador deberá confirmar la recepción del pedido.',
+        confirmText: 'Sí, marcar entregado'
+      },
+      cancelado_vendedor: {
+        title: 'Cancelar pedido',
+        subtitle: 'Confirmar cancelación',
+        text: 'Esta acción cerrará el pedido actual y puede liberar el siguiente turno en cola.',
+        confirmText: 'Sí, cancelar pedido'
+      }
+    };
 
-    tabActiva = 'rechazadas';
-    await cargarPedidos({ silent: true });
+    return mapa[String(estado || '').trim()] || {
+      title: 'Confirmar acción',
+      subtitle: 'Validar cambio de estado',
+      text: '¿Deseas continuar con este cambio?',
+      confirmText: 'Sí, continuar'
+    };
   }
 
   async function cambiarEstado(id, estado) {
-    if (!window.Swal) return;
+    if (accionEnCurso) return;
+    const item = cachePedidos.get(Number(id || 0));
+    if (!item) return;
 
-    const etiquetas = {
-      listo_para_entrega: 'marcar como listo para entrega',
-      en_camino: 'marcar como en camino',
-      en_punto_entrega: 'marcar como en punto de entrega',
-      entregado_vendedor: 'marcar como entregado'
-    };
+    const meta = obtenerMetaCambioEstado(estado);
 
-    const textoAccion = etiquetas[String(estado || '').trim()] || 'actualizar el estado';
-
-    const r = await Swal.fire({
-      icon: 'question',
-      title: 'Actualizar estado',
-      text: `¿Deseas ${textoAccion}?`,
-      showCancelButton: true,
-      confirmButtonText: 'Sí, continuar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#EA7C12'
+    const ok = await confirmAction({
+      title: meta.title,
+      subtitle: meta.subtitle,
+      text: meta.text,
+      productText: item.titulo_publicacion || `Pedido #${id}`,
+      note: 'Mantén el estado alineado con el avance real del pedido para evitar confusión al comprador.',
+      confirmText: meta.confirmText,
+      cancelText: 'Cancelar'
     });
 
-    if (!r.isConfirmed) return;
+    if (!ok) return;
 
-    const resp = await fetch(`${BASE}/api/pedidos/${id}/estado`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ nuevo_estado: estado })
-    });
+    accionEnCurso = true;
 
-    const json = await resp.json().catch(() => ({}));
-
-    if (!resp.ok || json?.ok === false) {
-      await Swal.fire({
-        icon: 'error',
-        title: 'No se pudo actualizar',
-        text: json?.mensaje || 'No se pudo actualizar el estado del pedido.',
-        confirmButtonColor: '#EA7C12'
+    try {
+      const resp = await fetch(`${BASE}/api/pedidos/${id}/estado`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ nuevo_estado: estado })
       });
-      return;
+
+      const json = await resp.json().catch(() => ({}));
+
+      if (await handleAuthFromResponse(resp, json)) return;
+
+      if (!resp.ok || json?.ok === false) {
+        await notify(
+          'warning',
+          'No se pudo actualizar',
+          'El pedido mantiene su estado actual',
+          json?.mensaje || 'No se pudo actualizar el estado del pedido.',
+          {
+            htmlExtra: htmlProductNote('Pedido', item.titulo_publicacion || `Pedido #${id}`)
+          }
+        );
+        return;
+      }
+
+      await notify(
+        'success',
+        'Estado actualizado',
+        'El avance del pedido fue registrado',
+        json?.mensaje || 'El estado del pedido fue actualizado correctamente.',
+        {
+          htmlExtra: htmlProductNote(
+            'Pedido',
+            item.titulo_publicacion || `Pedido #${id}`
+          )
+        }
+      );
+
+      await cargarPedidos({ silent: true });
+    } finally {
+      accionEnCurso = false;
     }
-
-    await Swal.fire({
-      icon: 'success',
-      title: 'Estado actualizado',
-      text: json?.mensaje || 'El estado del pedido fue actualizado correctamente.',
-      confirmButtonColor: '#EA7C12'
-    });
-
-    await cargarPedidos({ silent: true });
   }
 
   function buildDetalleHtml(item) {
@@ -989,16 +1479,12 @@
     const item = cachePedidos.get(Number(id || 0));
     if (!window.Swal || !item) return;
 
-    await Swal.fire({
+    await Swal.fire(swalBaseConfig({
       title: 'Detalle del pedido',
       html: buildDetalleHtml(item),
       width: 880,
-      confirmButtonText: 'Cerrar',
-      confirmButtonColor: '#EA7C12',
-      customClass: {
-        popup: 'ev-mpv-swal-popup'
-      }
-    });
+      confirmButtonText: 'Cerrar'
+    }));
   }
 
   function detenerPolling() {
@@ -1100,6 +1586,8 @@
       detenerPolling();
       return;
     }
+
+    ensureSwalStyles();
 
     vistaActiva = true;
     bindEventosTabs();

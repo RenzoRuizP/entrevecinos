@@ -645,6 +645,12 @@
   margin-top:0 !important;
 }
 
+.ev-mp-swal-actions-gap .swal2-actions{
+  gap:12px !important;
+  margin-top:18px !important;
+  flex-wrap:wrap !important;
+}
+
 .ev-mp-swal-confirm{
   background:linear-gradient(135deg, #EA7C12, #F59E0B) !important;
   border:none !important;
@@ -712,10 +718,20 @@
     0 10px 28px rgba(15,89,47,.08);
 }
 
-.ev-mp-swal-status-icon i{
-  font-size:44px;
-  color:var(--ev-verde);
-  line-height:1;
+.ev-mp-swal-status-icon svg{
+  width:56px;
+  height:56px;
+  display:block;
+}
+
+.ev-mp-swal-status-icon--success{
+  border-color:rgba(22,163,74,.20);
+  background:linear-gradient(180deg, rgba(230,244,236,.88), rgba(255,255,255,.98));
+}
+
+.ev-mp-swal-status-icon--info{
+  border-color:rgba(56,189,248,.22);
+  background:linear-gradient(180deg, rgba(240,249,255,.90), rgba(255,255,255,.98));
 }
 
 .ev-mp-swal-subtitle{
@@ -849,8 +865,9 @@
     margin-bottom:12px;
   }
 
-  .ev-mp-swal-status-icon i{
-    font-size:36px;
+  .ev-mp-swal-status-icon svg{
+    width:48px;
+    height:48px;
   }
 
   .ev-mp-swal-subtitle{

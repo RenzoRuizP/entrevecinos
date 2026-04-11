@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../models/Pedido.php';
 
+
 class apiPedidoController
 {
     private function json(int $statusCode, array $payload): void
@@ -67,7 +68,9 @@ class apiPedidoController
             }
 
             foreach ($data[$grupo] as &$item) {
-                $item = $this->agregarUrlImagenAItem($item);
+                if (is_array($item)) {
+                    $item = $this->agregarUrlImagenAItem($item);
+                }
             }
             unset($item);
         }
@@ -125,7 +128,6 @@ class apiPedidoController
             }
 
             $model = new Pedido();
-
             $resultado = $model->registrarSolicitud([
                 'codigo_producto'          => $codigoProducto,
                 'codigo_usuario_comprador' => $codigoUsuarioComprador,
@@ -406,7 +408,9 @@ class apiPedidoController
             $pedidos = $model->listarPedidosEntrantes($codigoUsuario);
 
             foreach ($pedidos as &$p) {
-                $p = $this->agregarUrlImagenAItem($p);
+                if (is_array($p)) {
+                    $p = $this->agregarUrlImagenAItem($p);
+                }
             }
             unset($p);
 
@@ -548,14 +552,16 @@ class apiPedidoController
 
                 $status = match ($error) {
                     'PEDIDO_NO_ENCONTRADO' => 404,
-                    'ESTADO_NO_ACEPTABLE' => 409,
+                    'ESTADO_NO_ACEPTABLE',
+                    'VENDEDOR_CON_TURNO_ACTIVO' => 409,
                     default => 500
                 };
 
                 $this->json($status, [
                     'ok'      => false,
                     'error'   => $error,
-                    'mensaje' => $mensaje
+                    'mensaje' => $mensaje,
+                    'data'    => $resultado['data'] ?? null
                 ]);
                 return;
             }
@@ -632,7 +638,8 @@ class apiPedidoController
                 $this->json($status, [
                     'ok'      => false,
                     'error'   => $error,
-                    'mensaje' => $mensaje
+                    'mensaje' => $mensaje,
+                    'data'    => $resultado['data'] ?? null
                 ]);
                 return;
             }
@@ -709,7 +716,8 @@ class apiPedidoController
                 $this->json($status, [
                     'ok'      => false,
                     'error'   => $error,
-                    'mensaje' => $mensaje
+                    'mensaje' => $mensaje,
+                    'data'    => $resultado['data'] ?? null
                 ]);
                 return;
             }

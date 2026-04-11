@@ -120,6 +120,66 @@ class Billetera extends Conexion
         $stmtUpd->execute();
     }
 
+    private function existeMovimientoPorOrigenYReferencia(
+        int $codigoBilletera,
+        string $tipoMovimiento,
+        string $origen,
+        int $codigoReferencia
+    ): bool {
+        $sql = "
+            SELECT 1
+            FROM billetera_movimiento
+            WHERE codigo_billetera = :codigo_billetera
+              AND tipo_movimiento = :tipo_movimiento
+              AND origen = :origen
+              AND codigo_referencia = :codigo_referencia
+            LIMIT 1
+        ";
+
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindParam(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
+        $stmt->bindParam(':tipo_movimiento', $tipoMovimiento, PDO::PARAM_STR);
+        $stmt->bindParam(':origen', $origen, PDO::PARAM_STR);
+        $stmt->bindParam(':codigo_referencia', $codigoReferencia, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return (bool)$stmt->fetchColumn();
+    }
+
+    private function limpiarTituloMovimiento(string $titulo): string
+    {
+        $titulo = trim((string)preg_replace('/\s+/u', ' ', $titulo));
+        if ($titulo === '') {
+            return 'producto';
+        }
+
+        if (mb_strlen($titulo, 'UTF-8') > 70) {
+            $titulo = mb_substr($titulo, 0, 67, 'UTF-8') . '...';
+        }
+
+        return $titulo;
+    }
+
+    private function descripcionDevolucionPedido(string $motivoClave, string $tituloProducto): string
+    {
+        return match ($motivoClave) {
+            'cancelacion_comprador' =>
+                "Devolución por cancelación de solicitud: {$tituloProducto}",
+
+            'rechazo_vendedor' =>
+                "Devolución por solicitud rechazada: {$tituloProducto}",
+
+            'sin_respuesta_vendedor' =>
+                "Devolución por solicitud sin respuesta del vendedor: {$tituloProducto}",
+
+            'cancelacion_vendedor' =>
+                "Devolución por cancelación del vendedor: {$tituloProducto}",
+
+            default =>
+                "Devolución por solicitud no concretada: {$tituloProducto}",
+        };
+    }
+
     /**
      * Obtiene la billetera del usuario. Si no existe, la crea con saldo 0.
      */
@@ -298,6 +358,190 @@ class Billetera extends Conexion
         }
     }
 
+    /**
+     * Débito por solicitud de producto con preparación.
+     * Idempotente por codigo_pedido.
+     */
+    public function debitarPorSolicitudPreparada(
+        int $codigoUsuario,
+        int $codigoPedido,
+        float $monto,
+        string $tituloProducto = ''
+    ): array {
+        $abrioTx = false;
+
+        try {
+            if ($codigoUsuario <= 0 || $codigoPedido <= 0 || $monto <= 0) {
+                return [
+                    'ok'      => false,
+                    'codigo'  => 'PARAMETROS_INVALIDOS',
+                    'mensaje' => 'No se pudo procesar el débito de la solicitud.'
+                ];
+            }
+
+            if (!$this->dblink->inTransaction()) {
+                $this->dblink->beginTransaction();
+                $abrioTx = true;
+            }
+
+            $billetera = $this->obtenerOBilleteraBloqueada($codigoUsuario);
+            $codigoBilletera = (int)$billetera['codigo_billetera'];
+            $saldoActual = (float)$billetera['saldo_actual'];
+
+            if ($this->existeMovimientoPorOrigenYReferencia(
+                $codigoBilletera,
+                'D',
+                'PEDIDO_SOLICITUD_PREPARADA',
+                $codigoPedido
+            )) {
+                if ($abrioTx && $this->dblink->inTransaction()) {
+                    $this->dblink->commit();
+                }
+
+                return [
+                    'ok'             => true,
+                    'ya_aplicado'    => true,
+                    'saldo_actual'   => $saldoActual,
+                    'codigo_billetera' => $codigoBilletera
+                ];
+            }
+
+            if ($saldoActual < $monto) {
+                if ($abrioTx && $this->dblink->inTransaction()) {
+                    $this->dblink->rollBack();
+                }
+
+                return [
+                    'ok'             => false,
+                    'codigo'         => 'SALDO_INSUFICIENTE_BILLETERA',
+                    'mensaje'        => 'Tu billetera no tiene saldo suficiente para enviar esta solicitud.',
+                    'saldo_actual'   => $saldoActual,
+                    'monto_requerido'=> round($monto, 2)
+                ];
+            }
+
+            $nuevoSaldo = round($saldoActual - $monto, 2);
+            $tituloLimpio = $this->limpiarTituloMovimiento($tituloProducto);
+
+            $this->registrarMovimiento(
+                $codigoBilletera,
+                'D',
+                round($monto, 2),
+                $saldoActual,
+                $nuevoSaldo,
+                "Débito por solicitud de producto: {$tituloLimpio}",
+                'PEDIDO_SOLICITUD_PREPARADA',
+                $codigoPedido
+            );
+
+            $this->actualizarSaldoBilletera($codigoBilletera, $nuevoSaldo);
+
+            if ($abrioTx && $this->dblink->inTransaction()) {
+                $this->dblink->commit();
+            }
+
+            return [
+                'ok'               => true,
+                'saldo_actual'     => $nuevoSaldo,
+                'saldo_anterior'   => $saldoActual,
+                'monto_debitado'   => round($monto, 2),
+                'codigo_billetera' => $codigoBilletera,
+                'ya_aplicado'      => false
+            ];
+        } catch (Exception $e) {
+            if ($abrioTx && $this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * Devolución por solicitud no concretada.
+     * Idempotente por codigo_pedido.
+     */
+    public function devolverPorSolicitudNoConcretada(
+        int $codigoUsuario,
+        int $codigoPedido,
+        float $monto,
+        string $tituloProducto = '',
+        string $motivoClave = 'no_concretada'
+    ): array {
+        $abrioTx = false;
+
+        try {
+            if ($codigoUsuario <= 0 || $codigoPedido <= 0 || $monto <= 0) {
+                return [
+                    'ok'      => false,
+                    'codigo'  => 'PARAMETROS_INVALIDOS',
+                    'mensaje' => 'No se pudo procesar la devolución.'
+                ];
+            }
+
+            if (!$this->dblink->inTransaction()) {
+                $this->dblink->beginTransaction();
+                $abrioTx = true;
+            }
+
+            $billetera = $this->obtenerOBilleteraBloqueada($codigoUsuario);
+            $codigoBilletera = (int)$billetera['codigo_billetera'];
+            $saldoActual = (float)$billetera['saldo_actual'];
+
+            if ($this->existeMovimientoPorOrigenYReferencia(
+                $codigoBilletera,
+                'C',
+                'PEDIDO_SOLICITUD_DEVOLUCION',
+                $codigoPedido
+            )) {
+                if ($abrioTx && $this->dblink->inTransaction()) {
+                    $this->dblink->commit();
+                }
+
+                return [
+                    'ok'               => true,
+                    'ya_aplicado'      => true,
+                    'saldo_actual'     => $saldoActual,
+                    'codigo_billetera' => $codigoBilletera
+                ];
+            }
+
+            $nuevoSaldo = round($saldoActual + $monto, 2);
+            $tituloLimpio = $this->limpiarTituloMovimiento($tituloProducto);
+            $descripcion = $this->descripcionDevolucionPedido($motivoClave, $tituloLimpio);
+
+            $this->registrarMovimiento(
+                $codigoBilletera,
+                'C',
+                round($monto, 2),
+                $saldoActual,
+                $nuevoSaldo,
+                $descripcion,
+                'PEDIDO_SOLICITUD_DEVOLUCION',
+                $codigoPedido
+            );
+
+            $this->actualizarSaldoBilletera($codigoBilletera, $nuevoSaldo);
+
+            if ($abrioTx && $this->dblink->inTransaction()) {
+                $this->dblink->commit();
+            }
+
+            return [
+                'ok'               => true,
+                'saldo_actual'     => $nuevoSaldo,
+                'saldo_anterior'   => $saldoActual,
+                'monto_devuelto'   => round($monto, 2),
+                'codigo_billetera' => $codigoBilletera,
+                'ya_aplicado'      => false
+            ];
+        } catch (Exception $e) {
+            if ($abrioTx && $this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+            throw $e;
+        }
+    }
+
     public function acreditarPorRecargaManual(
         int $codigoUsuario,
         float $monto,
@@ -341,7 +585,9 @@ class Billetera extends Conexion
             return ['ok' => true, 'saldo_actual' => $saldoDespues];
 
         } catch (Exception $e) {
-            if ($this->dblink->inTransaction()) $this->dblink->rollBack();
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
             throw $e;
         }
     }

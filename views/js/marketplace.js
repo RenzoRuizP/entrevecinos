@@ -248,6 +248,79 @@
     });
   }
 
+  function htmlPremiumMessage(opts = {}) {
+    const {
+      variant = 'success',
+      subtitle = '',
+      text = '',
+      productLabel = '',
+      productText = '',
+      note = '',
+      extra = ''
+    } = opts;
+
+    const iconHtml = variant === 'info'
+      ? `
+        <div class="ev-mp-swal-status-icon ev-mp-swal-status-icon--info" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none">
+            <circle cx="32" cy="32" r="30" fill="none"></circle>
+            <path d="M32 18.5C34.5 18.5 36.3 20.2 36.3 22.6C36.3 25 34.5 26.8 32 26.8C29.5 26.8 27.7 25 27.7 22.6C27.7 20.2 29.5 18.5 32 18.5Z" fill="#38BDF8"/>
+            <path d="M32 31.5V45.5" stroke="#38BDF8" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+        </div>
+      `
+      : variant === 'warning'
+        ? `
+          <div class="ev-mp-swal-status-icon" aria-hidden="true" style="border-color:rgba(234,124,18,.22);background:linear-gradient(180deg, rgba(255,247,237,.92), rgba(255,255,255,.98));">
+            <svg viewBox="0 0 64 64" fill="none">
+              <path d="M32 12L53 49H11L32 12Z" stroke="#EA7C12" stroke-width="4" fill="rgba(234,124,18,.08)"></path>
+              <path d="M32 24V36" stroke="#EA7C12" stroke-width="5" stroke-linecap="round"></path>
+              <circle cx="32" cy="43.5" r="2.8" fill="#EA7C12"></circle>
+            </svg>
+          </div>
+        `
+        : variant === 'error'
+          ? `
+            <div class="ev-mp-swal-status-icon" aria-hidden="true" style="border-color:rgba(239,68,68,.20);background:linear-gradient(180deg, rgba(254,242,242,.92), rgba(255,255,255,.98));">
+              <svg viewBox="0 0 64 64" fill="none">
+                <circle cx="32" cy="32" r="28" stroke="#DC2626" stroke-width="4" fill="rgba(220,38,38,.06)"></circle>
+                <path d="M24 24L40 40M40 24L24 40" stroke="#DC2626" stroke-width="5" stroke-linecap="round"></path>
+              </svg>
+            </div>
+          `
+          : `
+            <div class="ev-mp-swal-status-icon ev-mp-swal-status-icon--success" aria-hidden="true">
+              <svg viewBox="0 0 64 64" fill="none">
+                <path d="M18 33.5L27.5 43L46 23.5" stroke="#84CC16" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          `;
+
+    const productHtml = productText
+      ? `
+        <div class="ev-mp-swal-product-card">
+          ${productLabel ? `<span class="ev-mp-swal-product-label">${escapeHtml(productLabel)}</span>` : ''}
+          <div class="ev-mp-swal-product">${escapeHtml(productText)}</div>
+        </div>
+      `
+      : '';
+
+    const noteHtml = note
+      ? `<div class="ev-mp-swal-note">${note}</div>`
+      : '';
+
+    return `
+      <div style="text-align:center;">
+        ${iconHtml}
+        ${subtitle ? `<div class="ev-mp-swal-subtitle">${escapeHtml(subtitle)}</div>` : ''}
+        ${text ? `<div class="ev-mp-swal-soft-text">${escapeHtml(text)}</div>` : ''}
+        ${productHtml}
+        ${noteHtml}
+        ${extra || ''}
+      </div>
+    `;
+  }
+
   async function notify(icon, title, text, extra = {}) {
     if (!window.Swal?.fire) {
       alert(title ? `${title}\n\n${text}` : text);
@@ -256,12 +329,27 @@
 
     swalCloseIfVisible();
 
+    const subtitle = extra.subtitle || title || '';
+    const variant =
+      icon === 'success' ? 'success' :
+      icon === 'warning' ? 'warning' :
+      icon === 'error' ? 'error' :
+      'info';
+
     return Swal.fire(swalBaseConfig(Object.assign({
-      icon,
       title,
-      text,
+      html: htmlPremiumMessage({
+        variant,
+        subtitle,
+        text,
+        productLabel: extra.productLabel || '',
+        productText: extra.productText || '',
+        note: extra.note || '',
+        extra: extra.htmlExtra || ''
+      }),
       confirmButtonText: extra.confirmButtonText || 'Aceptar',
-      showCancelButton: false
+      showCancelButton: !!extra.showCancelButton,
+      cancelButtonText: extra.cancelButtonText || 'Cancelar'
     }, extra || {})));
   }
 
@@ -270,7 +358,13 @@
       'warning',
       'Saldo insuficiente',
       `Este producto requiere preparación. Necesitas ${formatPrecio(montoRequerido)} en tu billetera y actualmente tienes ${formatPrecio(saldoActual)}.`,
-      { confirmButtonText: 'Entendido' }
+      {
+        subtitle: 'No se pudo continuar con la solicitud',
+        confirmButtonText: 'Entendido',
+        productLabel: 'Billetera',
+        productText: `Saldo actual: ${formatPrecio(saldoActual)}`,
+        note: `Para continuar necesitas al menos <strong>${formatPrecio(montoRequerido)}</strong> disponibles.`
+      }
     );
   }
 
@@ -429,7 +523,7 @@
         'info',
         'Sesión finalizada',
         (json && json.mensaje) || 'Tu sesión expiró. Vuelve a iniciar sesión.',
-        { confirmButtonText: 'Ir al login' }
+        { confirmButtonText: 'Ir al login', subtitle: 'Debes autenticarte nuevamente' }
       );
       window.location.href = (json && json.redirect) ? json.redirect : `${BASE}/login`;
       return true;
@@ -440,7 +534,7 @@
         'warning',
         'Cuenta bloqueada',
         (json && json.mensaje) || 'Tu cuenta fue bloqueada. Debes volver a iniciar sesión.',
-        { confirmButtonText: 'Ir al login' }
+        { confirmButtonText: 'Ir al login', subtitle: 'No puedes continuar en este momento' }
       );
       window.location.href = (json && json.redirect) ? json.redirect : `${BASE}/login`;
       return true;
@@ -451,7 +545,7 @@
         'warning',
         'Cuenta observada',
         (json && json.mensaje) || 'Tu cuenta está observada. Debes revisar tu estado.',
-        { confirmButtonText: 'Ir a revisión' }
+        { confirmButtonText: 'Ir a revisión', subtitle: 'Debes revisar el estado de tu cuenta' }
       );
       window.location.href = (json && json.redirect) ? json.redirect : `${BASE}/cuenta-observada`;
       return true;
@@ -473,7 +567,10 @@
 
     if (resp.status === 409) {
       const msg = (json && (json.mensaje || json.error)) ? (json.mensaje || json.error) : 'No tienes residencia activa.';
-      await notify('warning', 'Residencia requerida', msg, { confirmButtonText: 'Entendido' });
+      await notify('warning', 'Residencia requerida', msg, {
+        confirmButtonText: 'Entendido',
+        subtitle: 'Necesitas una residencia activa'
+      });
       const redir = (json && json.redirect) ? json.redirect : `${BASE}/mi-perfil`;
       window.location.href = redir;
       return null;
@@ -481,13 +578,15 @@
 
     if (!json) {
       err('DETALLE no devolvió JSON:', (text || '').slice(0, 400));
-      await notify('error', 'Error', 'La API devolvió una respuesta no válida.');
+      await notify('error', 'Error', 'La API devolvió una respuesta no válida.', {
+        subtitle: 'No se pudo cargar el detalle'
+      });
       return null;
     }
 
     if (!resp.ok || !json.ok) {
       const msg = json.mensaje || json.error || 'No se pudo obtener el detalle.';
-      await notify('error', 'Error', msg);
+      await notify('error', 'Error', msg, { subtitle: 'No se pudo cargar el detalle' });
       return null;
     }
 
@@ -607,7 +706,7 @@
           </svg>
         </div>
 
-        <div class="ev-mp-swal-subtitle">Esperando turno de atención</div>
+        <div class="ev-mp-swal-subtitle">Solicitud en cola de atención</div>
 
         <div class="ev-mp-swal-soft-text">
           ${escapeHtml(detalleFinal)}
@@ -619,7 +718,7 @@
         </div>
 
         <div class="ev-mp-swal-note">
-          Puedes seguir usando el sistema sin bloqueo. También puedes revisar esta solicitud desde <strong>Mis pedidos</strong>.
+          Tu solicitud <strong>aún no ha sido aceptada por el vendedor</strong>. Solo quedó registrada en cola y avanzará cuando llegue su turno de atención.
         </div>
       </div>
     `;
@@ -645,14 +744,14 @@
     swalCloseIfVisible();
 
     const r = await Swal.fire(swalBaseConfig({
-      title: 'Solicitud en cola',
+      title: 'Hay una cola en atención',
       html: htmlSeguimientoCola({
         tituloProducto: String(data?.titulo_producto || data?.titulo_publicacion || 'tu solicitud'),
         detalle: data?.mensaje_estado || 'Tu solicitud quedó en cola y avanzará cuando el vendedor termine el pedido anterior.',
         posicionCola: Number(data?.posicion_cola || 0)
       }),
       showConfirmButton: true,
-      confirmButtonText: 'Esperar',
+      confirmButtonText: 'Entendido',
       showCancelButton: true,
       cancelButtonText: 'Ir a mis pedidos',
       allowOutsideClick: false,
@@ -797,8 +896,9 @@
           </div>
         </div>
 
-        <div class="ev-mp-swal-product">
-          Solicitud de: <strong>${escapeHtml(tituloProducto)}</strong>
+        <div class="ev-mp-swal-product-card">
+          <span class="ev-mp-swal-product-label">Solicitud</span>
+          <div class="ev-mp-swal-product">${escapeHtml(tituloProducto)}</div>
         </div>
 
         <div id="ev_sp_cancel_hint" class="ev-mp-swal-cancel-hint"></div>
@@ -903,9 +1003,12 @@
 
       if (estadoActual === 'cola_pendiente_confirmacion') {
         const deseaEsperar = await Swal.fire(swalBaseConfig({
-          icon: 'question',
-          title: 'Hay una cola de atención',
-          text: solicitud?.mensaje_estado || 'El vendedor tiene pedidos en atención. ¿Deseas continuar en cola?',
+          title: 'Hay una cola en atención',
+          html: htmlSeguimientoCola({
+            tituloProducto: String(solicitud?.titulo_producto || 'tu solicitud'),
+            detalle: solicitud?.mensaje_estado || 'El vendedor tiene otros pedidos en atención. ¿Deseas continuar en cola?',
+            posicionCola: Number(solicitud?.posicion_cola || 0)
+          }),
           showCancelButton: true,
           confirmButtonText: 'Sí, esperar',
           cancelButtonText: 'No, cancelar'
@@ -921,7 +1024,9 @@
           if (await manejarRespuestaAuth(confirmar.resp, confirmar.json)) return;
 
           if (!confirmar.json || !confirmar.resp.ok || !confirmar.json.ok) {
-            await notify('error', 'Error', confirmar.json?.mensaje || 'No se pudo confirmar tu permanencia en la cola.');
+            await notify('error', 'Error', confirmar.json?.mensaje || 'No se pudo confirmar tu permanencia en la cola.', {
+              subtitle: 'No se pudo registrar tu decisión'
+            });
             await reanudarSeguimientoDespuesDeCancelarFallido(solicitud.codigo_pedido, confirmar.json?.data || null);
             return;
           }
@@ -942,13 +1047,17 @@
         const cancelado = await cancelarSolicitudBackend(solicitud.codigo_pedido);
 
         if (!cancelado || !cancelado.json) {
-          await notify('warning', 'Solicitud no enviada', 'No se pudo cancelar en este momento. Se volverá a sincronizar el seguimiento.');
+          await notify('warning', 'Solicitud no actualizada', 'No se pudo cancelar en este momento. Se volverá a sincronizar el seguimiento.', {
+            subtitle: 'Se reintentará consultar el estado'
+          });
           await reanudarSeguimientoDespuesDeCancelarFallido(solicitud.codigo_pedido);
           return;
         }
 
         if (!cancelado.resp.ok || !cancelado.json.ok) {
-          await notify('warning', 'No se pudo cancelar', cancelado.json?.mensaje || 'La solicitud ya no se puede cancelar.');
+          await notify('warning', 'No se pudo cancelar', cancelado.json?.mensaje || 'La solicitud ya no se puede cancelar.', {
+            subtitle: 'La solicitud mantiene su estado actual'
+          });
           await reanudarSeguimientoDespuesDeCancelarFallido(solicitud.codigo_pedido, cancelado.json?.data || null);
           return;
         }
@@ -1064,60 +1173,70 @@
       case 'rechazado_vendedor':
         return {
           title: 'Solicitud rechazada',
+          subtitle: 'El vendedor no aceptó el pedido',
           text: data?.motivo_estado || 'El vendedor rechazó tu solicitud.'
         };
 
       case 'cancelado_vendedor':
         return {
           title: 'Pedido cancelado',
+          subtitle: 'El vendedor canceló el pedido',
           text: data?.motivo_estado || 'El vendedor canceló el pedido.'
         };
 
       case 'en_preparacion':
         return {
           title: 'Pedido aceptado',
+          subtitle: 'El vendedor ya confirmó la solicitud',
           text: 'El vendedor aceptó tu solicitud y tu pedido está en preparación.'
         };
 
       case 'despachando':
         return {
           title: 'Pedido aceptado',
+          subtitle: 'El vendedor ya confirmó la solicitud',
           text: 'El vendedor aceptó tu solicitud y está preparando el despacho.'
         };
 
       case 'listo_para_entrega':
         return {
           title: 'Pedido listo',
+          subtitle: 'El pedido avanzó de estado',
           text: 'Tu pedido ya se encuentra listo para entrega.'
         };
 
       case 'en_camino':
         return {
           title: 'Pedido en camino',
+          subtitle: 'El pedido avanzó de estado',
           text: 'Tu pedido ya va en camino.'
         };
 
       case 'en_punto_entrega':
         return {
           title: 'Pedido en punto de entrega',
+          subtitle: 'El pedido avanzó de estado',
           text: 'Tu pedido ya llegó al punto de entrega.'
         };
 
       case 'entregado_vendedor':
         return {
           title: 'Pedido entregado',
+          subtitle: 'El vendedor registró la entrega',
           text: 'El vendedor marcó el pedido como entregado.'
         };
 
       case 'entrega_confirmada_comprador':
         return {
           title: 'Entrega confirmada',
+          subtitle: 'El pedido fue cerrado correctamente',
           text: 'La entrega del pedido fue confirmada correctamente.'
         };
 
       default:
         return {
           title: 'Estado actualizado',
+          subtitle: 'Tu solicitud cambió de estado',
           text: data?.mensaje_estado || data?.motivo_estado || 'El estado de tu solicitud cambió.'
         };
     }
@@ -1129,6 +1248,7 @@
     const tuvoDebito = Number(data?.descuento_billetera_aplicado || 0) === 1;
     const montoDebitado = Number(data?.monto_descontado_billetera || 0);
     const devolvio = Number(data?.devolucion_billetera_aplicada || 0) === 1;
+    const tituloProducto = String(data?.titulo_producto || 'tu solicitud');
 
     limpiarQueueAckVisto(codigoPedidoFinal);
     limpiarSeguimientoSolicitud();
@@ -1139,7 +1259,11 @@
         ? `Tu solicitud fue cancelada correctamente. Se devolvió ${formatPrecio(montoDebitado)} a tu billetera.`
         : 'Tu solicitud fue cancelada correctamente.';
 
-      await notify('success', 'Solicitud cancelada', texto, { confirmButtonText: 'Entendido' });
+      await notify('success', 'Solicitud cancelada', texto, {
+        subtitle: 'La solicitud fue cerrada correctamente',
+        productLabel: 'Solicitud',
+        productText: tituloProducto
+      });
       return;
     }
 
@@ -1151,7 +1275,7 @@
       await Swal.fire(swalBaseConfig({
         title: 'Solicitud sin respuesta',
         html: htmlSeguimientoSolicitud({
-          tituloProducto: String(data?.titulo_producto || 'tu solicitud'),
+          tituloProducto,
           estadoTexto: 'El vendedor no respondió a tiempo',
           detalle: texto,
           segundosRestantes: 0,
@@ -1172,12 +1296,20 @@
         ? `${base.text} Se devolvió ${formatPrecio(montoDebitado)} a tu billetera.`
         : base.text;
 
-      await notify('info', base.title, texto, { confirmButtonText: 'Entendido' });
+      await notify('info', base.title, texto, {
+        subtitle: base.subtitle,
+        productLabel: 'Solicitud',
+        productText: tituloProducto
+      });
       return;
     }
 
     const cambio = obtenerMensajeCambioEstadoSolicitud(data);
-    await notify('success', cambio.title, cambio.text, { confirmButtonText: 'Entendido' });
+    await notify('success', cambio.title, cambio.text, {
+      subtitle: cambio.subtitle,
+      productLabel: 'Pedido',
+      productText: tituloProducto
+    });
   }
 
   function estadoSigueEsperandoRespuesta(estado) {
@@ -1363,7 +1495,12 @@
         await notify(
           'info',
           'Aún no puedes cancelar',
-          `Podrás cancelar esta solicitud cuando se cumplan 2 minutos de espera. Tiempo restante: ${formatDuracionSegundos(solicitudFlow.segundosParaCancelarRestantes)}.`
+          `Podrás cancelar esta solicitud cuando se cumplan 2 minutos de espera. Tiempo restante: ${formatDuracionSegundos(solicitudFlow.segundosParaCancelarRestantes)}.`,
+          {
+            subtitle: 'Todavía debes esperar un poco más',
+            productLabel: 'Solicitud',
+            productText: tituloProducto
+          }
         );
         await reanudarSeguimientoDespuesDeCancelarFallido(codigoPedidoActual);
         return;
@@ -1372,13 +1509,17 @@
       const r = await cancelarSolicitudBackend(codigoPedidoActual);
 
       if (!r || !r.json) {
-        await notify('error', 'Error', 'No se pudo cancelar la solicitud. Se volverá a sincronizar el seguimiento.');
+        await notify('error', 'Error', 'No se pudo cancelar la solicitud. Se volverá a sincronizar el seguimiento.', {
+          subtitle: 'No se pudo registrar la cancelación'
+        });
         await reanudarSeguimientoDespuesDeCancelarFallido(codigoPedidoActual);
         return;
       }
 
       if (!r.resp.ok || !r.json.ok) {
-        await notify('warning', 'No se pudo cancelar', r.json.mensaje || 'La solicitud ya no se puede cancelar.');
+        await notify('warning', 'No se pudo cancelar', r.json.mensaje || 'La solicitud ya no se puede cancelar.', {
+          subtitle: 'La solicitud mantiene su estado actual'
+        });
         await reanudarSeguimientoDespuesDeCancelarFallido(codigoPedidoActual, r.json.data || null);
         return;
       }
@@ -1401,7 +1542,9 @@
 
     if (!modalEl || !imgPrincipalEl || !thumbsWrapper ||
         !tituloTxtEl || !precioEl || !catEl || !tipoEl || !descEl) {
-      await notify('error', 'Error UI', 'No se encontró el modal de detalle.');
+      await notify('error', 'Error UI', 'No se encontró el modal de detalle.', {
+        subtitle: 'Falta un componente en la vista'
+      });
       return;
     }
 
@@ -1480,7 +1623,9 @@
 
     } catch (e) {
       err('EXCEPTION DETALLE', e);
-      await notify('error', 'Error inesperado', 'Ocurrió un problema al cargar el detalle.');
+      await notify('error', 'Error inesperado', 'Ocurrió un problema al cargar el detalle.', {
+        subtitle: 'No se pudo abrir el detalle'
+      });
     }
   }
 
@@ -1527,17 +1672,25 @@
 
   function abrirModalSolicitudDesdeProducto(producto) {
     if (!producto || typeof producto !== 'object') {
-      notify('error', 'Error', 'No se pudo preparar la solicitud.');
+      notify('error', 'Error', 'No se pudo preparar la solicitud.', {
+        subtitle: 'No se pudo abrir el formulario'
+      });
       return;
     }
 
     if (Number(producto.es_producto_propio || 0) === 1) {
-      notify('warning', 'Acción no permitida', 'No puedes solicitar un pedido sobre tu propia publicación.');
+      notify('warning', 'Acción no permitida', 'No puedes solicitar un pedido sobre tu propia publicación.', {
+        subtitle: 'Esta publicación te pertenece'
+      });
       return;
     }
 
     if (Number(producto.vendedor_disponible || 0) !== 1) {
-      notify('info', 'Vendedor no disponible', 'Este vecino no se encuentra disponible para recibir pedidos en este momento.');
+      notify('info', 'Vendedor no disponible', 'Este vecino no se encuentra disponible para recibir pedidos en este momento.', {
+        subtitle: 'Intenta nuevamente más tarde',
+        productLabel: 'Publicación',
+        productText: producto.titulo || 'Publicación'
+      });
       return;
     }
 
@@ -1545,7 +1698,9 @@
     const modalDetalleEl   = document.getElementById('mp_modal_detalle');
 
     if (!modalSolicitudEl) {
-      notify('error', 'Error UI', 'No se encontró el modal de solicitud.');
+      notify('error', 'Error UI', 'No se encontró el modal de solicitud.', {
+        subtitle: 'Falta un componente en la vista'
+      });
       return;
     }
 
@@ -1623,6 +1778,7 @@
     const mensajeEl         = document.getElementById('mp_sp_mensaje');
     const requierePrepEl    = document.getElementById('mp_sp_requiere_preparacion');
     const precioUnitarioEl  = document.getElementById('mp_sp_precio_unitario');
+    const nombreProductoEl  = document.getElementById('mp_sp_nombre_producto');
     const btnSubmit         = document.querySelector('#mp_form_solicitud_pedido button[type="submit"]');
 
     const codigoProducto   = Number(codigoProductoEl?.value || 0);
@@ -1634,19 +1790,30 @@
     const requierePreparacion = Number(requierePrepEl?.value || 0) === 1;
     const precioUnitario = Number(precioUnitarioEl?.value || 0);
     const totalPedido = Number((precioUnitario * cantidad).toFixed(2));
+    const tituloProducto = String(nombreProductoEl?.value || 'tu solicitud');
 
     if (!codigoProducto) {
-      await notify('warning', 'Validación', 'No se encontró la publicación seleccionada.');
+      await notify('warning', 'Validación', 'No se encontró la publicación seleccionada.', {
+        subtitle: 'Completa correctamente el formulario'
+      });
       return;
     }
 
     if (!direccionEntrega) {
-      await notify('warning', 'Validación', 'Debes ingresar la dirección de entrega.');
+      await notify('warning', 'Validación', 'Debes ingresar la dirección de entrega.', {
+        subtitle: 'Completa correctamente el formulario',
+        productLabel: 'Solicitud',
+        productText: tituloProducto
+      });
       return;
     }
 
     if (tipoEntrega === 'programada' && !fechaProgramada) {
-      await notify('warning', 'Validación', 'Debes seleccionar la fecha y hora programada.');
+      await notify('warning', 'Validación', 'Debes seleccionar la fecha y hora programada.', {
+        subtitle: 'Completa correctamente el formulario',
+        productLabel: 'Solicitud',
+        productText: tituloProducto
+      });
       return;
     }
 
@@ -1686,7 +1853,9 @@
 
       if (resp.status === 409 && json?.error === 'SIN_RESIDENCIA_ACTIVA' && json?.redirect) {
         swalCloseIfVisible();
-        await notify('warning', 'Residencia requerida', json.mensaje || 'Debes completar tu residencia.');
+        await notify('warning', 'Residencia requerida', json.mensaje || 'Debes completar tu residencia.', {
+          subtitle: 'Necesitas una residencia activa'
+        });
         window.location.href = json.redirect;
         return;
       }
@@ -1694,7 +1863,9 @@
       if (!json) {
         swalCloseIfVisible();
         err('REGISTRAR PEDIDO no devolvió JSON:', (text || '').slice(0, 400));
-        await notify('error', 'Error', 'La respuesta del servidor no fue válida.');
+        await notify('error', 'Error', 'La respuesta del servidor no fue válida.', {
+          subtitle: 'No se pudo registrar la solicitud'
+        });
         return;
       }
 
@@ -1705,12 +1876,18 @@
         const apiMsg = json?.mensaje || json?.error || 'No se pudo registrar la solicitud.';
 
         if (apiError === 'VENDEDOR_NO_DISPONIBLE') {
-          await notify('info', 'Vendedor no disponible', apiMsg);
+          await notify('info', 'Vendedor no disponible', apiMsg, {
+            subtitle: 'No se pudo continuar con la solicitud',
+            productLabel: 'Solicitud',
+            productText: tituloProducto
+          });
           return;
         }
 
         if (apiError === 'PRODUCTO_PROPIO') {
-          await notify('warning', 'Acción no permitida', apiMsg);
+          await notify('warning', 'Acción no permitida', apiMsg, {
+            subtitle: 'No puedes pedir tu propia publicación'
+          });
           return;
         }
 
@@ -1728,11 +1905,19 @@
           apiError === 'PUBLICACION_NO_VIGENTE' ||
           apiError === 'VENDEDOR_NO_HABILITADO'
         ) {
-          await notify('warning', 'Publicación no disponible', apiMsg);
+          await notify('warning', 'Publicación no disponible', apiMsg, {
+            subtitle: 'Esta publicación ya no está disponible',
+            productLabel: 'Solicitud',
+            productText: tituloProducto
+          });
           return;
         }
 
-        await notify('error', 'Error', apiMsg);
+        await notify('error', 'Error', apiMsg, {
+          subtitle: 'No se pudo registrar la solicitud',
+          productLabel: 'Solicitud',
+          productText: tituloProducto
+        });
         return;
       }
 
@@ -1764,9 +1949,12 @@
         }
 
         const deseaEsperar = await Swal.fire(swalBaseConfig({
-          icon: 'question',
-          title: 'Hay una cola de atención',
-          text: data?.mensaje_estado || 'El vendedor tiene pedidos en atención. ¿Deseas continuar en cola?',
+          title: 'Hay una cola en atención',
+          html: htmlSeguimientoCola({
+            tituloProducto: String(data?.titulo_producto || tituloProducto),
+            detalle: data?.mensaje_estado || 'El vendedor tiene pedidos en atención. ¿Deseas continuar en cola?',
+            posicionCola: Number(data?.posicion_cola || 0)
+          }),
           showCancelButton: true,
           confirmButtonText: 'Sí, esperar',
           cancelButtonText: 'No, cancelar'
@@ -1782,7 +1970,9 @@
           if (await manejarRespuestaAuth(confirmar.resp, confirmar.json)) return;
 
           if (!confirmar.json || !confirmar.resp.ok || !confirmar.json.ok) {
-            await notify('error', 'Error', confirmar.json?.mensaje || 'No se pudo confirmar tu permanencia en la cola.');
+            await notify('error', 'Error', confirmar.json?.mensaje || 'No se pudo confirmar tu permanencia en la cola.', {
+              subtitle: 'No se pudo registrar tu decisión'
+            });
             await reanudarSeguimientoDespuesDeCancelarFallido(data.codigo_pedido, confirmar.json?.data || null);
             return;
           }
@@ -1803,13 +1993,17 @@
         const cancelado = await cancelarSolicitudBackend(data.codigo_pedido);
 
         if (!cancelado || !cancelado.json) {
-          await notify('warning', 'Solicitud no enviada', 'No se pudo cancelar en este momento. Se volverá a sincronizar el seguimiento.');
+          await notify('warning', 'Solicitud no actualizada', 'No se pudo cancelar en este momento. Se volverá a sincronizar el seguimiento.', {
+            subtitle: 'Se reintentará consultar el estado'
+          });
           await reanudarSeguimientoDespuesDeCancelarFallido(data.codigo_pedido);
           return;
         }
 
         if (!cancelado.resp.ok || !cancelado.json.ok) {
-          await notify('warning', 'No se pudo cancelar', cancelado.json?.mensaje || 'La solicitud ya no se puede cancelar.');
+          await notify('warning', 'No se pudo cancelar', cancelado.json?.mensaje || 'La solicitud ya no se puede cancelar.', {
+            subtitle: 'La solicitud mantiene su estado actual'
+          });
           await reanudarSeguimientoDespuesDeCancelarFallido(data.codigo_pedido, cancelado.json?.data || null);
           return;
         }
@@ -1823,7 +2017,9 @@
     } catch (e) {
       err('EXCEPTION registrar pedido', e);
       swalCloseIfVisible();
-      await notify('error', 'Error inesperado', 'Ocurrió un problema al registrar la solicitud.');
+      await notify('error', 'Error inesperado', 'Ocurrió un problema al registrar la solicitud.', {
+        subtitle: 'No se pudo completar el proceso'
+      });
     } finally {
       if (btnSubmit) btnSubmit.disabled = false;
     }
@@ -1850,7 +2046,9 @@
       btnPedirDetalle.dataset.boundSolicitud = '1';
       btnPedirDetalle.addEventListener('click', () => {
         if (!window.EV_MP_DETALLE_ACTUAL) {
-          notify('warning', 'Detalle no disponible', 'Primero abre una publicación válida.');
+          notify('warning', 'Detalle no disponible', 'Primero abre una publicación válida.', {
+            subtitle: 'No se encontró la publicación'
+          });
           return;
         }
 
@@ -2184,7 +2382,9 @@
 
       if (resp.status === 409) {
         const msg = (json && (json.mensaje || json.error)) ? (json.mensaje || json.error) : 'No tienes residencia activa.';
-        await notify('warning', 'Residencia requerida', msg);
+        await notify('warning', 'Residencia requerida', msg, {
+          subtitle: 'Necesitas una residencia activa'
+        });
         const redir = (json && json.redirect) ? json.redirect : `${BASE}/mi-perfil`;
         window.location.href = redir;
         return;
