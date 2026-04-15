@@ -38,7 +38,7 @@
 .ev-recibir-card .ev-recibir-header{
   background-color: #ffffff;
   border-bottom: 1px solid #E5E7EB;
-  padding: 20px 24px 18px 24px; /* un poco más de aire arriba */
+  padding: 20px 24px 18px 24px;
 }
 
 .ev-recibir-icon-wrapper{
@@ -88,7 +88,7 @@
   background-color: #9CA3AF;
 }
 
-/* Estado conectado (la lógica la maneja tu JS cambiando clases) */
+/* Estado conectado */
 .ev-status-on{
   background-color: #DCFCE7;
   color: #15803D;
@@ -316,6 +316,8 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  scroll-margin-top: 120px;
+  transition: border-color .20s ease, box-shadow .20s ease, transform .20s ease;
 }
 
 .ev-pedido-main{
@@ -395,6 +397,35 @@
 
 .ev-pedido-tiempo i{
   font-size: 0.8rem;
+}
+
+/* Resaltado de pedido al usar "Ver solicitud" */
+.ev-pedido-card.ev-rp-card-highlight{
+  position: relative;
+  border-color: rgba(234,124,18,.40) !important;
+  box-shadow:
+    0 0 0 3px rgba(234,124,18,.16),
+    0 20px 40px rgba(234,124,18,.18) !important;
+  transform: translateY(-1px);
+  animation: evRpPulseCard 2.3s ease-in-out 0s 3;
+}
+
+.ev-pedido-card.ev-rp-card-highlight::after{
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 2px solid rgba(234,124,18,.34);
+  box-shadow: 0 0 0 6px rgba(234,124,18,.06);
+}
+
+@keyframes evRpPulseCard{
+  0%, 100% { transform: translateY(0); }
+  20% { transform: translateY(-2px); }
+  40% { transform: translateY(0); }
+  60% { transform: translateY(-1px); }
+  80% { transform: translateY(0); }
 }
 
 /* Acciones */

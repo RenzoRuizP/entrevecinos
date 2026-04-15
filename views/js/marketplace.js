@@ -118,6 +118,33 @@
     return (BASE || '') + p;
   }
 
+  function toDateTimeLocalValue(date) {
+    const d = (date instanceof Date) ? new Date(date.getTime()) : new Date(date);
+    if (Number.isNaN(d.getTime())) return '';
+
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function obtenerFechaMinimaProgramada() {
+    const ahora = new Date();
+    ahora.setSeconds(0, 0);
+
+    const conBuffer = new Date(ahora.getTime() + 60 * 1000);
+    return conBuffer;
+  }
+
+  function normalizarFechaProgramadaInput(rawValue) {
+    const raw = String(rawValue || '').trim();
+    if (!raw) return '';
+
+    const fecha = new Date(raw);
+    if (Number.isNaN(fecha.getTime())) return raw;
+
+    fecha.setSeconds(0, 0);
+    return toDateTimeLocalValue(fecha);
+  }
+
   async function fetchJsonRobusto(url, opts) {
     const resp = await fetch(url, opts);
     const text = await resp.text();
@@ -767,6 +794,68 @@
     }
   }
 
+  async function mostrarToastColaConfirmada(data = {}) {
+    const codigoPedido = Number(data?.codigo_pedido || 0);
+    if (codigoPedido > 0) {
+      marcarQueueAckVisto(codigoPedido);
+    }
+
+    if (!window.Swal?.fire) return;
+
+    await Swal.fire(swalBaseConfig({
+      toast: true,
+      position: 'bottom-end',
+      title: '',
+      html: `
+        <div class="ev-mp-toast-cola">
+          <div class="ev-mp-toast-cola-icon">
+            <i class="bi bi-chat-left-text"></i>
+          </div>
+
+          <div class="ev-mp-toast-cola-content">
+            <div class="ev-mp-toast-cola-title">Solicitud en cola</div>
+
+            <div class="ev-mp-toast-cola-text">
+              Se registró correctamente.
+            </div>
+
+            <div class="ev-mp-toast-cola-text ev-mp-toast-cola-text--strong">
+              ${
+                Number(data?.posicion_cola || 0) > 0
+                  ? `Posición actual: ${Number(data.posicion_cola)}`
+                  : 'En espera de atención'
+              }
+            </div>
+
+            <div class="ev-mp-toast-cola-actions">
+              <button type="button" class="ev-mp-toast-cola-link">Ver mis pedidos</button>
+            </div>
+          </div>
+        </div>
+      `,
+      showConfirmButton: false,
+      timer: 4200,
+      timerProgressBar: true,
+      allowOutsideClick: true,
+      allowEscapeKey: true,
+      customClass: {
+        container: 'ev-mp-swal-container',
+        popup: 'ev-mp-swal-popup ev-mp-toast-cola-popup',
+        htmlContainer: 'ev-mp-swal-html ev-mp-toast-cola-html'
+      },
+      didOpen: (toast) => {
+        const btn = toast.querySelector('.ev-mp-toast-cola-link');
+        if (btn) {
+          btn.addEventListener('click', async (ev) => {
+            ev.preventDefault();
+            Swal.close();
+            await abrirVistaMisPedidosComprador();
+          });
+        }
+      }
+    }));
+  }
+
   function iniciarMonitoreoCola(data = {}) {
     limpiarSeguimientoSolicitud();
 
@@ -1036,7 +1125,7 @@
 
           if (estadoConfirmado === 'cola_aceptada' || estadoConfirmado === 'cola_pendiente_confirmacion') {
             iniciarMonitoreoCola(dataConfirmada);
-            await mostrarPopupColaNoBloqueante(dataConfirmada, true);
+            await mostrarToastColaConfirmada(dataConfirmada);
             return;
           }
 
@@ -1068,7 +1157,11 @@
 
       if (estadoActual === 'cola_aceptada') {
         iniciarMonitoreoCola(solicitud);
-        await mostrarPopupColaNoBloqueante(solicitud, false);
+
+        if (!yaSeMostroQueueAck(Number(solicitud?.codigo_pedido || 0))) {
+          await mostrarToastColaConfirmada(solicitud);
+        }
+
         return;
       }
 
@@ -1345,7 +1438,7 @@
 
       if (estado === 'cola_aceptada') {
         if (!yaSeMostroQueueAck(Number(data?.codigo_pedido || 0))) {
-          await mostrarPopupColaNoBloqueante(data, false);
+          await mostrarToastColaConfirmada(data);
         }
         return;
       }
@@ -1371,7 +1464,11 @@
 
     if (estado === 'cola_aceptada') {
       iniciarMonitoreoCola(data);
-      await mostrarPopupColaNoBloqueante(data, true);
+
+      if (!yaSeMostroQueueAck(Number(data?.codigo_pedido || 0))) {
+        await mostrarToastColaConfirmada(data);
+      }
+
       return;
     }
 
@@ -1394,9 +1491,18 @@
 
     const estadoActual = String(data.estado_actual || '').trim();
 
-    if (estadoActual === 'cola_aceptada' || estadoActual === 'cola_pendiente_confirmacion') {
+    if (estadoActual === 'cola_pendiente_confirmacion') {
+      await restoreSolicitudActiva(data);
+      return;
+    }
+
+    if (estadoActual === 'cola_aceptada') {
       iniciarMonitoreoCola(data);
-      await mostrarPopupColaNoBloqueante(data, true);
+
+      if (!yaSeMostroQueueAck(Number(data?.codigo_pedido || 0))) {
+        await mostrarToastColaConfirmada(data);
+      }
+
       return;
     }
 
@@ -1655,16 +1761,22 @@
     wrapProgramada.classList.toggle('d-none', !esProgramada);
 
     if (esProgramada) {
-      const ahora = new Date();
-      const max = new Date(ahora.getTime() + (48 * 60 * 60 * 1000));
+      const minimo = obtenerFechaMinimaProgramada();
+      const maximo = new Date(minimo.getTime() + (48 * 60 * 60 * 1000));
 
-      const toLocalInput = (d) => {
-        const pad = (n) => String(n).padStart(2, '0');
-        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-      };
+      fechaEl.min = toDateTimeLocalValue(minimo);
+      fechaEl.max = toDateTimeLocalValue(maximo);
 
-      fechaEl.min = toLocalInput(ahora);
-      fechaEl.max = toLocalInput(max);
+      if (fechaEl.value) {
+        const normalizada = normalizarFechaProgramadaInput(fechaEl.value);
+        fechaEl.value = normalizada;
+
+        if (normalizada && normalizada < fechaEl.min) {
+          fechaEl.value = fechaEl.min;
+        } else if (normalizada && normalizada > fechaEl.max) {
+          fechaEl.value = fechaEl.max;
+        }
+      }
     } else {
       fechaEl.value = '';
     }
@@ -1784,7 +1896,7 @@
     const codigoProducto   = Number(codigoProductoEl?.value || 0);
     const cantidad         = Math.max(1, parseInt(cantidadEl?.value || '1', 10) || 1);
     const tipoEntrega      = (tipoEntregaEl?.value || 'inmediata').trim();
-    const fechaProgramada  = (fechaProgramadaEl?.value || '').trim();
+    const fechaProgramada  = normalizarFechaProgramadaInput(fechaProgramadaEl?.value || '');
     const direccionEntrega = (direccionEl?.value || '').trim();
     const mensajeComprador = (mensajeEl?.value || '').trim();
     const requierePreparacion = Number(requierePrepEl?.value || 0) === 1;
@@ -1815,6 +1927,20 @@
         productText: tituloProducto
       });
       return;
+    }
+
+    if (tipoEntrega === 'programada') {
+      const minima = obtenerFechaMinimaProgramada();
+      const seleccionada = new Date(fechaProgramada);
+
+      if (Number.isNaN(seleccionada.getTime()) || seleccionada.getTime() < minima.getTime()) {
+        await notify('warning', 'Validación', 'La fecha programada debe ser una hora futura válida.', {
+          subtitle: 'Revisa la fecha y hora programada',
+          productLabel: 'Solicitud',
+          productText: tituloProducto
+        });
+        return;
+      }
     }
 
     try {
@@ -1944,7 +2070,7 @@
       if ((estadoRegistrado === 'cola_pendiente_confirmacion' || estadoRegistrado === 'cola_aceptada') && data?.codigo_pedido) {
         if (estadoRegistrado === 'cola_aceptada') {
           iniciarMonitoreoCola(data);
-          await mostrarPopupColaNoBloqueante(data, true);
+          await mostrarToastColaConfirmada(data);
           return;
         }
 
@@ -1982,7 +2108,7 @@
 
           if (estadoConfirmado === 'cola_aceptada' || estadoConfirmado === 'cola_pendiente_confirmacion') {
             iniciarMonitoreoCola(dataConfirmada);
-            await mostrarPopupColaNoBloqueante(dataConfirmada, true);
+            await mostrarToastColaConfirmada(dataConfirmada);
             return;
           }
 
@@ -2028,6 +2154,7 @@
   function bindSolicitudModalEvents() {
     const cantidadEl = document.getElementById('mp_sp_cantidad');
     const tipoEntregaEl = document.getElementById('mp_sp_tipo_entrega');
+    const fechaProgramadaEl = document.getElementById('mp_sp_fecha_programada');
     const formSolicitud = document.getElementById('mp_form_solicitud_pedido');
     const btnPedirDetalle = document.getElementById('btnPedirAhoraDetalle');
 
@@ -2040,6 +2167,16 @@
     if (tipoEntregaEl && !tipoEntregaEl.dataset.boundSolicitud) {
       tipoEntregaEl.dataset.boundSolicitud = '1';
       tipoEntregaEl.addEventListener('change', actualizarVisibilidadEntregaProgramada);
+    }
+
+    if (fechaProgramadaEl && !fechaProgramadaEl.dataset.boundSolicitudNorm) {
+      fechaProgramadaEl.dataset.boundSolicitudNorm = '1';
+      fechaProgramadaEl.addEventListener('change', () => {
+        fechaProgramadaEl.value = normalizarFechaProgramadaInput(fechaProgramadaEl.value);
+      });
+      fechaProgramadaEl.addEventListener('blur', () => {
+        fechaProgramadaEl.value = normalizarFechaProgramadaInput(fechaProgramadaEl.value);
+      });
     }
 
     if (btnPedirDetalle && !btnPedirDetalle.dataset.boundSolicitud) {

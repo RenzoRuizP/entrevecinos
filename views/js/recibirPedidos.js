@@ -275,6 +275,33 @@ document.addEventListener('DOMContentLoaded', () => {
         text-align: left;
       }
 
+      .ev-rp-card-highlight{
+        position: relative;
+        animation: evRpPulseCard 2.3s ease-in-out 0s 3;
+        box-shadow:
+          0 0 0 3px rgba(234,124,18,.20),
+          0 22px 48px rgba(234,124,18,.18) !important;
+        border-color: rgba(234,124,18,.38) !important;
+      }
+
+      .ev-rp-card-highlight::after{
+        content: "";
+        position: absolute;
+        inset: -1px;
+        border-radius: inherit;
+        pointer-events: none;
+        border: 2px solid rgba(234,124,18,.38);
+        box-shadow: 0 0 0 6px rgba(234,124,18,.08);
+      }
+
+      @keyframes evRpPulseCard{
+        0%, 100% { transform: translateY(0); }
+        20% { transform: translateY(-2px); }
+        40% { transform: translateY(0); }
+        60% { transform: translateY(-1px); }
+        80% { transform: translateY(0); }
+      }
+
       @media (max-width: 575.98px){
         .ev-rp-swal-popup-premium{
           padding: 22px 16px 18px !important;
@@ -930,6 +957,36 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   }
 
+  function resaltarPedido(codigoPedido) {
+    const id = Number(codigoPedido || 0);
+    if (id <= 0) return false;
+
+    const selector = `.ev-pedido-card[data-pedido-id="${id}"]`;
+    const card = document.querySelector(selector);
+    if (!card) return false;
+
+    document.querySelectorAll('.ev-pedido-card.ev-rp-card-highlight').forEach((el) => {
+      el.classList.remove('ev-rp-card-highlight');
+    });
+
+    card.classList.add('ev-rp-card-highlight');
+
+    try {
+      card.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+    } catch (_) {
+      card.scrollIntoView();
+    }
+
+    window.setTimeout(() => {
+      card.classList.remove('ev-rp-card-highlight');
+    }, 7000);
+
+    return true;
+  }
+
   async function cargarMisPedidos() {
     if (loadingPedidos) return;
     loadingPedidos = true;
@@ -1314,4 +1371,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   cargarEstadoInicial();
+
+  window.EVRecibirPedidos = Object.assign(window.EVRecibirPedidos || {}, {
+    resaltarPedido
+  });
 });

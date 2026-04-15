@@ -5,6 +5,7 @@ class Pedido extends Conexion
 {
     private const SEGUNDOS_CANCELACION = 120;
     private const SEGUNDOS_TIMEOUT = 240;
+    private const MINUTOS_GRACIA_FECHA_PROGRAMADA = 1;
 
     // =========================================================
     // HELPERS GENERALES
@@ -90,6 +91,89 @@ class Pedido extends Conexion
         }
 
         return $titulo;
+    }
+
+    private function obtenerTimezoneAplicacion(): DateTimeZone
+    {
+        try {
+            $tzName = (string)date_default_timezone_get();
+            return new DateTimeZone($tzName !== '' ? $tzName : 'America/Lima');
+        } catch (Throwable $e) {
+            return new DateTimeZone('America/Lima');
+        }
+    }
+
+    private function parsearFechaProgramadaUsuario($valor): ?DateTime
+    {
+        $raw = trim((string)$valor);
+        if ($raw === '') {
+            return null;
+        }
+
+        $tz = $this->obtenerTimezoneAplicacion();
+        $raw = str_replace('T', ' ', $raw);
+        $formatos = [
+            'Y-m-d H:i:s',
+            'Y-m-d H:i',
+            'd/m/Y H:i:s',
+            'd/m/Y H:i',
+        ];
+
+        foreach ($formatos as $formato) {
+            $dt = DateTime::createFromFormat($formato, $raw, $tz);
+            if ($dt instanceof DateTime) {
+                $errores = DateTime::getLastErrors();
+                $warningCount = (int)($errores['warning_count'] ?? 0);
+                $errorCount   = (int)($errores['error_count'] ?? 0);
+
+                if ($warningCount === 0 && $errorCount === 0) {
+                    return $dt;
+                }
+            }
+        }
+
+        try {
+            return new DateTime($raw, $tz);
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    private function validarFechaProgramada(?DateTime $fechaProgramada): array
+    {
+        if (!$fechaProgramada) {
+            return [
+                'ok'      => false,
+                'error'   => 'FECHA_PROGRAMADA_INVALIDA',
+                'mensaje' => 'La fecha programada no tiene un formato válido.'
+            ];
+        }
+
+        $tz = $this->obtenerTimezoneAplicacion();
+        $ahora = new DateTime('now', $tz);
+        $minimaPermitida = (clone $ahora)->modify('-' . self::MINUTOS_GRACIA_FECHA_PROGRAMADA . ' minute');
+        $maximo = (clone $ahora)->modify('+2 days');
+
+        if ($fechaProgramada < $minimaPermitida) {
+            return [
+                'ok'      => false,
+                'error'   => 'FECHA_PROGRAMADA_INVALIDA',
+                'mensaje' => 'La fecha programada no puede ser menor al momento actual.'
+            ];
+        }
+
+        if ($fechaProgramada > $maximo) {
+            return [
+                'ok'      => false,
+                'error'   => 'FECHA_PROGRAMADA_FUERA_DE_RANGO',
+                'mensaje' => 'La fecha programada no puede superar 2 días desde ahora.'
+            ];
+        }
+
+        return [
+            'ok'    => true,
+            'fecha' => $fechaProgramada->format('Y-m-d H:i:s')
+        ];
     }
 
     private function obtenerOBilleteraBloqueada(int $codigoUsuario): array
@@ -371,7 +455,7 @@ class Pedido extends Conexion
 
         $sql = "
             SELECT
-                p.*,
+                p.*, 
                 pr.titulo AS titulo_producto,
                 pr.imagen_portada,
                 TRIM(COALESCE(uc.nombre, '')) AS nombre_comprador,
@@ -399,7 +483,7 @@ class Pedido extends Conexion
 
         $sql = "
             SELECT
-                p.*,
+                p.*, 
                 pr.titulo AS titulo_producto
             FROM pedido p
             INNER JOIN producto pr ON pr.codigo_producto = p.codigo_producto
@@ -424,7 +508,7 @@ class Pedido extends Conexion
 
         $sql = "
             SELECT
-                p.*,
+                p.*, 
                 pr.titulo AS titulo_producto,
                 pr.imagen_portada,
                 TRIM(COALESCE(u.nombre, '')) AS nombre_comprador
@@ -604,7 +688,7 @@ class Pedido extends Conexion
     {
         $sql = "
             SELECT
-                p.*,
+                p.*, 
                 pr.titulo AS titulo_producto
             FROM pedido p
             INNER JOIN producto pr
@@ -679,7 +763,7 @@ class Pedido extends Conexion
             return;
         }
 
-        $nuevoLimite = (new DateTime('now'))
+        $nuevoLimite = (new DateTime('now', $this->obtenerTimezoneAplicacion()))
             ->modify('+' . self::SEGUNDOS_TIMEOUT . ' seconds')
             ->format('Y-m-d H:i:s');
 
@@ -1025,35 +1109,14 @@ class Pedido extends Conexion
                 ];
             }
 
-            try {
-                $dt = new DateTime((string)$fechaHoraProgramada);
-                $ahora = new DateTime('now');
-                $maximo = (clone $ahora)->modify('+2 days');
+            $fechaProgramada = $this->parsearFechaProgramadaUsuario($fechaHoraProgramada);
+            $validacionFechaProgramada = $this->validarFechaProgramada($fechaProgramada);
 
-                if ($dt < $ahora) {
-                    return [
-                        'ok'      => false,
-                        'error'   => 'FECHA_PROGRAMADA_INVALIDA',
-                        'mensaje' => 'La fecha programada no puede ser menor al momento actual.'
-                    ];
-                }
-
-                if ($dt > $maximo) {
-                    return [
-                        'ok'      => false,
-                        'error'   => 'FECHA_PROGRAMADA_FUERA_DE_RANGO',
-                        'mensaje' => 'La fecha programada no puede superar 2 días desde ahora.'
-                    ];
-                }
-
-                $fechaProgramadaMySql = $dt->format('Y-m-d H:i:s');
-            } catch (Throwable $e) {
-                return [
-                    'ok'      => false,
-                    'error'   => 'FECHA_PROGRAMADA_INVALIDA',
-                    'mensaje' => 'La fecha programada no tiene un formato válido.'
-                ];
+            if (!$validacionFechaProgramada['ok']) {
+                return $validacionFechaProgramada;
             }
+
+            $fechaProgramadaMySql = (string)$validacionFechaProgramada['fecha'];
         }
 
         $costoUnitario  = (float)($producto['precio'] ?? 0);
@@ -1071,7 +1134,7 @@ class Pedido extends Conexion
             $fase = 'solicitud';
             $estadoActual = 'pendiente_vendedor';
             $posicionCola = 1;
-            $fechaLimite = (new DateTime('now'))
+            $fechaLimite = (new DateTime('now', $this->obtenerTimezoneAplicacion()))
                 ->modify('+' . self::SEGUNDOS_TIMEOUT . ' seconds')
                 ->format('Y-m-d H:i:s');
             $motivoEstado = 'Solicitud registrada por comprador.';
@@ -1453,7 +1516,7 @@ class Pedido extends Conexion
 
         $sql = "
             SELECT
-                p.*,
+                p.*, 
                 pr.titulo AS titulo_publicacion,
                 pr.imagen_portada,
                 TRIM(COALESCE(u.nombre, '')) AS nombre_vecino
@@ -1529,7 +1592,7 @@ class Pedido extends Conexion
 
             $sql = "
                 SELECT
-                    p.*,
+                    p.*, 
                     pr.titulo AS titulo_producto
                 FROM pedido p
                 INNER JOIN producto pr ON pr.codigo_producto = p.codigo_producto
@@ -1591,11 +1654,16 @@ class Pedido extends Conexion
             );
         }
 
+        $tituloPublicacion = (string)($r['titulo_publicacion'] ?? $r['titulo_producto'] ?? '');
+        $nombreComprador   = (string)($r['nombre_comprador'] ?? $r['nombre_vecino'] ?? 'Vecino');
+
         return [
             'codigo_pedido'                  => (int)$r['codigo_pedido'],
             'codigo_producto'                => (int)$r['codigo_producto'],
-            'titulo_publicacion'             => (string)($r['titulo_producto'] ?? $r['titulo_publicacion'] ?? ''),
-            'nombre_vecino'                  => (string)($r['nombre_comprador'] ?? $r['nombre_vecino'] ?? 'Vecino'),
+            'titulo_publicacion'             => $tituloPublicacion,
+            'titulo_producto'                => $tituloPublicacion,
+            'nombre_vecino'                  => $nombreComprador,
+            'nombre_comprador'               => $nombreComprador,
             'imagen_portada'                 => (string)($r['imagen_portada'] ?? ''),
             'fase'                           => (string)($r['fase'] ?? ''),
             'estado_actual'                  => (string)($r['estado_actual'] ?? ''),
@@ -1608,7 +1676,7 @@ class Pedido extends Conexion
             'fecha_hora_programada'          => $r['fecha_hora_programada'],
             'direccion_entrega'              => (string)($r['direccion_entrega'] ?? ''),
             'mensaje_comprador'              => (string)($r['mensaje_comprador'] ?? ''),
-            'fecha_hora'                     => !empty($r['created_at']) ? date('d/m/Y H:i', strtotime((string)$r['created_at'])) : '',
+            'fecha_hora'                     => $r['created_at'] ?? null,
             'created_at'                     => $r['created_at'] ?? null,
             'fecha_limite_respuesta'         => $r['fecha_limite_respuesta'] ?? null,
             'requiere_preparacion'           => (int)($r['requiere_preparacion'] ?? 0),
@@ -1623,9 +1691,8 @@ class Pedido extends Conexion
     private function determinarGrupoPedidoVendedor(array $pedido): string
     {
         $estado = (string)($pedido['estado_actual'] ?? '');
-        $fase   = (string)($pedido['fase'] ?? '');
 
-        if ($fase === 'solicitud' && in_array($estado, [
+        if (in_array($estado, [
             'pendiente_vendedor',
             'cola_aceptada'
         ], true)) {
@@ -1656,15 +1723,16 @@ class Pedido extends Conexion
                     p.*,
                     pr.titulo AS titulo_publicacion,
                     pr.imagen_portada,
-                    TRIM(COALESCE(u.nombre, '')) AS nombre_vecino
+                    TRIM(COALESCE(u.nombre, '')) AS nombre_comprador
                 FROM pedido p
                 INNER JOIN producto pr ON pr.codigo_producto = p.codigo_producto
                 INNER JOIN usuario u ON u.codigo_usuario = p.codigo_usuario_comprador
                 WHERE p.codigo_usuario_vendedor = :codigo_usuario_vendedor
                 ORDER BY
                     CASE
-                        WHEN p.fase = 'solicitud' AND p.estado_actual = 'pendiente_vendedor' THEN 1
-                        WHEN p.fase = 'solicitud' AND p.estado_actual = 'cola_aceptada' THEN 2
+                        WHEN p.estado_actual = 'pendiente_vendedor' THEN 1
+                        WHEN p.estado_actual = 'cola_pendiente_confirmacion' THEN 2
+                        WHEN p.estado_actual = 'cola_aceptada' THEN 3
                         WHEN p.estado_actual IN (
                             'en_preparacion',
                             'despachando',
@@ -1672,11 +1740,11 @@ class Pedido extends Conexion
                             'en_camino',
                             'en_punto_entrega',
                             'entregado_vendedor'
-                        ) THEN 3
-                        ELSE 4
+                        ) THEN 4
+                        ELSE 5
                     END,
                     CASE
-                        WHEN p.estado_actual = 'cola_aceptada' THEN p.posicion_cola
+                        WHEN p.estado_actual IN ('cola_aceptada', 'cola_pendiente_confirmacion') THEN p.posicion_cola
                         ELSE 0
                     END ASC,
                     p.codigo_pedido DESC
@@ -1695,6 +1763,10 @@ class Pedido extends Conexion
             ];
 
             foreach ($rows as $row) {
+                if ((string)($row['estado_actual'] ?? '') === 'cola_pendiente_confirmacion') {
+                    continue;
+                }
+
                 $item = $this->formatearPedidoVendedor($row);
                 $grupo = $this->determinarGrupoPedidoVendedor($item);
                 $data[$grupo][] = $item;
@@ -1985,7 +2057,7 @@ class Pedido extends Conexion
 
             $sql = "
                 SELECT
-                    p.*,
+                    p.*, 
                     pr.titulo AS titulo_publicacion,
                     pr.imagen_portada,
                     TRIM(COALESCE(u.nombre, '')) AS nombre_vendedor

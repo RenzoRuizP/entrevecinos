@@ -880,4 +880,143 @@
     min-width:0 !important;
   }
 }
+
+.ev-mp-swal-toast-compact{
+  width:320px !important;
+  max-width:320px !important;
+  padding:14px 16px !important;
+  border-radius:18px !important;
+  box-shadow:0 14px 30px rgba(15, 23, 42, .14) !important;
+  border-top:3px solid #EA7C12 !important;
+}
+
+/* Toast cola premium */
+.ev-mp-toast-popup{
+  width:360px !important;
+  min-width:360px !important;
+  max-width:360px !important;
+  border-radius:18px !important;
+  padding:0 !important;
+  overflow:hidden !important;
+  border:1px solid rgba(15,89,47,.10) !important;
+  box-shadow:0 18px 40px rgba(15,23,42,.16) !important;
+  background:
+    linear-gradient(90deg, #0F592F 0%, #16A34A 62%, #EA7C12 100%) top/100% 4px no-repeat,
+    #ffffff !important;
+}
+
+.ev-mp-toast-html{
+  margin:0 !important;
+  padding:0 !important;
+}
+
+.ev-mp-toast-cola{
+  padding:14px 16px 14px 14px;
+}
+
+.ev-mp-toast-cola-head{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+}
+
+.ev-mp-toast-cola-icon{
+  flex:0 0 34px;
+  width:34px;
+  height:34px;
+  min-width:34px;
+  border-radius:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#ECFDF3;
+  border:1px solid rgba(15,89,47,.08);
+  color:#0F592F;
+  font-size:15px;
+  margin-top:2px;
+}
+
+.ev-mp-toast-cola-copy{
+  flex:1;
+  min-width:0;
+}
+
+.ev-mp-toast-cola-title{
+  margin:0 0 4px;
+  font-size:15px;
+  line-height:1.2;
+  font-weight:800;
+  color:#0F592F;
+}
+
+.ev-mp-toast-cola-text{
+  margin:0;
+  font-size:13px;
+  line-height:1.35;
+  color:#5B6470;
+}
+
+.ev-mp-toast-cola-text + .ev-mp-toast-cola-text{
+  margin-top:2px;
+}
+
+.ev-mp-toast-cola-posicion{
+  margin:2px 0 0;
+  font-size:13px;
+  font-weight:800;
+  line-height:1.35;
+  color:#0F592F;
+}
+
+.ev-mp-toast-cola-actions{
+  margin-top:8px;
+}
+
+.ev-mp-toast-cola-link{
+  border:0;
+  background:transparent;
+  padding:0;
+  font-size:13px;
+  font-weight:800;
+  color:#EA7C12;
+  cursor:pointer;
+  text-decoration:none;
+  line-height:1.2;
+  transition:color .18s ease, transform .18s ease;
+}
+
+.ev-mp-toast-cola-link::before{
+  content:'→ ';
+  font-size:13px;
+  font-weight:900;
+  line-height:1;
+}
+
+.ev-mp-toast-cola-link:hover{
+  color:#C96A10;
+  text-decoration:underline;
+}
+
+.ev-mp-toast-cola-link:focus{
+  outline:none;
+  color:#C96A10;
+  text-decoration:underline;
+  box-shadow:none;
+}
+
+.ev-mp-toast-cola-link:active{
+  transform:translateY(1px);
+}
+
+@media (max-width:575.98px){
+  .ev-mp-toast-popup{
+    width:min(92vw, 360px) !important;
+    min-width:min(92vw, 360px) !important;
+    max-width:min(92vw, 360px) !important;
+  }
+
+  .ev-mp-toast-cola{
+    padding:13px 14px;
+  }
+}
 </style>

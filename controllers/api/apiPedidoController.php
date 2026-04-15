@@ -1,7 +1,6 @@
 <?php
 require_once __DIR__ . '/../../models/Pedido.php';
 
-
 class apiPedidoController
 {
     private function json(int $statusCode, array $payload): void
