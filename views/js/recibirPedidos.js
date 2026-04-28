@@ -1,47 +1,124 @@
 // views/js/recibirPedidos.js
-document.addEventListener('DOMContentLoaded', () => {
+(function () {
+  'use strict';
+
   const BASE_URL = (window.BASE_URL || '/').replace(/\/+$/, '');
 
-  const toggle = document.getElementById('toggleRecibirPedidos');
-  const sliderLabel = document.getElementById('evSliderLabel');
-  const estadoBadge = document.getElementById('estadoBadge');
-  const estadoBadgeText = document.getElementById('estadoBadgeText');
-  const estadoDot = document.getElementById('estadoDot');
-  const estadoTextoSecundario = document.getElementById('estadoTextoSecundario');
+  /*
+    EV - Mis pedidos vendedor / Recibir pedidos
+    Ajustes principales:
+    - Polling controlado para no afectar la fluidez del menú lateral.
+    - No se pierde la inmediatez de solicitudes: el shell global sigue revisando solicitudes nuevas.
+    - Este módulo refresca la vista del vendedor cuando está activa y conectado.
+    - Evita llamadas solapadas y pausa si la pestaña está oculta.
+    - Compatible con carga por shell/parciales.
+  */
 
-  const pedidosCounter = document.getElementById('evPedidosCounter');
-  const pedidosDesconectado = document.getElementById('evPedidosDesconectado');
-  const pedidosError = document.getElementById('evPedidosError');
-  const pedidosBloque = document.getElementById('evPedidosBloque');
+  const POLLING_PEDIDOS_MS = 10000;
+  const POLLING_PEDIDOS_IDLE_MS = 18000;
+  const FETCH_TIMEOUT_MS = 8000;
+  const UI_PAUSE_MS = 1400;
 
-  const pendientesLista = document.getElementById('evPendientesLista');
-  const procesoLista = document.getElementById('evProcesoLista');
-  const finalizadosLista = document.getElementById('evFinalizadosLista');
+  let state = {
+    inicializado: false,
+    disponibilidadActual: 0,
+    pollingId: null,
+    loadingPedidos: false,
+    accionEnCurso: false,
+    ultimaInteraccionUi: 0,
+    ultimoPollingAt: 0,
+    cachePedidos: {
+      pendientes: [],
+      en_proceso: [],
+      finalizados: []
+    },
+    refs: {}
+  };
 
-  const pendientesCounter = document.getElementById('evPendientesCounter');
-  const procesoCounter = document.getElementById('evProcesoCounter');
-  const finalizadosCounter = document.getElementById('evFinalizadosCounter');
-
-  const pendientesEmpty = document.getElementById('evPendientesEmpty');
-  const procesoEmpty = document.getElementById('evProcesoEmpty');
-  const finalizadosEmpty = document.getElementById('evFinalizadosEmpty');
-
-  const btnRefrescarPedidos = document.getElementById('btnRefrescarPedidos');
-
-  if (!toggle) {
-    console.warn('[RecibirPedidos] No se encontró toggleRecibirPedidos.');
-    return;
+  function $(id) {
+    return document.getElementById(id);
   }
 
-  let disponibilidadActual = 0;
-  let pollingId = null;
-  let loadingPedidos = false;
-  let accionEnCurso = false;
-  let cachePedidos = {
-    pendientes: [],
-    en_proceso: [],
-    finalizados: []
-  };
+  function nowMs() {
+    return Date.now();
+  }
+
+  function marcarInteraccionUi() {
+    state.ultimaInteraccionUi = nowMs();
+
+    if (window.EVPollingControl && typeof window.EVPollingControl.pauseBriefly === 'function') {
+      window.EVPollingControl.pauseBriefly();
+    }
+
+    if (window.EVMarketplace && typeof window.EVMarketplace.pauseBriefly === 'function') {
+      window.EVMarketplace.pauseBriefly();
+    }
+  }
+
+  function estaPausadoPorUi() {
+    return (nowMs() - state.ultimaInteraccionUi) < UI_PAUSE_MS;
+  }
+
+  function vistaActiva() {
+    return !!$('toggleRecibirPedidos') || !!$('evPendientesLista') || !!$('evPedidosCounter');
+  }
+
+  async function fetchJsonRobusto(url, opts = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+    const ctrl = new AbortController();
+    const timeoutId = window.setTimeout(() => ctrl.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        ...opts,
+        signal: ctrl.signal
+      });
+
+      const text = await response.text();
+      let data = {};
+
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (_) {
+        data = {};
+      }
+
+      return { response, data, text };
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
+
+  function capturarRefs() {
+    state.refs = {
+      toggle: $('toggleRecibirPedidos'),
+      sliderLabel: $('evSliderLabel'),
+      estadoBadge: $('estadoBadge'),
+      estadoBadgeText: $('estadoBadgeText'),
+      estadoDot: $('estadoDot'),
+      estadoTextoSecundario: $('estadoTextoSecundario'),
+
+      pedidosCounter: $('evPedidosCounter'),
+      pedidosDesconectado: $('evPedidosDesconectado'),
+      pedidosError: $('evPedidosError'),
+      pedidosBloque: $('evPedidosBloque'),
+
+      pendientesLista: $('evPendientesLista'),
+      procesoLista: $('evProcesoLista'),
+      finalizadosLista: $('evFinalizadosLista'),
+
+      pendientesCounter: $('evPendientesCounter'),
+      procesoCounter: $('evProcesoCounter'),
+      finalizadosCounter: $('evFinalizadosCounter'),
+
+      pendientesEmpty: $('evPendientesEmpty'),
+      procesoEmpty: $('evProcesoEmpty'),
+      finalizadosEmpty: $('evFinalizadosEmpty'),
+
+      btnRefrescarPedidos: $('btnRefrescarPedidos')
+    };
+
+    return !!state.refs.toggle;
+  }
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -426,7 +503,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, extra || {})));
   }
 
-  async function confirmAction({ title, subtitle, text, productText, note, confirmText, cancelText }) {
+  async function confirmAction({ title, subtitle, text, productText, note, confirmText, cancelText, tipo = 'info' }) {
     if (!window.Swal?.fire) {
       return window.confirm(text);
     }
@@ -434,7 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const result = await Swal.fire(swalBaseConfig({
       title,
       html: htmlMessage(
-        'info',
+        tipo,
         subtitle,
         text,
         htmlProductNote('Pedido', productText || 'Solicitud seleccionada', note || '')
@@ -546,57 +623,80 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function aplicarEstadoUI(estaConectado) {
-    disponibilidadActual = estaConectado ? 1 : 0;
-    toggle.checked = !!estaConectado;
+    const {
+      toggle,
+      sliderLabel,
+      estadoBadge,
+      estadoBadgeText,
+      estadoDot,
+      estadoTextoSecundario,
+      pedidosDesconectado,
+      pedidosBloque
+    } = state.refs;
+
+    state.disponibilidadActual = estaConectado ? 1 : 0;
+
+    if (toggle) toggle.checked = !!estaConectado;
 
     if (estaConectado) {
       if (sliderLabel) sliderLabel.textContent = 'Estás conectado';
+
       if (estadoBadge) {
         estadoBadge.classList.remove('ev-status-off');
         estadoBadge.classList.add('ev-status-on');
       }
+
       if (estadoDot) {
         estadoDot.classList.remove('ev-status-dot-off');
         estadoDot.classList.add('ev-status-dot-on');
       }
+
       if (estadoBadgeText) estadoBadgeText.textContent = 'Conectado';
+
       if (estadoTextoSecundario) {
         estadoTextoSecundario.innerHTML = 'Actualmente: <strong>Conectado</strong>';
       }
+
       if (pedidosDesconectado) pedidosDesconectado.classList.add('d-none');
       if (pedidosBloque) pedidosBloque.classList.remove('d-none');
+
       iniciarPolling();
     } else {
       if (sliderLabel) sliderLabel.textContent = 'Desliza para conectarte';
+
       if (estadoBadge) {
         estadoBadge.classList.remove('ev-status-on');
         estadoBadge.classList.add('ev-status-off');
       }
+
       if (estadoDot) {
         estadoDot.classList.remove('ev-status-dot-on');
         estadoDot.classList.add('ev-status-dot-off');
       }
+
       if (estadoBadgeText) estadoBadgeText.textContent = 'Desconectado';
+
       if (estadoTextoSecundario) {
         estadoTextoSecundario.innerHTML = 'Actualmente: <strong>Desconectado</strong>';
       }
+
       if (pedidosDesconectado) pedidosDesconectado.classList.remove('d-none');
       if (pedidosBloque) pedidosBloque.classList.add('d-none');
+
       detenerPolling();
     }
   }
 
   async function cargarEstadoInicial() {
     try {
-      const response = await fetch(`${BASE_URL}/api/usuario/disponibilidad-pedidos`, {
+      const { response, data } = await fetchJsonRobusto(`${BASE_URL}/api/usuario/disponibilidad-pedidos`, {
         method: 'GET',
         credentials: 'include',
         headers: {
           Accept: 'application/json'
-        }
+        },
+        cache: 'no-store'
       });
-
-      const data = await response.json().catch(() => ({}));
 
       if (await manejarRespuestaAuth(response, data)) return;
 
@@ -609,12 +709,12 @@ document.addEventListener('DOMContentLoaded', () => {
       aplicarEstadoUI(disponibilidad === 1);
 
       if (disponibilidad === 1) {
-        await cargarMisPedidos();
+        await cargarMisPedidos({ force: true });
       } else {
         limpiarListas();
       }
-    } catch (err) {
-      console.error('[RecibirPedidos] No se pudo cargar disponibilidad:', err);
+    } catch (error) {
+      console.error('[RecibirPedidos] No se pudo cargar disponibilidad:', error);
       aplicarEstadoUI(false);
       limpiarListas();
     }
@@ -622,19 +722,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function actualizarEstadoBackend(nuevoEstado) {
     try {
-      const response = await fetch(`${BASE_URL}/api/usuario/disponibilidad-pedidos`, {
+      const { response, data } = await fetchJsonRobusto(`${BASE_URL}/api/usuario/disponibilidad-pedidos`, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json'
         },
+        cache: 'no-store',
         body: JSON.stringify({
           disponibilidad: nuevoEstado ? 1 : 0
         })
       });
-
-      const data = await response.json().catch(() => ({}));
 
       if (await manejarRespuestaAuth(response, data)) return;
 
@@ -658,19 +757,25 @@ document.addEventListener('DOMContentLoaded', () => {
       );
 
       if (nuevoEstado) {
-        await cargarMisPedidos();
+        await cargarMisPedidos({ force: true });
+        iniciarPolling();
       } else {
         limpiarListas();
+        detenerPolling();
       }
-    } catch (err) {
-      console.error('[RecibirPedidos] Error al actualizar disponibilidad:', err);
+
+      if (window.EVMarketplace && typeof window.EVMarketplace.refreshDisponibilidad === 'function') {
+        window.EVMarketplace.refreshDisponibilidad({ force: true });
+      }
+    } catch (error) {
+      console.error('[RecibirPedidos] Error al actualizar disponibilidad:', error);
       aplicarEstadoUI(!nuevoEstado);
 
       await notify(
         'error',
         'No se pudo actualizar tu estado',
         'Ocurrió un problema al guardar el cambio',
-        err.message || 'Inténtalo nuevamente en unos segundos.'
+        error.message || 'Inténtalo nuevamente en unos segundos.'
       );
     }
   }
@@ -680,7 +785,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function limpiarListas() {
-    cachePedidos = {
+    const {
+      pendientesLista,
+      procesoLista,
+      finalizadosLista,
+      pendientesCounter,
+      procesoCounter,
+      finalizadosCounter,
+      pedidosCounter,
+      pendientesEmpty,
+      procesoEmpty,
+      finalizadosEmpty,
+      pedidosError
+    } = state.refs;
+
+    state.cachePedidos = {
       pendientes: [],
       en_proceso: [],
       finalizados: []
@@ -732,12 +851,12 @@ document.addEventListener('DOMContentLoaded', () => {
       : '';
 
     const fechaRegistro = item.fecha_hora
-      ? `<div class="ev-pedido-detalle-line"><strong>Registrado:</strong> ${escapeHtml(item.fecha_hora)}</div>`
+      ? `<div class="ev-pedido-detalle-line"><strong>Registrado:</strong> ${escapeHtml(formatearFechaRegistro(item.fecha_hora))}</div>`
       : '';
 
     return `
       ${fechaRegistro}
-      <div class="ev-pedido-detalle-line"><strong>Vecino:</strong> ${escapeHtml(item.nombre_vecino || 'Vecino')}</div>
+      <div class="ev-pedido-detalle-line"><strong>Vecino:</strong> ${escapeHtml(item.nombre_vecino || item.nombre_comprador || 'Vecino')}</div>
       <div class="ev-pedido-detalle-line"><strong>Cantidad:</strong> ${escapeHtml(item.cantidad)}</div>
       <div class="ev-pedido-detalle-line"><strong>Precio unitario:</strong> S/ ${escapeHtml(formatoMoneda(item.precio_unitario))}</div>
       <div class="ev-pedido-detalle-line"><strong>Total:</strong> S/ ${escapeHtml(formatoMoneda(item.monto_total))}</div>
@@ -893,8 +1012,8 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="ev-pedido-info">
             <div class="ev-pedido-header-row">
               <div>
-                <div class="ev-pedido-producto">${escapeHtml(item.titulo_publicacion || 'Publicación')}</div>
-                <div class="ev-pedido-vecino">${escapeHtml(item.nombre_vecino || 'Vecino')}</div>
+                <div class="ev-pedido-producto">${escapeHtml(item.titulo_publicacion || item.titulo_producto || 'Publicación')}</div>
+                <div class="ev-pedido-vecino">${escapeHtml(item.nombre_vecino || item.nombre_comprador || 'Vecino')}</div>
               </div>
               <div class="text-end">
                 <div class="ev-pedido-precio">S/ ${escapeHtml(formatoMoneda(item.monto_total))}</div>
@@ -949,7 +1068,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const grupos = ['pendientes', 'en_proceso', 'finalizados'];
     for (const grupo of grupos) {
-      const items = Array.isArray(cachePedidos[grupo]) ? cachePedidos[grupo] : [];
+      const items = Array.isArray(state.cachePedidos[grupo]) ? state.cachePedidos[grupo] : [];
       const encontrado = items.find(item => Number(item.codigo_pedido || 0) === id);
       if (encontrado) return encontrado;
     }
@@ -987,22 +1106,46 @@ document.addEventListener('DOMContentLoaded', () => {
     return true;
   }
 
-  async function cargarMisPedidos() {
-    if (loadingPedidos) return;
-    loadingPedidos = true;
+  async function cargarMisPedidos(opciones = {}) {
+    const force = opciones.force === true;
+
+    if (!force && !vistaActiva()) {
+      detenerPolling();
+      return;
+    }
+
+    if (!force && document.hidden) return;
+    if (!force && estaPausadoPorUi()) return;
+    if (state.loadingPedidos) return;
+
+    state.loadingPedidos = true;
+    state.ultimoPollingAt = nowMs();
+
+    const {
+      pedidosError,
+      pendientesLista,
+      pendientesEmpty,
+      pendientesCounter,
+      procesoLista,
+      procesoEmpty,
+      procesoCounter,
+      finalizadosLista,
+      finalizadosEmpty,
+      finalizadosCounter,
+      pedidosCounter
+    } = state.refs;
 
     if (pedidosError) pedidosError.classList.add('d-none');
 
     try {
-      const response = await fetch(`${BASE_URL}/api/pedidos/mis`, {
+      const { response, data } = await fetchJsonRobusto(`${BASE_URL}/api/pedidos/mis`, {
         method: 'GET',
         credentials: 'include',
         headers: {
           Accept: 'application/json'
-        }
+        },
+        cache: 'no-store'
       });
-
-      const data = await response.json().catch(() => ({}));
 
       if (await manejarRespuestaAuth(response, data)) return;
 
@@ -1015,7 +1158,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const enProceso = Array.isArray(payload.en_proceso) ? payload.en_proceso : [];
       const finalizados = Array.isArray(payload.finalizados) ? payload.finalizados : [];
 
-      cachePedidos = {
+      state.cachePedidos = {
         pendientes,
         en_proceso: enProceso,
         finalizados
@@ -1029,17 +1172,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const total = totalPedidos(payload);
         pedidosCounter.textContent = `${total} pedido${total === 1 ? '' : 's'}`;
       }
-    } catch (err) {
-      console.error('[RecibirPedidos] Error al cargar pedidos:', err);
-      limpiarListas();
-      if (pedidosError) pedidosError.classList.remove('d-none');
+    } catch (error) {
+      console.error('[RecibirPedidos] Error al cargar pedidos:', error);
+
+      if (force) {
+        limpiarListas();
+        if (pedidosError) pedidosError.classList.remove('d-none');
+      }
     } finally {
-      loadingPedidos = false;
+      state.loadingPedidos = false;
     }
   }
 
   async function aceptarSolicitud(codigoPedido) {
-    if (accionEnCurso) return;
+    if (state.accionEnCurso) return;
+
     const item = buscarPedidoEnCache(codigoPedido);
     if (!item) return;
 
@@ -1047,14 +1194,15 @@ document.addEventListener('DOMContentLoaded', () => {
       title: 'Aceptar solicitud',
       subtitle: 'Confirmar recepción del pedido',
       text: 'Al aceptarlo, este pedido pasará al flujo de atención y seguirá ocupando tu turno actual.',
-      productText: item.titulo_publicacion || `Pedido #${codigoPedido}`,
+      productText: item.titulo_publicacion || item.titulo_producto || `Pedido #${codigoPedido}`,
       note: 'Mientras este pedido siga activo, las siguientes solicitudes permanecerán en cola hasta que el turno se libere.',
       confirmText: 'Sí, aceptar',
       cancelText: 'Cancelar'
     });
+
     if (!ok) return;
 
-    accionEnCurso = true;
+    state.accionEnCurso = true;
 
     try {
       await ejecutarAccion(
@@ -1064,23 +1212,24 @@ document.addEventListener('DOMContentLoaded', () => {
           title: 'Solicitud aceptada',
           subtitle: 'El pedido ya está en atención',
           text: 'La solicitud fue aceptada correctamente.',
-          productText: item.titulo_publicacion || `Pedido #${codigoPedido}`
+          productText: item.titulo_publicacion || item.titulo_producto || `Pedido #${codigoPedido}`
         }
       );
     } finally {
-      accionEnCurso = false;
+      state.accionEnCurso = false;
     }
   }
 
   async function rechazarSolicitud(codigoPedido) {
-    if (accionEnCurso) return;
+    if (state.accionEnCurso) return;
+
     const item = buscarPedidoEnCache(codigoPedido);
     if (!item) return;
 
     const result = await promptReject(item);
     if (!result.isConfirmed || !result.value) return;
 
-    accionEnCurso = true;
+    state.accionEnCurso = true;
 
     try {
       await ejecutarAccion(
@@ -1090,11 +1239,11 @@ document.addEventListener('DOMContentLoaded', () => {
           title: 'Solicitud rechazada',
           subtitle: 'El pedido fue cerrado correctamente',
           text: 'La solicitud fue rechazada correctamente.',
-          productText: item.titulo_publicacion || `Pedido #${codigoPedido}`
+          productText: item.titulo_publicacion || item.titulo_producto || `Pedido #${codigoPedido}`
         }
       );
     } finally {
-      accionEnCurso = false;
+      state.accionEnCurso = false;
     }
   }
 
@@ -1128,7 +1277,8 @@ document.addEventListener('DOMContentLoaded', () => {
         title: 'Cancelar pedido',
         subtitle: 'Confirmar cancelación',
         text: 'Esta acción cerrará el pedido actual y puede liberar el siguiente turno en cola.',
-        confirmText: 'Sí, cancelar pedido'
+        confirmText: 'Sí, cancelar pedido',
+        tipo: 'warning'
       }
     };
 
@@ -1141,7 +1291,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function actualizarEstadoPedido(codigoPedido, nuevoEstado) {
-    if (accionEnCurso) return;
+    if (state.accionEnCurso) return;
+
     const item = buscarPedidoEnCache(codigoPedido);
     if (!item) return;
 
@@ -1151,14 +1302,16 @@ document.addEventListener('DOMContentLoaded', () => {
       title: meta.title,
       subtitle: meta.subtitle,
       text: meta.text,
-      productText: item.titulo_publicacion || `Pedido #${codigoPedido}`,
+      productText: item.titulo_publicacion || item.titulo_producto || `Pedido #${codigoPedido}`,
       note: 'Mantén el estado alineado con el avance real del pedido para evitar confusión al comprador.',
       confirmText: meta.confirmText,
-      cancelText: 'Cancelar'
+      cancelText: 'Cancelar',
+      tipo: meta.tipo || 'info'
     });
+
     if (!ok) return;
 
-    accionEnCurso = true;
+    state.accionEnCurso = true;
 
     try {
       await ejecutarAccion(
@@ -1168,16 +1321,17 @@ document.addEventListener('DOMContentLoaded', () => {
           title: 'Estado actualizado',
           subtitle: 'El avance del pedido fue registrado',
           text: 'El estado del pedido fue actualizado correctamente.',
-          productText: item.titulo_publicacion || `Pedido #${codigoPedido}`
+          productText: item.titulo_publicacion || item.titulo_producto || `Pedido #${codigoPedido}`
         }
       );
     } finally {
-      accionEnCurso = false;
+      state.accionEnCurso = false;
     }
   }
 
   function construirHtmlDetalle(item) {
     const estado = badgeEstado(item.estado_actual);
+
     const imagen = item.imagen_portada_url
       ? `
         <div style="margin-bottom:16px;text-align:center;">
@@ -1232,8 +1386,8 @@ document.addEventListener('DOMContentLoaded', () => {
           <span class="ev-status-pill ${escapeHtml(estado.clase)}">${escapeHtml(estado.texto)}</span>
         </div>
 
-        <div style="margin-bottom:8px;"><strong>Producto:</strong> ${escapeHtml(item.titulo_publicacion || 'Publicación')}</div>
-        <div style="margin-bottom:8px;"><strong>Vecino:</strong> ${escapeHtml(item.nombre_vecino || 'Vecino')}</div>
+        <div style="margin-bottom:8px;"><strong>Producto:</strong> ${escapeHtml(item.titulo_publicacion || item.titulo_producto || 'Publicación')}</div>
+        <div style="margin-bottom:8px;"><strong>Vecino:</strong> ${escapeHtml(item.nombre_vecino || item.nombre_comprador || 'Vecino')}</div>
         <div style="margin-bottom:8px;"><strong>Cantidad:</strong> ${escapeHtml(item.cantidad)}</div>
         <div style="margin-bottom:8px;"><strong>Precio unitario:</strong> S/ ${escapeHtml(formatoMoneda(item.precio_unitario))}</div>
         <div style="margin-bottom:8px;"><strong>Total:</strong> S/ ${escapeHtml(formatoMoneda(item.monto_total))}</div>
@@ -1263,17 +1417,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function ejecutarAccion(url, body, successMeta) {
     try {
-      const response = await fetch(url, {
+      const { response, data } = await fetchJsonRobusto(url, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json'
         },
+        cache: 'no-store',
         body: JSON.stringify(body || {})
       });
-
-      const data = await response.json().catch(() => ({}));
 
       if (await manejarRespuestaAuth(response, data)) return;
 
@@ -1284,6 +1437,7 @@ document.addEventListener('DOMContentLoaded', () => {
           'El pedido mantiene su estado actual',
           data?.mensaje || 'Inténtalo nuevamente.'
         );
+        await cargarMisPedidos({ force: true });
         return;
       }
 
@@ -1299,80 +1453,167 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       );
 
-      await cargarMisPedidos();
-    } catch (err) {
-      console.error('[RecibirPedidos] Error en acción:', err);
+      await cargarMisPedidos({ force: true });
+
+      if (window.EVPollingControl && typeof window.EVPollingControl.revisarPedidosVendedor === 'function') {
+        window.EVPollingControl.revisarPedidosVendedor({ silent: true, force: true });
+      }
+    } catch (error) {
+      console.error('[RecibirPedidos] Error en acción:', error);
 
       await notify(
         'error',
         'No se pudo completar la acción',
         'Ocurrió un problema al procesar la solicitud',
-        err.message || 'Inténtalo nuevamente.'
+        error.message || 'Inténtalo nuevamente.'
       );
     }
   }
 
   function iniciarPolling() {
     detenerPolling();
-    pollingId = window.setInterval(() => {
-      if (disponibilidadActual === 1) {
-        cargarMisPedidos();
+
+    state.pollingId = window.setInterval(() => {
+      if (!vistaActiva()) {
+        detenerPolling();
+        return;
       }
-    }, 15000);
+
+      if (document.hidden) return;
+      if (state.disponibilidadActual !== 1) return;
+
+      const intervalo = estaPausadoPorUi()
+        ? POLLING_PEDIDOS_IDLE_MS
+        : POLLING_PEDIDOS_MS;
+
+      if ((nowMs() - state.ultimoPollingAt) < intervalo) return;
+
+      cargarMisPedidos();
+    }, 1000);
   }
 
   function detenerPolling() {
-    if (pollingId) {
-      window.clearInterval(pollingId);
-      pollingId = null;
+    if (state.pollingId) {
+      window.clearInterval(state.pollingId);
+      state.pollingId = null;
     }
   }
 
-  document.addEventListener('click', async (e) => {
-    const btn = e.target.closest('[data-action]');
-    if (!btn) return;
+  function bindEventosGlobales() {
+    if (document.body.dataset.evRecibirPedidosGlobalBound === '1') return;
+    document.body.dataset.evRecibirPedidosGlobalBound = '1';
 
-    const action = btn.getAttribute('data-action');
-    const id = Number(btn.getAttribute('data-id') || 0);
-    const estado = btn.getAttribute('data-estado') || '';
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
 
-    if (id <= 0) return;
+      if (!vistaActiva()) return;
 
-    if (action === 'aceptar') {
-      await aceptarSolicitud(id);
-      return;
-    }
+      const action = btn.getAttribute('data-action');
+      const id = Number(btn.getAttribute('data-id') || 0);
+      const estado = btn.getAttribute('data-estado') || '';
 
-    if (action === 'rechazar') {
-      await rechazarSolicitud(id);
-      return;
-    }
+      if (id <= 0) return;
 
-    if (action === 'estado') {
-      await actualizarEstadoPedido(id, estado);
-      return;
-    }
+      if (action === 'aceptar') {
+        await aceptarSolicitud(id);
+        return;
+      }
 
-    if (action === 'ver') {
-      await verDetalle(id);
-    }
-  });
+      if (action === 'rechazar') {
+        await rechazarSolicitud(id);
+        return;
+      }
 
-  toggle.addEventListener('change', async () => {
-    const nuevoEstado = toggle.checked;
-    aplicarEstadoUI(nuevoEstado);
-    await actualizarEstadoBackend(nuevoEstado);
-  });
+      if (action === 'estado') {
+        await actualizarEstadoPedido(id, estado);
+        return;
+      }
 
-  if (btnRefrescarPedidos) {
-    btnRefrescarPedidos.addEventListener('click', async () => {
-      await cargarMisPedidos();
+      if (action === 'ver') {
+        await verDetalle(id);
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('#sidebar')) marcarInteraccionUi();
+    }, true);
+
+    document.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('#sidebar')) marcarInteraccionUi();
+    }, true);
+
+    document.addEventListener('transitionstart', (e) => {
+      if (e.target.closest && e.target.closest('#sidebar')) marcarInteraccionUi();
+    }, true);
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        detenerPolling();
+        return;
+      }
+
+      if (vistaActiva() && state.disponibilidadActual === 1) {
+        cargarMisPedidos({ force: true });
+        iniciarPolling();
+      }
+    });
+
+    document.addEventListener('ev:nav-start', marcarInteraccionUi);
+    document.addEventListener('ev:nav-end', marcarInteraccionUi);
+    document.addEventListener('ev:content-loaded', () => {
+      marcarInteraccionUi();
+      window.setTimeout(init, 80);
     });
   }
 
-  cargarEstadoInicial();
+  function bindEventosVista() {
+    const { toggle, btnRefrescarPedidos } = state.refs;
+
+    if (toggle && toggle.dataset.evRpBound !== '1') {
+      toggle.dataset.evRpBound = '1';
+
+      toggle.addEventListener('change', async () => {
+        const nuevoEstado = toggle.checked;
+
+        marcarInteraccionUi();
+        aplicarEstadoUI(nuevoEstado);
+        await actualizarEstadoBackend(nuevoEstado);
+      });
+    }
+
+    if (btnRefrescarPedidos && btnRefrescarPedidos.dataset.evRpBound !== '1') {
+      btnRefrescarPedidos.dataset.evRpBound = '1';
+
+      btnRefrescarPedidos.addEventListener('click', async () => {
+        marcarInteraccionUi();
+        await cargarMisPedidos({ force: true });
+      });
+    }
+  }
+
+  async function init() {
+    if (!capturarRefs()) {
+      detenerPolling();
+      return;
+    }
+
+    bindEventosGlobales();
+    bindEventosVista();
+
+    await cargarEstadoInicial();
+
+    state.inicializado = true;
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
 
   window.EVRecibirPedidos = Object.assign(window.EVRecibirPedidos || {}, {
-    resaltarPedido
+    init,
+    refresh: () => cargarMisPedidos({ force: true }),
+    resaltarPedido,
+    detenerPolling,
+    iniciarPolling,
+    pauseBriefly: marcarInteraccionUi
   });
-});
+})();

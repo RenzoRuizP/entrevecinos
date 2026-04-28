@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/Pedido.php';
 
@@ -31,24 +33,32 @@ class apiPedidoController
     private function leerInput(): array
     {
         $input = $_POST;
+
         if (!empty($input)) {
             return is_array($input) ? $input : [];
         }
 
         $raw = file_get_contents('php://input');
+
         if (!is_string($raw) || trim($raw) === '') {
             return [];
         }
 
         $json = json_decode($raw, true);
+
         return is_array($json) ? $json : [];
     }
 
     private function construirUrlImagen(?string $ruta): string
     {
         $ruta = trim((string)$ruta);
+
         if ($ruta === '') {
             return '';
+        }
+
+        if (preg_match('#^https?://#i', $ruta)) {
+            return $ruta;
         }
 
         return rtrim(BASE_URL, '/') . '/' . ltrim($ruta, '/');
@@ -72,6 +82,7 @@ class apiPedidoController
                     $item = $this->agregarUrlImagenAItem($item);
                 }
             }
+
             unset($item);
         }
 
@@ -128,6 +139,7 @@ class apiPedidoController
             }
 
             $model = new Pedido();
+
             $resultado = $model->registrarSolicitud([
                 'codigo_producto'          => $codigoProducto,
                 'codigo_usuario_comprador' => $codigoUsuarioComprador,
@@ -347,12 +359,17 @@ class apiPedidoController
             }
 
             $motivo = trim((string)($input['motivo_cancelacion'] ?? $input['motivo'] ?? ''));
+
             if ($motivo === '') {
                 $motivo = 'Solicitud cancelada por el comprador.';
             }
 
             $model = new Pedido();
-            $resultado = $model->cancelarSolicitudPorComprador($codigoPedido, $codigoUsuarioComprador, $motivo);
+            $resultado = $model->cancelarSolicitudPorComprador(
+                $codigoPedido,
+                $codigoUsuarioComprador,
+                $motivo
+            );
 
             if (!$resultado['ok']) {
                 $error = (string)($resultado['error'] ?? 'ERROR_CANCELAR_SOLICITUD');
@@ -412,6 +429,7 @@ class apiPedidoController
                     $p = $this->agregarUrlImagenAItem($p);
                 }
             }
+
             unset($p);
 
             $this->json(200, [
@@ -469,276 +487,6 @@ class apiPedidoController
             $this->json(500, [
                 'ok'      => false,
                 'mensaje' => 'No se pudo obtener la solicitud activa.'
-            ]);
-            return;
-        }
-    }
-
-    // =========================================================
-    // VENDEDOR - MIS PEDIDOS
-    // =========================================================
-    public function listarMisPedidos(): void
-    {
-        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-            $this->json(405, [
-                'ok'      => false,
-                'mensaje' => 'Método no permitido.'
-            ]);
-            return;
-        }
-
-        try {
-            $codigoUsuarioVendedor = $this->obtenerUsuarioAuth();
-
-            $model = new Pedido();
-            $resultado = $model->listarMisPedidosVendedor($codigoUsuarioVendedor);
-
-            if (!$resultado['ok']) {
-                $this->json(500, [
-                    'ok'      => false,
-                    'error'   => (string)($resultado['error'] ?? 'ERROR_LISTAR_MIS_PEDIDOS'),
-                    'mensaje' => (string)($resultado['mensaje'] ?? 'No se pudo obtener la lista de pedidos.')
-                ]);
-                return;
-            }
-
-            $data = is_array($resultado['data'] ?? null) ? $resultado['data'] : [];
-            $data = $this->agregarUrlImagenAGrupos($data);
-
-            $this->json(200, [
-                'ok'   => true,
-                'data' => $data
-            ]);
-            return;
-        } catch (Throwable $e) {
-            error_log('[EV][apiPedidoController][listarMisPedidos] ' . $e->getMessage());
-
-            $this->json(500, [
-                'ok'      => false,
-                'mensaje' => 'No se pudo obtener el módulo Mis pedidos.'
-            ]);
-            return;
-        }
-    }
-
-    public function aceptarSolicitud($codigoPedido): void
-    {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->json(405, [
-                'ok'      => false,
-                'mensaje' => 'Método no permitido.'
-            ]);
-            return;
-        }
-
-        try {
-            $codigoUsuarioVendedor = $this->obtenerUsuarioAuth();
-            $codigoPedido = (int)$codigoPedido;
-
-            if ($codigoPedido <= 0) {
-                $this->json(400, [
-                    'ok'      => false,
-                    'mensaje' => 'Código de pedido inválido.'
-                ]);
-                return;
-            }
-
-            $model = new Pedido();
-            $resultado = $model->aceptarSolicitudPorVendedor($codigoPedido, $codigoUsuarioVendedor);
-
-            if (!$resultado['ok']) {
-                $error = (string)($resultado['error'] ?? 'ERROR_ACEPTAR_SOLICITUD');
-                $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo aceptar la solicitud.');
-
-                $status = match ($error) {
-                    'PEDIDO_NO_ENCONTRADO' => 404,
-                    'ESTADO_NO_ACEPTABLE',
-                    'VENDEDOR_CON_TURNO_ACTIVO' => 409,
-                    default => 500
-                };
-
-                $this->json($status, [
-                    'ok'      => false,
-                    'error'   => $error,
-                    'mensaje' => $mensaje,
-                    'data'    => $resultado['data'] ?? null
-                ]);
-                return;
-            }
-
-            $data = $resultado['data'] ?? null;
-            if (is_array($data)) {
-                $data = $this->agregarUrlImagenAItem($data);
-            }
-
-            $this->json(200, [
-                'ok'      => true,
-                'mensaje' => 'Solicitud aceptada correctamente.',
-                'data'    => $data
-            ]);
-            return;
-        } catch (Throwable $e) {
-            error_log('[EV][apiPedidoController][aceptarSolicitud] ' . $e->getMessage());
-
-            $this->json(500, [
-                'ok'      => false,
-                'mensaje' => 'Ocurrió un error al aceptar la solicitud.'
-            ]);
-            return;
-        }
-    }
-
-    public function rechazarSolicitud($codigoPedido): void
-    {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->json(405, [
-                'ok'      => false,
-                'mensaje' => 'Método no permitido.'
-            ]);
-            return;
-        }
-
-        try {
-            $codigoUsuarioVendedor = $this->obtenerUsuarioAuth();
-            $codigoPedido = (int)$codigoPedido;
-            $input = $this->leerInput();
-
-            if ($codigoPedido <= 0) {
-                $this->json(400, [
-                    'ok'      => false,
-                    'mensaje' => 'Código de pedido inválido.'
-                ]);
-                return;
-            }
-
-            $motivo = trim((string)($input['motivo'] ?? $input['motivo_rechazo'] ?? ''));
-            if ($motivo === '') {
-                $this->json(400, [
-                    'ok'      => false,
-                    'error'   => 'MOTIVO_REQUERIDO',
-                    'mensaje' => 'Debes indicar el motivo de rechazo.'
-                ]);
-                return;
-            }
-
-            $model = new Pedido();
-            $resultado = $model->rechazarSolicitudPorVendedor($codigoPedido, $codigoUsuarioVendedor, $motivo);
-
-            if (!$resultado['ok']) {
-                $error = (string)($resultado['error'] ?? 'ERROR_RECHAZAR_SOLICITUD');
-                $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo rechazar la solicitud.');
-
-                $status = match ($error) {
-                    'PEDIDO_NO_ENCONTRADO' => 404,
-                    'ESTADO_NO_RECHAZABLE' => 409,
-                    'MOTIVO_REQUERIDO' => 400,
-                    default => 500
-                };
-
-                $this->json($status, [
-                    'ok'      => false,
-                    'error'   => $error,
-                    'mensaje' => $mensaje,
-                    'data'    => $resultado['data'] ?? null
-                ]);
-                return;
-            }
-
-            $data = $resultado['data'] ?? null;
-            if (is_array($data)) {
-                $data = $this->agregarUrlImagenAItem($data);
-            }
-
-            $this->json(200, [
-                'ok'      => true,
-                'mensaje' => 'Solicitud rechazada correctamente.',
-                'data'    => $data
-            ]);
-            return;
-        } catch (Throwable $e) {
-            error_log('[EV][apiPedidoController][rechazarSolicitud] ' . $e->getMessage());
-
-            $this->json(500, [
-                'ok'      => false,
-                'mensaje' => 'Ocurrió un error al rechazar la solicitud.'
-            ]);
-            return;
-        }
-    }
-
-    public function actualizarEstadoPedido($codigoPedido): void
-    {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->json(405, [
-                'ok'      => false,
-                'mensaje' => 'Método no permitido.'
-            ]);
-            return;
-        }
-
-        try {
-            $codigoUsuarioVendedor = $this->obtenerUsuarioAuth();
-            $codigoPedido = (int)$codigoPedido;
-            $input = $this->leerInput();
-
-            if ($codigoPedido <= 0) {
-                $this->json(400, [
-                    'ok'      => false,
-                    'mensaje' => 'Código de pedido inválido.'
-                ]);
-                return;
-            }
-
-            $nuevoEstado = trim((string)($input['nuevo_estado'] ?? $input['estado'] ?? ''));
-            if ($nuevoEstado === '') {
-                $this->json(400, [
-                    'ok'      => false,
-                    'error'   => 'ESTADO_REQUERIDO',
-                    'mensaje' => 'Debes indicar el nuevo estado.'
-                ]);
-                return;
-            }
-
-            $model = new Pedido();
-            $resultado = $model->actualizarEstadoPedidoPorVendedor($codigoPedido, $codigoUsuarioVendedor, $nuevoEstado);
-
-            if (!$resultado['ok']) {
-                $error = (string)($resultado['error'] ?? 'ERROR_ACTUALIZAR_ESTADO_PEDIDO');
-                $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo actualizar el estado del pedido.');
-
-                $status = match ($error) {
-                    'PEDIDO_NO_ENCONTRADO' => 404,
-                    'ESTADO_NO_ACTUALIZABLE',
-                    'TRANSICION_INVALIDA' => 409,
-                    default => 500
-                };
-
-                $this->json($status, [
-                    'ok'      => false,
-                    'error'   => $error,
-                    'mensaje' => $mensaje,
-                    'data'    => $resultado['data'] ?? null
-                ]);
-                return;
-            }
-
-            $data = $resultado['data'] ?? null;
-            if (is_array($data)) {
-                $data = $this->agregarUrlImagenAItem($data);
-            }
-
-            $this->json(200, [
-                'ok'      => true,
-                'mensaje' => 'Estado del pedido actualizado correctamente.',
-                'data'    => $data
-            ]);
-            return;
-        } catch (Throwable $e) {
-            error_log('[EV][apiPedidoController][actualizarEstadoPedido] ' . $e->getMessage());
-
-            $this->json(500, [
-                'ok'      => false,
-                'mensaje' => 'Ocurrió un error al actualizar el estado del pedido.'
             ]);
             return;
         }
@@ -843,6 +591,357 @@ class apiPedidoController
             $this->json(500, [
                 'ok'      => false,
                 'mensaje' => 'No se pudo confirmar la entrega.'
+            ]);
+            return;
+        }
+    }
+
+    // =========================================================
+    // VENDEDOR - ENDPOINT LIVIANO PARA NOTIFICACIÓN GLOBAL
+    // =========================================================
+    public function listarNuevasSolicitudesVendedor(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            $this->json(405, [
+                'ok'      => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuarioVendedor = $this->obtenerUsuarioAuth();
+
+            $sinceId = max(0, (int)($_GET['since_id'] ?? 0));
+            $limit = (int)($_GET['limit'] ?? 10);
+            $limit = max(1, min(25, $limit));
+
+            $model = new Pedido();
+
+            $resultado = $model->listarNuevasSolicitudesVendedor(
+                $codigoUsuarioVendedor,
+                $sinceId,
+                $limit
+            );
+
+            if (!$resultado['ok']) {
+                $this->json(500, [
+                    'ok'      => false,
+                    'error'   => (string)($resultado['error'] ?? 'ERROR_LISTAR_NUEVAS_SOLICITUDES'),
+                    'mensaje' => (string)($resultado['mensaje'] ?? 'No se pudieron obtener las nuevas solicitudes.')
+                ]);
+                return;
+            }
+
+            $items = is_array($resultado['data']['items'] ?? null)
+                ? $resultado['data']['items']
+                : [];
+
+            foreach ($items as &$item) {
+                if (is_array($item)) {
+                    $item = $this->agregarUrlImagenAItem($item);
+                }
+            }
+
+            unset($item);
+
+            $maxId = (int)($resultado['data']['max_id'] ?? 0);
+
+            $this->json(200, [
+                'ok'   => true,
+                'data' => [
+                    'items'       => $items,
+                    'total'       => count($items),
+                    'max_id'      => $maxId,
+                    'server_time' => date('Y-m-d H:i:s')
+                ]
+            ]);
+            return;
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][listarNuevasSolicitudesVendedor] ' . $e->getMessage());
+
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'No se pudieron consultar las nuevas solicitudes del vendedor.'
+            ]);
+            return;
+        }
+    }
+
+    // =========================================================
+    // VENDEDOR - MIS PEDIDOS
+    // =========================================================
+    public function listarMisPedidos(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            $this->json(405, [
+                'ok'      => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuarioVendedor = $this->obtenerUsuarioAuth();
+
+            $model = new Pedido();
+            $resultado = $model->listarMisPedidosVendedor($codigoUsuarioVendedor);
+
+            if (!$resultado['ok']) {
+                $this->json(500, [
+                    'ok'      => false,
+                    'error'   => (string)($resultado['error'] ?? 'ERROR_LISTAR_MIS_PEDIDOS'),
+                    'mensaje' => (string)($resultado['mensaje'] ?? 'No se pudo obtener la lista de pedidos.')
+                ]);
+                return;
+            }
+
+            $data = is_array($resultado['data'] ?? null) ? $resultado['data'] : [];
+            $data = $this->agregarUrlImagenAGrupos($data);
+
+            $this->json(200, [
+                'ok'   => true,
+                'data' => $data
+            ]);
+            return;
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][listarMisPedidos] ' . $e->getMessage());
+
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'No se pudo obtener el módulo Mis pedidos.'
+            ]);
+            return;
+        }
+    }
+
+    public function aceptarSolicitud($codigoPedido): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(405, [
+                'ok'      => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuarioVendedor = $this->obtenerUsuarioAuth();
+            $codigoPedido = (int)$codigoPedido;
+
+            if ($codigoPedido <= 0) {
+                $this->json(400, [
+                    'ok'      => false,
+                    'mensaje' => 'Código de pedido inválido.'
+                ]);
+                return;
+            }
+
+            $model = new Pedido();
+            $resultado = $model->aceptarSolicitudPorVendedor($codigoPedido, $codigoUsuarioVendedor);
+
+            if (!$resultado['ok']) {
+                $error = (string)($resultado['error'] ?? 'ERROR_ACEPTAR_SOLICITUD');
+                $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo aceptar la solicitud.');
+
+                $status = match ($error) {
+                    'PEDIDO_NO_ENCONTRADO' => 404,
+                    'ESTADO_NO_ACEPTABLE',
+                    'VENDEDOR_CON_TURNO_ACTIVO' => 409,
+                    default => 500
+                };
+
+                $this->json($status, [
+                    'ok'      => false,
+                    'error'   => $error,
+                    'mensaje' => $mensaje,
+                    'data'    => $resultado['data'] ?? null
+                ]);
+                return;
+            }
+
+            $data = $resultado['data'] ?? null;
+
+            if (is_array($data)) {
+                $data = $this->agregarUrlImagenAItem($data);
+            }
+
+            $this->json(200, [
+                'ok'      => true,
+                'mensaje' => 'Solicitud aceptada correctamente.',
+                'data'    => $data
+            ]);
+            return;
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][aceptarSolicitud] ' . $e->getMessage());
+
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'Ocurrió un error al aceptar la solicitud.'
+            ]);
+            return;
+        }
+    }
+
+    public function rechazarSolicitud($codigoPedido): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(405, [
+                'ok'      => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuarioVendedor = $this->obtenerUsuarioAuth();
+            $codigoPedido = (int)$codigoPedido;
+            $input = $this->leerInput();
+
+            if ($codigoPedido <= 0) {
+                $this->json(400, [
+                    'ok'      => false,
+                    'mensaje' => 'Código de pedido inválido.'
+                ]);
+                return;
+            }
+
+            $motivo = trim((string)($input['motivo'] ?? $input['motivo_rechazo'] ?? ''));
+
+            if ($motivo === '') {
+                $this->json(400, [
+                    'ok'      => false,
+                    'error'   => 'MOTIVO_REQUERIDO',
+                    'mensaje' => 'Debes indicar el motivo de rechazo.'
+                ]);
+                return;
+            }
+
+            $model = new Pedido();
+            $resultado = $model->rechazarSolicitudPorVendedor($codigoPedido, $codigoUsuarioVendedor, $motivo);
+
+            if (!$resultado['ok']) {
+                $error = (string)($resultado['error'] ?? 'ERROR_RECHAZAR_SOLICITUD');
+                $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo rechazar la solicitud.');
+
+                $status = match ($error) {
+                    'PEDIDO_NO_ENCONTRADO' => 404,
+                    'ESTADO_NO_RECHAZABLE' => 409,
+                    'MOTIVO_REQUERIDO' => 400,
+                    default => 500
+                };
+
+                $this->json($status, [
+                    'ok'      => false,
+                    'error'   => $error,
+                    'mensaje' => $mensaje,
+                    'data'    => $resultado['data'] ?? null
+                ]);
+                return;
+            }
+
+            $data = $resultado['data'] ?? null;
+
+            if (is_array($data)) {
+                $data = $this->agregarUrlImagenAItem($data);
+            }
+
+            $this->json(200, [
+                'ok'      => true,
+                'mensaje' => 'Solicitud rechazada correctamente.',
+                'data'    => $data
+            ]);
+            return;
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][rechazarSolicitud] ' . $e->getMessage());
+
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'Ocurrió un error al rechazar la solicitud.'
+            ]);
+            return;
+        }
+    }
+
+    public function actualizarEstadoPedido($codigoPedido): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(405, [
+                'ok'      => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuarioVendedor = $this->obtenerUsuarioAuth();
+            $codigoPedido = (int)$codigoPedido;
+            $input = $this->leerInput();
+
+            if ($codigoPedido <= 0) {
+                $this->json(400, [
+                    'ok'      => false,
+                    'mensaje' => 'Código de pedido inválido.'
+                ]);
+                return;
+            }
+
+            $nuevoEstado = trim((string)($input['nuevo_estado'] ?? $input['estado'] ?? ''));
+
+            if ($nuevoEstado === '') {
+                $this->json(400, [
+                    'ok'      => false,
+                    'error'   => 'ESTADO_REQUERIDO',
+                    'mensaje' => 'Debes indicar el nuevo estado.'
+                ]);
+                return;
+            }
+
+            $model = new Pedido();
+            $resultado = $model->actualizarEstadoPedidoPorVendedor(
+                $codigoPedido,
+                $codigoUsuarioVendedor,
+                $nuevoEstado
+            );
+
+            if (!$resultado['ok']) {
+                $error = (string)($resultado['error'] ?? 'ERROR_ACTUALIZAR_ESTADO_PEDIDO');
+                $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo actualizar el estado del pedido.');
+
+                $status = match ($error) {
+                    'PEDIDO_NO_ENCONTRADO' => 404,
+                    'ESTADO_NO_ACTUALIZABLE',
+                    'TRANSICION_INVALIDA' => 409,
+                    default => 500
+                };
+
+                $this->json($status, [
+                    'ok'      => false,
+                    'error'   => $error,
+                    'mensaje' => $mensaje,
+                    'data'    => $resultado['data'] ?? null
+                ]);
+                return;
+            }
+
+            $data = $resultado['data'] ?? null;
+
+            if (is_array($data)) {
+                $data = $this->agregarUrlImagenAItem($data);
+            }
+
+            $this->json(200, [
+                'ok'      => true,
+                'mensaje' => 'Estado del pedido actualizado correctamente.',
+                'data'    => $data
+            ]);
+            return;
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][actualizarEstadoPedido] ' . $e->getMessage());
+
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'Ocurrió un error al actualizar el estado del pedido.'
             ]);
             return;
         }

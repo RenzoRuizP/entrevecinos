@@ -4,7 +4,18 @@
 
   const BASE = (window.BASE_URL || '').toString().replace(/\/+$/, '');
   const LOG_PREFIX = '[MARKETPLACE]';
-  const POLLING_MS = 15000;
+
+  /*
+    Polling Marketplace:
+    - Refresca disponibilidad/publicaciones solo cuando la vista Marketplace está activa.
+    - No corre mientras el usuario interactúa con el sidebar.
+    - Evita llamadas solapadas.
+    - Pausa cuando la pestaña está oculta.
+  */
+  const MARKETPLACE_POLLING_MS = 15000;
+  const MARKETPLACE_IDLE_POLLING_MS = 24000;
+  const FETCH_TIMEOUT_MS = 8000;
+  const UI_PAUSE_MS = 1400;
 
   const SOLICITUD_POLLING_MS = 5000;
   const SEGUNDOS_CANCELACION_SOLICITUD = 120;
@@ -44,6 +55,8 @@
   let pollingEnCurso = false;
   let marketplaceInicializado = false;
   let restaurandoSolicitudActiva = false;
+  let ultimaInteraccionUi = 0;
+  let ultimoPollingMarketplaceAt = 0;
 
   let solicitudFlow = {
     codigoPedido: 0,
@@ -59,6 +72,51 @@
   function log()  { if (console && console.log)  console.log(LOG_PREFIX, ...arguments); }
   function warn() { if (console && console.warn) console.warn(LOG_PREFIX, ...arguments); }
   function err()  { if (console && console.error) console.error(LOG_PREFIX, ...arguments); }
+
+  function nowMs() {
+    return Date.now();
+  }
+
+  function marcarInteraccionUi() {
+    ultimaInteraccionUi = nowMs();
+
+    if (window.EVPollingControl && typeof window.EVPollingControl.pauseBriefly === 'function') {
+      window.EVPollingControl.pauseBriefly();
+    }
+  }
+
+  function estaPausadoPorUi() {
+    return (nowMs() - ultimaInteraccionUi) < UI_PAUSE_MS;
+  }
+
+  function estaVistaMarketplaceActiva() {
+    return !!document.getElementById('mp_grid_publicaciones');
+  }
+
+  async function fetchJsonRobusto(url, opts = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+    const ctrl = new AbortController();
+    const timeoutId = window.setTimeout(() => ctrl.abort(), timeoutMs);
+
+    try {
+      const resp = await fetch(url, {
+        ...opts,
+        signal: ctrl.signal
+      });
+
+      const text = await resp.text();
+      let json = null;
+
+      try {
+        json = text ? JSON.parse(text) : {};
+      } catch (_) {
+        json = null;
+      }
+
+      return { resp, text, json };
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
 
   function normalizar(str) {
     return (str || '')
@@ -145,14 +203,6 @@
     return toDateTimeLocalValue(fecha);
   }
 
-  async function fetchJsonRobusto(url, opts) {
-    const resp = await fetch(url, opts);
-    const text = await resp.text();
-    let json = null;
-    try { json = text ? JSON.parse(text) : {}; } catch (_) { json = null; }
-    return { resp, text, json };
-  }
-
   function getArrayFromPayload(payload) {
     if (!payload) return [];
     if (Array.isArray(payload)) return payload;
@@ -162,6 +212,7 @@
       if (Array.isArray(payload.items)) return payload.items;
       if (payload.data && Array.isArray(payload.data.items)) return payload.data.items;
     }
+
     return [];
   }
 
@@ -420,6 +471,7 @@
   function showEmpty(msg) {
     if (refs.gridServicios) refs.gridServicios.innerHTML = '';
     if (refs.gridProductos) refs.gridProductos.innerHTML = '';
+
     if (refs.emptyState) {
       refs.emptyState.style.display = '';
       refs.emptyState.textContent = msg || 'No encontramos publicaciones con los filtros actuales.';
@@ -587,7 +639,8 @@
     const { resp, text, json } = await fetchJsonRobusto(url, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
-      credentials: 'same-origin'
+      credentials: 'same-origin',
+      cache: 'no-store'
     });
 
     if (await manejarRespuestaAuth(resp, json)) return null;
@@ -624,7 +677,8 @@
     const { resp, json, text } = await fetchJsonRobusto(`${BASE}/api/billetera/saldo`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
-      credentials: 'same-origin'
+      credentials: 'same-origin',
+      cache: 'no-store'
     });
 
     if (await manejarRespuestaAuth(resp, json)) return null;
@@ -674,6 +728,7 @@
   function marcarQueueAckVisto(codigoPedido) {
     const id = Number(codigoPedido || 0);
     if (!id) return;
+
     try {
       sessionStorage.setItem(obtenerQueueAckKey(id), '1');
     } catch (_) {}
@@ -682,6 +737,7 @@
   function limpiarQueueAckVisto(codigoPedido) {
     const id = Number(codigoPedido || 0);
     if (!id) return;
+
     try {
       sessionStorage.removeItem(obtenerQueueAckKey(id));
     } catch (_) {}
@@ -690,15 +746,12 @@
   function yaSeMostroQueueAck(codigoPedido) {
     const id = Number(codigoPedido || 0);
     if (!id) return false;
+
     try {
       return sessionStorage.getItem(obtenerQueueAckKey(id)) === '1';
     } catch (_) {
       return false;
     }
-  }
-
-  function estaVistaMarketplaceActiva() {
-    return !!document.getElementById('mp_grid_publicaciones');
   }
 
   async function abrirVistaMisPedidosComprador() {
@@ -870,6 +923,7 @@
     solicitudFlow.segundosParaCancelarRestantes = 0;
 
     solicitudFlow.pollingTimer = setInterval(() => {
+      if (document.hidden) return;
       refrescarSeguimientoSolicitud();
     }, SOLICITUD_POLLING_MS);
   }
@@ -1001,7 +1055,8 @@
     const { resp, json, text } = await fetchJsonRobusto(`${BASE}/api/pedidos/${encodeURIComponent(codigoPedido)}/estado`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
-      credentials: 'same-origin'
+      credentials: 'same-origin',
+      cache: 'no-store'
     });
 
     if (await manejarRespuestaAuth(resp, json)) return null;
@@ -1022,7 +1077,8 @@
     const { resp, json, text } = await fetchJsonRobusto(`${BASE}/api/pedidos/solicitud-activa`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
-      credentials: 'same-origin'
+      credentials: 'same-origin',
+      cache: 'no-store'
     });
 
     if (await manejarRespuestaAuth(resp, json)) return null;
@@ -1107,7 +1163,8 @@
           const confirmar = await fetchJsonRobusto(`${BASE}/api/pedidos/${encodeURIComponent(solicitud.codigo_pedido)}/confirmar-cola`, {
             method: 'POST',
             headers: { 'Accept': 'application/json' },
-            credentials: 'same-origin'
+            credentials: 'same-origin',
+            cache: 'no-store'
           });
 
           if (await manejarRespuestaAuth(confirmar.resp, confirmar.json)) return;
@@ -1181,6 +1238,7 @@
         'Content-Type': 'application/json'
       },
       credentials: 'same-origin',
+      cache: 'no-store',
       body: JSON.stringify({
         motivo_cancelacion: 'Solicitud cancelada por el comprador durante el tiempo de espera.'
       })
@@ -1533,17 +1591,13 @@
     const requierePreparacion = Number(data.requiere_preparacion || 0) === 1;
     const montoDescontado = Number(data.monto_descontado_billetera || 0);
 
-    const tituloSwal = 'Solicitud enviada';
-    const estadoTexto = 'Esperando ser atendido...';
-    const detalle = 'Tu solicitud fue registrada correctamente. Estamos esperando la respuesta del vendedor.';
-
     const result = await Swal.fire(swalBaseConfig({
       icon: undefined,
-      title: tituloSwal,
+      title: 'Solicitud enviada',
       html: htmlSeguimientoSolicitud({
         tituloProducto,
-        estadoTexto,
-        detalle,
+        estadoTexto: 'Esperando ser atendido...',
+        detalle: 'Tu solicitud fue registrada correctamente. Estamos esperando la respuesta del vendedor.',
         segundosRestantes: solicitudFlow.segundosRestantes,
         requierePreparacion,
         montoDescontado,
@@ -1577,6 +1631,7 @@
         }, 1000);
 
         solicitudFlow.pollingTimer = setInterval(() => {
+          if (document.hidden) return;
           refrescarSeguimientoSolicitud();
         }, SOLICITUD_POLLING_MS);
       },
@@ -1972,7 +2027,8 @@
         method: 'POST',
         body: fd,
         credentials: 'same-origin',
-        headers: { 'Accept': 'application/json' }
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-store'
       });
 
       if (await manejarRespuestaAuth(resp, json)) return;
@@ -2007,6 +2063,7 @@
             productLabel: 'Solicitud',
             productText: tituloProducto
           });
+          await refrescarDisponibilidadMarketplace({ force: true });
           return;
         }
 
@@ -2036,6 +2093,7 @@
             productLabel: 'Solicitud',
             productText: tituloProducto
           });
+          await refrescarDisponibilidadMarketplace({ force: true });
           return;
         }
 
@@ -2090,7 +2148,8 @@
           const confirmar = await fetchJsonRobusto(`${BASE}/api/pedidos/${encodeURIComponent(data.codigo_pedido)}/confirmar-cola`, {
             method: 'POST',
             headers: { 'Accept': 'application/json' },
-            credentials: 'same-origin'
+            credentials: 'same-origin',
+            cache: 'no-store'
           });
 
           if (await manejarRespuestaAuth(confirmar.resp, confirmar.json)) return;
@@ -2139,6 +2198,12 @@
       }
 
       await iniciarSeguimientoSolicitud(data);
+
+      if (window.EVPollingControl && typeof window.EVPollingControl.revisarPedidosVendedor === 'function') {
+        window.setTimeout(() => {
+          window.EVPollingControl.revisarPedidosVendedor({ silent: true, force: true });
+        }, 700);
+      }
 
     } catch (e) {
       err('EXCEPTION registrar pedido', e);
@@ -2222,7 +2287,6 @@
       : 'ev-mp-card-top-status ev-mp-card-top-status-off';
 
     const estadoLabel = vendedorDisponible ? 'Disponible' : 'No disponible';
-
     const pedirAttrs = vendedorDisponible ? '' : 'disabled aria-disabled="true"';
 
     return `
@@ -2295,7 +2359,8 @@
       const { resp, json, text } = await fetchJsonRobusto(url, {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
-        credentials: 'same-origin'
+        credentials: 'same-origin',
+        cache: 'no-store'
       });
 
       if (!resp.ok || !json) {
@@ -2347,7 +2412,8 @@
       const { resp, json, text } = await fetchJsonRobusto(url, {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
-        credentials: 'same-origin'
+        credentials: 'same-origin',
+        cache: 'no-store'
       });
 
       if (!resp.ok || !json) {
@@ -2512,7 +2578,8 @@
       const { resp, text, json } = await fetchJsonRobusto(url, {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
-        credentials: 'same-origin'
+        credentials: 'same-origin',
+        cache: 'no-store'
       });
 
       if (await manejarRespuestaAuth(resp, json)) return;
@@ -2576,9 +2643,20 @@
     }
   }
 
-  async function refrescarDisponibilidadMarketplace() {
+  async function refrescarDisponibilidadMarketplace(opciones = {}) {
+    const force = opciones.force === true;
+
+    if (!force && !estaVistaMarketplaceActiva()) {
+      detenerPollingDisponibilidad();
+      return;
+    }
+
+    if (!force && document.hidden) return;
+    if (!force && estaPausadoPorUi()) return;
     if (pollingEnCurso) return;
+
     pollingEnCurso = true;
+    ultimoPollingMarketplaceAt = nowMs();
 
     try {
       await cargarPublicaciones({ silent: true });
@@ -2591,9 +2669,23 @@
 
   function iniciarPollingDisponibilidad() {
     detenerPollingDisponibilidad();
+
     pollingTimer = window.setInterval(() => {
+      if (!estaVistaMarketplaceActiva()) {
+        detenerPollingDisponibilidad();
+        return;
+      }
+
+      if (document.hidden) return;
+
+      const intervalo = estaPausadoPorUi()
+        ? MARKETPLACE_IDLE_POLLING_MS
+        : MARKETPLACE_POLLING_MS;
+
+      if ((nowMs() - ultimoPollingMarketplaceAt) < intervalo) return;
+
       refrescarDisponibilidadMarketplace();
-    }, POLLING_MS);
+    }, 1000);
   }
 
   function detenerPollingDisponibilidad() {
@@ -2654,11 +2746,31 @@
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
           detenerPollingDisponibilidad();
-        } else {
-          refrescarDisponibilidadMarketplace();
+        } else if (estaVistaMarketplaceActiva()) {
+          refrescarDisponibilidadMarketplace({ force: true });
           iniciarPollingDisponibilidad();
         }
       });
+    }
+
+    if (!document.body.dataset.boundMarketplaceSidebarPause) {
+      document.body.dataset.boundMarketplaceSidebarPause = '1';
+
+      document.addEventListener('click', (e) => {
+        if (e.target.closest('#sidebar')) marcarInteraccionUi();
+      }, true);
+
+      document.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('#sidebar')) marcarInteraccionUi();
+      }, true);
+
+      document.addEventListener('transitionstart', (e) => {
+        if (e.target.closest && e.target.closest('#sidebar')) marcarInteraccionUi();
+      }, true);
+
+      document.addEventListener('ev:nav-start', marcarInteraccionUi);
+      document.addEventListener('ev:nav-end', marcarInteraccionUi);
+      document.addEventListener('ev:content-loaded', marcarInteraccionUi);
     }
   }
 
@@ -2684,7 +2796,10 @@
   }
 
   async function initMarketplace() {
-    if (!capturarRefs()) return;
+    if (!capturarRefs()) {
+      detenerPollingDisponibilidad();
+      return;
+    }
 
     ensureGridCSS();
     bindEvents();
@@ -2702,6 +2817,8 @@
 
     await cargarPublicaciones();
     await restoreSolicitudActiva();
+
+    ultimoPollingMarketplaceAt = nowMs();
     iniciarPollingDisponibilidad();
   }
 
@@ -2709,8 +2826,15 @@
 
   const observer = new MutationObserver(() => {
     const gridWrapper = document.getElementById('mp_grid_publicaciones');
+
     if (gridWrapper && gridWrapper !== refs.gridAllWrapper) {
       initMarketplace();
+      return;
+    }
+
+    if (!gridWrapper && refs.gridAllWrapper) {
+      detenerPollingDisponibilidad();
+      refs.gridAllWrapper = null;
     }
   });
 
@@ -2719,7 +2843,9 @@
   window.EVMarketplace = {
     init: initMarketplace,
     refreshDisponibilidad: refrescarDisponibilidadMarketplace,
-    restoreSolicitudActiva: restoreSolicitudActiva
+    restoreSolicitudActiva: restoreSolicitudActiva,
+    stopPollingDisponibilidad: detenerPollingDisponibilidad,
+    pauseBriefly: marcarInteraccionUi
   };
 
   log('Cargado. BASE:', BASE || '(vacío)', '| Condominio:', CONDO_NOMBRE_RESUMEN);

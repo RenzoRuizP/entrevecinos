@@ -2,14 +2,15 @@
 // ============================================================
 // index.php — Enrutamiento centralizado (EV)
 // Shell único (MenuPrincipal) + parciales para módulos
-// + Bloqueo por CUENTA OBSERVADA (vecino) con página dedicada
+// + Bloqueo por CUENTA OBSERVADA con página dedicada
 // + Expulsión inmediata en siguiente request si SOPORTE bloquea cuenta
+// + Endpoint liviano para notificación global de pedidos vendedor
 // ============================================================
 
 declare(strict_types=1);
 
 // ------------------------------
-// Helpers (blindaje)
+// Helpers base
 // ------------------------------
 function safeRequire(string $path, bool $critical = false): void
 {
@@ -33,25 +34,50 @@ function safeRequire(string $path, bool $critical = false): void
  */
 function esPeticionParcial(): bool
 {
-    if (!empty($_GET['partial']) && $_GET['partial'] === '1') return true;
+    if (!empty($_GET['partial']) && $_GET['partial'] === '1') {
+        return true;
+    }
 
     $xrw = $_SERVER['HTTP_X_REQUESTED_WITH'] ?? '';
-    if ($xrw && strtolower($xrw) === 'xmlhttprequest') return true;
+    if ($xrw && strtolower($xrw) === 'xmlhttprequest') {
+        return true;
+    }
 
     $xp = $_SERVER['HTTP_X_PARTIAL'] ?? '';
-    if ($xp === '1') return true;
+    if ($xp === '1') {
+        return true;
+    }
 
     return false;
 }
 
+/**
+ * Normaliza BASE_URL para trabajar con rutas locales.
+ * Soporta BASE_URL como:
+ * - /entrevecinos
+ * - /entrevecinos/
+ * - http://localhost/entrevecinos
+ */
 function evBaseUrl(): string
 {
     $b = defined('BASE_URL') ? (string)BASE_URL : '/';
     $b = trim($b);
-    if ($b === '') return '/';
-    if ($b[0] !== '/') $b = '/' . $b;
+
+    if ($b === '') {
+        return '/';
+    }
+
+    if (preg_match('#^https?://#i', $b)) {
+        return rtrim($b, '/') . '/';
+    }
+
+    if ($b[0] !== '/') {
+        $b = '/' . $b;
+    }
+
     $b = rtrim($b, '/') . '/';
     $b = preg_replace('#/+#', '/', $b);
+
     return $b ?: '/';
 }
 
@@ -61,12 +87,21 @@ function evBasePathFromBaseUrl(string $baseUrl): string
     $path = is_string($path) ? $path : '/';
     $path = preg_replace('#/+#', '/', $path);
     $path = rtrim($path, '/');
+
     return ($path === '') ? '/' : $path;
 }
 
-/**
- * Render estándar EV para alertas de sesión / seguridad.
- */
+function evJsonResponse(int $statusCode, array $payload): void
+{
+    http_response_code($statusCode);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+// ------------------------------
+// Render estándar EV para seguridad
+// ------------------------------
 function evRenderSecurityAlertPage(
     int $statusCode,
     string $pageTitle,
@@ -92,7 +127,6 @@ function evRenderSecurityAlertPage(
                 --ev-verde-oscuro:#0F592F;
                 --ev-verde:#16A34A;
                 --ev-naranja:#EA7C12;
-                --ev-naranja-oscuro:#C46B05;
                 --ev-texto:#1F2937;
                 --ev-texto-suave:#6B7280;
                 --ev-fondo:#F3F4F6;
@@ -241,9 +275,6 @@ function evRenderSesionFinalizada(string $loginUrl): void
     );
 }
 
-/**
- * ✅ NUEVO: render para cuenta bloqueada/inactiva detectada en la siguiente request.
- */
 function evRenderCuentaBloqueada(string $loginUrl): void
 {
     evRenderSecurityAlertPage(
@@ -258,13 +289,9 @@ function evRenderCuentaBloqueada(string $loginUrl): void
     );
 }
 
-/**
- * ✅ NUEVO: obtiene el estado actual del usuario desde BD.
- * Tabla: usuario.estado
- * 0 = Inactivo
- * 1 = En revisión
- * 2 = Habilitado
- */
+// ------------------------------
+// Validaciones contra BD
+// ------------------------------
 function evObtenerEstadoUsuario(int $codigoUsuario): ?int
 {
     try {
@@ -280,17 +307,25 @@ function evObtenerEstadoUsuario(int $codigoUsuario): ?int
 
         /** @var PDO|null $db */
         $db = $cn->getDblink();
-        if (!$db) return null;
+        if (!$db) {
+            return null;
+        }
 
-        $sql = "SELECT estado
-                FROM usuario
-                WHERE codigo_usuario = :id
-                LIMIT 1";
+        $sql = "
+            SELECT estado
+            FROM usuario
+            WHERE codigo_usuario = :id
+            LIMIT 1
+        ";
+
         $st = $db->prepare($sql);
         $st->execute([':id' => $codigoUsuario]);
 
         $valor = $st->fetchColumn();
-        if ($valor === false || $valor === null) return null;
+
+        if ($valor === false || $valor === null) {
+            return null;
+        }
 
         return (int)$valor;
     } catch (Throwable $e) {
@@ -299,27 +334,31 @@ function evObtenerEstadoUsuario(int $codigoUsuario): ?int
     }
 }
 
-/**
- * ✅ Check rápido (router-level) si el vecino está OBSERVADO.
- * Usa tu tabla: usuario_revision (estado_revision = 3).
- */
 function evUsuarioEstaObservado(int $codigoUsuario): bool
 {
     try {
-        if (!class_exists('Conexion')) return false;
+        if (!class_exists('Conexion')) {
+            return false;
+        }
 
         $cn = new Conexion();
-        if (!method_exists($cn, 'getDblink')) return false;
+
+        if (!method_exists($cn, 'getDblink')) {
+            return false;
+        }
 
         /** @var PDO|null $db */
         $db = $cn->getDblink();
-        if (!$db) return false;
+        if (!$db) {
+            return false;
+        }
 
         $st = $db->prepare("
             SELECT MAX(COALESCE(estado_revision, 0)) AS mx
             FROM usuario_revision
             WHERE codigo_usuario = :id
         ");
+
         $st->execute([':id' => $codigoUsuario]);
         $mx = (int)$st->fetchColumn();
 
@@ -330,20 +369,12 @@ function evUsuarioEstaObservado(int $codigoUsuario): bool
     }
 }
 
-/**
- * ✅ Check si el vecino está en REVISIÓN INICIAL
- * Tabla: usuario.estado = 1
- */
 function evUsuarioEstaEnRevisionInicial(int $codigoUsuario): bool
 {
     $estado = evObtenerEstadoUsuario($codigoUsuario);
     return ($estado === 1);
 }
 
-/**
- * ✅ NUEVO: check si el vecino está bloqueado/inactivo.
- * Tabla: usuario.estado = 0
- */
 function evUsuarioEstaBloqueado(int $codigoUsuario): bool
 {
     $estado = evObtenerEstadoUsuario($codigoUsuario);
@@ -361,17 +392,17 @@ function evRutaPermitidaEnObservacion(string $uri): bool
     );
 }
 
-// ------------------------------
+// ============================================================
 // 1) Dependencias
-// ------------------------------
+// ============================================================
 safeRequire(__DIR__ . '/Config/config.php', true);
 safeRequire(__DIR__ . '/models/SesionJWT.php', true);
-
 safeRequire(__DIR__ . '/database/Conexion.php');
 
 if (!defined('EV_ADMIN_ROLE_ID')) {
     define('EV_ADMIN_ROLE_ID', 1);
 }
+
 if (!defined('EV_SOPORTE_ROLE_ID')) {
     define('EV_SOPORTE_ROLE_ID', 3);
 }
@@ -418,15 +449,15 @@ safeRequire(__DIR__ . '/controllers/api/apiDisponibilidadPedidosController.php')
 safeRequire(__DIR__ . '/controllers/misPedidosCompradorController.php');
 safeRequire(__DIR__ . '/controllers/misPedidosVendedorController.php');
 
-// ------------------------------
+// ============================================================
 // 2) Normalización BASE_URL / basePath
-// ------------------------------
+// ============================================================
 $baseUrl  = evBaseUrl();
 $basePath = evBasePathFromBaseUrl($baseUrl);
 
-// ------------------------------
+// ============================================================
 // 3) Parseo URI
-// ------------------------------
+// ============================================================
 $uriFull = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 $uriFull = is_string($uriFull) ? $uriFull : '/';
 $uriFull = preg_replace('#/+#', '/', $uriFull);
@@ -443,41 +474,57 @@ $uri = ($uri === '') ? '/' : $uri;
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-// ------------------------------
-// 4) Rutas públicas (sin token)
-// ------------------------------
+// ============================================================
+// 4) Rutas públicas
+// ============================================================
 $publicRoutes = [
     '#^/$#',
     '#^/login$#',
     '#^/usuarios/registrar$#',
+
     '#^/condominios$#',
     '#^/urbanizaciones$#',
     '#^/condominios/(\d+)/torres$#',
     '#^/torres/(\d+)/departamentos$#',
+
     '#^/tipos$#',
     '#^/tipos/(\d+)/categoria_grupo$#',
+
     '#^/ubigeo/departamentos$#',
     '#^/ubigeo/departamentos/(\d+)/provincias$#',
     '#^/ubigeo/provincias/(\d+)/distritos$#',
 ];
 
-// ------------------------------
-// 5) Rutas
-// ------------------------------
+// ============================================================
+// 5) Rutas del sistema
+// ============================================================
 $routes = [
+    // ---------------------------
+    // AUTH / SHELL
+    // ---------------------------
     ['GET',  '#^/$#',              [AuthController::class, 'loginForm'], 'html'],
     ['GET',  '#^/login$#',         [AuthController::class, 'loginForm'], 'html'],
     ['POST', '#^/login$#',         [AuthController::class, 'login'],     'json'],
     ['GET',  '#^/MenuPrincipal$#', [MenuPrincipalController::class, 'index'], 'html'],
 
+    ['GET',  '#^/logout$#', [AuthController::class, 'logout'], 'html'],
+    ['POST', '#^/logout$#', [AuthController::class, 'logout'], 'json'],
+
+    // ---------------------------
+    // CUENTA OBSERVADA
+    // ---------------------------
     ['GET',  '#^/cuenta-observada$#', [cuentaObservadaController::class, 'index'], 'html'],
     ['POST', '#^/api/cuenta-observada/reenviar$#', [apiCuentaObservadaController::class, 'reenviar'], 'json'],
+    ['POST', '#^/api/cuenta-observada/(\d+)/observar$#', [apiCuentaObservadaController::class, 'observar'], 'json'],
 
+    // ---------------------------
+    // CATÁLOGOS PÚBLICOS
+    // ---------------------------
     ['GET',  '#^/condominios$#',                [CondominioController::class, 'listar'],              'json'],
     ['GET',  '#^/condominios/(\d+)/torres$#',   [CondominioController::class, 'listarTorres'],        'json'],
     ['GET',  '#^/torres/(\d+)/departamentos$#', [CondominioController::class, 'listarDepartamentos'], 'json'],
 
-    ['GET',  '#^/urbanizaciones$#',             [UrbanizacionController::class, 'listar'],            'json'],
+    ['GET',  '#^/urbanizaciones$#', [UrbanizacionController::class, 'listar'], 'json'],
 
     ['GET',  '#^/ubigeo/departamentos$#',                  [UbigeoController::class, 'departamentos'], 'json'],
     ['GET',  '#^/ubigeo/departamentos/(\d+)/provincias$#', [UbigeoController::class, 'provincias'],    'json'],
@@ -488,113 +535,135 @@ $routes = [
 
     ['POST', '#^/usuarios/registrar$#', [UserController::class, 'registrar'], 'json'],
 
-    ['GET',  '#^/logout$#', [AuthController::class, 'logout'], 'html'],
-    ['POST', '#^/logout$#', [AuthController::class, 'logout'], 'json'],
+    // ---------------------------
+    // VISTAS VECINO
+    // ---------------------------
+    ['GET', '#^/mi-perfil$#',   [miPerfilController::class, 'index'],    'html'],
+    ['GET', '#^/publicacion$#', [productoController::class, 'index'],    'html'],
+    ['GET', '#^/producto$#',    [productoController::class, 'index'],    'html'],
+    ['GET', '#^/marketplace$#', [marketplaceController::class, 'index'], 'html'],
+    ['GET', '#^/billetera$#',   [billeteraController::class, 'index'],   'html'],
+    ['GET', '#^/credencial$#',  [credencialController::class, 'index'],  'html'],
 
-    ['GET', '#^/mi-perfil$#',        [miPerfilController::class, 'index'],        'html'],
-    ['GET', '#^/publicacion$#',      [productoController::class, 'index'],        'html'],
-    ['GET', '#^/producto$#',         [productoController::class, 'index'],        'html'],
-    ['GET', '#^/marketplace$#',      [marketplaceController::class, 'index'],     'html'],
-    ['GET', '#^/billetera$#',        [billeteraController::class, 'index'],       'html'],
-    ['GET', '#^/credencial$#',       [credencialController::class, 'index'],      'html'],
-
-    // ✅ Mantener ruta actual por compatibilidad. Internamente será "Mis pedidos".
-    ['GET', '#^/recibir$#',          [recibirPedidosController::class, 'index'],  'html'],
-
-    ['GET', '#^/atender-recargas$#', [atenderRecargasController::class, 'index'], 'html'],
-    ['GET', '#^/atender-publicacion$#', [atenderPublicacionController::class, 'index'], 'html'],
-    ['GET', '#^/atender-cuentas$#',  [atenderCuentasUsuarioController::class, 'index'], 'html'],
-    ['GET', '#^/atender-cuentas-usuario$#', [atenderCuentasUsuarioController::class, 'index'], 'html'],
+    // Compatibilidad
+    ['GET', '#^/recibir$#', [recibirPedidosController::class, 'index'], 'html'],
 
     ['GET', '#^/mis-pedidos-comprador$#', [misPedidosCompradorController::class, 'index'], 'html'],
     ['GET', '#^/mis-pedidos-vendedor$#',  [misPedidosVendedorController::class, 'index'],  'html'],
 
-    ['GET',  '#^/api/usuario/datos$#',       [usuarioDatosController::class, 'obtenerDatos'],     'json'],
-    ['POST', '#^/api/usuario/actualizar$#',  [usuarioDatosController::class, 'actualizarDatos'],  'json'],
+    // ---------------------------
+    // VISTAS SOPORTE
+    // ---------------------------
+    ['GET', '#^/atender-recargas$#', [atenderRecargasController::class, 'index'], 'html'],
+    ['GET', '#^/atender-publicacion$#', [atenderPublicacionController::class, 'index'], 'html'],
+    ['GET', '#^/atender-cuentas$#', [atenderCuentasUsuarioController::class, 'index'], 'html'],
+    ['GET', '#^/atender-cuentas-usuario$#', [atenderCuentasUsuarioController::class, 'index'], 'html'],
+
+    // ---------------------------
+    // USUARIO
+    // ---------------------------
+    ['GET',  '#^/api/usuario/datos$#', [usuarioDatosController::class, 'obtenerDatos'], 'json'],
+    ['POST', '#^/api/usuario/actualizar$#', [usuarioDatosController::class, 'actualizarDatos'], 'json'],
     ['POST', '#^/api/usuario/cambiar-clave$#', [usuarioDatosController::class, 'cambiarClave'], 'json'],
     ['POST', '#^/api/usuario/solicitar-cambio-residencia$#', [usuarioDatosController::class, 'solicitarCambioResidencia'], 'json'],
 
-    ['POST', '#^/api/usuario/actualizar-telefono$#',   [usuarioDatosController::class, 'actualizarTelefono'],   'json'],
+    ['POST', '#^/api/usuario/actualizar-telefono$#', [usuarioDatosController::class, 'actualizarTelefono'], 'json'],
     ['POST', '#^/api/usuario/actualizar-residencia$#', [usuarioDatosController::class, 'actualizarResidencia'], 'json'],
     ['POST', '#^/api/usuario/actualizar-cuenta$#', [usuarioDatosController::class, 'cambiarClave'], 'json'],
-
-    ['POST', '#^/api/producto/registrar$#',        [apiProductoController::class, 'registrarProducto'],  'json'],
-    ['GET',  '#^/api/producto/listar$#',           [apiProductoController::class, 'listarProductos'],    'json'],
-    ['GET',  '#^/api/producto/(\d+)$#',            [apiProductoController::class, 'obtenerProducto'],    'json'],
-    ['GET',  '#^/api/marketplace/producto/(\d+)$#', [apiProductoController::class, 'obtenerDetalleMarketplace'], 'json'],
-    ['POST', '#^/api/producto/(\d+)/actualizar$#', [apiProductoController::class, 'actualizarProducto'], 'json'],
-    ['POST', '#^/api/producto/(\d+)/anular$#',     [apiProductoController::class, 'anularProducto'],     'json'],
-    ['POST', '#^/api/producto/(\d+)/publicar$#',   [apiProductoController::class, 'publicarProducto'],   'json'],
-    ['GET',  '#^/api/producto/marketplace$#',      [apiProductoController::class, 'listarMarketplace'],  'json'],
-
-    ['GET',  '#^/api/billetera/saldo$#',               [apiBilleteraController::class, 'obtenerSaldo'],        'json'],
-    ['GET',  '#^/api/billetera/movimientos$#',         [apiBilleteraController::class, 'obtenerMovimientos'],  'json'],
-    ['POST', '#^/api/billetera/debitar-publicacion$#', [apiBilleteraController::class, 'debitarPublicacion'],  'json'],
-    ['POST', '#^/api/billetera/debitar-producto-destacado$#', [apiBilleteraController::class, 'debitarProductoDestacado'], 'json'],
-
-    // ===========================
-    // PEDIDOS - COMPRADOR
-    // ===========================
-    ['GET',  '#^/api/pedidos/recibir$#',    [apiPedidoController::class, 'listarPedidos'],   'json'],
-    ['POST', '#^/api/pedidos/registrar$#',  [apiPedidoController::class, 'registrarPedido'],  'json'],
-    ['GET',  '#^/api/pedidos/solicitud-activa$#', [apiPedidoController::class, 'obtenerSolicitudActiva'], 'json'],
-    ['GET',  '#^/api/pedidos/(\d+)/estado$#',    [apiPedidoController::class, 'obtenerEstadoSolicitud'], 'json'],
-    ['POST', '#^/api/pedidos/(\d+)/cancelar$#',  [apiPedidoController::class, 'cancelarSolicitud'], 'json'],
-
-    ['POST', '#^/api/pedidos/(\d+)/confirmar-cola$#', [apiPedidoController::class, 'confirmarCola'], 'json'],
-    ['POST', '#^/api/pedidos/(\d+)/confirmar-entrega$#', [apiPedidoController::class, 'confirmarEntrega'], 'json'],
-    ['GET',  '#^/api/pedidos/mis-comprador$#', [apiPedidoController::class, 'listarMisPedidosComprador'], 'json'],
-
-
-    // ===========================
-    // PEDIDOS - VENDEDOR (MIS PEDIDOS)
-    // ===========================
-    ['GET',  '#^/api/pedidos/mis$#',                [apiPedidoController::class, 'listarMisPedidos'], 'json'],
-    ['POST', '#^/api/pedidos/(\d+)/aceptar$#',      [apiPedidoController::class, 'aceptarSolicitud'], 'json'],
-    ['POST', '#^/api/pedidos/(\d+)/rechazar$#',     [apiPedidoController::class, 'rechazarSolicitud'], 'json'],
-    ['POST', '#^/api/pedidos/(\d+)/estado$#',       [apiPedidoController::class, 'actualizarEstadoPedido'], 'json'],
-
-    ['GET',  '#^/api/soporte/recargas$#',              [apiSoporteRecargasController::class, 'listar'],           'json'],
-    ['POST', '#^/api/soporte/recargas/(\d+)/estado$#', [apiSoporteRecargasController::class, 'actualizarEstado'], 'json'],
-
-    ['GET',  '#^/api/soporte/productos$#',              [apiSoporteProductosController::class, 'listar'], 'json'],
-    ['GET',  '#^/api/soporte/productos/(\d+)$#',        [apiSoporteProductosController::class, 'detalle'], 'json'],
-    ['POST', '#^/api/soporte/productos/(\d+)/estado$#', [apiSoporteProductosController::class, 'actualizarEstado'], 'json'],
-    ['POST', '#^/api/soporte/productos/(\d+)/revisar$#', [apiSoporteProductosController::class, 'revisar'], 'json'],
-
-    ['GET',  '#^/api/soporte-productos/listar$#',       [apiSoporteProductosController::class, 'listar'], 'json'],
-    ['GET',  '#^/api/soporte-productos/(\d+)$#',        [apiSoporteProductosController::class, 'detalle'], 'json'],
-    ['POST', '#^/api/soporte-productos/(\d+)/estado$#', [apiSoporteProductosController::class, 'actualizarEstado'], 'json'],
-    ['POST', '#^/api/soporte-productos/(\d+)/revisar$#', [apiSoporteProductosController::class, 'revisar'], 'json'],
-
-    ['GET',  '#^/api/soporte/usuarios$#',              [apiSoporteUsuariosController::class, 'listar'], 'json'],
-    ['POST', '#^/api/soporte/usuarios/(\d+)/estado$#', [apiSoporteUsuariosController::class, 'actualizarEstado'], 'json'],
-
-    ['POST', '#^/api/cuenta-observada/(\d+)/observar$#', [apiCuentaObservadaController::class, 'observar'], 'json'],
-
-    ['GET',  '#^/api/soporte/residencias$#',              [apiSoporteResidenciasController::class, 'listar'], 'json'],
-    ['POST', '#^/api/soporte/residencias/(\d+)/estado$#', [apiSoporteResidenciasController::class, 'actualizarEstado'], 'json'],
-
-    ['GET',  '#^/api/soporte/dashboard$#', [apiSoporteDashboardController::class, 'resumen'], 'json'],
-
-    ['POST', '#^/api/recargas/registrar$#', [apiRecargaSaldoController::class, 'registrar'], 'json'],
-    ['POST', '#^/api/recargas/(\d+)/subsanar$#', [apiRecargaSaldoController::class, 'subsanar'], 'json'],
-    ['GET',  '#^/api/recargas/mis$#',       [apiRecargaSaldoController::class, 'mis'], 'json'],
-
-    ['GET', '#^/notificaciones-residencia$#', [notificacionesResidenciaController::class, 'index'], 'html'],
-
-    ['GET',  '#^/api/notificaciones$#',             [apiNotificacionesController::class, 'listar'], 'json'],
-    ['GET',  '#^/api/notificaciones/counts$#',      [apiNotificacionesController::class, 'counts'], 'json'],
-    ['POST', '#^/api/notificaciones/(\d+)/leida$#', [apiNotificacionesController::class, 'marcarLeida'], 'json'],
-
-    ['POST', '#^/api/notificaciones/residencia/(\d+)/reenviar$#', [apiNotificacionesResidenciaController::class, 'reenviar'], 'json'],
 
     ['GET',  '#^/api/usuario/disponibilidad-pedidos$#', [apiDisponibilidadPedidosController::class, 'obtenerEstado'], 'json'],
     ['POST', '#^/api/usuario/disponibilidad-pedidos$#', [apiDisponibilidadPedidosController::class, 'actualizarEstado'], 'json'],
 
-    //['GET',  '#^/api/pedidos/mis-comprador$#',          [apiPedidoController::class, 'listarMisPedidosComprador'], 'json'],
-    //['POST', '#^/api/pedidos/(\d+)/confirmar-entrega$#', [apiPedidoController::class, 'confirmarEntrega'], 'json'],
+    // ---------------------------
+    // PRODUCTOS / MARKETPLACE
+    // ---------------------------
+    ['POST', '#^/api/producto/registrar$#', [apiProductoController::class, 'registrarProducto'], 'json'],
+    ['GET',  '#^/api/producto/listar$#', [apiProductoController::class, 'listarProductos'], 'json'],
+    ['GET',  '#^/api/producto/(\d+)$#', [apiProductoController::class, 'obtenerProducto'], 'json'],
+    ['GET',  '#^/api/marketplace/producto/(\d+)$#', [apiProductoController::class, 'obtenerDetalleMarketplace'], 'json'],
+    ['POST', '#^/api/producto/(\d+)/actualizar$#', [apiProductoController::class, 'actualizarProducto'], 'json'],
+    ['POST', '#^/api/producto/(\d+)/anular$#', [apiProductoController::class, 'anularProducto'], 'json'],
+    ['POST', '#^/api/producto/(\d+)/publicar$#', [apiProductoController::class, 'publicarProducto'], 'json'],
+    ['GET',  '#^/api/producto/marketplace$#', [apiProductoController::class, 'listarMarketplace'], 'json'],
 
+    // ---------------------------
+    // BILLETERA
+    // ---------------------------
+    ['GET',  '#^/api/billetera/saldo$#', [apiBilleteraController::class, 'obtenerSaldo'], 'json'],
+    ['GET',  '#^/api/billetera/movimientos$#', [apiBilleteraController::class, 'obtenerMovimientos'], 'json'],
+    ['POST', '#^/api/billetera/debitar-publicacion$#', [apiBilleteraController::class, 'debitarPublicacion'], 'json'],
+    ['POST', '#^/api/billetera/debitar-producto-destacado$#', [apiBilleteraController::class, 'debitarProductoDestacado'], 'json'],
+
+    // ---------------------------
+    // PEDIDOS - COMPRADOR
+    // ---------------------------
+    ['GET',  '#^/api/pedidos/recibir$#', [apiPedidoController::class, 'listarPedidos'], 'json'],
+    ['POST', '#^/api/pedidos/registrar$#', [apiPedidoController::class, 'registrarPedido'], 'json'],
+    ['GET',  '#^/api/pedidos/solicitud-activa$#', [apiPedidoController::class, 'obtenerSolicitudActiva'], 'json'],
+    ['GET',  '#^/api/pedidos/(\d+)/estado$#', [apiPedidoController::class, 'obtenerEstadoSolicitud'], 'json'],
+    ['POST', '#^/api/pedidos/(\d+)/cancelar$#', [apiPedidoController::class, 'cancelarSolicitud'], 'json'],
+    ['POST', '#^/api/pedidos/(\d+)/confirmar-cola$#', [apiPedidoController::class, 'confirmarCola'], 'json'],
+    ['POST', '#^/api/pedidos/(\d+)/confirmar-entrega$#', [apiPedidoController::class, 'confirmarEntrega'], 'json'],
+    ['GET',  '#^/api/pedidos/mis-comprador$#', [apiPedidoController::class, 'listarMisPedidosComprador'], 'json'],
+
+    // ---------------------------
+    // PEDIDOS - VENDEDOR
+    // ---------------------------
+    ['GET', '#^/api/pedidos/vendedor/nuevas-solicitudes$#', [apiPedidoController::class, 'listarNuevasSolicitudesVendedor'], 'json'],
+
+    ['GET',  '#^/api/pedidos/mis$#', [apiPedidoController::class, 'listarMisPedidos'], 'json'],
+    ['POST', '#^/api/pedidos/(\d+)/aceptar$#', [apiPedidoController::class, 'aceptarSolicitud'], 'json'],
+    ['POST', '#^/api/pedidos/(\d+)/rechazar$#', [apiPedidoController::class, 'rechazarSolicitud'], 'json'],
+    ['POST', '#^/api/pedidos/(\d+)/estado$#', [apiPedidoController::class, 'actualizarEstadoPedido'], 'json'],
+
+    // ---------------------------
+    // SOPORTE - RECARGAS
+    // ---------------------------
+    ['GET',  '#^/api/soporte/recargas$#', [apiSoporteRecargasController::class, 'listar'], 'json'],
+    ['POST', '#^/api/soporte/recargas/(\d+)/estado$#', [apiSoporteRecargasController::class, 'actualizarEstado'], 'json'],
+
+    // ---------------------------
+    // SOPORTE - PRODUCTOS
+    // ---------------------------
+    ['GET',  '#^/api/soporte/productos$#', [apiSoporteProductosController::class, 'listar'], 'json'],
+    ['GET',  '#^/api/soporte/productos/(\d+)$#', [apiSoporteProductosController::class, 'detalle'], 'json'],
+    ['POST', '#^/api/soporte/productos/(\d+)/estado$#', [apiSoporteProductosController::class, 'actualizarEstado'], 'json'],
+    ['POST', '#^/api/soporte/productos/(\d+)/revisar$#', [apiSoporteProductosController::class, 'revisar'], 'json'],
+
+    // Compatibilidad soporte productos
+    ['GET',  '#^/api/soporte-productos/listar$#', [apiSoporteProductosController::class, 'listar'], 'json'],
+    ['GET',  '#^/api/soporte-productos/(\d+)$#', [apiSoporteProductosController::class, 'detalle'], 'json'],
+    ['POST', '#^/api/soporte-productos/(\d+)/estado$#', [apiSoporteProductosController::class, 'actualizarEstado'], 'json'],
+    ['POST', '#^/api/soporte-productos/(\d+)/revisar$#', [apiSoporteProductosController::class, 'revisar'], 'json'],
+
+    // ---------------------------
+    // SOPORTE - USUARIOS / RESIDENCIAS / DASHBOARD
+    // ---------------------------
+    ['GET',  '#^/api/soporte/usuarios$#', [apiSoporteUsuariosController::class, 'listar'], 'json'],
+    ['POST', '#^/api/soporte/usuarios/(\d+)/estado$#', [apiSoporteUsuariosController::class, 'actualizarEstado'], 'json'],
+
+    ['GET',  '#^/api/soporte/residencias$#', [apiSoporteResidenciasController::class, 'listar'], 'json'],
+    ['POST', '#^/api/soporte/residencias/(\d+)/estado$#', [apiSoporteResidenciasController::class, 'actualizarEstado'], 'json'],
+
+    ['GET', '#^/api/soporte/dashboard$#', [apiSoporteDashboardController::class, 'resumen'], 'json'],
+
+    // ---------------------------
+    // RECARGAS
+    // ---------------------------
+    ['POST', '#^/api/recargas/registrar$#', [apiRecargaSaldoController::class, 'registrar'], 'json'],
+    ['POST', '#^/api/recargas/(\d+)/subsanar$#', [apiRecargaSaldoController::class, 'subsanar'], 'json'],
+    ['GET',  '#^/api/recargas/mis$#', [apiRecargaSaldoController::class, 'mis'], 'json'],
+
+    // ---------------------------
+    // NOTIFICACIONES
+    // ---------------------------
+    ['GET', '#^/notificaciones-residencia$#', [notificacionesResidenciaController::class, 'index'], 'html'],
+
+    ['GET',  '#^/api/notificaciones$#', [apiNotificacionesController::class, 'listar'], 'json'],
+    ['GET',  '#^/api/notificaciones/counts$#', [apiNotificacionesController::class, 'counts'], 'json'],
+    ['POST', '#^/api/notificaciones/(\d+)/leida$#', [apiNotificacionesController::class, 'marcarLeida'], 'json'],
+
+    ['POST', '#^/api/notificaciones/residencia/(\d+)/reenviar$#', [apiNotificacionesResidenciaController::class, 'reenviar'], 'json'],
 ];
 
 // ============================================================
@@ -605,12 +674,18 @@ $matched = false;
 foreach ($routes as $r) {
     [$httpMethod, $pattern, $handler, $type] = $r;
 
-    if ($method !== $httpMethod) continue;
-    if (!preg_match($pattern, $uri, $matches)) continue;
+    if ($method !== $httpMethod) {
+        continue;
+    }
+
+    if (!preg_match($pattern, $uri, $matches)) {
+        continue;
+    }
 
     $matched = true;
 
     $isPublic = false;
+
     foreach ($publicRoutes as $publicPattern) {
         if (preg_match($publicPattern, $uri)) {
             $isPublic = true;
@@ -625,19 +700,18 @@ foreach ($routes as $r) {
         $rTok = SesionJWT::verificarTokenDetallado($token);
 
         if (!$rTok['ok']) {
-            $motivo = ($rTok['error'] ?? '') === 'TOKEN_EXPIRADO' ? 'token_expirado' : 'token_invalido';
+            $motivo = ($rTok['error'] ?? '') === 'TOKEN_EXPIRADO'
+                ? 'token_expirado'
+                : 'token_invalido';
 
             if (esPeticionParcial() || $type === 'json' || str_starts_with($uri, '/api/')) {
-                header('Content-Type: application/json; charset=utf-8');
-                http_response_code(401);
-                echo json_encode([
-                    'ok' => false,
-                    'error' => 'UNAUTHORIZED',
-                    'motivo' => $motivo,
-                    'mensaje' => 'Tu sesión expiró o ya no es válida. Vuelve a iniciar sesión.',
+                evJsonResponse(401, [
+                    'ok'       => false,
+                    'error'    => 'UNAUTHORIZED',
+                    'motivo'   => $motivo,
+                    'mensaje'  => 'Tu sesión expiró o ya no es válida. Vuelve a iniciar sesión.',
                     'redirect' => $loginUrl
-                ], JSON_UNESCAPED_UNICODE);
-                exit;
+                ]);
             }
 
             evRenderSesionFinalizada($loginUrl);
@@ -652,20 +726,21 @@ foreach ($routes as $r) {
         $adminId   = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
         $soporteId = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
 
-        $esVecino = ($codigoUsuario > 0 && $codigoRol !== $adminId && $codigoRol !== $soporteId);
+        $esVecino = (
+            $codigoUsuario > 0
+            && $codigoRol !== $adminId
+            && $codigoRol !== $soporteId
+        );
 
         if ($esVecino && $codigoUsuario > 0) {
             if (evUsuarioEstaBloqueado($codigoUsuario)) {
                 if (esPeticionParcial() || $type === 'json' || str_starts_with($uri, '/api/')) {
-                    header('Content-Type: application/json; charset=utf-8');
-                    http_response_code(403);
-                    echo json_encode([
+                    evJsonResponse(403, [
                         'ok'       => false,
                         'error'    => 'CUENTA_BLOQUEADA',
                         'mensaje'  => 'Tu cuenta fue bloqueada. Por seguridad, debes volver a iniciar sesión.',
                         'redirect' => $loginUrl
-                    ], JSON_UNESCAPED_UNICODE);
-                    exit;
+                    ]);
                 }
 
                 evRenderCuentaBloqueada($loginUrl);
@@ -678,15 +753,12 @@ foreach ($routes as $r) {
                 $redirect = rtrim($baseUrl, '/') . '/cuenta-observada';
 
                 if (esPeticionParcial() || $type === 'json' || str_starts_with($uri, '/api/')) {
-                    header('Content-Type: application/json; charset=utf-8');
-                    http_response_code(409);
-                    echo json_encode([
-                        'ok' => false,
-                        'error' => 'CUENTA_OBSERVADA',
-                        'mensaje' => 'Tu cuenta está observada. Debes reenviar tu comprobante.',
+                    evJsonResponse(409, [
+                        'ok'       => false,
+                        'error'    => 'CUENTA_OBSERVADA',
+                        'mensaje'  => 'Tu cuenta está observada. Debes reenviar tu comprobante.',
                         'redirect' => $redirect
-                    ], JSON_UNESCAPED_UNICODE);
-                    exit;
+                    ]);
                 }
 
                 header('Location: ' . $redirect, true, 302);
@@ -695,6 +767,11 @@ foreach ($routes as $r) {
         }
     }
 
+    /*
+      Shell único:
+      Si se entra directo a una vista HTML protegida,
+      redirige a MenuPrincipal con ev_goto.
+    */
     if (
         !$isPublic
         && $type === 'html'
@@ -713,17 +790,22 @@ foreach ($routes as $r) {
     [$controllerClass, $action] = $handler;
 
     if (!class_exists($controllerClass)) {
-        http_response_code(500);
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode([
+        evJsonResponse(500, [
             'ok'      => false,
             'error'   => 'CONTROLADOR_NO_DISPONIBLE',
             'mensaje' => "No se encontró el controlador {$controllerClass}. Revisa require/autoload."
-        ], JSON_UNESCAPED_UNICODE);
-        exit;
+        ]);
     }
 
     $controller = new $controllerClass();
+
+    if (!method_exists($controller, $action)) {
+        evJsonResponse(500, [
+            'ok'      => false,
+            'error'   => 'ACCION_NO_DISPONIBLE',
+            'mensaje' => "No se encontró la acción {$action} en {$controllerClass}."
+        ]);
+    }
 
     if (!headers_sent()) {
         if ($type === 'json') {
@@ -747,15 +829,20 @@ if (!$matched) {
 
     if ($isJson) {
         header('Content-Type: application/json; charset=utf-8');
+
         echo json_encode([
             'ok'       => false,
             'error'    => 'RUTA_NO_ENCONTRADA',
             'uri'      => $uri,
             'basePath' => $basePath
-        ], JSON_UNESCAPED_UNICODE);
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
         exit;
     }
 
     header('Content-Type: text/html; charset=utf-8');
-    echo "<h1 style='font-family:system-ui;padding:24px'>404</h1><p style='font-family:system-ui;padding:0 24px'>Ruta no encontrada.</p>";
+
+    echo "<h1 style='font-family:system-ui;padding:24px'>404</h1>";
+    echo "<p style='font-family:system-ui;padding:0 24px'>Ruta no encontrada.</p>";
+    exit;
 }

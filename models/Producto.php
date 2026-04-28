@@ -13,7 +13,8 @@
       - Una publicación solo puede mostrarse en marketplace si:
         1) producto.visible = 2
         2) usuario.estado = 2
-        3) producto.estado_residencial_publicacion = 'activa'
+        3) usuario.disponibilidad_pedidos = 1
+        4) producto.estado_residencial_publicacion = 'activa'
       - La publicación se filtra por la residencia propia con la que fue creada,
         NO por la residencia actual del usuario dueño.
 */
@@ -188,6 +189,11 @@ class Producto extends Conexion
 
     /* ==========================================================
        CONDICIÓN BASE MARKETPLACE
+       Regla EV:
+       - Solo se muestran publicaciones aprobadas.
+       - El vendedor debe estar habilitado.
+       - El vendedor debe estar conectado/disponible para pedidos.
+       - La publicación debe seguir vigente para la residencia donde fue creada.
     ========================================================== */
     private function whereMarketplaceUsuarioHabilitado(string $aliasProducto = 'p', string $aliasUsuario = 'u'): string
     {
@@ -196,6 +202,7 @@ class Producto extends Conexion
 
         return " {$aliasProducto}.visible = 2
                  AND {$aliasUsuario}.estado = 2
+                 AND COALESCE({$aliasUsuario}.disponibilidad_pedidos, 0) = 1
                  AND {$aliasProducto}.estado_residencial_publicacion = 'activa' ";
     }
 

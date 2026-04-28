@@ -9,12 +9,52 @@
   const ROL = String(window.EV_ROL_USUARIO || '').trim().toLowerCase();
   const params = new URLSearchParams(window.location.search);
 
+  /*
+    Polling global EV:
+    - Mantiene avisos casi inmediatos de nuevas solicitudes al vendedor.
+    - Evita sobrecargar la UI cuando el usuario interactúa con el sidebar.
+    - Evita llamadas duplicadas/solapadas.
+    - Pausa cuando la pestaña está oculta.
+  */
   const PEDIDOS_POLLING_MS = 5000;
+  const PEDIDOS_POLLING_IDLE_MS = 9000;
+  const FETCH_TIMEOUT_MS = 6500;
+  const UI_PAUSE_MS = 1400;
 
   let pedidosPollingTimer = null;
+  let pedidosPollingEnCurso = false;
   let pedidosSnapshotInicializado = false;
   let pedidosPendientesSnapshot = new Set();
   let pedidosAlertados = new Set();
+  let ultimaInteraccionUi = 0;
+  let ultimoPollAt = 0;
+
+  function nowMs() {
+    return Date.now();
+  }
+
+  function estaPausadoPorUi() {
+    return (nowMs() - ultimaInteraccionUi) < UI_PAUSE_MS;
+  }
+
+  function marcarInteraccionUi() {
+    ultimaInteraccionUi = nowMs();
+  }
+
+  function getCurrentEvGoto() {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      return qs.get('ev_goto') || '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function pathActualShell() {
+    const goto = getCurrentEvGoto();
+    if (goto) return goto;
+    return window.location.pathname || '';
+  }
 
   function aplicarSweetAlertGlobalFix() {
     if (!window.Swal || typeof window.Swal.fire !== 'function') return;
@@ -193,16 +233,45 @@
     guardarCacheAlertas();
   }
 
+  async function fetchJsonConTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const resp = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+
+      const json = await resp.json().catch(() => ({}));
+
+      return { resp, json };
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
+
   async function fetchPedidosVendedor() {
-    const resp = await fetch(`${BASE}/api/pedidos/mis`, {
+    const { resp, json } = await fetchJsonConTimeout(`${BASE}/api/pedidos/mis`, {
       method: 'GET',
       credentials: 'include',
+      cache: 'no-store',
       headers: {
         'Accept': 'application/json'
       }
     });
 
-    const json = await resp.json().catch(() => ({}));
+    if (resp.status === 401) {
+      throw new Error('UNAUTHORIZED');
+    }
+
+    if (resp.status === 403 && json?.error === 'CUENTA_BLOQUEADA') {
+      throw new Error('CUENTA_BLOQUEADA');
+    }
+
+    if (resp.status === 409 && json?.error === 'CUENTA_OBSERVADA') {
+      throw new Error('CUENTA_OBSERVADA');
+    }
 
     if (!resp.ok || json?.ok === false) {
       throw new Error(json?.mensaje || 'No se pudieron consultar los pedidos del vendedor.');
@@ -252,7 +321,7 @@
             <strong>Publicación:</strong> ${titulo}
           </div>
           <div style="margin-bottom:8px;">
-            <strong>Comprador:</strong> ${String(item.nombre_vecino || 'Vecino')}
+            <strong>Comprador:</strong> ${String(item.nombre_vecino || item.nombre_comprador || 'Vecino')}
           </div>
           <div style="margin-bottom:8px;">
             <strong>Cantidad:</strong> ${cantidad}
@@ -278,6 +347,16 @@
 
   async function revisarNuevasSolicitudesVendedor(opts = {}) {
     const silent = opts.silent === true;
+    const force = opts.force === true;
+
+    if (pedidosPollingEnCurso) return;
+    if (document.hidden && !force) return;
+    if (window.__EV_AUTH_REDIRECTING__ === true) return;
+
+    if (!force && estaPausadoPorUi()) return;
+
+    pedidosPollingEnCurso = true;
+    ultimoPollAt = nowMs();
 
     try {
       const data = await fetchPedidosVendedor();
@@ -310,9 +389,22 @@
       if (silent && nuevos.length > 0) {
         await mostrarAlertaNuevaSolicitudGlobal(nuevos[0]);
       }
-
     } catch (e) {
+      const msg = String(e?.message || e);
+
+      if (msg === 'UNAUTHORIZED') {
+        console.warn('[EV][Shell][PedidosVendedor] Sesión no válida. El router se encargará del cierre en la siguiente request.');
+        return;
+      }
+
+      if (msg === 'CUENTA_BLOQUEADA' || msg === 'CUENTA_OBSERVADA') {
+        console.warn('[EV][Shell][PedidosVendedor] Estado de cuenta restringido:', msg);
+        return;
+      }
+
       console.warn('[EV][Shell][PedidosVendedor] No se pudo revisar nuevas solicitudes:', e);
+    } finally {
+      pedidosPollingEnCurso = false;
     }
   }
 
@@ -330,8 +422,14 @@
       if (document.hidden) return;
       if (window.__EV_AUTH_REDIRECTING__ === true) return;
 
+      const intervaloMinimo = estaPausadoPorUi()
+        ? PEDIDOS_POLLING_IDLE_MS
+        : PEDIDOS_POLLING_MS;
+
+      if ((nowMs() - ultimoPollAt) < intervaloMinimo) return;
+
       await revisarNuevasSolicitudesVendedor({ silent: true });
-    }, PEDIDOS_POLLING_MS);
+    }, 1000);
   }
 
   function bindEventosShellPedidos() {
@@ -340,29 +438,74 @@
 
     document.addEventListener('visibilitychange', async () => {
       if (document.hidden) return;
-      await revisarNuevasSolicitudesVendedor({ silent: true });
+      await revisarNuevasSolicitudesVendedor({ silent: true, force: true });
     });
 
     document.addEventListener('ev:content-loaded', async () => {
-      await revisarNuevasSolicitudesVendedor({ silent: true });
+      marcarInteraccionUi();
+
+      window.setTimeout(async () => {
+        await revisarNuevasSolicitudesVendedor({ silent: true });
+      }, 900);
     });
+
+    document.addEventListener('ev:nav-start', () => {
+      marcarInteraccionUi();
+    });
+
+    document.addEventListener('ev:nav-end', () => {
+      marcarInteraccionUi();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('#sidebar')) {
+        marcarInteraccionUi();
+      }
+    }, true);
+
+    document.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('#sidebar')) {
+        marcarInteraccionUi();
+      }
+    }, true);
+
+    document.addEventListener('transitionstart', (e) => {
+      if (e.target.closest && e.target.closest('#sidebar')) {
+        marcarInteraccionUi();
+      }
+    }, true);
   }
 
   async function initNotificacionesPedidosVendedorGlobal() {
     obtenerCacheAlertas();
     bindEventosShellPedidos();
-    await revisarNuevasSolicitudesVendedor({ silent: false });
+
+    await revisarNuevasSolicitudesVendedor({
+      silent: false,
+      force: true
+    });
+
     iniciarPollingPedidosVendedor();
+  }
+
+  function exponerControlPolling() {
+    window.EVPollingControl = Object.assign(window.EVPollingControl || {}, {
+      pauseBriefly: marcarInteraccionUi,
+      revisarPedidosVendedor: revisarNuevasSolicitudesVendedor,
+      detenerPedidosVendedor: detenerPollingPedidosVendedor,
+      iniciarPedidosVendedor: iniciarPollingPedidosVendedor
+    });
   }
 
   async function initShell() {
     inyectarEstilosSweetAlertGlobales();
     aplicarSweetAlertGlobalFix();
     initOverlayScrollbars();
+    exponerControlPolling();
+
     await mostrarLoginExitosoSiAplica();
     await restaurarSolicitudActivaGlobal();
 
-    // Solo para vecino
     if (ROL === 'vecino') {
       await initNotificacionesPedidosVendedorGlobal();
     }
@@ -375,6 +518,8 @@
   window.EVShell = {
     init: initShell,
     restaurarSolicitudActiva: restaurarSolicitudActivaGlobal,
-    revisarNuevasSolicitudesVendedor: revisarNuevasSolicitudesVendedor
+    revisarNuevasSolicitudesVendedor: revisarNuevasSolicitudesVendedor,
+    marcarInteraccionUi: marcarInteraccionUi,
+    pathActualShell: pathActualShell
   };
 })();
