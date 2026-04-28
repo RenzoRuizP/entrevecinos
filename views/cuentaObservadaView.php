@@ -49,9 +49,6 @@ $mensajeObservacion = trim((string)($mensajeObservacion ?? ''));
         <div class="ev-card">
             <div class="ev-card-body">
 
-                <!-- =========================
-                     HEADER DINÁMICO
-                ========================== -->
                 <div class="ev-head">
                     <span class="ev-ico <?= $modoVista === 'observado' ? 'is-warning' : 'is-review' ?>">
                         <?php if ($modoVista === 'observado'): ?>
@@ -76,9 +73,6 @@ $mensajeObservacion = trim((string)($mensajeObservacion ?? ''));
                     </div>
                 </div>
 
-                <!-- =========================
-                     MENSAJES SEGÚN MODO
-                ========================== -->
                 <?php if ($modoVista === 'observado'): ?>
 
                     <div id="evObservacionBox" class="ev-alert">
@@ -110,11 +104,11 @@ $mensajeObservacion = trim((string)($mensajeObservacion ?? ''));
                                     class="form-control ev-file"
                                     name="comprobante"
                                     id="evComprobante"
-                                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                                    accept=".pdf,.jpg,.jpeg,.png"
                                     required
                                 >
                                 <div class="ev-help mt-2">
-                                    Formatos permitidos: PDF, JPG, JPEG, PNG y WEBP. Tamaño máximo: 5 MB.
+                                    Formatos permitidos: PDF, JPG, JPEG y PNG. Tamaño máximo: 5 MB.
                                 </div>
                             </div>
 
@@ -166,9 +160,6 @@ $mensajeObservacion = trim((string)($mensajeObservacion ?? ''));
     </div>
 </main>
 
-<!-- =========================
-     JS
-========================== -->
 <script>
     window.BASE_URL = "<?= $baseUrl ?>";
     window.EV_MODO_VISTA = "<?= $modoVista ?>";

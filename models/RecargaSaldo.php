@@ -1,7 +1,7 @@
 <?php
 // models/RecargaSaldo.php
+declare(strict_types=1);
 
-require_once __DIR__ . '/../Config/EnvConfig.php';
 require_once __DIR__ . '/../database/Conexion.php';
 
 class RecargaSaldo extends Conexion

@@ -2,17 +2,14 @@
 (function () {
   'use strict';
 
-  // =========================
-  // Blindaje de contexto
-  // =========================
   if (typeof window.EV_MODO_VISTA === 'undefined') return;
   if (window.EV_MODO_VISTA !== 'observado') return;
   if (!window.BASE_URL) return;
 
-  const form   = document.getElementById('evFormReenviar');
+  const form = document.getElementById('evFormReenviar');
   const boxObs = document.getElementById('evObservacionBox');
-  const boxOk  = document.getElementById('evGraciasBox');
-  const input  = document.getElementById('evComprobante');
+  const boxOk = document.getElementById('evGraciasBox');
+  const input = document.getElementById('evComprobante');
 
   if (!form || !input) return;
 
@@ -20,13 +17,10 @@
 
   const MAX_MB = 5;
   const MAX_BYTES = MAX_MB * 1024 * 1024;
-  const ALLOWED_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+  const ALLOWED_EXT = ['pdf', 'jpg', 'jpeg', 'png'];
 
   let isSubmitting = false;
 
-  // =========================
-  // Helpers UI
-  // =========================
   function showError(msg) {
     if (window.Swal) {
       Swal.fire({
@@ -49,12 +43,10 @@
   }
 
   function getFileExtension(name) {
-    return name.split('.').pop().toLowerCase();
+    const parts = String(name || '').split('.');
+    return parts.length > 1 ? parts.pop().toLowerCase() : '';
   }
 
-  // =========================
-  // Submit
-  // =========================
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
 
@@ -69,7 +61,7 @@
     const ext = getFileExtension(file.name);
 
     if (!ALLOWED_EXT.includes(ext)) {
-      showError('Formato no permitido. Usa PDF, JPG, PNG o WEBP.');
+      showError('Formato no permitido. Usa PDF, JPG, JPEG o PNG.');
       return;
     }
 
@@ -97,12 +89,11 @@
       let json;
       try {
         json = await resp.json();
-      } catch {
+      } catch (_) {
         throw new Error('No se pudo procesar la respuesta del servidor.');
       }
 
       if (!resp.ok || !json.ok) {
-
         if (resp.status === 401) {
           window.location.href = `${window.BASE_URL}/login`;
           return;
@@ -116,9 +107,6 @@
         throw new Error(json.mensaje || 'No se pudo enviar el comprobante.');
       }
 
-      // =========================
-      // UI OK
-      // =========================
       form.classList.add('d-none');
       if (boxObs) boxObs.classList.add('d-none');
       if (boxOk) boxOk.classList.remove('d-none');
@@ -130,10 +118,6 @@
       );
       setLoading(false);
       isSubmitting = false;
-      return;
     }
-
-    // Éxito: no reactivar botón
   });
-
 })();

@@ -8,12 +8,11 @@ final class SoporteUsuarios extends Conexion
 {
     public function listar(array $f): array
     {
-        if (!method_exists($this, 'getDblink')) {
+        if (!$this->dblink) {
             return ['items' => [], 'total' => 0];
         }
 
-        $db = $this->getDblink();
-        if (!$db) return ['items' => [], 'total' => 0];
+        $db = $this->dblink;
 
         $estadoRaw = strtolower(trim((string)($f['estado'] ?? 'revision')));
         $estado = match ($estadoRaw) {
@@ -257,8 +256,11 @@ final class SoporteUsuarios extends Conexion
             return false;
         }
 
-        $db = $this->getDblink();
-        $st = $db->prepare("
+        if (!$this->dblink) {
+            return false;
+        }
+
+        $st = $this->dblink->prepare("
             UPDATE usuario
             SET estado = :e
             WHERE codigo_usuario = :id
@@ -274,16 +276,16 @@ final class SoporteUsuarios extends Conexion
     public function quitarObservado(int $codigoUsuario): bool
     {
         $codigoUsuario = (int)$codigoUsuario;
-        if ($codigoUsuario <= 0) return false;
-
-        $db = $this->getDblink();
-        if (!$db) return false;
+        if ($codigoUsuario <= 0 || !$this->dblink) {
+            return false;
+        }
 
         try {
-            $st = $db->prepare("
+            $st = $this->dblink->prepare("
                 UPDATE usuario_revision
                 SET estado_revision = 1
-                WHERE codigo_usuario = :id AND estado_revision = 3
+                WHERE codigo_usuario = :id
+                  AND estado_revision = 3
             ");
             $st->execute([':id' => $codigoUsuario]);
             return true;
@@ -298,22 +300,24 @@ final class SoporteUsuarios extends Conexion
         $codigoUsuario = (int)$codigoUsuario;
         $observacion = trim($observacion);
 
-        if ($codigoUsuario <= 0 || $observacion === '') {
+        if ($codigoUsuario <= 0 || $observacion === '' || !$this->dblink) {
             return false;
         }
 
-        $db = $this->getDblink();
-        if (!$db) return false;
-
         try {
-            $db->beginTransaction();
+            $this->dblink->beginTransaction();
 
-            $stExists = $db->prepare("SELECT 1 FROM usuario_revision WHERE codigo_usuario = :id LIMIT 1");
+            $stExists = $this->dblink->prepare("
+                SELECT 1
+                FROM usuario_revision
+                WHERE codigo_usuario = :id
+                LIMIT 1
+            ");
             $stExists->execute([':id' => $codigoUsuario]);
             $exists = (bool)$stExists->fetchColumn();
 
             if ($exists) {
-                $stUp = $db->prepare("
+                $stUp = $this->dblink->prepare("
                     UPDATE usuario_revision
                     SET mensaje_observacion = :obs
                     WHERE codigo_usuario = :id
@@ -323,9 +327,11 @@ final class SoporteUsuarios extends Conexion
                     ':id'  => $codigoUsuario
                 ]);
             } else {
-                $stIns = $db->prepare("
-                    INSERT INTO usuario_revision (codigo_usuario, estado_revision, mensaje_observacion)
-                    VALUES (:id, 1, :obs)
+                $stIns = $this->dblink->prepare("
+                    INSERT INTO usuario_revision
+                        (codigo_usuario, estado_revision, mensaje_observacion)
+                    VALUES
+                        (:id, 1, :obs)
                 ");
                 $stIns->execute([
                     ':id'  => $codigoUsuario,
@@ -333,10 +339,12 @@ final class SoporteUsuarios extends Conexion
                 ]);
             }
 
-            $db->commit();
+            $this->dblink->commit();
             return true;
         } catch (Throwable $e) {
-            if ($db->inTransaction()) $db->rollBack();
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
             error_log('[EV][SoporteUsuarios::guardarObservacionRevision] ' . $e->getMessage());
             return false;
         }
@@ -345,13 +353,12 @@ final class SoporteUsuarios extends Conexion
     public function limpiarRevision(int $codigoUsuario): bool
     {
         $codigoUsuario = (int)$codigoUsuario;
-        if ($codigoUsuario <= 0) return false;
-
-        $db = $this->getDblink();
-        if (!$db) return false;
+        if ($codigoUsuario <= 0 || !$this->dblink) {
+            return false;
+        }
 
         try {
-            $st = $db->prepare("
+            $st = $this->dblink->prepare("
                 UPDATE usuario_revision
                 SET estado_revision = 2,
                     mensaje_observacion = NULL

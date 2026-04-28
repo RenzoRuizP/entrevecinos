@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 require_once __DIR__ . '/../database/Conexion.php';
 
 class TipoModel extends Conexion
@@ -19,7 +21,7 @@ class TipoModel extends Conexion
     public function listarCategoria_grupo(int $tipoId): array
     {
         $sql = "
-            SELECT 
+            SELECT
                 g.codigo_grupo,
                 g.nombre AS grupo,
                 g.orden  AS orden_grupo,

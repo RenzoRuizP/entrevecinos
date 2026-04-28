@@ -1,75 +1,192 @@
 <?php
+declare(strict_types=1);
 
-require_once '../data/Conexion.class.php';
+require_once __DIR__ . '/../database/Conexion.php';
 
-class Menu extends Conexion {
-    private $codigoMenu;
-    private $nombre;
+class Menu extends Conexion
+{
+    private ?int $codigoMenu = null;
+    private string $nombre = '';
 
-    // 🔹 Getters y setters
-    function getCodigoMenu() {
+    public function getCodigoMenu(): ?int
+    {
         return $this->codigoMenu;
     }
 
-    function getNombre() {
+    public function getNombre(): string
+    {
         return $this->nombre;
     }
 
-    function setCodigoMenu($codigoMenu) {
+    public function setCodigoMenu(int $codigoMenu): void
+    {
         $this->codigoMenu = $codigoMenu;
     }
 
-    function setNombre($nombre) {
-        $this->nombre = $nombre;
+    public function setNombre(string $nombre): void
+    {
+        $this->nombre = trim($nombre);
     }
 
-    // 🔹 Listar menús principales
-    public function listar() {
+    /**
+     * Lista todos los menús activos
+     */
+    public function listar(): array
+    {
         try {
-            $sql = "SELECT codigo_menu, nombre, icono 
-                    FROM menu 
-                    WHERE estado = 'A' 
-                    ORDER BY orden ASC";
+            $sql = "
+                SELECT
+                    codigo_menu,
+                    nombre,
+                    icono,
+                    orden
+                FROM menu
+                WHERE estado = 1
+                ORDER BY orden ASC
+            ";
 
-            $sentencia = $this->dblink->prepare($sql);
-            $sentencia->execute();
-            $resultado = $sentencia->fetchAll(PDO::FETCH_ASSOC);
-            return $resultado;
-        } catch (Exception $exc) {
-            throw $exc;
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            throw $e;
         }
     }
 
-    // 🔹 Listar submenús o ítems de un menú
-    public function listarItems($codigoMenu) {
+    /**
+     * Lista los items/submenús activos de un menú
+     */
+    public function listarItems(int $codigoMenu): array
+    {
         try {
-            $sql = "SELECT codigo_menu_item, nombre, ruta, icono 
-                    FROM menu_item 
-                    WHERE codigo_menu = :codigo_menu AND estado = 'A' 
-                    ORDER BY orden ASC";
+            $sql = "
+                SELECT
+                    codigo_menu_item,
+                    codigo_menu,
+                    nombre,
+                    ruta,
+                    icono,
+                    orden
+                FROM menu_item
+                WHERE codigo_menu = :codigo_menu
+                  AND estado = 1
+                ORDER BY orden ASC
+            ";
 
-            $sentencia = $this->dblink->prepare($sql);
-            $sentencia->bindParam(':codigo_menu', $codigoMenu);
-            $sentencia->execute();
-            $resultado = $sentencia->fetchAll(PDO::FETCH_ASSOC);
-            return $resultado;
-        } catch (Exception $exc) {
-            throw $exc;
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->bindValue(':codigo_menu', $codigoMenu, PDO::PARAM_INT);
+            $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            throw $e;
         }
     }
 
-    // 🔹 Combina menús y submenús en una sola estructura
-    public function listarMenuConSubmenu() {
+    /**
+     * Lista menús con sus submenús
+     */
+    public function listarMenuConSubmenu(): array
+    {
         try {
             $menus = $this->listar();
 
             foreach ($menus as &$menu) {
-                $menu['items'] = $this->listarItems($menu['codigo_menu']);
+                $menu['submenus'] = $this->listarItems((int)$menu['codigo_menu']);
             }
 
             return $menus;
-        } catch (Exception $exc) {
-            throw $exc;
+        } catch (Throwable $e) {
+            throw $e;
+        }
+    }
+
+    /**
+     * Lista menús permitidos para un rol
+     */
+    public function listarPorRol(int $codigoRol): array
+    {
+        try {
+            $sql = "
+                SELECT DISTINCT
+                    m.codigo_menu,
+                    m.nombre,
+                    m.icono,
+                    m.orden
+                FROM rol_menu_item rmi
+                INNER JOIN menu_item mi
+                    ON mi.codigo_menu_item = rmi.codigo_menu_item
+                INNER JOIN menu m
+                    ON m.codigo_menu = mi.codigo_menu
+                WHERE rmi.codigo_rol = :codigo_rol
+                  AND m.estado = 1
+                  AND mi.estado = 1
+                ORDER BY m.orden ASC
+            ";
+
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->bindValue(':codigo_rol', $codigoRol, PDO::PARAM_INT);
+            $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            throw $e;
+        }
+    }
+
+    /**
+     * Lista items/submenús permitidos para un rol dentro de un menú
+     */
+    public function listarItemsPorRol(int $codigoRol, int $codigoMenu): array
+    {
+        try {
+            $sql = "
+                SELECT
+                    mi.codigo_menu_item,
+                    mi.codigo_menu,
+                    mi.nombre,
+                    mi.ruta,
+                    mi.icono,
+                    mi.orden
+                FROM rol_menu_item rmi
+                INNER JOIN menu_item mi
+                    ON mi.codigo_menu_item = rmi.codigo_menu_item
+                WHERE rmi.codigo_rol = :codigo_rol
+                  AND mi.codigo_menu = :codigo_menu
+                  AND mi.estado = 1
+                ORDER BY mi.orden ASC
+            ";
+
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->bindValue(':codigo_rol', $codigoRol, PDO::PARAM_INT);
+            $stmt->bindValue(':codigo_menu', $codigoMenu, PDO::PARAM_INT);
+            $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            throw $e;
+        }
+    }
+
+    /**
+     * Lista menú completo por rol
+     */
+    public function listarMenuConSubmenuPorRol(int $codigoRol): array
+    {
+        try {
+            $menus = $this->listarPorRol($codigoRol);
+
+            foreach ($menus as &$menu) {
+                $menu['submenus'] = $this->listarItemsPorRol(
+                    $codigoRol,
+                    (int)$menu['codigo_menu']
+                );
+            }
+
+            return $menus;
+        } catch (Throwable $e) {
+            throw $e;
         }
     }
 }

@@ -1,12 +1,13 @@
 <?php
 // models/CondominioModel.php
+declare(strict_types=1);
+
 require_once __DIR__ . '/../database/Conexion.php';
 
 class CondominioModel extends Conexion
 {
     public function listarCondominios(): array
     {
-        // ✅ Incluye direccion_condominio para autocompletar en Datos Personales
         $sql = "SELECT codigo_condominio, nombre_condominio, direccion_condominio
                 FROM condominio
                 WHERE estado = 'A'
@@ -18,7 +19,6 @@ class CondominioModel extends Conexion
 
     public function listarTorres($condominioId): array
     {
-        // legacy (si aún se usa en otro módulo)
         $sql = "SELECT codigo_torre, nombre_torre
                 FROM torre
                 WHERE codigo_condominio = :id
@@ -31,7 +31,6 @@ class CondominioModel extends Conexion
 
     public function listarDepartamentos($torreId): array
     {
-        // legacy (si aún se usa en otro módulo)
         $sql = "SELECT codigo_departamento, numero_departamento
                 FROM departamento
                 WHERE codigo_torre = :id
@@ -54,13 +53,11 @@ class CondominioModel extends Conexion
         return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    /**
-     * ✅ NUEVO: Obtiene la dirección del condominio por ID.
-     * Usado para Opción A (dirección desde BD; no confiar en POST si el input está disabled).
-     */
     public function obtenerDireccionPorId(int $codigoCondominio): string
     {
-        if ($codigoCondominio <= 0) return '';
+        if ($codigoCondominio <= 0) {
+            return '';
+        }
 
         $sql = "SELECT direccion_condominio
                 FROM condominio

@@ -1,14 +1,25 @@
 <?php
+declare(strict_types=1);
 
 use Firebase\JWT\JWT;
 
-class JwtConfig {
-    public static function generarToken(array $data): string {
+class JwtConfig
+{
+    public static function generarToken(array $data): string
+    {
         $tiempoActual = time();
 
-        $claveSecreta = $_ENV['JWT_SECRET_KEY'] ?? '';
-        $expiraEn = intval($_ENV['JWT_EXPIRATION_SECONDS'] ?? 3600);
-        if ($expiraEn <= 0) $expiraEn = 3600;
+        $claveSecreta = trim((string)($_ENV['JWT_SECRET_KEY'] ?? ''));
+
+        if ($claveSecreta === '') {
+            throw new RuntimeException('JWT_SECRET_KEY no está configurado.');
+        }
+
+        $expiraEn = (int)($_ENV['JWT_EXPIRATION_SECONDS'] ?? 3600);
+
+        if ($expiraEn <= 0) {
+            $expiraEn = 3600;
+        }
 
         $payload = [
             'iat'  => $tiempoActual,

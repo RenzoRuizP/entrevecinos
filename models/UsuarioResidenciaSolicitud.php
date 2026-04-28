@@ -1,7 +1,5 @@
 <?php
 // models/UsuarioResidenciaSolicitud.php
-// EV — Solicitudes de cambio de residencia
-
 declare(strict_types=1);
 
 require_once __DIR__ . '/../database/Conexion.php';
@@ -28,7 +26,9 @@ class UsuarioResidenciaSolicitud extends Conexion
         $st->bindValue(':comp', $rutaComprobante, PDO::PARAM_STR);
 
         $ok = $st->execute();
-        if (!$ok) return 0;
+        if (!$ok) {
+            return 0;
+        }
 
         return (int)$this->dblink->lastInsertId();
     }
@@ -91,7 +91,7 @@ class UsuarioResidenciaSolicitud extends Conexion
         $where = [];
         $params = [];
 
-        if ($estado !== 'all' && in_array($estado, ['pendiente','observada','aprobada','rechazada'], true)) {
+        if ($estado !== 'all' && in_array($estado, ['pendiente', 'observada', 'aprobada', 'rechazada'], true)) {
             $where[] = "s.estado = :estado";
             $params[':estado'] = $estado;
         }
@@ -101,11 +101,9 @@ class UsuarioResidenciaSolicitud extends Conexion
             $params[':tipo'] = $tipo;
 
             if ($codigo > 0) {
-                if ($tipo === 'condominio') {
-                    $where[] = "s.codigo_condominio = :codigo";
-                } else {
-                    $where[] = "s.codigo_urbanizacion = :codigo";
-                }
+                $where[] = $tipo === 'condominio'
+                    ? "s.codigo_condominio = :codigo"
+                    : "s.codigo_urbanizacion = :codigo";
                 $params[':codigo'] = $codigo;
             }
         }
@@ -198,10 +196,6 @@ class UsuarioResidenciaSolicitud extends Conexion
         return $row ?: null;
     }
 
-    /**
-     * ✅ NUEVO:
-     * Bloquea publicaciones anteriores del usuario cuando el cambio de residencia es aprobado.
-     */
     private function bloquearPublicacionesActivasPorCambioResidencia(int $codigoUsuario): bool
     {
         $sql = "
@@ -228,7 +222,9 @@ class UsuarioResidenciaSolicitud extends Conexion
     public function actualizarEstadoSoporte(int $codigoSolicitud, string $nuevoEstado, string $comentarioAdmin = ''): bool
     {
         $nuevoEstado = strtolower(trim($nuevoEstado));
-        if (!in_array($nuevoEstado, ['pendiente','observada','aprobada','rechazada'], true)) return false;
+        if (!in_array($nuevoEstado, ['pendiente', 'observada', 'aprobada', 'rechazada'], true)) {
+            return false;
+        }
 
         try {
             $this->dblink->beginTransaction();
@@ -254,11 +250,7 @@ class UsuarioResidenciaSolicitud extends Conexion
                       LIMIT 1";
             $stU = $this->dblink->prepare($sqlUp);
             $stU->bindValue(':est', $nuevoEstado, PDO::PARAM_STR);
-            $stU->bindValue(
-                ':com',
-                $comentarioAdmin !== '' ? $comentarioAdmin : null,
-                $comentarioAdmin !== '' ? PDO::PARAM_STR : PDO::PARAM_NULL
-            );
+            $stU->bindValue(':com', $comentarioAdmin !== '' ? $comentarioAdmin : null, $comentarioAdmin !== '' ? PDO::PARAM_STR : PDO::PARAM_NULL);
             $stU->bindValue(':id', $codigoSolicitud, PDO::PARAM_INT);
 
             if (!$stU->execute()) {
@@ -272,17 +264,14 @@ class UsuarioResidenciaSolicitud extends Conexion
 
                 $cc = $s['codigo_condominio'] !== null ? (int)$s['codigo_condominio'] : null;
                 $cu = $s['codigo_urbanizacion'] !== null ? (int)$s['codigo_urbanizacion'] : null;
-
                 $dir  = (string)$s['direccion'];
                 $comp = (string)$s['comprobante_domicilio'];
 
-                // ✅ 1) bloquear publicaciones anteriores del usuario
                 if (!$this->bloquearPublicacionesActivasPorCambioResidencia($codigoUsuario)) {
                     $this->dblink->rollBack();
                     return false;
                 }
 
-                // ✅ 2) insertar nueva residencia
                 $sqlIns = "INSERT INTO usuario_residencia
                            (codigo_usuario, tipo_conjunto, codigo_condominio, codigo_urbanizacion, direccion, comprobante_domicilio)
                            VALUES
@@ -300,7 +289,6 @@ class UsuarioResidenciaSolicitud extends Conexion
                     return false;
                 }
 
-                // ✅ 3) habilitar usuario
                 $sqlUser = "UPDATE usuario SET estado = 2 WHERE codigo_usuario = :u LIMIT 1";
                 $stUsr = $this->dblink->prepare($sqlUser);
                 $stUsr->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
@@ -312,9 +300,10 @@ class UsuarioResidenciaSolicitud extends Conexion
 
             $this->dblink->commit();
             return true;
-
         } catch (Throwable $e) {
-            if ($this->dblink->inTransaction()) $this->dblink->rollBack();
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
             return false;
         }
     }
@@ -322,10 +311,14 @@ class UsuarioResidenciaSolicitud extends Conexion
     public function reenviarDesdeObservadaRechazada(int $codigoSolicitud, string $rutaComprobanteNueva): int
     {
         $s = $this->obtenerSolicitud($codigoSolicitud);
-        if (!$s) return 0;
+        if (!$s) {
+            return 0;
+        }
 
         $estado = strtolower((string)($s['estado'] ?? ''));
-        if (!in_array($estado, ['observada','rechazada'], true)) return 0;
+        if (!in_array($estado, ['observada', 'rechazada'], true)) {
+            return 0;
+        }
 
         $data = [
             'tipo_conjunto'       => (string)$s['tipo_conjunto'],

@@ -1,5 +1,7 @@
 <?php
 // models/UsuarioSoporte.php
+declare(strict_types=1);
+
 require_once __DIR__ . '/../database/Conexion.php';
 
 class UsuarioSoporte extends Conexion
@@ -17,28 +19,23 @@ class UsuarioSoporte extends Conexion
         $where = [];
         $params = [];
 
-        // Estado: 1=en revisión, 2=habilitado, 0=inactivo
-        if ($estado !== null && in_array($estado, [0,1,2], true)) {
+        if ($estado !== null && in_array($estado, [0, 1, 2], true)) {
             $where[] = "u.estado = :estado";
             $params[':estado'] = $estado;
         }
 
-        // Tipo de conjunto
         if ($tipo === 'condominio' || $tipo === 'urbanizacion') {
             $where[] = "ur.tipo_conjunto = :tipo";
             $params[':tipo'] = $tipo;
 
             if ($codigo > 0) {
-                if ($tipo === 'condominio') {
-                    $where[] = "ur.codigo_condominio = :codigo";
-                } else {
-                    $where[] = "ur.codigo_urbanizacion = :codigo";
-                }
+                $where[] = $tipo === 'condominio'
+                    ? "ur.codigo_condominio = :codigo"
+                    : "ur.codigo_urbanizacion = :codigo";
                 $params[':codigo'] = $codigo;
             }
         }
 
-        // Búsqueda
         if ($q !== '') {
             $where[] = "(u.nombre LIKE :q OR u.email LIKE :q OR u.documento LIKE :q)";
             $params[':q'] = '%' . $q . '%';
@@ -46,15 +43,23 @@ class UsuarioSoporte extends Conexion
 
         $whereSql = $where ? ("WHERE " . implode(" AND ", $where)) : "";
 
-        // Total
-        $sqlTotal = "
-            SELECT COUNT(*) AS total
+        // Usar solo la residencia vigente (última fila) para evitar duplicados
+        $sqlBase = "
             FROM usuario u
-            INNER JOIN usuario_residencia ur ON ur.codigo_usuario = u.codigo_usuario
+            LEFT JOIN usuario_residencia ur
+                ON ur.codigo_usuario_residencia = (
+                    SELECT ur2.codigo_usuario_residencia
+                    FROM usuario_residencia ur2
+                    WHERE ur2.codigo_usuario = u.codigo_usuario
+                    ORDER BY ur2.codigo_usuario_residencia DESC
+                    LIMIT 1
+                )
             LEFT JOIN condominio c ON c.codigo_condominio = ur.codigo_condominio
             LEFT JOIN urbanizacion ub ON ub.codigo_urbanizacion = ur.codigo_urbanizacion
             {$whereSql}
         ";
+
+        $sqlTotal = "SELECT COUNT(*) AS total {$sqlBase}";
 
         $stT = $this->dblink->prepare($sqlTotal);
         foreach ($params as $k => $v) {
@@ -63,7 +68,6 @@ class UsuarioSoporte extends Conexion
         $stT->execute();
         $total = (int)($stT->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
 
-        // Data
         $sql = "
             SELECT
                 u.codigo_usuario,
@@ -82,12 +86,7 @@ class UsuarioSoporte extends Conexion
 
                 ub.codigo_urbanizacion,
                 ub.nombre_urbanizacion
-
-            FROM usuario u
-            INNER JOIN usuario_residencia ur ON ur.codigo_usuario = u.codigo_usuario
-            LEFT JOIN condominio c ON c.codigo_condominio = ur.codigo_condominio
-            LEFT JOIN urbanizacion ub ON ub.codigo_urbanizacion = ur.codigo_urbanizacion
-            {$whereSql}
+            {$sqlBase}
             ORDER BY u.fecha_creacion DESC
             LIMIT :lim OFFSET :off
         ";
@@ -109,8 +108,8 @@ class UsuarioSoporte extends Conexion
             'meta' => [
                 'page' => $page,
                 'size' => $size,
-                'total' => $total
-            ]
+                'total' => $total,
+            ],
         ];
     }
 

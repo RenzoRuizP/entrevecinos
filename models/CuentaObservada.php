@@ -4,204 +4,226 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../database/Conexion.php';
+require_once __DIR__ . '/UsuarioRevision.php';
+require_once __DIR__ . '/Usuario.php';
 
 final class CuentaObservada extends Conexion
 {
-    /**
-     * Soporte OBSERVA una cuenta
-     */
-    public function observarDesdeSoporte(int $codigoUsuario, string $mensaje): array
-    {
-        if ($mensaje === '') {
-            return ['ok' => false, 'mensaje' => 'La observación es obligatoria.'];
-        }
+    private const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
+    private const ALLOWED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png'];
+    private const ALLOWED_MIMES = [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+    ];
 
-        $db = $this->getDblink();
-        if (!$db) {
-            return ['ok' => false, 'mensaje' => 'Sin conexión a la base de datos.'];
+    public function subsanar(int $codigoUsuario, array $file): array
+    {
+        if ($codigoUsuario <= 0) {
+            return [
+                'ok' => false,
+                'mensaje' => 'Usuario inválido.'
+            ];
         }
 
         try {
-            $db->beginTransaction();
+            $revisionModel = new UsuarioRevision();
+            $usuarioModel  = new Usuario();
 
-            // 1️⃣ ¿Existe registro en usuario_revision?
-            $sqlCheck = "
-                SELECT id
-                FROM usuario_revision
-                WHERE codigo_usuario = :id
-                LIMIT 1
-            ";
-            $stCheck = $db->prepare($sqlCheck);
-            $stCheck->execute([':id' => $codigoUsuario]);
-            $row = $stCheck->fetch(PDO::FETCH_ASSOC);
+            $revision = $revisionModel->obtenerPorUsuario($codigoUsuario);
 
-            if ($row) {
-                // 2️⃣ UPDATE
-                $sql = "
-                    UPDATE usuario_revision
-                    SET
-                        estado_revision     = 3,
-                        mensaje_observacion = :mensaje,
-                        fecha_observacion   = NOW(),
-                        fecha_actualizacion = NOW()
-                    WHERE codigo_usuario = :id
-                ";
-            } else {
-                // 3️⃣ INSERT
-                $sql = "
-                    INSERT INTO usuario_revision
-                    (
-                        codigo_usuario,
-                        estado_revision,
-                        mensaje_observacion,
-                        fecha_observacion,
-                        fecha_actualizacion
-                    )
-                    VALUES
-                    (
-                        :id,
-                        3,
-                        :mensaje,
-                        NOW(),
-                        NOW()
-                    )
-                ";
+            if (!$revision) {
+                return [
+                    'ok' => false,
+                    'mensaje' => 'No se encontró una revisión asociada al usuario.'
+                ];
             }
 
-            $stmt = $db->prepare($sql);
-            $stmt->execute([
-                ':id'      => $codigoUsuario,
-                ':mensaje' => $mensaje
-            ]);
+            if ((int)($revision['estado_revision'] ?? 0) !== 3) {
+                return [
+                    'ok' => false,
+                    'mensaje' => 'Tu cuenta no se encuentra en estado observado.'
+                ];
+            }
 
-            // 🔴 CAMBIO CLAVE: usuario pasa a OBSERVADO
-            $stUser = $db->prepare("
-                UPDATE usuario
-                SET estado = 3
-                WHERE codigo_usuario = :id
-            ");
-            $stUser->execute([':id' => $codigoUsuario]);
+            $validacion = $this->validarArchivo($file);
+            if (!$validacion['ok']) {
+                return $validacion;
+            }
 
-            $db->commit();
+            $rutaRelativa = $this->guardarArchivo($codigoUsuario, $file, $validacion['extension']);
+            if ($rutaRelativa === '') {
+                return [
+                    'ok' => false,
+                    'mensaje' => 'No se pudo guardar el comprobante.'
+                ];
+            }
 
-            return ['ok' => true, 'mensaje' => 'Cuenta observada correctamente.'];
+            $this->dblink->beginTransaction();
 
+            $okRevision = $revisionModel->registrarReenvio($codigoUsuario, $rutaRelativa);
+            if (!$okRevision) {
+                $this->dblink->rollBack();
+                return [
+                    'ok' => false,
+                    'mensaje' => 'No se pudo registrar el reenvío del comprobante.'
+                ];
+            }
+
+            // Mantener al usuario en "En revisión" para que soporte lo vuelva a evaluar
+            $usuarioModel->actualizarEstado($codigoUsuario, 1);
+
+            $this->dblink->commit();
+
+            return [
+                'ok' => true,
+                'mensaje' => 'Comprobante reenviado correctamente. Tu cuenta vuelve a revisión.',
+                'data' => [
+                    'codigo_usuario'    => $codigoUsuario,
+                    'estado_revision'   => 1,
+                    'comprobante_path'  => $rutaRelativa
+                ]
+            ];
         } catch (Throwable $e) {
-            $db->rollBack();
-            error_log('[EV][CuentaObservada::observarDesdeSoporte] ' . $e->getMessage());
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
 
-            return ['ok' => false, 'mensaje' => 'Error interno al observar la cuenta.'];
+            error_log('[EV][CuentaObservada::subsanar] ' . $e->getMessage());
+
+            return [
+                'ok' => false,
+                'mensaje' => 'Ocurrió un error al reenviar el comprobante.'
+            ];
         }
     }
 
-    /**
-     * Vecino subsana observación
-     */
-    public function subsanar(int $codigoUsuario, array $file): array
+    private function validarArchivo(array $file): array
     {
-        $maxBytes = 5 * 1024 * 1024;
-        $allowed  = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
-
-        $tmp  = $file['tmp_name'] ?? '';
-        $name = $file['name'] ?? '';
-        $size = (int)($file['size'] ?? 0);
-
-        if ($size <= 0 || $size > $maxBytes) {
-            return ['ok' => false, 'mensaje' => 'El archivo es inválido o supera los 5MB.'];
+        if (
+            !isset($file['error'], $file['name'], $file['tmp_name'], $file['size']) ||
+            !is_string($file['name']) ||
+            !is_string($file['tmp_name'])
+        ) {
+            return [
+                'ok' => false,
+                'mensaje' => 'Archivo inválido.'
+            ];
         }
 
-        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-        if (!in_array($ext, $allowed, true)) {
-            return ['ok' => false, 'mensaje' => 'Formato no permitido.'];
+        $error = (int)$file['error'];
+        if ($error !== UPLOAD_ERR_OK) {
+            $mensaje = match ($error) {
+                UPLOAD_ERR_INI_SIZE,
+                UPLOAD_ERR_FORM_SIZE => 'El archivo supera el tamaño máximo permitido.',
+                UPLOAD_ERR_PARTIAL   => 'El archivo se subió solo parcialmente.',
+                UPLOAD_ERR_NO_FILE   => 'Debes adjuntar un comprobante.',
+                UPLOAD_ERR_NO_TMP_DIR => 'No existe directorio temporal para la carga.',
+                UPLOAD_ERR_CANT_WRITE => 'No se pudo escribir el archivo en el disco.',
+                UPLOAD_ERR_EXTENSION => 'La subida del archivo fue detenida por una extensión de PHP.',
+                default => 'No se pudo procesar el archivo adjunto.'
+            };
+
+            return [
+                'ok' => false,
+                'mensaje' => $mensaje
+            ];
         }
 
-        $db = $this->getDblink();
-        if (!$db) {
-            return ['ok' => false, 'mensaje' => 'Sin conexión a BD.'];
+        $size = (int)$file['size'];
+        if ($size <= 0) {
+            return [
+                'ok' => false,
+                'mensaje' => 'El archivo adjunto está vacío.'
+            ];
         }
 
-        $dir = EV_UPLOADS_DIR . '/comprobantes';
-        if (!is_dir($dir)) {
-            mkdir($dir, 0775, true);
+        if ($size > self::MAX_FILE_BYTES) {
+            return [
+                'ok' => false,
+                'mensaje' => 'El archivo supera el tamaño máximo permitido de 5 MB.'
+            ];
         }
 
-        $fname = 'obs_' . $codigoUsuario . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-        $dest  = $dir . '/' . $fname;
+        $originalName = trim((string)$file['name']);
+        $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
 
-        if (!move_uploaded_file($tmp, $dest)) {
-            return ['ok' => false, 'mensaje' => 'No se pudo guardar el archivo.'];
+        if (!in_array($extension, self::ALLOWED_EXTENSIONS, true)) {
+            return [
+                'ok' => false,
+                'mensaje' => 'Formato no permitido. Sube un archivo PDF, JPG o PNG.'
+            ];
         }
 
-        $publicPath = 'resources/uploads/comprobantes/' . $fname;
+        $tmpPath = (string)$file['tmp_name'];
+        if ($tmpPath === '' || !is_uploaded_file($tmpPath)) {
+            return [
+                'ok' => false,
+                'mensaje' => 'El archivo subido no es válido.'
+            ];
+        }
 
+        $mime = $this->detectarMime($tmpPath);
+        if ($mime === null || !in_array($mime, self::ALLOWED_MIMES, true)) {
+            return [
+                'ok' => false,
+                'mensaje' => 'Tipo de archivo inválido. Solo se permiten PDF, JPG o PNG.'
+            ];
+        }
 
-        try {
-            $db->beginTransaction();
+        return [
+            'ok' => true,
+            'extension' => $extension,
+            'mime' => $mime
+        ];
+    }
 
-            $sqlCheck = "
-                SELECT id
-                FROM usuario_revision
-                WHERE codigo_usuario = :id
-                LIMIT 1
-            ";
-            $stCheck = $db->prepare($sqlCheck);
-            $stCheck->execute([':id' => $codigoUsuario]);
-            $row = $stCheck->fetch(PDO::FETCH_ASSOC);
+    private function detectarMime(string $tmpPath): ?string
+    {
+        if (!is_file($tmpPath)) {
+            return null;
+        }
 
-            if ($row) {
-                $sql = "
-                    UPDATE usuario_revision
-                    SET
-                        estado_revision     = 1,
-                        comprobante_path    = :path,
-                        fecha_reenvio       = NOW(),
-                        fecha_actualizacion = NOW()
-                    WHERE codigo_usuario = :id
-                ";
-            } else {
-                $sql = "
-                    INSERT INTO usuario_revision
-                    (
-                        codigo_usuario,
-                        estado_revision,
-                        comprobante_path,
-                        fecha_reenvio,
-                        fecha_actualizacion
-                    )
-                    VALUES
-                    (
-                        :id,
-                        1,
-                        :path,
-                        NOW(),
-                        NOW()
-                    )
-                ";
+        if (function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            if ($finfo) {
+                $mime = finfo_file($finfo, $tmpPath);
+                finfo_close($finfo);
+
+                if (is_string($mime) && $mime !== '') {
+                    return $mime;
+                }
             }
-
-            $stmt = $db->prepare($sql);
-            $stmt->execute([
-                ':id'   => $codigoUsuario,
-                ':path' => $publicPath
-            ]);
-
-            // Usuario vuelve a revisión
-            $db->prepare("
-                UPDATE usuario
-                SET estado = 1
-                WHERE codigo_usuario = :id
-            ")->execute([':id' => $codigoUsuario]);
-
-            $db->commit();
-
-            return ['ok' => true, 'mensaje' => 'Comprobante enviado correctamente.'];
-
-        } catch (Throwable $e) {
-            $db->rollBack();
-            @unlink($dest);
-            error_log('[EV][CuentaObservada::subsanar] ' . $e->getMessage());
-
-            return ['ok' => false, 'mensaje' => 'Error interno.'];
         }
+
+        return null;
+    }
+
+    private function guardarArchivo(int $codigoUsuario, array $file, string $extension): string
+    {
+        $projectRoot = realpath(__DIR__ . '/..');
+        if ($projectRoot === false) {
+            throw new RuntimeException('No se pudo resolver la raíz del proyecto.');
+        }
+
+        $uploadRelDir = 'resources/uploads/comprobantes';
+        $uploadAbsDir = $projectRoot . DIRECTORY_SEPARATOR . $uploadRelDir;
+
+        if (!is_dir($uploadAbsDir) && !mkdir($uploadAbsDir, 0775, true) && !is_dir($uploadAbsDir)) {
+            throw new RuntimeException('No se pudo crear la carpeta de comprobantes.');
+        }
+
+        if (!is_writable($uploadAbsDir)) {
+            throw new RuntimeException('La carpeta de comprobantes no tiene permisos de escritura.');
+        }
+
+        $safeName = 'comp_obs_' . $codigoUsuario . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
+        $destAbs  = $uploadAbsDir . DIRECTORY_SEPARATOR . $safeName;
+
+        if (!move_uploaded_file((string)$file['tmp_name'], $destAbs)) {
+            throw new RuntimeException('No se pudo guardar el archivo subido.');
+        }
+
+        return $uploadRelDir . '/' . $safeName;
     }
 }

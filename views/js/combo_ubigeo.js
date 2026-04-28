@@ -67,7 +67,7 @@
 
         fillSelect(dep, 'Selecciona departamento', data, (d) => ({
           value: d.codigo_departamento,
-          text: d.nombre_departamento
+          text: d.nombre
         }));
         dep.disabled = false;
       } catch (e) {
@@ -97,7 +97,7 @@
 
         fillSelect(prov, 'Selecciona provincia', data, (p) => ({
           value: p.codigo_provincia,
-          text: p.nombre_provincia
+          text: p.nombre
         }));
         prov.disabled = false;
       } catch (e) {
@@ -124,7 +124,7 @@
 
         fillSelect(dist, 'Selecciona distrito', data, (d) => ({
           value: d.codigo_distrito,
-          text: d.nombre_distrito
+          text: d.nombre
         }));
         dist.disabled = false;
       } catch (e) {

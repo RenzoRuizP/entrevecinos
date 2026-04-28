@@ -6,7 +6,10 @@
 // - Mantiene shell /MenuPrincipal?ev_goto=...
 // - Maneja 401 / 403 / cuenta bloqueada / cuenta observada
 // - Mantiene overlay, watchdog, scripts dinámicos y popstate
-// - ✅ Inicializa módulos EV después de inyectar parciales
+// - Inicializa módulos EV después de inyectar parciales
+// - Mantiene activo el menu item seleccionado
+// - Abre el grupo padre del item activo
+// - Cierra los demás grupos para una navegación más limpia
 
 document.addEventListener('DOMContentLoaded', () => {
   'use strict';
@@ -34,8 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function closeSidebarMobile() {
     if (!sidebar) return;
-    sidebar.classList.remove('open');
-    backdrop.classList.remove('show');
+
+    sidebar.classList.remove('open', 'active');
+
+    if (backdrop) {
+      backdrop.classList.remove('show', 'active');
+    }
   }
 
   let overlayRefCount = 0;
@@ -99,6 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ensureEvOverlay().style.display = 'flex';
 
     if (overlayWatchdog) clearTimeout(overlayWatchdog);
+
     overlayWatchdog = setTimeout(() => {
       overlayRefCount = 0;
       const ov = document.getElementById('ev-nav-overlay');
@@ -107,8 +115,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function hideEvOverlay(force = false) {
-    if (force) overlayRefCount = 0;
-    else overlayRefCount = Math.max(0, overlayRefCount - 1);
+    if (force) {
+      overlayRefCount = 0;
+    } else {
+      overlayRefCount = Math.max(0, overlayRefCount - 1);
+    }
 
     if (overlayRefCount === 0) {
       const ov = document.getElementById('ev-nav-overlay');
@@ -123,11 +134,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function killLegacyLoaders() {
     const selectors = [
-      '#spinner-overlay', '#loading-overlay', '#loader-overlay', '#global-loader', '#ev-loading',
-      '.spinner-overlay', '.loading-overlay', '.loader-overlay', '.global-loader',
-      '.preloader', '#preloader', '.page-loader', '#page-loader',
-      '.overlay-loading', '#overlay-loading',
-      '.ajax-loading', '#ajax-loading'
+      '#spinner-overlay',
+      '#loading-overlay',
+      '#loader-overlay',
+      '#global-loader',
+      '#ev-loading',
+      '.spinner-overlay',
+      '.loading-overlay',
+      '.loader-overlay',
+      '.global-loader',
+      '.preloader',
+      '#preloader',
+      '.page-loader',
+      '#page-loader',
+      '.overlay-loading',
+      '#overlay-loading',
+      '.ajax-loading',
+      '#ajax-loading'
     ];
 
     selectors.forEach((sel) => {
@@ -225,15 +248,22 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (_) {}
 
-    if (!path.startsWith('/')) path = '/' + path;
+    if (!path.startsWith('/')) {
+      path = '/' + path;
+    }
 
     const basePath = BASE.replace(/^https?:\/\/[^/]+/i, '');
+
     if (basePath && basePath !== '/' && path.startsWith(basePath + '/')) {
       path = path.slice(basePath.length);
-      if (!path.startsWith('/')) path = '/' + path;
+
+      if (!path.startsWith('/')) {
+        path = '/' + path;
+      }
     }
 
     path = path.replace(/\/{2,}/g, '/');
+
     return path || '/';
   }
 
@@ -245,9 +275,152 @@ document.addEventListener('DOMContentLoaded', () => {
     const href = a.getAttribute('href') || '';
 
     const raw = dataVista || dataRuta || href;
-    if (!raw || raw === '#' || raw.startsWith('#menu')) return null;
+
+    if (!raw || raw === '#' || raw.startsWith('#menu')) {
+      return null;
+    }
 
     return normalizeInternalPath(raw);
+  }
+
+  function samePath(a, b) {
+    let pa = normalizeInternalPath(a || '/');
+    let pb = normalizeInternalPath(b || '/');
+
+    pa = pa.replace(/\/+$/, '') || '/';
+    pb = pb.replace(/\/+$/, '') || '/';
+
+    if (pa === pb) return true;
+
+    return (
+      (pa === '/MenuPrincipal' && pb === '/') ||
+      (pa === '/' && pb === '/MenuPrincipal')
+    );
+  }
+
+  function getCurrentSidebarPath() {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      const goto = qs.get('ev_goto');
+
+      if (goto) {
+        return normalizeInternalPath(goto);
+      }
+
+      const path = normalizeInternalPath(window.location.pathname);
+
+      if (path === '/' || path === '/login') {
+        return '/MenuPrincipal';
+      }
+
+      return path;
+    } catch (_) {
+      return '/MenuPrincipal';
+    }
+  }
+
+  function closeOtherMenuGroups(activeGroup) {
+    if (!sidebar) return;
+
+    const groups = sidebar.querySelectorAll('.nav-treeview.collapse');
+
+    groups.forEach((group) => {
+      if (activeGroup && group === activeGroup) return;
+
+      const parent = sidebar.querySelector(`.menu-parent-link[aria-controls="${group.id}"]`);
+
+      if (parent) {
+        parent.classList.remove('active-parent');
+        parent.setAttribute('aria-expanded', 'false');
+      }
+
+      try {
+        if (window.bootstrap?.Collapse) {
+          const instance = window.bootstrap.Collapse.getOrCreateInstance(group, {
+            toggle: false
+          });
+          instance.hide();
+        } else {
+          group.classList.remove('show');
+        }
+      } catch (_) {
+        group.classList.remove('show');
+      }
+    });
+  }
+
+  function openMenuGroupForLink(link) {
+    if (!sidebar || !link) return;
+
+    const group = link.closest('.nav-treeview.collapse');
+
+    closeOtherMenuGroups(group);
+
+    if (!group) return;
+
+    const parent = sidebar.querySelector(`.menu-parent-link[aria-controls="${group.id}"]`);
+
+    if (parent) {
+      parent.classList.add('active-parent');
+      parent.setAttribute('aria-expanded', 'true');
+    }
+
+    try {
+      if (window.bootstrap?.Collapse) {
+        const instance = window.bootstrap.Collapse.getOrCreateInstance(group, {
+          toggle: false
+        });
+        instance.show();
+      } else {
+        group.classList.add('show');
+      }
+    } catch (_) {
+      group.classList.add('show');
+    }
+  }
+
+  function clearSidebarActiveState() {
+    if (!sidebar) return;
+
+    sidebar.querySelectorAll('.submenu-link').forEach((link) => {
+      link.classList.remove('submenu-active', 'active');
+      link.removeAttribute('aria-current');
+    });
+
+    sidebar.querySelectorAll('.menu-parent-link').forEach((link) => {
+      link.classList.remove('active-parent', 'active-menu');
+    });
+  }
+
+  function setActiveSidebarByPath(path) {
+    if (!sidebar) return;
+
+    const cleanPath = normalizeInternalPath(path || getCurrentSidebarPath());
+    const links = Array.from(sidebar.querySelectorAll('.submenu-link[data-vista]'));
+
+    let activeLink = null;
+
+    for (const link of links) {
+      const linkPath = resolvePathFromAnchor(link);
+
+      if (samePath(linkPath, cleanPath)) {
+        activeLink = link;
+        break;
+      }
+    }
+
+    if (!activeLink) {
+      clearSidebarActiveState();
+      closeOtherMenuGroups(null);
+      return;
+    }
+
+    clearSidebarActiveState();
+
+    activeLink.classList.add('submenu-active', 'active');
+    activeLink.setAttribute('aria-current', 'page');
+
+    openMenuGroupForLink(activeLink);
   }
 
   function buildModuleUrl(path) {
@@ -262,7 +435,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function addPartial(url) {
     const u = new URL(url, window.location.origin);
-    if (!u.searchParams.has('partial')) u.searchParams.set('partial', '1');
+
+    if (!u.searchParams.has('partial')) {
+      u.searchParams.set('partial', '1');
+    }
+
     return u.pathname + '?' + u.searchParams.toString();
   }
 
@@ -275,6 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function runInline(code) {
     if (!code) return;
+
     try {
       new Function(code)();
     } catch (e) {
@@ -287,13 +465,17 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!src) return resolve(false);
 
       const abs = new URL(src, window.location.origin).href;
-      if (LOADED.has(abs)) return resolve(true);
+
+      if (LOADED.has(abs)) {
+        return resolve(true);
+      }
 
       const s = document.createElement('script');
       s.src = abs;
       s.defer = true;
 
       let doneCalled = false;
+
       const done = (ok) => {
         if (doneCalled) return;
         doneCalled = true;
@@ -301,7 +483,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try { s.onload = null; s.onerror = null; } catch (_) {}
         try { if (s.parentNode) s.parentNode.removeChild(s); } catch (_) {}
 
-        if (ok) LOADED.add(abs);
+        if (ok) {
+          LOADED.add(abs);
+        }
+
         resolve(ok);
       };
 
@@ -333,6 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function processScripts(root, signal) {
     const scripts = Array.from(root.querySelectorAll('script'));
+
     if (!scripts.length) return;
 
     scripts.forEach(s => s.parentNode && s.parentNode.removeChild(s));
@@ -359,7 +545,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // ✅ NUEVO: inicializador central de módulos EV
   function initLoadedModules(path) {
     try {
       if (window.EVMarketplace && typeof window.EVMarketplace.init === 'function') {
@@ -403,6 +588,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const moduleUrl = buildModuleUrl(cleanPath);
     const finalUrl = addPartial(moduleUrl);
 
+    setActiveSidebarByPath(cleanPath);
+
     const myId = ++currentLoadId;
 
     killLegacyLoaders();
@@ -436,6 +623,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (ct.includes('application/json')) {
         let payload = null;
+
         try {
           payload = text ? JSON.parse(text) : null;
         } catch (_) {
@@ -454,6 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (payload && payload.error === 'CUENTA_OBSERVADA' && payload.redirect) {
           if (window.__EV_AUTH_REDIRECTING__ === true) return;
+
           window.__EV_AUTH_REDIRECTING__ = true;
           window.location.href = payload.redirect;
           return;
@@ -461,7 +650,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         main.innerHTML = `
           <div class="alert alert-danger border-0 shadow-sm rounded-4">
-            <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error</div>
+            <div class="fw-bold mb-1">
+              <i class="bi bi-exclamation-triangle-fill me-2"></i>Error
+            </div>
             <div>La vista devolvió JSON en lugar de HTML.</div>
             <div class="small text-muted mt-2">${finalUrl}</div>
           </div>
@@ -472,7 +663,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!res.ok) {
         if (res.status === 403) {
           let payload403 = null;
-          try { payload403 = text ? JSON.parse(text) : null; } catch (_) { payload403 = null; }
+
+          try {
+            payload403 = text ? JSON.parse(text) : null;
+          } catch (_) {
+            payload403 = null;
+          }
 
           if (payload403 && payload403.error === 'CUENTA_BLOQUEADA') {
             await alertAndRedirectBlocked(payload403);
@@ -482,7 +678,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (res.status === 401) {
           let payload401 = null;
-          try { payload401 = text ? JSON.parse(text) : null; } catch (_) { payload401 = null; }
+
+          try {
+            payload401 = text ? JSON.parse(text) : null;
+          } catch (_) {
+            payload401 = null;
+          }
 
           await alertAndRedirectUnauthorized(payload401);
           return;
@@ -490,7 +691,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         main.innerHTML = `
           <div class="alert alert-danger border-0 shadow-sm rounded-4">
-            <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error</div>
+            <div class="fw-bold mb-1">
+              <i class="bi bi-exclamation-triangle-fill me-2"></i>Error
+            </div>
             <div>No se pudo cargar el contenido solicitado.</div>
             <div class="small text-muted mt-2">HTTP ${res.status}</div>
           </div>
@@ -504,12 +707,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       await processScripts(main, signal);
 
-      // ✅ NUEVO: inicialización explícita del módulo cargado
       initLoadedModules(cleanPath);
 
       document.dispatchEvent(new CustomEvent('ev:content-loaded', {
         detail: { url: moduleUrl, path: cleanPath }
       }));
+
+      setActiveSidebarByPath(cleanPath);
 
       const targetShellUrl = buildShellUrl(cleanPath);
 
@@ -526,11 +730,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       main.innerHTML = `
         <div class="alert alert-danger border-0 shadow-sm rounded-4">
-          <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error</div>
+          <div class="fw-bold mb-1">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>Error
+          </div>
           <div>${isAbort ? 'La carga tardó demasiado y se canceló (timeout).' : 'No se pudo cargar el contenido solicitado.'}</div>
           <div class="small text-muted mt-2">${String(e?.message || e)}</div>
         </div>
       `;
+
       console.error('[EV][NAV] Error:', e);
 
     } finally {
@@ -545,16 +752,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.__EV_AUTH_REDIRECTING__ === true) return;
 
     const a = e.target.closest('a');
+
     if (!a) return;
 
     const inSidebar = a.closest('#sidebar') || a.closest('.main-sidebar') || a.closest('.ev-sidebar');
+
     if (!inSidebar) return;
 
     const path = resolvePathFromAnchor(a);
+
     if (!path) return;
 
     e.preventDefault();
-    loadPage(path, { pushState: true, replaceState: false });
+
+    setActiveSidebarByPath(path);
+
+    loadPage(path, {
+      pushState: true,
+      replaceState: false
+    });
   }, true);
 
   window.addEventListener('popstate', () => {
@@ -562,23 +778,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const p = new URLSearchParams(window.location.search);
     const goto = p.get('ev_goto');
-    if (!goto) return;
 
-    loadPage(goto, { pushState: false, replaceState: true });
+    if (!goto) {
+      setActiveSidebarByPath('/MenuPrincipal');
+      return;
+    }
+
+    setActiveSidebarByPath(goto);
+
+    loadPage(goto, {
+      pushState: false,
+      replaceState: true
+    });
   });
+
+  setActiveSidebarByPath(getCurrentSidebarPath());
 
   try {
     const qs = new URLSearchParams(window.location.search);
     const goto = qs.get('ev_goto');
 
     if (goto) {
-      loadPage(goto, { pushState: false, replaceState: true });
+      setActiveSidebarByPath(goto);
+
+      loadPage(goto, {
+        pushState: false,
+        replaceState: true
+      });
     }
   } catch (e) {
     console.warn('[EV][NAV] ev_goto no procesado:', e);
   }
 
   window.EVNav = {
-    loadPage
+    loadPage,
+    setActiveSidebarByPath
   };
 });

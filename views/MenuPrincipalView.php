@@ -82,11 +82,6 @@ function ev_ver($pathAbs) {
     }
     @keyframes evShellSpin { to { transform: rotate(360deg); } }
 
-    /* ==========================================================
-       EV GLOBAL SWEETALERT - SOLICITUD DE PEDIDO
-       Se carga en todo el shell para que el alert mantenga estilo
-       incluso al cambiar de módulo o abrir otra pestaña.
-    ========================================================== */
     :root{
       --ev-verde-oscuro:#0F592F;
       --ev-verde:#198754;
@@ -351,11 +346,6 @@ function ev_ver($pathAbs) {
       }
     }
 
-    /* ==========================================================
-      SWEETALERT GENERAL EV
-      Aplica a alerts normales del sistema fuera de las clases
-      específicas del marketplace.
-    ========================================================== */
     .swal2-popup .swal2-confirm:not(.ev-mp-swal-confirm){
       background: linear-gradient(135deg, var(--ev-naranja), #F59E0B) !important;
       border: none !important;
@@ -423,6 +413,7 @@ function ev_ver($pathAbs) {
   <script>
     window.BASE_URL = <?php echo json_encode(rtrim(BASE_URL, '/')); ?>;
     window.EV_BASE_URL = window.BASE_URL;
+    window.EV_ROL_USUARIO = <?php echo json_encode($rolUsuarioRaw); ?>;
   </script>
 
   <?php include_once __DIR__ . '/scripts/menuPrincipalScripts.php'; ?>

@@ -22,14 +22,13 @@ $evVer = defined('EV_APP_VER') ? (string)EV_APP_VER : (string)time();
 <script src="<?= $baseUrl ?>/views/js/menuIzquierda.js?v=<?= $evVer ?>"></script>
 <script src="<?= $baseUrl ?>/views/js/menuArriba.js?v=<?= $evVer ?>"></script>
 <script src="<?= $baseUrl ?>/views/js/menuPrincipal.js?v=<?= $evVer ?>"></script>
-
-<script src="<?= $baseUrl ?>/views/js/atenderCuentasUsuario.js?v=<?= $evVer ?>"></script>
+<script src="<?= $baseUrl ?>/views/js/notificacionesResidencia.js?v=<?= $evVer ?>"></script>
 
 <?php if ($rolUsuario === 'soporte' || $rolUsuario === 'admin'): ?>
   <script src="<?= $baseUrl ?>/views/js/soporteDashboard.js?v=<?= $evVer ?>"></script>
+  <script src="<?= $baseUrl ?>/views/js/atenderCuentasUsuario.js?v=<?= $evVer ?>"></script>
   <script src="<?= $baseUrl ?>/views/js/atenderRecargas.js?v=<?= $evVer ?>"></script>
   <script src="<?= $baseUrl ?>/views/js/atenderPublicacion.js?v=<?= $evVer ?>"></script>
-  <script src="<?= $baseUrl ?>/views/js/notificacionesResidencia.js?v=<?= $evVer ?>"></script>
 <?php else: ?>
   <script src="<?= $baseUrl ?>/views/js/combo_condominio.js?v=<?= $evVer ?>"></script>
   <script src="<?= $baseUrl ?>/views/js/datosPersonales.js?v=<?= $evVer ?>"></script>

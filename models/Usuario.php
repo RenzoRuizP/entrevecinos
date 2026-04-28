@@ -1,5 +1,7 @@
 <?php
 // models/Usuario.php
+declare(strict_types=1);
+
 require_once __DIR__ . '/../database/Conexion.php';
 
 class Usuario extends Conexion
@@ -7,20 +9,23 @@ class Usuario extends Conexion
     /* =========================
        Helpers
     ========================== */
-    private function emailExiste($email, $codigo_usuario_excluir)
+
+    private function emailExiste(string $email, int $codigo_usuario_excluir): bool
     {
-        $sql = "SELECT COUNT(*) FROM usuario 
+        $sql = "SELECT COUNT(*) FROM usuario
                 WHERE email = :email AND codigo_usuario != :codigo_usuario";
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindParam(':email', $email);
+        $stmt->bindParam(':email', $email, PDO::PARAM_STR);
         $stmt->bindParam(':codigo_usuario', $codigo_usuario_excluir, PDO::PARAM_INT);
         $stmt->execute();
-        return $stmt->fetchColumn() > 0;
+        return (int)$stmt->fetchColumn() > 0;
     }
 
-    private function urbanizacionExiste($codigo_urbanizacion)
+    private function urbanizacionExiste($codigo_urbanizacion): bool
     {
-        if ($codigo_urbanizacion === null || $codigo_urbanizacion === '') return false;
+        if ($codigo_urbanizacion === null || $codigo_urbanizacion === '') {
+            return false;
+        }
 
         $sql = "SELECT 1 FROM urbanizacion WHERE codigo_urbanizacion = :u LIMIT 1";
         $stmt = $this->dblink->prepare($sql);
@@ -29,9 +34,11 @@ class Usuario extends Conexion
         return (bool)$stmt->fetchColumn();
     }
 
-    private function condominioExiste($codigo_condominio)
+    private function condominioExiste($codigo_condominio): bool
     {
-        if ($codigo_condominio === null || $codigo_condominio === '') return false;
+        if ($codigo_condominio === null || $codigo_condominio === '') {
+            return false;
+        }
 
         $sql = "SELECT 1 FROM condominio WHERE codigo_condominio = :c LIMIT 1";
         $stmt = $this->dblink->prepare($sql);
@@ -40,7 +47,11 @@ class Usuario extends Conexion
         return (bool)$stmt->fetchColumn();
     }
 
-    private function residenciaIdPorUsuario($codigo_usuario)
+    /**
+     * Retorna el ID de la residencia vigente del usuario
+     * (última fila registrada).
+     */
+    private function residenciaIdVigentePorUsuario(int $codigo_usuario): int
     {
         $sql = "SELECT codigo_usuario_residencia
                 FROM usuario_residencia
@@ -50,12 +61,13 @@ class Usuario extends Conexion
         $stmt = $this->dblink->prepare($sql);
         $stmt->bindParam(':cu', $codigo_usuario, PDO::PARAM_INT);
         $stmt->execute();
-        return $stmt->fetchColumn(); // false si no existe
+        return (int)($stmt->fetchColumn() ?: 0);
     }
 
     /* =========================
-       ✅ NUEVO: ESTADO (para flujo solicitudes)
+       ESTADO
     ========================== */
+
     public function obtenerEstado(int $codigo_usuario): int
     {
         $sql = "SELECT estado FROM usuario WHERE codigo_usuario = :cu LIMIT 1";
@@ -67,7 +79,10 @@ class Usuario extends Conexion
 
     public function actualizarEstado(int $codigo_usuario, int $estado): bool
     {
-        if (!in_array($estado, [0, 1, 2], true)) return false;
+        if (!in_array($estado, [0, 1, 2], true)) {
+            return false;
+        }
+
         $sql = "UPDATE usuario SET estado = :e WHERE codigo_usuario = :cu LIMIT 1";
         $st = $this->dblink->prepare($sql);
         $st->bindValue(':e', $estado, PDO::PARAM_INT);
@@ -76,11 +91,12 @@ class Usuario extends Conexion
     }
 
     /* =========================
-       OBTENER USUARIO (alineado a usuario_residencia)
+       OBTENER USUARIO
     ========================== */
-    public function obtenerPorCodigo($codigo_usuario)
+
+    public function obtenerPorCodigo(int $codigo_usuario): array|false
     {
-        $sql = "SELECT 
+        $sql = "SELECT
                     u.codigo_usuario,
                     u.nombre AS nombre_completo,
                     u.email,
@@ -95,9 +111,14 @@ class Usuario extends Conexion
 
                 FROM usuario u
                 LEFT JOIN usuario_residencia ur
-                       ON ur.codigo_usuario = u.codigo_usuario
+                    ON ur.codigo_usuario_residencia = (
+                        SELECT ur2.codigo_usuario_residencia
+                        FROM usuario_residencia ur2
+                        WHERE ur2.codigo_usuario = u.codigo_usuario
+                        ORDER BY ur2.codigo_usuario_residencia DESC
+                        LIMIT 1
+                    )
                 WHERE u.codigo_usuario = :codigo_usuario
-                ORDER BY ur.codigo_usuario_residencia DESC
                 LIMIT 1";
 
         $stmt = $this->dblink->prepare($sql);
@@ -105,7 +126,9 @@ class Usuario extends Conexion
         $stmt->execute();
 
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$row) return false;
+        if (!$row) {
+            return false;
+        }
 
         return [
             'codigo_usuario'        => $row['codigo_usuario'],
@@ -113,7 +136,6 @@ class Usuario extends Conexion
             'email'                 => $row['email'],
             'documento'             => $row['documento'],
             'telefono'              => $row['telefono'],
-
             'tipo_conjunto'         => $row['tipo_conjunto'] ?? '',
             'codigo_condominio'     => $row['codigo_condominio'] ?? '',
             'codigo_urbanizacion'   => $row['codigo_urbanizacion'] ?? '',
@@ -123,15 +145,20 @@ class Usuario extends Conexion
     }
 
     /* =========================
-       ✅ NUEVO: ACTUALIZAR SOLO TELEFONO
-       - No toca residencia
+       ACTUALIZAR SOLO TELEFONO
     ========================== */
+
     public function actualizarTelefono(int $codigo_usuario, string $telefono): bool
     {
         $telefono = preg_replace('/\s+/', '', trim($telefono));
 
-        if ($telefono === '') return false;
-        if (!preg_match('/^9\d{8}$/', $telefono)) return false;
+        if ($telefono === '') {
+            return false;
+        }
+
+        if (!preg_match('/^9\d{8}$/', $telefono)) {
+            return false;
+        }
 
         $sql = "UPDATE usuario SET telefono = :telefono WHERE codigo_usuario = :cu";
         $stmt = $this->dblink->prepare($sql);
@@ -141,13 +168,15 @@ class Usuario extends Conexion
     }
 
     /* =========================
-       ACTUALIZAR DATOS (legacy)
-       - Actualiza usuario + usuario_residencia (sin departamento)
+       ACTUALIZAR DATOS (legacy controlado)
+       - Actualiza usuario
+       - Actualiza solo la residencia vigente
     ========================== */
-    public function actualizarDatos($codigo_usuario, $data)
+
+    public function actualizarDatos(int $codigo_usuario, array $data): bool
     {
         try {
-            if (!empty($data['email']) && $this->emailExiste($data['email'], $codigo_usuario)) {
+            if (!empty($data['email']) && $this->emailExiste((string)$data['email'], $codigo_usuario)) {
                 throw new Exception("El correo electrónico ingresado ya está registrado por otro usuario.");
             }
 
@@ -155,14 +184,17 @@ class Usuario extends Conexion
             $telefono  = trim((string)($data['telefono'] ?? ''));
             $documento = isset($data['documento']) ? trim((string)$data['documento']) : null;
 
-            if ($nombre === '') throw new Exception("El nombre completo es obligatorio.");
+            if ($nombre === '') {
+                throw new Exception("El nombre completo es obligatorio.");
+            }
 
-            $tipo = strtolower(trim((string)($data['tipo_conjunto'] ?? '')));
+            $tipo      = strtolower(trim((string)($data['tipo_conjunto'] ?? '')));
             $direccion = trim((string)($data['direccion'] ?? ''));
 
             if (!in_array($tipo, ['condominio', 'urbanizacion'], true)) {
                 throw new Exception("Residencia no definida o inválida.");
             }
+
             if ($direccion === '') {
                 throw new Exception("La dirección es obligatoria.");
             }
@@ -172,18 +204,30 @@ class Usuario extends Conexion
 
             if ($tipo === 'condominio') {
                 $codigo_condominio = $data['codigo_condominio'] ?? null;
-                if ($codigo_condominio === null || $codigo_condominio === '') throw new Exception("Debes seleccionar un condominio.");
-                if (!ctype_digit((string)$codigo_condominio)) throw new Exception("Condominio inválido.");
+                if ($codigo_condominio === null || $codigo_condominio === '') {
+                    throw new Exception("Debes seleccionar un condominio.");
+                }
+                if (!ctype_digit((string)$codigo_condominio)) {
+                    throw new Exception("Condominio inválido.");
+                }
 
                 $codigo_condominio = (int)$codigo_condominio;
-                if (!$this->condominioExiste($codigo_condominio)) throw new Exception("El condominio seleccionado no existe.");
+                if (!$this->condominioExiste($codigo_condominio)) {
+                    throw new Exception("El condominio seleccionado no existe.");
+                }
             } else {
                 $codigo_urbanizacion = $data['codigo_urbanizacion'] ?? null;
-                if ($codigo_urbanizacion === null || $codigo_urbanizacion === '') throw new Exception("Debes seleccionar una urbanización.");
-                if (!ctype_digit((string)$codigo_urbanizacion)) throw new Exception("Urbanización inválida.");
+                if ($codigo_urbanizacion === null || $codigo_urbanizacion === '') {
+                    throw new Exception("Debes seleccionar una urbanización.");
+                }
+                if (!ctype_digit((string)$codigo_urbanizacion)) {
+                    throw new Exception("Urbanización inválida.");
+                }
 
                 $codigo_urbanizacion = (int)$codigo_urbanizacion;
-                if (!$this->urbanizacionExiste($codigo_urbanizacion)) throw new Exception("La urbanización seleccionada no existe.");
+                if (!$this->urbanizacionExiste($codigo_urbanizacion)) {
+                    throw new Exception("La urbanización seleccionada no existe.");
+                }
             }
 
             $this->dblink->beginTransaction();
@@ -195,13 +239,15 @@ class Usuario extends Conexion
             $stmtU = $this->dblink->prepare($sqlU);
             $stmtU->bindValue(':nombre', $nombre, PDO::PARAM_STR);
             $stmtU->bindValue(':telefono', $telefono, PDO::PARAM_STR);
-            if ($documento !== null) $stmtU->bindValue(':documento', $documento, PDO::PARAM_STR);
+            if ($documento !== null) {
+                $stmtU->bindValue(':documento', $documento, PDO::PARAM_STR);
+            }
             $stmtU->bindValue(':codigo_usuario', $codigo_usuario, PDO::PARAM_INT);
             $stmtU->execute();
 
-            $urId = $this->residenciaIdPorUsuario($codigo_usuario);
+            $urId = $this->residenciaIdVigentePorUsuario($codigo_usuario);
 
-            if ($urId) {
+            if ($urId > 0) {
                 $sqlUR = "UPDATE usuario_residencia
                           SET tipo_conjunto = :tipo,
                               codigo_condominio = :cod_condominio,
@@ -231,9 +277,10 @@ class Usuario extends Conexion
 
             $this->dblink->commit();
             return true;
-
         } catch (Exception $e) {
-            if ($this->dblink->inTransaction()) $this->dblink->rollBack();
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
             throw $e;
         }
     }
@@ -241,6 +288,7 @@ class Usuario extends Conexion
     /* =========================
        PASSWORD / CLAVE
     ========================== */
+
     public function obtenerHashClave(int $codigo_usuario): ?string
     {
         $sql = "SELECT clave FROM usuario WHERE codigo_usuario = :cu LIMIT 1";

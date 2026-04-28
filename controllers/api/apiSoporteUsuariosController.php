@@ -25,7 +25,6 @@ final class apiSoporteUsuariosController
 
     private function puedeAccederSoporte(): bool
     {
-        // Admin = 1, Soporte = 3
         $adminId   = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
         $soporteId = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
 
@@ -39,12 +38,9 @@ final class apiSoporteUsuariosController
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
         header('Pragma: no-cache');
-        echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
-    /**
-     * Normaliza estado desde UI
-     */
     private function normalizarEstado($raw): string
     {
         $v = strtolower(trim((string)$raw));
@@ -55,14 +51,10 @@ final class apiSoporteUsuariosController
             '3', 'observado', 'observados'                => 'observado',
             '0', 'inactivo', 'inactivos'                  => 'inactivo',
             'todos', 'all'                                => 'todos',
-            default                                      => 'revision',
+            default                                       => 'revision',
         };
     }
 
-    /**
-     * Normaliza conjunto desde UI
-     * valores esperados: "condominio", "urbanizacion" o "" (sin filtro)
-     */
     private function normalizarConjunto($raw): string
     {
         $v = strtolower(trim((string)$raw));
@@ -78,7 +70,11 @@ final class apiSoporteUsuariosController
     public function listar(): void
     {
         if (!$this->puedeAccederSoporte()) {
-            $this->json(403, ['ok' => false, 'mensaje' => 'Acceso restringido.']);
+            $this->json(403, [
+                'ok'      => false,
+                'error'   => 'FORBIDDEN',
+                'mensaje' => 'Acceso restringido.'
+            ]);
             return;
         }
 
@@ -88,9 +84,8 @@ final class apiSoporteUsuariosController
         $limit  = (int)($_GET['limit'] ?? 10);
         $limit  = ($limit <= 0) ? 10 : min($limit, 100);
 
-        // ✅ FILTROS
-        $conjunto    = $this->normalizarConjunto($_GET['conjunto'] ?? '');
-        $conjuntoId  = (int)($_GET['conjunto_id'] ?? 0);
+        $conjunto   = $this->normalizarConjunto($_GET['conjunto'] ?? '');
+        $conjuntoId = (int)($_GET['conjunto_id'] ?? 0);
 
         try {
             $m = new SoporteUsuarios();
@@ -110,7 +105,11 @@ final class apiSoporteUsuariosController
             ]);
         } catch (Throwable $e) {
             error_log('[EV][apiSoporteUsuariosController::listar] ' . $e->getMessage());
-            $this->json(500, ['ok' => false, 'mensaje' => 'Error interno del servidor.']);
+            $this->json(500, [
+                'ok'      => false,
+                'error'   => 'SERVER_ERROR',
+                'mensaje' => 'Error interno del servidor.'
+            ]);
         }
     }
 
@@ -122,27 +121,44 @@ final class apiSoporteUsuariosController
         $codigoUsuario = (int)$codigoUsuario;
 
         if (!$this->puedeAccederSoporte()) {
-            $this->json(403, ['ok' => false, 'mensaje' => 'Acceso restringido.']);
+            $this->json(403, [
+                'ok'      => false,
+                'error'   => 'FORBIDDEN',
+                'mensaje' => 'Acceso restringido.'
+            ]);
+            return;
+        }
+
+        if ($codigoUsuario <= 0) {
+            $this->json(400, [
+                'ok'      => false,
+                'error'   => 'CODIGO_INVALIDO',
+                'mensaje' => 'Código de usuario inválido.'
+            ]);
             return;
         }
 
         $raw = file_get_contents('php://input');
         $in  = json_decode($raw ?: '[]', true);
-        if (!is_array($in)) $in = [];
+        if (!is_array($in)) {
+            $in = [];
+        }
 
         $estadoNuevo = isset($in['estado']) ? (int)$in['estado'] : -1;
-        $observacion = isset($in['observacion']) ? trim((string)$in['observacion']) : '';
+        $observacion = trim((string)($in['observacion'] ?? ''));
 
-        // Estados válidos para este endpoint
         if (!in_array($estadoNuevo, [0, 1, 2], true)) {
-            $this->json(400, ['ok' => false, 'mensaje' => 'Estado inválido.']);
+            $this->json(400, [
+                'ok'      => false,
+                'error'   => 'ESTADO_INVALIDO',
+                'mensaje' => 'Estado inválido.'
+            ]);
             return;
         }
 
         try {
             $m = new SoporteUsuarios();
 
-            // 1) Actualiza estado del usuario
             $ok = $m->actualizarEstadoUsuario([
                 'codigo_usuario' => $codigoUsuario,
                 'estado'         => $estadoNuevo,
@@ -150,51 +166,61 @@ final class apiSoporteUsuariosController
             ]);
 
             if (!$ok) {
-                $this->json(404, ['ok' => false, 'mensaje' => 'Usuario no encontrado o sin cambios.']);
+                $this->json(404, [
+                    'ok'      => false,
+                    'error'   => 'USUARIO_NO_ENCONTRADO_O_SIN_CAMBIOS',
+                    'mensaje' => 'Usuario no encontrado o sin cambios.'
+                ]);
                 return;
             }
 
             // =========================================================
-            // ✅ REGLA OPCIÓN A (RAÍZ):
-            // Si se INACTIVA (estado=0), se LIMPIA el "OBSERVADO" (estado_revision=3)
-            // para que NO quede en doble estado (observado + inactivo).
+            // Si se inactiva:
+            // - quitar estado observado
+            // - si viene observación, guardarla como referencia
             // =========================================================
             if ($estadoNuevo === 0) {
                 $m->quitarObservado($codigoUsuario);
 
-                // Si además viene observación desde el modal "Desactivar", se guarda,
-                // pero SIN marcar observado (queda como revisión neutra).
                 if ($observacion !== '') {
                     $m->guardarObservacionRevision($codigoUsuario, $observacion);
                 }
             }
 
-            // Si se APRUEBA (estado=2), se limpia observación/revisión previa
-            if ($estadoNuevo === 2) {
-                $m->limpiarRevision($codigoUsuario);
-            }
-
             // =========================================================
-            // ✅ REQUERIMIENTO: al APROBAR (estado=2) aplicar bono S/ 15
+            // Si se aprueba:
+            // - limpiar observaciones/revisión previa
+            // - aplicar bono bienvenida
             // =========================================================
             $bono = null;
+
             if ($estadoNuevo === 2) {
+                $m->limpiarRevision($codigoUsuario);
+
                 $wallet = new Billetera();
                 $bono = $wallet->aplicarBonoBienvenida($codigoUsuario, 15.00);
 
                 if (empty($bono['ok'])) {
-                    error_log('[EV][apiSoporteUsuariosController] Aprobó usuario pero falló bono: u=' . $codigoUsuario . ' err=' . ($bono['error'] ?? ''));
+                    error_log(
+                        '[EV][apiSoporteUsuariosController::actualizarEstado] ' .
+                        'Usuario aprobado pero falló bono. u=' . $codigoUsuario .
+                        ' err=' . ($bono['error'] ?? ($bono['mensaje'] ?? 'DESCONOCIDO'))
+                    );
                 }
             }
 
             $this->json(200, [
                 'ok'      => true,
                 'mensaje' => 'Estado actualizado.',
-                'bono'    => $bono,
+                'bono'    => $bono
             ]);
         } catch (Throwable $e) {
             error_log('[EV][apiSoporteUsuariosController::actualizarEstado] ' . $e->getMessage());
-            $this->json(500, ['ok' => false, 'mensaje' => 'Error interno del servidor.']);
+            $this->json(500, [
+                'ok'      => false,
+                'error'   => 'SERVER_ERROR',
+                'mensaje' => 'Error interno del servidor.'
+            ]);
         }
     }
 }

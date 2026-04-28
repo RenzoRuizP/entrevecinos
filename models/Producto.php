@@ -9,7 +9,7 @@
       3 = rechazado
       4 = anulado
 
-    ✅ REGLA MARKETPLACE:
+    REGLA MARKETPLACE:
       - Una publicación solo puede mostrarse en marketplace si:
         1) producto.visible = 2
         2) usuario.estado = 2
@@ -18,32 +18,33 @@
         NO por la residencia actual del usuario dueño.
 */
 
-require_once __DIR__ . '/../Config/EnvConfig.php';
+declare(strict_types=1);
+
 require_once __DIR__ . '/../database/Conexion.php';
 
 class Producto extends Conexion
 {
-    private $titulo;
-    private $imagen_portada;
-    private $descripcion;
-    private $precio;
-    private $estado;
-    private $tipo_atencion_producto = 'no_requiere_preparacion';
+    private ?string $titulo = null;
+    private ?string $imagen_portada = null;
+    private ?string $descripcion = null;
+    private float $precio = 0.0;
+    private ?string $estado = null;
+    private string $tipo_atencion_producto = 'no_requiere_preparacion';
 
-    private $visible = 0;
+    private int $visible = 0;
 
-    private $codigo_usuario;
-    private $codigo_tipo;
-    private $codigo_categoria;
+    private int $codigo_usuario = 0;
+    private ?int $codigo_tipo = null;
+    private ?int $codigo_categoria = null;
 
     // ====== SETTERS ======
-    public function setTitulo($titulo) { $this->titulo = $titulo; }
-    public function setImagen_portada($imagen_portada) { $this->imagen_portada = $imagen_portada; }
-    public function setDescripcion($descripcion) { $this->descripcion = $descripcion; }
-    public function setPrecio($precio) { $this->precio = $precio; }
-    public function setEstado($estado) { $this->estado = $estado; }
-    public function setVisible($visible) { $this->visible = (int)$visible; }
-    public function setCodigoUsuario($codigo_usuario) { $this->codigo_usuario = (int)$codigo_usuario; }
+    public function setTitulo($titulo): void { $this->titulo = trim((string)$titulo); }
+    public function setImagen_portada($imagen_portada): void { $this->imagen_portada = $imagen_portada !== null ? trim((string)$imagen_portada) : null; }
+    public function setDescripcion($descripcion): void { $this->descripcion = trim((string)$descripcion); }
+    public function setPrecio($precio): void { $this->precio = (float)$precio; }
+    public function setEstado($estado): void { $this->estado = trim((string)$estado); }
+    public function setVisible($visible): void { $this->visible = (int)$visible; }
+    public function setCodigoUsuario($codigo_usuario): void { $this->codigo_usuario = (int)$codigo_usuario; }
 
     public function setTipoAtencionProducto($tipo_atencion_producto): void
     {
@@ -54,11 +55,13 @@ class Producto extends Conexion
             : 'no_requiere_preparacion';
     }
 
-    public function setCodigoTipo($codigo_tipo) {
+    public function setCodigoTipo($codigo_tipo): void
+    {
         $this->codigo_tipo = ($codigo_tipo !== null && $codigo_tipo !== '') ? (int)$codigo_tipo : null;
     }
 
-    public function setCodigoCategoria($codigo_categoria) {
+    public function setCodigoCategoria($codigo_categoria): void
+    {
         $this->codigo_categoria = ($codigo_categoria !== null && $codigo_categoria !== '') ? (int)$codigo_categoria : null;
     }
 
@@ -198,7 +201,7 @@ class Producto extends Conexion
 
     /* ==========================================================
        CREAR PRODUCTO (visible=0 borrador)
-       ✅ Guarda snapshot residencial
+       - Guarda snapshot residencial
     ========================================================== */
     public function crearProducto(): int
     {
@@ -252,20 +255,20 @@ class Producto extends Conexion
         ";
 
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindParam(':titulo', $this->titulo, PDO::PARAM_STR);
+        $stmt->bindValue(':titulo', $this->titulo, PDO::PARAM_STR);
 
-        if ($this->imagen_portada !== null) {
+        if ($this->imagen_portada !== null && $this->imagen_portada !== '') {
             $stmt->bindValue(':imagen_portada', $this->imagen_portada, PDO::PARAM_STR);
         } else {
             $stmt->bindValue(':imagen_portada', null, PDO::PARAM_NULL);
         }
 
-        $stmt->bindParam(':descripcion', $this->descripcion, PDO::PARAM_STR);
-        $stmt->bindParam(':estado', $this->estado, PDO::PARAM_STR);
-        $stmt->bindParam(':precio', $this->precio);
+        $stmt->bindValue(':descripcion', $this->descripcion, PDO::PARAM_STR);
+        $stmt->bindValue(':estado', $this->estado, PDO::PARAM_STR);
+        $stmt->bindValue(':precio', $this->precio);
         $stmt->bindValue(':tipo_atencion_producto', $this->tipo_atencion_producto, PDO::PARAM_STR);
-        $stmt->bindParam(':visible', $this->visible, PDO::PARAM_INT);
-        $stmt->bindParam(':codigo_usuario', $this->codigo_usuario, PDO::PARAM_INT);
+        $stmt->bindValue(':visible', $this->visible, PDO::PARAM_INT);
+        $stmt->bindValue(':codigo_usuario', $this->codigo_usuario, PDO::PARAM_INT);
 
         $stmt->bindValue(':codigo_usuario_residencia', (int)$snap['codigo_usuario_residencia'], PDO::PARAM_INT);
         $stmt->bindValue(':tipo_conjunto_publicacion', (string)$snap['tipo_conjunto_publicacion'], PDO::PARAM_STR);
@@ -285,13 +288,13 @@ class Producto extends Conexion
         $stmt->bindValue(':estado_residencial_publicacion', (string)$snap['estado_residencial_publicacion'], PDO::PARAM_STR);
 
         if ($this->codigo_tipo !== null) {
-            $stmt->bindParam(':codigo_tipo', $this->codigo_tipo, PDO::PARAM_INT);
+            $stmt->bindValue(':codigo_tipo', $this->codigo_tipo, PDO::PARAM_INT);
         } else {
             $stmt->bindValue(':codigo_tipo', null, PDO::PARAM_NULL);
         }
 
         if ($this->codigo_categoria !== null) {
-            $stmt->bindParam(':codigo_categoria', $this->codigo_categoria, PDO::PARAM_INT);
+            $stmt->bindValue(':codigo_categoria', $this->codigo_categoria, PDO::PARAM_INT);
         } else {
             $stmt->bindValue(':codigo_categoria', null, PDO::PARAM_NULL);
         }
@@ -312,8 +315,7 @@ class Producto extends Conexion
         ?int $alto = null,
         ?int $pesoBytes = null,
         ?string $mime = null
-    ): void
-    {
+    ): void {
         $sql = "
             INSERT INTO producto_imagen
                 (codigo_producto, ruta, es_portada, orden, ancho, alto, peso_bytes, mime)
@@ -322,21 +324,21 @@ class Producto extends Conexion
         ";
 
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindParam(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
-        $stmt->bindParam(':ruta', $ruta, PDO::PARAM_STR);
-        $stmt->bindParam(':es_portada', $esPortada, PDO::PARAM_INT);
-        $stmt->bindParam(':orden', $orden, PDO::PARAM_INT);
+        $stmt->bindValue(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
+        $stmt->bindValue(':ruta', $ruta, PDO::PARAM_STR);
+        $stmt->bindValue(':es_portada', $esPortada, PDO::PARAM_INT);
+        $stmt->bindValue(':orden', $orden, PDO::PARAM_INT);
 
-        if ($ancho !== null) $stmt->bindParam(':ancho', $ancho, PDO::PARAM_INT);
+        if ($ancho !== null) $stmt->bindValue(':ancho', $ancho, PDO::PARAM_INT);
         else $stmt->bindValue(':ancho', null, PDO::PARAM_NULL);
 
-        if ($alto !== null) $stmt->bindParam(':alto', $alto, PDO::PARAM_INT);
+        if ($alto !== null) $stmt->bindValue(':alto', $alto, PDO::PARAM_INT);
         else $stmt->bindValue(':alto', null, PDO::PARAM_NULL);
 
-        if ($pesoBytes !== null) $stmt->bindParam(':peso_bytes', $pesoBytes, PDO::PARAM_INT);
+        if ($pesoBytes !== null) $stmt->bindValue(':peso_bytes', $pesoBytes, PDO::PARAM_INT);
         else $stmt->bindValue(':peso_bytes', null, PDO::PARAM_NULL);
 
-        if ($mime !== null) $stmt->bindParam(':mime', $mime, PDO::PARAM_STR);
+        if ($mime !== null && $mime !== '') $stmt->bindValue(':mime', $mime, PDO::PARAM_STR);
         else $stmt->bindValue(':mime', null, PDO::PARAM_NULL);
 
         $stmt->execute();
@@ -351,8 +353,8 @@ class Producto extends Conexion
         ";
 
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindParam(':ruta', $rutaPortada, PDO::PARAM_STR);
-        $stmt->bindParam(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
+        $stmt->bindValue(':ruta', $rutaPortada, PDO::PARAM_STR);
+        $stmt->bindValue(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
         $stmt->execute();
     }
 
@@ -375,7 +377,7 @@ class Producto extends Conexion
         ";
 
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindParam(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
+        $stmt->bindValue(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -413,7 +415,7 @@ class Producto extends Conexion
         ";
 
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindParam(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
+        $stmt->bindValue(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
         $stmt->execute();
         $fila = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -430,7 +432,7 @@ class Producto extends Conexion
             LIMIT 1
         ";
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindParam(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
+        $stmt->bindValue(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
         $stmt->execute();
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -440,7 +442,7 @@ class Producto extends Conexion
             WHERE codigo_producto = :p_codigo_producto
         ";
         $stmtClear = $this->dblink->prepare($sqlClear);
-        $stmtClear->bindParam(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
+        $stmtClear->bindValue(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
         $stmtClear->execute();
 
         if ($row) {
@@ -450,10 +452,10 @@ class Producto extends Conexion
                 WHERE codigo_producto_imagen = :p_id
             ";
             $stmtSet = $this->dblink->prepare($sqlSet);
-            $stmtSet->bindParam(':p_id', $row['codigo_producto_imagen'], PDO::PARAM_INT);
+            $stmtSet->bindValue(':p_id', (int)$row['codigo_producto_imagen'], PDO::PARAM_INT);
             $stmtSet->execute();
 
-            $this->actualizarImagenPortada($codigoProducto, $row['ruta']);
+            $this->actualizarImagenPortada($codigoProducto, (string)$row['ruta']);
         } else {
             $sqlNull = "
                 UPDATE producto
@@ -461,7 +463,7 @@ class Producto extends Conexion
                 WHERE codigo_producto = :p_codigo_producto
             ";
             $stmtNull = $this->dblink->prepare($sqlNull);
-            $stmtNull->bindParam(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
+            $stmtNull->bindValue(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
             $stmtNull->execute();
         }
     }
@@ -536,7 +538,7 @@ class Producto extends Conexion
         ";
 
         $sentencia = $this->dblink->prepare($sql);
-        $sentencia->bindParam(':p_codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+        $sentencia->bindValue(':p_codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
         $sentencia->execute();
 
         $items = $sentencia->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -583,8 +585,8 @@ class Producto extends Conexion
         ";
 
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindParam(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
-        $stmt->bindParam(':p_codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+        $stmt->bindValue(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
+        $stmt->bindValue(':p_codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
         $stmt->execute();
 
         $fila = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -613,18 +615,18 @@ class Producto extends Conexion
         ";
 
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindParam(':titulo', $this->titulo, PDO::PARAM_STR);
-        $stmt->bindParam(':descripcion', $this->descripcion, PDO::PARAM_STR);
-        $stmt->bindParam(':estado', $this->estado, PDO::PARAM_STR);
-        $stmt->bindParam(':precio', $this->precio);
+        $stmt->bindValue(':titulo', $this->titulo, PDO::PARAM_STR);
+        $stmt->bindValue(':descripcion', $this->descripcion, PDO::PARAM_STR);
+        $stmt->bindValue(':estado', $this->estado, PDO::PARAM_STR);
+        $stmt->bindValue(':precio', $this->precio);
         $stmt->bindValue(':tipo_atencion_producto', $this->tipo_atencion_producto, PDO::PARAM_STR);
-        $stmt->bindParam(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
-        $stmt->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+        $stmt->bindValue(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
+        $stmt->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
 
-        if ($this->codigo_tipo !== null) $stmt->bindParam(':codigo_tipo', $this->codigo_tipo, PDO::PARAM_INT);
+        if ($this->codigo_tipo !== null) $stmt->bindValue(':codigo_tipo', $this->codigo_tipo, PDO::PARAM_INT);
         else $stmt->bindValue(':codigo_tipo', null, PDO::PARAM_NULL);
 
-        if ($this->codigo_categoria !== null) $stmt->bindParam(':codigo_categoria', $this->codigo_categoria, PDO::PARAM_INT);
+        if ($this->codigo_categoria !== null) $stmt->bindValue(':codigo_categoria', $this->codigo_categoria, PDO::PARAM_INT);
         else $stmt->bindValue(':codigo_categoria', null, PDO::PARAM_NULL);
 
         $stmt->execute();
@@ -643,8 +645,8 @@ class Producto extends Conexion
               AND visible = 0
         ";
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindParam(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
-        $stmt->bindParam(':p_codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+        $stmt->bindValue(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
+        $stmt->bindValue(':p_codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->rowCount() > 0;
     }
@@ -658,7 +660,7 @@ class Producto extends Conexion
               AND visible = 1
         ";
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindParam(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
+        $stmt->bindValue(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->rowCount() > 0;
     }
@@ -674,15 +676,15 @@ class Producto extends Conexion
         ";
 
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindParam(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
-        $stmt->bindParam(':p_codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+        $stmt->bindValue(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
+        $stmt->bindValue(':p_codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
         $stmt->execute();
 
         return $stmt->rowCount() > 0;
     }
 
     /* ==========================================================
-       ✅ BLOQUEAR PUBLICACIONES ANTERIORES POR CAMBIO DE RESIDENCIA
+       BLOQUEAR PUBLICACIONES ANTERIORES POR CAMBIO DE RESIDENCIA
     ========================================================== */
     public function bloquearPublicacionesPorCambioResidencia(int $codigoUsuario, int $codigoUsuarioResidenciaNueva): int
     {
@@ -829,7 +831,7 @@ class Producto extends Conexion
     }
 
     /* ==========================================================
-       ✅ MARKETPLACE FILTRADO POR RESIDENCIA DEL VISOR
+       MARKETPLACE FILTRADO POR RESIDENCIA DEL VISOR
        - Usa snapshot de la publicación, no la residencia actual del dueño
     ========================================================== */
     public function listarMarketplaceFiltradoPorResidencia(
@@ -1043,7 +1045,7 @@ class Producto extends Conexion
             LIMIT 1
         ";
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindParam(':p', $codigoProducto, PDO::PARAM_INT);
+        $stmt->bindValue(':p', $codigoProducto, PDO::PARAM_INT);
         $stmt->execute();
         $r = $stmt->fetch(PDO::FETCH_ASSOC);
         return $r ?: null;
@@ -1091,7 +1093,7 @@ class Producto extends Conexion
         if ($hasQ) {
             $sqlTotal .= " AND (
                 p.titulo LIKE :q OR p.descripcion LIKE :q OR
-                u.nombre LIKE :q OR u.apellido LIKE :q OR u.email LIKE :q
+                u.nombre LIKE :q OR u.email LIKE :q
             )";
         }
         $stmtT = $this->dblink->prepare($sqlTotal);
@@ -1118,7 +1120,7 @@ class Producto extends Conexion
                 p.created_at,
                 p.updated_at,
                 u.codigo_usuario,
-                CONCAT(TRIM(COALESCE(u.nombre,'')), ' ', TRIM(COALESCE(u.apellido,''))) AS usuario_nombre,
+                TRIM(COALESCE(u.nombre,'')) AS usuario_nombre,
                 u.email AS usuario_email,
 
                 pr.codigo_revision AS rev_id,
@@ -1143,7 +1145,7 @@ class Producto extends Conexion
         if ($hasQ) {
             $sql .= " AND (
                 p.titulo LIKE :q OR p.descripcion LIKE :q OR
-                u.nombre LIKE :q OR u.apellido LIKE :q OR u.email LIKE :q
+                u.nombre LIKE :q OR u.email LIKE :q
             )";
         }
         $sql .= " ORDER BY p.updated_at DESC, p.created_at DESC LIMIT :lim OFFSET :off";
@@ -1159,23 +1161,23 @@ class Producto extends Conexion
         $items = [];
         foreach ($rows as $r) {
             $it = [
-                'codigo_producto'                => (int)$r['codigo_producto'],
-                'titulo'                         => $r['titulo'],
-                'descripcion'                    => $r['descripcion'],
-                'estado'                         => $r['estado'],
-                'precio'                         => $r['precio'],
-                'tipo_atencion_producto'         => $r['tipo_atencion_producto'],
-                'visible'                        => (int)$r['visible'],
-                'imagen_portada'                 => $r['imagen_portada'],
-                'codigo_usuario_residencia'      => $r['codigo_usuario_residencia'],
-                'tipo_conjunto_publicacion'      => $r['tipo_conjunto_publicacion'],
-                'codigo_condominio_publicacion'  => $r['codigo_condominio_publicacion'],
-                'codigo_urbanizacion_publicacion'=> $r['codigo_urbanizacion_publicacion'],
-                'estado_residencial_publicacion' => $r['estado_residencial_publicacion'],
-                'created_at'                     => $r['created_at'],
-                'updated_at'                     => $r['updated_at'],
-                'usuario_nombre'                 => $r['usuario_nombre'],
-                'usuario_email'                  => $r['usuario_email'],
+                'codigo_producto'                 => (int)$r['codigo_producto'],
+                'titulo'                          => $r['titulo'],
+                'descripcion'                     => $r['descripcion'],
+                'estado'                          => $r['estado'],
+                'precio'                          => $r['precio'],
+                'tipo_atencion_producto'          => $r['tipo_atencion_producto'],
+                'visible'                         => (int)$r['visible'],
+                'imagen_portada'                  => $r['imagen_portada'],
+                'codigo_usuario_residencia'       => $r['codigo_usuario_residencia'],
+                'tipo_conjunto_publicacion'       => $r['tipo_conjunto_publicacion'],
+                'codigo_condominio_publicacion'   => $r['codigo_condominio_publicacion'],
+                'codigo_urbanizacion_publicacion' => $r['codigo_urbanizacion_publicacion'],
+                'estado_residencial_publicacion'  => $r['estado_residencial_publicacion'],
+                'created_at'                      => $r['created_at'],
+                'updated_at'                      => $r['updated_at'],
+                'usuario_nombre'                  => $r['usuario_nombre'],
+                'usuario_email'                   => $r['usuario_email'],
             ];
 
             if (!empty($r['rev_id'])) {
@@ -1222,7 +1224,7 @@ class Producto extends Conexion
                 p.created_at,
                 p.updated_at,
                 u.codigo_usuario,
-                CONCAT(TRIM(COALESCE(u.nombre,'')), ' ', TRIM(COALESCE(u.apellido,''))) AS usuario_nombre,
+                TRIM(COALESCE(u.nombre,'')) AS usuario_nombre,
                 u.email AS usuario_email
             FROM producto p
             INNER JOIN usuario u ON u.codigo_usuario = p.codigo_usuario
@@ -1230,31 +1232,31 @@ class Producto extends Conexion
             LIMIT 1
         ";
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindParam(':p', $codigoProducto, PDO::PARAM_INT);
+        $stmt->bindValue(':p', $codigoProducto, PDO::PARAM_INT);
         $stmt->execute();
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row) return null;
 
         return [
-            'codigo_producto'                => (int)$row['codigo_producto'],
-            'titulo'                         => $row['titulo'],
-            'descripcion'                    => $row['descripcion'],
-            'estado'                         => $row['estado'],
-            'precio'                         => $row['precio'],
-            'tipo_atencion_producto'         => $row['tipo_atencion_producto'],
-            'visible'                        => (int)$row['visible'],
-            'imagen_portada'                 => $row['imagen_portada'],
-            'codigo_usuario_residencia'      => $row['codigo_usuario_residencia'],
-            'tipo_conjunto_publicacion'      => $row['tipo_conjunto_publicacion'],
-            'codigo_condominio_publicacion'  => $row['codigo_condominio_publicacion'],
-            'codigo_urbanizacion_publicacion'=> $row['codigo_urbanizacion_publicacion'],
-            'estado_residencial_publicacion' => $row['estado_residencial_publicacion'],
-            'created_at'                     => $row['created_at'],
-            'updated_at'                     => $row['updated_at'],
-            'usuario_nombre'                 => $row['usuario_nombre'],
-            'usuario_email'                  => $row['usuario_email'],
-            'imagenes'                       => $this->obtenerImagenes($codigoProducto),
-            'ultima_revision'                => $this->obtenerUltimaRevision($codigoProducto),
+            'codigo_producto'                 => (int)$row['codigo_producto'],
+            'titulo'                          => $row['titulo'],
+            'descripcion'                     => $row['descripcion'],
+            'estado'                          => $row['estado'],
+            'precio'                          => $row['precio'],
+            'tipo_atencion_producto'          => $row['tipo_atencion_producto'],
+            'visible'                         => (int)$row['visible'],
+            'imagen_portada'                  => $row['imagen_portada'],
+            'codigo_usuario_residencia'       => $row['codigo_usuario_residencia'],
+            'tipo_conjunto_publicacion'       => $row['tipo_conjunto_publicacion'],
+            'codigo_condominio_publicacion'   => $row['codigo_condominio_publicacion'],
+            'codigo_urbanizacion_publicacion' => $row['codigo_urbanizacion_publicacion'],
+            'estado_residencial_publicacion'  => $row['estado_residencial_publicacion'],
+            'created_at'                      => $row['created_at'],
+            'updated_at'                      => $row['updated_at'],
+            'usuario_nombre'                  => $row['usuario_nombre'],
+            'usuario_email'                   => $row['usuario_email'],
+            'imagenes'                        => $this->obtenerImagenes($codigoProducto),
+            'ultima_revision'                 => $this->obtenerUltimaRevision($codigoProducto),
         ];
     }
 
@@ -1267,11 +1269,11 @@ class Producto extends Conexion
                 (:p, :ea, :en, :c, :cs)
         ";
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindParam(':p', $codigoProducto, PDO::PARAM_INT);
-        $stmt->bindParam(':ea', $estadoAnterior, PDO::PARAM_INT);
-        $stmt->bindParam(':en', $estadoNuevo, PDO::PARAM_INT);
-        $stmt->bindParam(':c', $comentario, PDO::PARAM_STR);
-        $stmt->bindParam(':cs', $codigoSoporte, PDO::PARAM_INT);
+        $stmt->bindValue(':p', $codigoProducto, PDO::PARAM_INT);
+        $stmt->bindValue(':ea', $estadoAnterior, PDO::PARAM_INT);
+        $stmt->bindValue(':en', $estadoNuevo, PDO::PARAM_INT);
+        $stmt->bindValue(':c', $comentario, PDO::PARAM_STR);
+        $stmt->bindValue(':cs', $codigoSoporte, PDO::PARAM_INT);
         $stmt->execute();
         return (int)$this->dblink->lastInsertId();
     }
@@ -1280,8 +1282,8 @@ class Producto extends Conexion
     {
         $sql = "UPDATE producto SET visible = :v WHERE codigo_producto = :p";
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindParam(':v', $visibleNuevo, PDO::PARAM_INT);
-        $stmt->bindParam(':p', $codigoProducto, PDO::PARAM_INT);
+        $stmt->bindValue(':v', $visibleNuevo, PDO::PARAM_INT);
+        $stmt->bindValue(':p', $codigoProducto, PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->rowCount() > 0;
     }
@@ -1362,5 +1364,4 @@ class Producto extends Conexion
 
         return $fila;
     }
-
 }

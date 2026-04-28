@@ -1,5 +1,5 @@
 <?php
-// controllers/menuPrincipalController.php
+// controllers/MenuPrincipalController.php
 
 require_once __DIR__ . '/../Config/config.php';
 require_once __DIR__ . '/../models/SesionJWT.php';
@@ -38,6 +38,7 @@ class MenuPrincipalController
         }
 
         $menusParaMenuIzquierda = $menus;
+
         require_once __DIR__ . '/../views/MenuPrincipalView.php';
         exit;
     }

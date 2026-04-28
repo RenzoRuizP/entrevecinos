@@ -1,5 +1,7 @@
 <?php
 // models/User.php
+declare(strict_types=1);
+
 require_once __DIR__ . '/../database/Conexion.php';
 
 class User extends Conexion
@@ -47,11 +49,10 @@ class User extends Conexion
             return ['has_conflict' => false];
         }
 
-        // Interpretación de estado (ajusta si tu catálogo cambia)
+        // 0 = Inactivo | 1 = En revisión | 2 = Habilitado
         $emailInactivo = $emailRow && (int)($emailRow['estado'] ?? 1) === 0;
         $docInactivo   = $docRow && (int)($docRow['estado'] ?? 1) === 0;
 
-        // Ambos existen
         if ($emailRow && $docRow) {
             if ($emailInactivo && $docInactivo) {
                 return ['has_conflict' => true, 'error' => 'EMAIL_Y_DOCUMENTO_INACTIVO'];
@@ -59,33 +60,35 @@ class User extends Conexion
             return ['has_conflict' => true, 'error' => 'EMAIL_Y_DOCUMENTO_EXISTE'];
         }
 
-        // Solo email existe
         if ($emailRow) {
-            if ($emailInactivo) return ['has_conflict' => true, 'error' => 'EMAIL_INACTIVO'];
+            if ($emailInactivo) {
+                return ['has_conflict' => true, 'error' => 'EMAIL_INACTIVO'];
+            }
             return ['has_conflict' => true, 'error' => 'EMAIL_EXISTE'];
         }
 
-        // Solo documento existe
         if ($docRow) {
-            if ($docInactivo) return ['has_conflict' => true, 'error' => 'DOCUMENTO_INACTIVO'];
+            if ($docInactivo) {
+                return ['has_conflict' => true, 'error' => 'DOCUMENTO_INACTIVO'];
+            }
             return ['has_conflict' => true, 'error' => 'DOCUMENTO_EXISTE'];
         }
 
         return ['has_conflict' => true, 'error' => 'CONFLICTO'];
     }
 
-    public function registrar($data)
+    public function registrar(array $data): bool
     {
         $stmt = null;
 
         try {
-            $hash = password_hash($data['clave'], PASSWORD_BCRYPT);
+            $hash = password_hash((string)$data['clave'], PASSWORD_BCRYPT);
 
-            $tipo = $data['tipo_conjunto'];
-            $codigoCondominio = $data['codigo_condominio'] ?? null;
+            $tipo               = (string)$data['tipo_conjunto'];
+            $codigoCondominio   = $data['codigo_condominio'] ?? null;
             $codigoUrbanizacion = $data['codigo_urbanizacion'] ?? null;
-            $direccion = $data['direccion'];
-            $comprobante = $data['comprobante_domicilio'] ?? null;
+            $direccion          = (string)$data['direccion'];
+            $comprobante        = $data['comprobante_domicilio'] ?? null;
 
             $sql = "CALL sp_registrar_usuario_v2(
                         :nombre,
@@ -109,7 +112,6 @@ class User extends Conexion
             $stmt->bindParam(':email', $data['email'], PDO::PARAM_STR);
             $stmt->bindParam(':clave', $hash, PDO::PARAM_STR);
             $stmt->bindParam(':codigo_rol', $data['codigo_rol'], PDO::PARAM_INT);
-
             $stmt->bindParam(':tipo_conjunto', $tipo, PDO::PARAM_STR);
 
             if ($codigoCondominio) {
@@ -134,19 +136,28 @@ class User extends Conexion
 
             $ok = $stmt->execute();
 
-            try { $stmt->closeCursor(); } catch (Throwable $e) {}
+            try {
+                $stmt->closeCursor();
+            } catch (Throwable $e) {
+            }
 
             return $ok;
-
         } catch (Throwable $e) {
             if ($stmt) {
-                try { $stmt->closeCursor(); } catch (Throwable $t) {}
+                try {
+                    $stmt->closeCursor();
+                } catch (Throwable $t) {
+                }
             }
             throw $e;
         }
     }
 
-    public function DatosUsuario($email)
+    /**
+     * Retorna datos del usuario por email tomando la residencia vigente
+     * (última fila registrada en usuario_residencia).
+     */
+    public function DatosUsuario(string $email): array|false
     {
         $sql = "
             SELECT
@@ -168,19 +179,25 @@ class User extends Conexion
 
             FROM usuario u
             LEFT JOIN usuario_residencia ur
-                ON u.codigo_usuario = ur.codigo_usuario
+                ON ur.codigo_usuario_residencia = (
+                    SELECT ur2.codigo_usuario_residencia
+                    FROM usuario_residencia ur2
+                    WHERE ur2.codigo_usuario = u.codigo_usuario
+                    ORDER BY ur2.codigo_usuario_residencia DESC
+                    LIMIT 1
+                )
             LEFT JOIN condominio c
                 ON ur.codigo_condominio = c.codigo_condominio
             LEFT JOIN urbanizacion ub
                 ON ur.codigo_urbanizacion = ub.codigo_urbanizacion
             WHERE u.email = :email
-            ORDER BY ur.codigo_usuario_residencia DESC
             LIMIT 1
         ";
 
         $stmt = $this->dblink->prepare($sql);
         $stmt->bindParam(':email', $email, PDO::PARAM_STR);
         $stmt->execute();
+
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 }

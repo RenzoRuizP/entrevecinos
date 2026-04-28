@@ -62,9 +62,8 @@ class DisponibilidadPedido extends Conexion
         $st = $this->dblink->prepare($sql);
         $st->bindValue(':d', $disponible, PDO::PARAM_INT);
         $st->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
-        $st->execute();
 
-        return $st->rowCount() > 0;
+        return $st->execute();
     }
 
     public function obtenerEstadoWidget(int $codigoUsuario): array
@@ -73,9 +72,9 @@ class DisponibilidadPedido extends Conexion
         $mostrar = $productos > 0;
 
         return [
-            'mostrar_control'     => $mostrar,
-            'productos_publicados'=> $productos,
-            'disponibilidad'      => $mostrar ? $this->obtenerDisponibilidadActual($codigoUsuario) : 0
+            'mostrar_control'      => $mostrar,
+            'productos_publicados' => $productos,
+            'disponibilidad'       => $mostrar ? $this->obtenerDisponibilidadActual($codigoUsuario) : 0
         ];
     }
 }

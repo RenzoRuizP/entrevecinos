@@ -1,4 +1,4 @@
- // views/js/menuPrincipal.js
+// views/js/menuPrincipal.js
 (function () {
   'use strict';
 
@@ -6,6 +6,7 @@
   window.__EV_MENU_PRINCIPAL_INIT__ = true;
 
   const BASE = (window.BASE_URL || '').replace(/\/+$/, '');
+  const ROL = String(window.EV_ROL_USUARIO || '').trim().toLowerCase();
   const params = new URLSearchParams(window.location.search);
 
   const PEDIDOS_POLLING_MS = 5000;
@@ -360,7 +361,11 @@
     initOverlayScrollbars();
     await mostrarLoginExitosoSiAplica();
     await restaurarSolicitudActivaGlobal();
-    await initNotificacionesPedidosVendedorGlobal();
+
+    // Solo para vecino
+    if (ROL === 'vecino') {
+      await initNotificacionesPedidosVendedorGlobal();
+    }
   }
 
   document.addEventListener('DOMContentLoaded', function () {

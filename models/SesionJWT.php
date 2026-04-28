@@ -1,32 +1,33 @@
 <?php
-/*
-    SesionJWT.php
-*/
+declare(strict_types=1);
 
-require_once __DIR__ . '/../Config/EnvConfig.php';
-require_once __DIR__ . '/../Config/JwtConfig.php';
+require_once __DIR__ . '/../Config/config.php';
+//require_once __DIR__ . '/Conexion.php';
 require_once __DIR__ . '/../database/Conexion.php';
+require_once __DIR__ . '/../Config/JwtConfig.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Firebase\JWT\ExpiredException;
 
-class SesionJWT extends Conexion {
+class SesionJWT extends Conexion
+{
+    private string $email = '';
+    private string $clave = '';
 
-    private $email;
-    private $clave;
-
-    public function setEmail($email) {
-        $this->email = $email;
+    public function setEmail(string $email): void
+    {
+        $this->email = trim($email);
     }
 
-    public function setClave($clave) {
+    public function setClave(string $clave): void
+    {
         $this->clave = $clave;
     }
 
     /**
-     * ✅ Detecta si el usuario está OBSERVADO (estado_revision=3)
+     * Detecta si el usuario está OBSERVADO (estado_revision = 3)
      */
     private function usuarioEstaObservado(int $codigoUsuario): bool
     {
@@ -39,6 +40,7 @@ class SesionJWT extends Conexion {
                 LIMIT 1
             ");
             $st->execute([':id' => $codigoUsuario]);
+
             return (bool)$st->fetchColumn();
         } catch (Throwable $e) {
             error_log('[EV][SesionJWT][usuarioEstaObservado] ' . $e->getMessage());
@@ -47,7 +49,7 @@ class SesionJWT extends Conexion {
     }
 
     /**
-     * ✅ Si está OBSERVADO y estaba INACTIVO, lo dejamos en REVISIÓN (estado=1)
+     * Si está OBSERVADO y estaba INACTIVO, lo dejamos en REVISIÓN (estado=1)
      * para que pueda iniciar sesión y ver /cuenta-observada.
      */
     private function forzarEstadoRevision(int $codigoUsuario): void
@@ -57,7 +59,6 @@ class SesionJWT extends Conexion {
                 UPDATE usuario
                 SET estado = 1
                 WHERE codigo_usuario = :id
-                LIMIT 1
             ");
             $st->execute([':id' => $codigoUsuario]);
         } catch (Throwable $e) {
@@ -65,224 +66,287 @@ class SesionJWT extends Conexion {
         }
     }
 
-    public function iniciarSesionJWT() {
+    /**
+     * Obtiene nombre del rol por código de usuario.
+     */
+    private function obtenerNombreRol(int $codigoUsuario): string
+    {
+        $sql = "
+            SELECT r.nombre AS nombre_rol
+            FROM usuario u
+            INNER JOIN rol r ON u.codigo_rol = r.codigo_rol
+            WHERE u.codigo_usuario = :codigo_usuario
+            LIMIT 1
+        ";
+
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->execute([':codigo_usuario' => $codigoUsuario]);
+
+        $rol = $stmt->fetchColumn();
+
+        return is_string($rol) ? $rol : '';
+    }
+
+    /**
+     * Residencia legacy: usuario_departamento.
+     * Se mantiene por compatibilidad mientras migras todo a usuario_residencia.
+     */
+    private function obtenerResidenciaLegacy(int $codigoUsuario): array
+    {
+        $sql = "
+            SELECT
+                c.nombre_condominio,
+                t.nombre_torre,
+                d.numero_departamento
+            FROM usuario_departamento ud
+            INNER JOIN departamento d
+                ON d.codigo_departamento = ud.codigo_departamento
+            INNER JOIN torre t
+                ON t.codigo_torre = d.codigo_torre
+            INNER JOIN condominio c
+                ON c.codigo_condominio = t.codigo_condominio
+            WHERE
+                ud.codigo_usuario = :codigo_usuario
+                AND (ud.fecha_fin IS NULL OR ud.fecha_fin >= CURRENT_DATE())
+            ORDER BY ud.fecha_inicio DESC
+            LIMIT 1
+        ";
+
         try {
-            // 1) Validar email
-            $sql = "SELECT * FROM usuario WHERE email = :email";
             $stmt = $this->dblink->prepare($sql);
-            $stmt->bindParam(':email', $this->email);
-            $stmt->execute();
+            $stmt->execute([':codigo_usuario' => $codigoUsuario]);
+
+            $res = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!is_array($res)) {
+                return [
+                    'condominio_nombre'   => null,
+                    'torre_nombre'        => null,
+                    'departamento_numero' => null,
+                ];
+            }
+
+            return [
+                'condominio_nombre'   => $res['nombre_condominio'] ?? null,
+                'torre_nombre'        => $res['nombre_torre'] ?? null,
+                'departamento_numero' => $res['numero_departamento'] ?? null,
+            ];
+        } catch (Throwable $e) {
+            error_log('[EV][SesionJWT][obtenerResidenciaLegacy] ' . $e->getMessage());
+
+            return [
+                'condominio_nombre'   => null,
+                'torre_nombre'        => null,
+                'departamento_numero' => null,
+            ];
+        }
+    }
+
+    public function iniciarSesionJWT(): array
+    {
+        try {
+            $sql = "SELECT * FROM usuario WHERE email = :email LIMIT 1";
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->execute([':email' => $this->email]);
 
             $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if (!$usuario)
+            if (!$usuario) {
                 return ['status' => 'NE']; // No existe
+            }
 
-            if (!password_verify($this->clave, $usuario['clave']))
+            if (!password_verify($this->clave, (string)$usuario['clave'])) {
                 return ['status' => 'CI']; // Contraseña incorrecta
+            }
 
             $codigoUsuario = (int)($usuario['codigo_usuario'] ?? 0);
             $estadoUsuario = (int)($usuario['estado'] ?? 0);
 
-            // =========================================================
-            // ✅ CORRECCIÓN DE RAÍZ:
-            // Si está INACTIVO (0) pero está OBSERVADO (estado_revision=3),
-            // NO bloqueamos login. Le permitimos entrar para ver el mensaje
-            // en /cuenta-observada y forzamos estado=1 para consistencia.
-            // =========================================================
+            // Si está inactivo, revisar si en realidad está observado.
             if ($estadoUsuario === 0) {
                 $observado = ($codigoUsuario > 0) ? $this->usuarioEstaObservado($codigoUsuario) : false;
 
                 if ($observado) {
-                    // Permitir login y dejarlo en revisión (estado=1)
                     $this->forzarEstadoRevision($codigoUsuario);
                     $estadoUsuario = 1;
                 } else {
-                    return ['status' => 'IN']; // Usuario inactivo real (no observado)
+                    return ['status' => 'IN'];
                 }
             }
 
-            // ✅ 2) Obtener rol (NOMBRE)
-            $sqlRoles = "
-                SELECT r.nombre AS nombre_rol
-                FROM usuario u
-                INNER JOIN rol r ON u.codigo_rol = r.codigo_rol
-                WHERE u.codigo_usuario = :codigo_usuario
-                LIMIT 1
-            ";
-            $stmtRoles = $this->dblink->prepare($sqlRoles);
-            $stmtRoles->bindParam(':codigo_usuario', $codigoUsuario);
-            $stmtRoles->execute();
-            $rolNombre = $stmtRoles->fetch(PDO::FETCH_COLUMN);
+            $rolNombre  = $this->obtenerNombreRol($codigoUsuario);
+            $residencia = $this->obtenerResidenciaLegacy($codigoUsuario);
 
-            // ✅ 3) Residencia (legacy: usuario_departamento)
-            $sqlResidencia = "
-                SELECT
-                    c.nombre_condominio,
-                    t.nombre_torre,
-                    d.numero_departamento
-                FROM usuario_departamento ud
-                INNER JOIN departamento d
-                    ON d.codigo_departamento = ud.codigo_departamento
-                INNER JOIN torre t
-                    ON t.codigo_torre = d.codigo_torre
-                INNER JOIN condominio c
-                    ON c.codigo_condominio = t.codigo_condominio
-                WHERE
-                    ud.codigo_usuario = :codigo_usuario
-                    AND (ud.fecha_fin IS NULL OR ud.fecha_fin >= CURRENT_DATE())
-                ORDER BY ud.fecha_inicio DESC
-                LIMIT 1
-            ";
-
-            $stmtRes = $this->dblink->prepare($sqlResidencia);
-            $stmtRes->bindParam(':codigo_usuario', $codigoUsuario);
-            $stmtRes->execute();
-            $residencia = $stmtRes->fetch(PDO::FETCH_ASSOC);
-
-            $condominioNombre = $residencia['nombre_condominio'] ?? null;
-            $torreNombre      = $residencia['nombre_torre'] ?? null;
-            $depaNumero       = $residencia['numero_departamento'] ?? null;
-
-            // ✅ 4) Datos del token
             $datosToken = [
-                'codigo_usuario'       => $codigoUsuario,
-                'nombre'               => (string)($usuario['nombre'] ?? ''),
-                'email'                => (string)($usuario['email'] ?? ''),
-
-                // roles para autorización
-                'codigo_rol'           => (int)($usuario['codigo_rol'] ?? 0),
-                'rol'                  => (string)($rolNombre ?: ''),
-                'nombre_rol'           => (string)($rolNombre ?: ''),
-
-                // residencia (si existe)
-                'condominio_nombre'    => $condominioNombre,
-                'torre_nombre'         => $torreNombre,
-                'departamento_numero'  => $depaNumero
+                'codigo_usuario'      => $codigoUsuario,
+                'nombre'              => (string)($usuario['nombre'] ?? ''),
+                'email'               => (string)($usuario['email'] ?? ''),
+                'codigo_rol'          => (int)($usuario['codigo_rol'] ?? 0),
+                'rol'                 => $rolNombre,
+                'nombre_rol'          => $rolNombre,
+                'condominio_nombre'   => $residencia['condominio_nombre'],
+                'torre_nombre'        => $residencia['torre_nombre'],
+                'departamento_numero' => $residencia['departamento_numero'],
             ];
 
-            // 5) Token
             $token = JwtConfig::generarToken($datosToken);
 
             return [
                 'status' => 'SI',
                 'token'  => $token,
-                'rol'    => $rolNombre
+                'rol'    => $rolNombre,
             ];
-
-        } catch (Exception $e) {
-            error_log($e->getMessage());
-            return ['status' => 'ER']; // Error interno
+        } catch (Throwable $e) {
+            error_log('[EV][SesionJWT][iniciarSesionJWT] ' . $e->getMessage());
+            return ['status' => 'ER'];
         }
     }
 
-    // ============================================================
-    // VERIFICAR TOKEN (DETALLADO)
-    // ============================================================
-    public static function verificarTokenDetallado(?string $token): array {
+    public static function verificarTokenDetallado(?string $token): array
+    {
         if (!$token || trim($token) === '') {
             return ['ok' => false, 'error' => 'TOKEN_AUSENTE', 'data' => null];
         }
 
-        $claveSecreta = $_ENV['JWT_SECRET_KEY'];
+        $claveSecreta = $_ENV['JWT_SECRET_KEY'] ?? '';
+
+        if ($claveSecreta === '') {
+            return ['ok' => false, 'error' => 'JWT_SECRET_NO_CONFIGURADO', 'data' => null];
+        }
 
         try {
             $decoded = JWT::decode($token, new Key($claveSecreta, 'HS256'));
 
             $data = isset($decoded->data)
-                ? json_decode(json_encode($decoded->data), true)
+                ? json_decode(json_encode($decoded->data, JSON_UNESCAPED_UNICODE), true)
                 : [];
 
-            return ['ok' => true, 'error' => null, 'data' => $data];
-
+            return ['ok' => true, 'error' => null, 'data' => is_array($data) ? $data : []];
         } catch (ExpiredException $e) {
             return ['ok' => false, 'error' => 'TOKEN_EXPIRADO', 'data' => null];
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             return ['ok' => false, 'error' => 'TOKEN_INVALIDO', 'data' => null];
         }
     }
 
-    // Wrapper compatible
-    public static function verificarToken(string $token) {
+    public static function verificarToken(string $token): ?array
+    {
         $r = self::verificarTokenDetallado($token);
         return $r['ok'] ? $r['data'] : null;
     }
 
-    // ============================================================
-    // COOKIE HELPERS (CONSISTENTE EN LOCAL/PROD)
-    // ============================================================
-    public static function cookieSecure(): bool {
+    public static function cookieSecure(): bool
+    {
         return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (isset($_SERVER['SERVER_PORT']) && intval($_SERVER['SERVER_PORT']) === 443);
+            || (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443);
     }
 
-    public static function cookiePath(): string {
+    public static function cookiePath(): string
+    {
         $p = defined('BASE_URL') ? (string)BASE_URL : '/';
         $p = trim($p);
-        if ($p === '') $p = '/';
-        if ($p[0] !== '/') $p = '/' . $p;
+
+        if ($p === '') {
+            $p = '/';
+        }
+
+        if ($p[0] !== '/') {
+            $p = '/' . $p;
+        }
+
         $p = rtrim($p, '/');
+
         return ($p === '') ? '/' : ($p . '/');
     }
 
-    public static function eliminarToken(): bool {
-        if (!isset($_COOKIE['auth_token'])) return false;
+    public static function eliminarToken(): bool
+    {
+        if (!isset($_COOKIE['auth_token'])) {
+            return false;
+        }
 
         $params = [
             'expires'  => time() - 3600,
             'path'     => self::cookiePath(),
             'secure'   => self::cookieSecure(),
             'httponly' => true,
-            'samesite' => 'Lax'
+            'samesite' => self::cookieSecure() ? 'None' : 'Lax',
         ];
 
         setcookie('auth_token', '', $params);
         unset($_COOKIE['auth_token']);
+
         return true;
     }
 
-    // ============================================================
-    // MENÚS
-    // ============================================================
-    public function obtenerOpcionesMenu($nombre_rol) {
+    public function obtenerOpcionesMenu(string $nombreRol): array
+    {
         try {
             $sql = "
                 SELECT DISTINCT
-                    m.codigo_menu, m.nombre, m.icono
+                    m.codigo_menu,
+                    m.nombre,
+                    m.icono,
+                    m.orden
                 FROM rol r
-                INNER JOIN menu_item_accesos m_i_a ON r.codigo_rol = m_i_a.codigo_rol
-                INNER JOIN menu_item m_i          ON m_i.codigo_menu_item = m_i_a.codigo_menu_item
-                INNER JOIN menu m                 ON m.codigo_menu = m_i.codigo_menu
-                WHERE r.nombre LIKE :p_nombre_rol;
+                INNER JOIN rol_menu_item rmi
+                    ON rmi.codigo_rol = r.codigo_rol
+                INNER JOIN menu_item mi
+                    ON mi.codigo_menu_item = rmi.codigo_menu_item
+                INNER JOIN menu m
+                    ON m.codigo_menu = mi.codigo_menu
+                WHERE r.nombre = :p_nombre_rol
+                AND r.estado = 1
+                AND m.estado = 1
+                AND mi.estado = 1
+                ORDER BY m.orden ASC
             ";
-            $sentencia = $this->dblink->prepare($sql);
-            $sentencia->bindParam(':p_nombre_rol', $nombre_rol);
-            $sentencia->execute();
-            return $sentencia->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Exception $exc) {
-            throw $exc;
+
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->execute([':p_nombre_rol' => $nombreRol]);
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            error_log('[EV][SesionJWT][obtenerOpcionesMenu] ' . $e->getMessage());
+            return [];
         }
     }
 
-    public function obtenerOpcionesMenuItem($nombreRol, $codigo_menu) {
+    public function obtenerOpcionesMenuItem(string $nombreRol, int $codigoMenu): array
+    {
         try {
             $sql = "
                 SELECT
-                    m_i.codigo_menu_item, m_i.nombre, m_i.icono, m_i.ruta
+                    mi.codigo_menu_item,
+                    mi.nombre,
+                    mi.icono,
+                    mi.ruta,
+                    mi.orden
                 FROM rol r
-                INNER JOIN menu_item_accesos m_i_a ON r.codigo_rol = m_i_a.codigo_rol
-                INNER JOIN menu_item m_i          ON m_i.codigo_menu_item = m_i_a.codigo_menu_item
-                INNER JOIN menu m                 ON m.codigo_menu = m_i.codigo_menu
-                WHERE r.nombre LIKE :p_nombreRol
-                  AND m.codigo_menu = :p_codigo_menu;
+                INNER JOIN rol_menu_item rmi
+                    ON rmi.codigo_rol = r.codigo_rol
+                INNER JOIN menu_item mi
+                    ON mi.codigo_menu_item = rmi.codigo_menu_item
+                INNER JOIN menu m
+                    ON m.codigo_menu = mi.codigo_menu
+                WHERE r.nombre = :p_nombre_rol
+                AND m.codigo_menu = :p_codigo_menu
+                AND r.estado = 1
+                AND m.estado = 1
+                AND mi.estado = 1
+                ORDER BY mi.orden ASC
             ";
-            $sentencia = $this->dblink->prepare($sql);
-            $sentencia->bindParam(':p_nombreRol', $nombreRol);
-            $sentencia->bindParam(':p_codigo_menu', $codigo_menu);
-            $sentencia->execute();
-            return $sentencia->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Exception $exc) {
-            throw $exc;
+
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->execute([
+                ':p_nombre_rol'   => $nombreRol,
+                ':p_codigo_menu'  => $codigoMenu,
+            ]);
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            error_log('[EV][SesionJWT][obtenerOpcionesMenuItem] ' . $e->getMessage());
+            return [];
         }
     }
 }

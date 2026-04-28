@@ -6,7 +6,210 @@ require_once __DIR__ . '/../database/Conexion.php';
 
 final class SoporteRecargas extends Conexion
 {
-    private const ESTADOS_VALIDOS = ['pendiente','observada','aprobada','rechazada'];
+    private const ESTADOS_VALIDOS = ['pendiente', 'observada', 'aprobada', 'rechazada'];
+
+    private function obtenerOBilleteraBloqueada(int $codigoUsuario): array
+    {
+        $stB = $this->dblink->prepare("
+            SELECT codigo_billetera, codigo_usuario, saldo_actual
+            FROM billetera
+            WHERE codigo_usuario = :u
+            FOR UPDATE
+        ");
+        $stB->execute([':u' => $codigoUsuario]);
+        $bil = $stB->fetch(PDO::FETCH_ASSOC);
+
+        if ($bil) {
+            return [
+                'codigo_billetera' => (int)$bil['codigo_billetera'],
+                'codigo_usuario'   => (int)$bil['codigo_usuario'],
+                'saldo_actual'     => (float)$bil['saldo_actual'],
+            ];
+        }
+
+        $insB = $this->dblink->prepare("
+            INSERT INTO billetera (codigo_usuario, saldo_actual, estado)
+            VALUES (:u, 0.00, 1)
+        ");
+        $insB->execute([':u' => $codigoUsuario]);
+
+        $stB->execute([':u' => $codigoUsuario]);
+        $bil = $stB->fetch(PDO::FETCH_ASSOC);
+
+        return [
+            'codigo_billetera' => (int)($bil['codigo_billetera'] ?? 0),
+            'codigo_usuario'   => (int)($bil['codigo_usuario'] ?? $codigoUsuario),
+            'saldo_actual'     => (float)($bil['saldo_actual'] ?? 0),
+        ];
+    }
+
+    private function contarMovimientosRecarga(int $codigoBilletera, string $origen, int $codigoRecarga): int
+    {
+        $sql = "
+            SELECT COUNT(*)
+            FROM billetera_movimiento
+            WHERE codigo_billetera = :b
+              AND origen = :o
+              AND codigo_referencia = :r
+        ";
+        $st = $this->dblink->prepare($sql);
+        $st->execute([
+            ':b' => $codigoBilletera,
+            ':o' => $origen,
+            ':r' => $codigoRecarga
+        ]);
+        return (int)$st->fetchColumn();
+    }
+
+    private function registrarMovimiento(
+        int $codigoBilletera,
+        string $tipoMovimiento,
+        float $monto,
+        float $saldoAntes,
+        float $saldoDespues,
+        string $descripcion,
+        string $origen,
+        ?int $codigoReferencia = null
+    ): void {
+        $sql = "
+            INSERT INTO billetera_movimiento
+            (
+                codigo_billetera,
+                tipo_movimiento,
+                monto,
+                saldo_antes,
+                saldo_despues,
+                descripcion,
+                origen,
+                codigo_referencia,
+                es_promocional,
+                fecha_expira
+            )
+            VALUES
+            (
+                :codigo_billetera,
+                :tipo_movimiento,
+                :monto,
+                :saldo_antes,
+                :saldo_despues,
+                :descripcion,
+                :origen,
+                :codigo_referencia,
+                0,
+                NULL
+            )
+        ";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
+        $st->bindValue(':tipo_movimiento', $tipoMovimiento, PDO::PARAM_STR);
+        $st->bindValue(':monto', $monto);
+        $st->bindValue(':saldo_antes', $saldoAntes);
+        $st->bindValue(':saldo_despues', $saldoDespues);
+        $st->bindValue(':descripcion', $descripcion, PDO::PARAM_STR);
+        $st->bindValue(':origen', $origen, PDO::PARAM_STR);
+
+        if ($codigoReferencia !== null) {
+            $st->bindValue(':codigo_referencia', $codigoReferencia, PDO::PARAM_INT);
+        } else {
+            $st->bindValue(':codigo_referencia', null, PDO::PARAM_NULL);
+        }
+
+        $st->execute();
+    }
+
+    private function actualizarSaldoBilletera(int $codigoBilletera, float $nuevoSaldo): void
+    {
+        $updB = $this->dblink->prepare("
+            UPDATE billetera
+            SET saldo_actual = :s
+            WHERE codigo_billetera = :b
+        ");
+        $updB->execute([
+            ':s' => number_format($nuevoSaldo, 2, '.', ''),
+            ':b' => $codigoBilletera
+        ]);
+    }
+
+    /**
+     * Deja la billetera en el estado correcto según si la recarga debe estar aprobada o no.
+     * Usa historial de movimientos para no duplicar créditos/débitos.
+     */
+    private function sincronizarBilleteraPorRecarga(
+        int $codigoBilletera,
+        float $saldoActual,
+        int $codigoRecarga,
+        float $monto,
+        string $metodo,
+        bool $debeEstarAprobada
+    ): array {
+        $creditsOriginal = $this->contarMovimientosRecarga($codigoBilletera, 'RECARGA_MANUAL', $codigoRecarga);
+        $creditsReaplica = $this->contarMovimientosRecarga($codigoBilletera, 'RECARGA_MANUAL_REACTIVADA', $codigoRecarga);
+        $debitsReversa   = $this->contarMovimientosRecarga($codigoBilletera, 'RECARGA_MANUAL_REVERSA', $codigoRecarga);
+
+        $creditosTotales = $creditsOriginal + $creditsReaplica;
+        $netoAplicado    = ($creditosTotales > $debitsReversa);
+
+        $saldoNuevo = $saldoActual;
+
+        if ($debeEstarAprobada) {
+            if (!$netoAplicado) {
+                $origen = ($creditosTotales === 0) ? 'RECARGA_MANUAL' : 'RECARGA_MANUAL_REACTIVADA';
+                $descripcion = ($origen === 'RECARGA_MANUAL')
+                    ? "Recarga manual (" . strtoupper($metodo) . ")"
+                    : "Reactivación de recarga (" . strtoupper($metodo) . ")";
+
+                $saldoNuevo = round($saldoActual + $monto, 2);
+
+                $this->registrarMovimiento(
+                    $codigoBilletera,
+                    'C',
+                    $monto,
+                    $saldoActual,
+                    $saldoNuevo,
+                    $descripcion,
+                    $origen,
+                    $codigoRecarga
+                );
+
+                $this->actualizarSaldoBilletera($codigoBilletera, $saldoNuevo);
+            }
+
+            return [
+                'ok' => true,
+                'saldo_nuevo' => $saldoNuevo
+            ];
+        }
+
+        if ($netoAplicado) {
+            $saldoNuevo = round($saldoActual - $monto, 2);
+
+            if ($saldoNuevo < -0.00001) {
+                return [
+                    'ok' => false,
+                    'error' => 'WALLET_INCONSISTENT',
+                    'mensaje' => 'No se puede revertir: saldo insuficiente para restar la recarga'
+                ];
+            }
+
+            $this->registrarMovimiento(
+                $codigoBilletera,
+                'D',
+                $monto,
+                $saldoActual,
+                $saldoNuevo,
+                'Reversa de recarga manual',
+                'RECARGA_MANUAL_REVERSA',
+                $codigoRecarga
+            );
+
+            $this->actualizarSaldoBilletera($codigoBilletera, $saldoNuevo);
+        }
+
+        return [
+            'ok' => true,
+            'saldo_nuevo' => $saldoNuevo
+        ];
+    }
 
     public function listar(array $filtros): array
     {
@@ -134,7 +337,7 @@ final class SoporteRecargas extends Conexion
             $this->dblink->beginTransaction();
 
             $st = $this->dblink->prepare("
-                SELECT codigo_recarga, codigo_usuario, monto, estado
+                SELECT codigo_recarga, codigo_usuario, monto, metodo, estado
                 FROM recarga_saldo
                 WHERE codigo_recarga = :id
                 FOR UPDATE
@@ -149,61 +352,25 @@ final class SoporteRecargas extends Conexion
 
             $codigoUsuario = (int)$rec['codigo_usuario'];
             $monto         = (float)$rec['monto'];
+            $metodo        = (string)$rec['metodo'];
             $estadoActual  = (string)$rec['estado'];
 
-            $stB = $this->dblink->prepare("
-                SELECT codigo_billetera, saldo_actual
-                FROM billetera
-                WHERE codigo_usuario = :u
-                FOR UPDATE
-            ");
-            $stB->execute([':u' => $codigoUsuario]);
-            $bil = $stB->fetch(PDO::FETCH_ASSOC);
+            $bil = $this->obtenerOBilleteraBloqueada($codigoUsuario);
+            $codigoBilletera = (int)$bil['codigo_billetera'];
+            $saldoActual = (float)$bil['saldo_actual'];
 
-            if (!$bil) {
-                $insB = $this->dblink->prepare("
-                    INSERT INTO billetera (codigo_usuario, saldo_actual, estado)
-                    VALUES (:u, 0.00, 1)
-                ");
-                $insB->execute([':u' => $codigoUsuario]);
+            $sync = $this->sincronizarBilleteraPorRecarga(
+                $codigoBilletera,
+                $saldoActual,
+                $codigoRecarga,
+                $monto,
+                $metodo,
+                $nuevoEstado === 'aprobada'
+            );
 
-                $stB->execute([':u' => $codigoUsuario]);
-                $bil = $stB->fetch(PDO::FETCH_ASSOC);
-            }
-
-            $saldoActual = (float)($bil['saldo_actual'] ?? 0);
-            $saldoNuevo  = $saldoActual;
-
-            $cambioEstado = ($nuevoEstado !== $estadoActual);
-
-            if ($cambioEstado) {
-                if ($estadoActual === 'aprobada' && $nuevoEstado !== 'aprobada') {
-                    $saldoNuevo = $saldoActual - $monto;
-                    if ($saldoNuevo < -0.00001) {
-                        $this->dblink->rollBack();
-                        return [
-                            'ok' => false,
-                            'error' => 'WALLET_INCONSISTENT',
-                            'mensaje' => 'No se puede revertir: saldo insuficiente para restar la recarga'
-                        ];
-                    }
-                }
-
-                if ($estadoActual !== 'aprobada' && $nuevoEstado === 'aprobada') {
-                    $saldoNuevo = $saldoActual + $monto;
-                }
-            }
-
-            if (abs($saldoNuevo - $saldoActual) > 0.00001) {
-                $updB = $this->dblink->prepare("
-                    UPDATE billetera
-                    SET saldo_actual = :s
-                    WHERE codigo_usuario = :u
-                ");
-                $updB->execute([
-                    ':s' => number_format($saldoNuevo, 2, '.', ''),
-                    ':u' => $codigoUsuario
-                ]);
+            if (!($sync['ok'] ?? false)) {
+                $this->dblink->rollBack();
+                return $sync;
             }
 
             $reenviadaUsuario = ($nuevoEstado === 'observada' || $nuevoEstado === 'rechazada') ? 0 : null;
@@ -268,7 +435,7 @@ final class SoporteRecargas extends Conexion
             $row = $out->fetch(PDO::FETCH_ASSOC);
 
             return ['ok' => true, 'data' => $row];
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             if ($this->dblink->inTransaction()) $this->dblink->rollBack();
             error_log('[EV][SoporteRecargas::actualizarEstado] ' . $e->getMessage());
             return ['ok' => false, 'error' => 'SERVER_ERROR', 'mensaje' => 'Error interno al actualizar estado'];

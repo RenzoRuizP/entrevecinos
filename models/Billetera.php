@@ -1,7 +1,7 @@
 <?php
 // models/Billetera.php
+declare(strict_types=1);
 
-require_once __DIR__ . '/../Config/EnvConfig.php';
 require_once __DIR__ . '/../database/Conexion.php';
 
 class Billetera extends Conexion
@@ -32,8 +32,8 @@ class Billetera extends Conexion
         }
 
         $sqlInsert = "
-            INSERT INTO billetera (codigo_usuario, saldo_actual)
-            VALUES (:codigo_usuario, 0.00)
+            INSERT INTO billetera (codigo_usuario, saldo_actual, estado)
+            VALUES (:codigo_usuario, 0.00, 1)
         ";
         $stmtInsert = $this->dblink->prepare($sqlInsert);
         $stmtInsert->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
@@ -201,12 +201,16 @@ class Billetera extends Conexion
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($row) {
-            return $row;
+            return [
+                'codigo_billetera' => (int)$row['codigo_billetera'],
+                'codigo_usuario'   => (int)$row['codigo_usuario'],
+                'saldo_actual'     => (float)$row['saldo_actual'],
+            ];
         }
 
         $sqlInsert = "
-            INSERT INTO billetera (codigo_usuario, saldo_actual)
-            VALUES (:codigo_usuario, 0.00)
+            INSERT INTO billetera (codigo_usuario, saldo_actual, estado)
+            VALUES (:codigo_usuario, 0.00, 1)
         ";
         $stmtInsert = $this->dblink->prepare($sqlInsert);
         $stmtInsert->bindParam(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
@@ -399,9 +403,9 @@ class Billetera extends Conexion
                 }
 
                 return [
-                    'ok'             => true,
-                    'ya_aplicado'    => true,
-                    'saldo_actual'   => $saldoActual,
+                    'ok'               => true,
+                    'ya_aplicado'      => true,
+                    'saldo_actual'     => $saldoActual,
                     'codigo_billetera' => $codigoBilletera
                 ];
             }
@@ -412,11 +416,11 @@ class Billetera extends Conexion
                 }
 
                 return [
-                    'ok'             => false,
-                    'codigo'         => 'SALDO_INSUFICIENTE_BILLETERA',
-                    'mensaje'        => 'Tu billetera no tiene saldo suficiente para enviar esta solicitud.',
-                    'saldo_actual'   => $saldoActual,
-                    'monto_requerido'=> round($monto, 2)
+                    'ok'              => false,
+                    'codigo'          => 'SALDO_INSUFICIENTE_BILLETERA',
+                    'mensaje'         => 'Tu billetera no tiene saldo suficiente para enviar esta solicitud.',
+                    'saldo_actual'    => $saldoActual,
+                    'monto_requerido' => round($monto, 2)
                 ];
             }
 

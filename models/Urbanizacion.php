@@ -1,5 +1,7 @@
 <?php
 // models/Urbanizacion.php
+declare(strict_types=1);
+
 require_once __DIR__ . '/../database/Conexion.php';
 
 class Urbanizacion extends Conexion
@@ -27,13 +29,11 @@ class Urbanizacion extends Conexion
         return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    /**
-     * ✅ NUEVO: Obtiene la dirección de la urbanización por ID.
-     * Usado para Opción A (dirección desde BD; no confiar en POST si el input está disabled).
-     */
     public function obtenerDireccionPorId(int $codigoUrbanizacion): string
     {
-        if ($codigoUrbanizacion <= 0) return '';
+        if ($codigoUrbanizacion <= 0) {
+            return '';
+        }
 
         $sql = "SELECT direccion_urbanizacion
                 FROM urbanizacion

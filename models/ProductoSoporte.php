@@ -1,11 +1,11 @@
 <?php
 // models/ProductoSoporte.php
+declare(strict_types=1);
 
 require_once __DIR__ . '/../database/Conexion.php';
 
 class ProductoSoporte extends Conexion
 {
-    // Prefijo para identificar reenvíos por corrección (vecino)
     private const REENVIO_PREFIX = 'REENVIO_CORRECCION|';
 
     public function listarSoporte(array $filtros): array
@@ -39,7 +39,6 @@ class ProductoSoporte extends Conexion
 
         $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
-        // Total
         $sqlTotal = "
             SELECT COUNT(*) AS total
             FROM producto p
@@ -55,9 +54,21 @@ class ProductoSoporte extends Conexion
 
         $offset = ($page - 1) * $size;
 
-        /**
-         * ✅ Última revisión por producto
-         */
+        $cols = [];
+        $stCols = $this->dblink->prepare("SHOW COLUMNS FROM producto");
+        $stCols->execute();
+        foreach ($stCols->fetchAll(PDO::FETCH_ASSOC) as $c) {
+            $cols[strtolower((string)$c['Field'])] = true;
+        }
+
+        $selectDestacado = '';
+        if (isset($cols['destacado'])) {
+            $selectDestacado .= ", p.destacado";
+        }
+        if (isset($cols['fecha_destacado'])) {
+            $selectDestacado .= ", p.fecha_destacado";
+        }
+
         $sql = "
             SELECT
                 p.codigo_producto,
@@ -66,9 +77,8 @@ class ProductoSoporte extends Conexion
                 p.precio,
                 p.estado,
                 p.imagen_portada,
-                p.visible,
-                p.destacado,
-                p.fecha_destacado,
+                p.visible
+                {$selectDestacado},
                 p.created_at,
                 p.updated_at,
                 u.nombre AS usuario_nombre,
@@ -97,11 +107,11 @@ class ProductoSoporte extends Conexion
         foreach ($params as $k => $v) {
             $st->bindValue($k, $v);
         }
-        $st->bindValue(':limit', $size, \PDO::PARAM_INT);
-        $st->bindValue(':offset', $offset, \PDO::PARAM_INT);
+        $st->bindValue(':limit', $size, PDO::PARAM_INT);
+        $st->bindValue(':offset', $offset, PDO::PARAM_INT);
         $st->execute();
 
-        $rows = $st->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
         $items = [];
 
         foreach ($rows as $r) {
@@ -156,8 +166,8 @@ class ProductoSoporte extends Conexion
                 WHERE codigo_producto = :id
                 LIMIT 1";
         $st = $this->dblink->prepare($sql);
-        $st->bindValue(':v', $nuevoVisible, \PDO::PARAM_INT);
-        $st->bindValue(':id', $codigoProducto, \PDO::PARAM_INT);
+        $st->bindValue(':v', $nuevoVisible, PDO::PARAM_INT);
+        $st->bindValue(':id', $codigoProducto, PDO::PARAM_INT);
         return (bool)$st->execute();
     }
 
@@ -165,7 +175,7 @@ class ProductoSoporte extends Conexion
     {
         $sql = "SELECT visible FROM producto WHERE codigo_producto = :id LIMIT 1";
         $st = $this->dblink->prepare($sql);
-        $st->bindValue(':id', $codigoProducto, \PDO::PARAM_INT);
+        $st->bindValue(':id', $codigoProducto, PDO::PARAM_INT);
         $st->execute();
         $v = $st->fetchColumn();
         if ($v === false) return null;
@@ -191,17 +201,17 @@ class ProductoSoporte extends Conexion
                 (:p, :ea, :en, :c, :s)
         ";
         $st = $this->dblink->prepare($sql);
-        $st->bindValue(':p',  $codigoProducto, \PDO::PARAM_INT);
-        $st->bindValue(':ea', $estadoAnterior, \PDO::PARAM_INT);
-        $st->bindValue(':en', $estadoNuevo, \PDO::PARAM_INT);
+        $st->bindValue(':p',  $codigoProducto, PDO::PARAM_INT);
+        $st->bindValue(':ea', $estadoAnterior, PDO::PARAM_INT);
+        $st->bindValue(':en', $estadoNuevo, PDO::PARAM_INT);
 
         if ($comentario !== '') {
-            $st->bindValue(':c', $comentario, \PDO::PARAM_STR);
+            $st->bindValue(':c', $comentario, PDO::PARAM_STR);
         } else {
-            $st->bindValue(':c', null, \PDO::PARAM_NULL);
+            $st->bindValue(':c', null, PDO::PARAM_NULL);
         }
 
-        $st->bindValue(':s',  $codigoSoporte, \PDO::PARAM_INT);
+        $st->bindValue(':s',  $codigoSoporte, PDO::PARAM_INT);
         $st->execute();
     }
 
@@ -222,15 +232,12 @@ class ProductoSoporte extends Conexion
             LIMIT 1
         ";
         $st = $this->dblink->prepare($sql);
-        $st->bindValue(':id', $codigoProducto, \PDO::PARAM_INT);
+        $st->bindValue(':id', $codigoProducto, PDO::PARAM_INT);
         $st->execute();
-        $row = $st->fetch(\PDO::FETCH_ASSOC);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
 
-    /**
-     * ✅ Determina si una revisión es "reenviado por corrección"
-     */
     public function esRevisionReenvioCorreccion(?string $comentario): bool
     {
         $c = trim((string)$comentario);
@@ -238,30 +245,18 @@ class ProductoSoporte extends Conexion
         return str_starts_with($c, self::REENVIO_PREFIX);
     }
 
-    /**
-     * ✅ Registra evento "reenviado por corrección" (actor = vecino)
-     * Nota: por constraints de tu tabla, guardamos el actor en codigo_soporte (FK a usuario).
-     */
     public function registrarReenvioCorreccion(int $codigoProducto, int $codigoActorVecino, int $estadoAnterior, int $estadoNuevo): void
     {
         $msg = self::REENVIO_PREFIX . ' El usuario corrigió la publicación y la reenviò para revisión.';
         $this->registrarRevisionTablaExistente(
             $codigoProducto,
-            $codigoActorVecino, // actor (vecino)
+            $codigoActorVecino,
             $estadoAnterior,
             $estadoNuevo,
             $msg
         );
     }
 
-    /**
-     * ✅ Verifica si la última revisión sugiere "OBSERVADO por soporte"
-     * Regla:
-     * - visible=1
-     * - comentario no vacío
-     * - estado_nuevo=1
-     * - y NO es un reenvío
-     */
     public function ultimaRevisionEsObservacionSoporte(int $codigoProducto, int $visibleActual): bool
     {
         if ($visibleActual !== 1) return false;
@@ -291,12 +286,11 @@ class ProductoSoporte extends Conexion
             LIMIT 1
         ";
         $st = $this->dblink->prepare($sql);
-        $st->bindValue(':id', $codigoProducto, \PDO::PARAM_INT);
+        $st->bindValue(':id', $codigoProducto, PDO::PARAM_INT);
         $st->execute();
-        $row = $st->fetch(\PDO::FETCH_ASSOC);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
         if (!$row) return null;
 
-        // Imágenes
         $imgs = [];
         try {
             $sqlImg = "
@@ -306,16 +300,14 @@ class ProductoSoporte extends Conexion
                 ORDER BY es_portada DESC, orden ASC
             ";
             $st2 = $this->dblink->prepare($sqlImg);
-            $st2->bindValue(':id', $codigoProducto, \PDO::PARAM_INT);
+            $st2->bindValue(':id', $codigoProducto, PDO::PARAM_INT);
             $st2->execute();
-            $imgs = $st2->fetchAll(\PDO::FETCH_ASSOC) ?: [];
-        } catch (\Throwable $e) {
+            $imgs = $st2->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
             $imgs = [];
         }
 
         $row['imagenes'] = $imgs;
-
-        // ✅ Última revisión (comentario)
         $row['ultima_revision'] = $this->obtenerUltimaRevisionTablaExistente($codigoProducto);
 
         return $row;

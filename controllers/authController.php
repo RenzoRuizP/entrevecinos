@@ -1,10 +1,12 @@
 <?php
+declare(strict_types=1);
+
 require_once __DIR__ . '/../models/SesionJWT.php';
 require_once __DIR__ . '/../Config/config.php';
 
 class AuthController
 {
-    public function loginForm()
+    public function loginForm(): void
     {
         require __DIR__ . '/../views/login.php';
     }
@@ -17,9 +19,17 @@ class AuthController
 
     private function cookiePath(): string
     {
-        // Asegura path consistente. BASE_URL en tu config.php es '/entrevecinos/'
-        $path = defined('BASE_URL') ? BASE_URL : '/';
-        // Por seguridad, garantizar que termine en '/'
+        $path = defined('BASE_URL') ? (string)BASE_URL : '/';
+        $path = trim($path);
+
+        if ($path === '') {
+            $path = '/';
+        }
+
+        if ($path[0] !== '/') {
+            $path = '/' . $path;
+        }
+
         return rtrim($path, '/') . '/';
     }
 
@@ -30,13 +40,13 @@ class AuthController
         return [
             'expires'  => $expiresAt,
             'path'     => $this->cookiePath(),
-            'secure'   => $isHttps,                 // true solo si HTTPS real
+            'secure'   => $isHttps,
             'httponly' => true,
-            'samesite' => $isHttps ? 'None' : 'Lax' // en HTTP local: Lax
+            'samesite' => $isHttps ? 'None' : 'Lax',
         ];
     }
 
-    public function login()
+    public function login(): void
     {
         ini_set('display_errors', '0');
         ini_set('html_errors', '0');
@@ -46,14 +56,15 @@ class AuthController
 
         try {
             $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL) ?: '';
-            $clave = trim($_POST['clave'] ?? '');
+            $email = trim($email);
+            $clave = trim((string)($_POST['clave'] ?? ''));
 
             if ($email === '' || $clave === '') {
                 http_response_code(400);
                 echo json_encode([
                     'status'  => 'ERROR',
-                    'message' => 'Por favor, completa tu correo y contraseña.'
-                ]);
+                    'message' => 'Por favor, completa tu correo y contraseña.',
+                ], JSON_UNESCAPED_UNICODE);
                 return;
             }
 
@@ -78,24 +89,24 @@ class AuthController
                         http_response_code(500);
                         echo json_encode([
                             'status'  => 'ERROR',
-                            'message' => 'No se pudo generar el token de sesión. Intenta nuevamente.'
-                        ]);
+                            'message' => 'No se pudo generar el token de sesión. Intenta nuevamente.',
+                        ], JSON_UNESCAPED_UNICODE);
                         return;
                     }
 
-                    // Fuente de verdad: .env
                     $expiraEn = (int)($_ENV['JWT_EXPIRATION_SECONDS'] ?? 3600);
-                    if ($expiraEn <= 0) $expiraEn = 3600;
+                    if ($expiraEn <= 0) {
+                        $expiraEn = 3600;
+                    }
 
-                    // Cookie con PATH consistente y expiración coherente
                     setcookie('auth_token', $token, $this->cookieOptions(time() + $expiraEn));
 
                     http_response_code(200);
                     echo json_encode([
                         'status'   => 'SI',
                         'message'  => 'Login exitoso',
-                        'redirect' => rtrim(BASE_URL, '/') . '/MenuPrincipal'
-                    ]);
+                        'redirect' => rtrim(BASE_URL, '/') . '/MenuPrincipal',
+                    ], JSON_UNESCAPED_UNICODE);
                     return;
 
                 case 'NE':
@@ -103,45 +114,46 @@ class AuthController
                     http_response_code(401);
                     echo json_encode([
                         'status'  => $status,
-                        'message' => 'El correo o la contraseña no coinciden. Verifica tus datos e inténtalo nuevamente.'
-                    ]);
+                        'message' => 'El correo o la contraseña no coinciden. Verifica tus datos e inténtalo nuevamente.',
+                    ], JSON_UNESCAPED_UNICODE);
                     return;
 
                 case 'IN':
                     http_response_code(403);
                     echo json_encode([
                         'status'  => $status,
-                        'message' => $message !== '' ? $message : 'Tu cuenta está inactiva. Si crees que es un error, contáctanos por Soporte.'
-                    ]);
+                        'message' => $message !== ''
+                            ? $message
+                            : 'Tu cuenta está inactiva. Si crees que es un error, contáctanos por Soporte.',
+                    ], JSON_UNESCAPED_UNICODE);
                     return;
 
                 default:
                     http_response_code(500);
                     echo json_encode([
                         'status'  => 'ERROR',
-                        'message' => 'Error interno del servidor. Intenta nuevamente en unos minutos.'
-                    ]);
+                        'message' => 'Error interno del servidor. Intenta nuevamente en unos minutos.',
+                    ], JSON_UNESCAPED_UNICODE);
                     return;
             }
-
         } catch (Throwable $e) {
             error_log('AuthController@login error: ' . $e->getMessage());
+
             http_response_code(500);
             echo json_encode([
                 'status'  => 'ERROR',
-                'message' => 'Estamos presentando una falla temporal. Intenta nuevamente en unos minutos.'
-            ]);
+                'message' => 'Estamos presentando una falla temporal. Intenta nuevamente en unos minutos.',
+            ], JSON_UNESCAPED_UNICODE);
             return;
         }
     }
 
-    public function logout()
+    public function logout(): void
     {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
 
-        // Borrar cookie con EXACTAMENTE los mismos parámetros (path/secure/samesite)
         if (isset($_COOKIE['auth_token'])) {
             setcookie('auth_token', '', $this->cookieOptions(time() - 3600));
             unset($_COOKIE['auth_token']);
@@ -151,15 +163,15 @@ class AuthController
 
         $isAjax = (
             isset($_SERVER['HTTP_X_REQUESTED_WITH']) &&
-            strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'
-        ) || ($_SERVER['REQUEST_METHOD'] === 'POST');
+            strtolower((string)$_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'
+        ) || (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST');
 
         if ($isAjax) {
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode([
                 'status'  => 'success',
-                'message' => 'Has cerrado sesión correctamente.'
-            ]);
+                'message' => 'Has cerrado sesión correctamente.',
+            ], JSON_UNESCAPED_UNICODE);
             exit;
         }
 

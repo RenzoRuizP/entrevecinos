@@ -367,7 +367,7 @@ function evRutaPermitidaEnObservacion(string $uri): bool
 safeRequire(__DIR__ . '/Config/config.php', true);
 safeRequire(__DIR__ . '/models/SesionJWT.php', true);
 
-safeRequire(__DIR__ . '/models/Conexion.php');
+safeRequire(__DIR__ . '/database/Conexion.php');
 
 if (!defined('EV_ADMIN_ROLE_ID')) {
     define('EV_ADMIN_ROLE_ID', 1);
