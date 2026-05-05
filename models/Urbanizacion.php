@@ -8,7 +8,7 @@ class Urbanizacion extends Conexion
 {
     public function listarActivas(): array
     {
-        $sql = "SELECT codigo_urbanizacion, nombre_urbanizacion, direccion_urbanizacion, codigo_distrito
+        $sql = "SELECT codigo_urbanizacion, nombre_urbanizacion, direccion, codigo_distrito
                 FROM urbanizacion
                 WHERE estado = 'A'
                 ORDER BY nombre_urbanizacion ASC";
@@ -19,7 +19,7 @@ class Urbanizacion extends Conexion
 
     public function listarPorDistrito(int $codigoDistrito): array
     {
-        $sql = "SELECT codigo_urbanizacion, nombre_urbanizacion, direccion_urbanizacion, codigo_distrito
+        $sql = "SELECT codigo_urbanizacion, nombre_urbanizacion, direccion, codigo_distrito
                 FROM urbanizacion
                 WHERE estado = 'A' AND codigo_distrito = :dist
                 ORDER BY nombre_urbanizacion ASC";
@@ -35,9 +35,9 @@ class Urbanizacion extends Conexion
             return '';
         }
 
-        $sql = "SELECT direccion_urbanizacion
+        $sql = "SELECT direccion
                 FROM urbanizacion
-                WHERE codigo_urbanizacion = :id
+                WHERE estado = 1 and codigo_urbanizacion = :id
                 LIMIT 1";
         $st = $this->dblink->prepare($sql);
         $st->bindParam(':id', $codigoUrbanizacion, PDO::PARAM_INT);
