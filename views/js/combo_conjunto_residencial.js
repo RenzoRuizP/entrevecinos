@@ -268,9 +268,9 @@
       const item = findInCache(distId, tipo, selected);
 
       if (tipo === 'condominio') {
-        inputDireccion.value = item?.direccion ? String(item.direccion) : '';
+        inputDireccion.value = item?.direccion_condominio ? String(item.direccion_condominio) : '';
       } else {
-        inputDireccion.value = item?.direccion ? String(item.direccion) : '';
+        inputDireccion.value = item?.direccion_condominio ? String(item.direccion_condominio) : '';
       }
 
       // Mostrar dirección + comprobante

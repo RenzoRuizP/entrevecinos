@@ -3,12 +3,14 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../models/CuentaObservada.php';
+
 final class cuentaObservadaController
 {
     public function index(): void
     {
         // ============================
-        // Sesión (validada por index.php)
+        // Sesión validada por index.php
         // ============================
         $auth = $GLOBALS['EV_AUTH'] ?? [];
 
@@ -30,83 +32,69 @@ final class cuentaObservadaController
         $soporteId = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
 
         $esVecino = ($codigoRol !== $adminId && $codigoRol !== $soporteId);
+
         if (!$esVecino) {
             header('Location: ' . $baseUrl . '/MenuPrincipal', true, 302);
             exit;
         }
 
         // ============================
-        // Defaults
+        // Defaults para la vista
         // ============================
         $nombre             = '';
         $email              = '';
+        $nombreComunidad    = '';
         $mensajeObservacion = '';
         $fechaObservacion   = null;
-        $modoVista          = null;
+        $modoVista          = 'revision_inicial';
 
         try {
-            if (!class_exists('Conexion')) {
-                throw new Exception('Clase Conexion no disponible.');
-            }
+            $model = new CuentaObservada();
 
-            $cn = new Conexion();
-            if (!method_exists($cn, 'getDblink')) {
-                throw new Exception('Conexion::getDblink() no existe.');
-            }
+            $usuario = $model->obtenerUsuarioPorCodigo($codigoUsuario);
 
-            $db = $cn->getDblink();
-            if (!$db) {
-                throw new Exception('Sin conexión a BD.');
-            }
-
-            // ============================
-            // Usuario
-            // ============================
-            $sqlUser = "
-                SELECT nombre, email, estado
-                FROM usuario
-                WHERE codigo_usuario = :id
-                LIMIT 1
-            ";
-            $stUser = $db->prepare($sqlUser);
-            $stUser->execute([':id' => $codigoUsuario]);
-            $user = $stUser->fetch(PDO::FETCH_ASSOC);
-
-            if (!$user) {
+            if (!$usuario) {
                 header('Location: ' . $loginUrl, true, 302);
                 exit;
             }
 
-            $nombre        = (string)$user['nombre'];
-            $email         = (string)$user['email'];
-            $estadoUsuario = (int)$user['estado'];
+            $nombre        = (string)($usuario['nombre'] ?? '');
+            $email         = (string)($usuario['email'] ?? '');
+            $estadoUsuario = (int)($usuario['estado'] ?? 0);
 
-            // 👉 Si NO está en revisión, no debería ver esta vista
-           /* if ($estadoUsuario !== 1) {
+            /*
+             * Si más adelante decides bloquear esta vista para usuarios que
+             * ya no estén en revisión, puedes reactivar esta validación.
+             */
+            /*
+            if ($estadoUsuario !== 1) {
                 header('Location: ' . $baseUrl . '/MenuPrincipal', true, 302);
                 exit;
-            }*/
+            }
+            */
 
-            // ============================
-            // Revisión / Observación
-            // ============================
-            $sqlObs = "
-                SELECT estado_revision, mensaje_observacion, fecha_observacion
-                FROM usuario_revision
-                WHERE codigo_usuario = :id
-                LIMIT 1
-            ";
-            $stObs = $db->prepare($sqlObs);
-            $stObs->execute([':id' => $codigoUsuario]);
-            $obs = $stObs->fetch(PDO::FETCH_ASSOC);
+            $nombreComunidad = $model->obtenerNombreComunidad($codigoUsuario);
 
-            if ($obs && (int)$obs['estado_revision'] === 3) {
-                // OBSERVADO
+            /*
+             * Fallback defensivo desde el token, por si el usuario todavía
+             * no tiene usuario_residencia correctamente registrado.
+             */
+            if ($nombreComunidad === '') {
+                $nombreComunidad = trim((string)(
+                    $auth['condominio_nombre']
+                    ?? $auth['urbanizacion_nombre']
+                    ?? $auth['nombre_comunidad']
+                    ?? ''
+                ));
+            }
+
+            $revision = $model->obtenerRevisionUsuario($codigoUsuario);
+
+            if ($revision && (int)($revision['estado_revision'] ?? 0) === 3) {
                 $modoVista = 'observado';
-                $mensajeObservacion = (string)($obs['mensaje_observacion'] ?? '');
-                $fechaObservacion   = $obs['fecha_observacion'] ?? null;
+                $mensajeObservacion = (string)($revision['mensaje_observacion'] ?? '');
+                $fechaObservacion   = $revision['fecha_observacion'] ?? null;
             } else {
-                // REVISIÓN INICIAL
                 $modoVista = 'revision_inicial';
             }
 
@@ -123,6 +111,7 @@ final class cuentaObservadaController
             'baseUrl'            => $baseUrl,
             'nombre'             => $nombre,
             'email'              => $email,
+            'nombreComunidad'    => $nombreComunidad,
             'modoVista'          => $modoVista,
             'mensajeObservacion' => $mensajeObservacion,
             'fechaObservacion'   => $fechaObservacion,

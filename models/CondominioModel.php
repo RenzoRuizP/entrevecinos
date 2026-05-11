@@ -43,9 +43,9 @@ class CondominioModel extends Conexion
 
     public function listarPorDistrito(int $codigoDistrito): array
     {
-        $sql = "SELECT codigo_condominio, nombre_condominio, direccion
+        $sql = "SELECT codigo_condominio, nombre_condominio, direccion_condominio
                 FROM condominio
-                WHERE estado = 1 AND codigo_distrito = :dist
+                WHERE estado = 'A' AND codigo_distrito = :dist
                 ORDER BY nombre_condominio ASC";
         $st = $this->dblink->prepare($sql);
         $st->bindParam(':dist', $codigoDistrito, PDO::PARAM_INT);

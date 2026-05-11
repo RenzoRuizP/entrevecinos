@@ -457,7 +457,7 @@
     try {
       const fd = new FormData();
       fd.append("tipo_conjunto", now.tipo);
-      fd.append("direccion", now.direccion);
+      fd.append("direccion", now.direccion_condominio);
       fd.append("codigo_condominio", now.tipo === "condominio" ? now.condominio : "");
       fd.append("codigo_urbanizacion", now.tipo === "urbanizacion" ? now.urbanizacion : "");
       fd.append("ubigeo_departamento", now.ubD);

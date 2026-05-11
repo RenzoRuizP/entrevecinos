@@ -10,12 +10,139 @@ require_once __DIR__ . '/Usuario.php';
 final class CuentaObservada extends Conexion
 {
     private const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
+
     private const ALLOWED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png'];
+
     private const ALLOWED_MIMES = [
         'application/pdf',
         'image/jpeg',
         'image/png',
     ];
+
+    // ============================================================
+    // CONSULTAS PARA VISTA CUENTA OBSERVADA
+    // ============================================================
+
+    public function obtenerUsuarioPorCodigo(int $codigoUsuario): ?array
+    {
+        $sql = "
+            SELECT
+                nombre,
+                email,
+                estado
+            FROM usuario
+            WHERE codigo_usuario = :codigo_usuario
+            LIMIT 1
+        ";
+
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->execute([
+            ':codigo_usuario' => $codigoUsuario
+        ]);
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    }
+
+    public function obtenerRevisionUsuario(int $codigoUsuario): ?array
+    {
+        $sql = "
+            SELECT
+                estado_revision,
+                mensaje_observacion,
+                fecha_observacion
+            FROM usuario_revision
+            WHERE codigo_usuario = :codigo_usuario
+            LIMIT 1
+        ";
+
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->execute([
+            ':codigo_usuario' => $codigoUsuario
+        ]);
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    }
+
+    public function obtenerNombreComunidad(int $codigoUsuario): string
+    {
+        /*
+         * Consulta principal EV:
+         * usuario_residencia -> condominio / urbanizacion.
+         */
+        try {
+            $sql = "
+                SELECT
+                    COALESCE(
+                        NULLIF(TRIM(c.nombre_condominio), ''),
+                        NULLIF(TRIM(u.nombre_urbanizacion), '')
+                    ) AS nombre_comunidad
+                FROM usuario_residencia ur
+                LEFT JOIN condominio c
+                    ON c.codigo_condominio = ur.codigo_condominio
+                LEFT JOIN urbanizacion u
+                    ON u.codigo_urbanizacion = ur.codigo_urbanizacion
+                WHERE ur.codigo_usuario = :codigo_usuario
+                LIMIT 1
+            ";
+
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->execute([
+                ':codigo_usuario' => $codigoUsuario
+            ]);
+
+            $valor = $stmt->fetchColumn();
+
+            if ($valor !== false && trim((string)$valor) !== '') {
+                return trim((string)$valor);
+            }
+        } catch (Throwable $e) {
+            error_log('[EV][CuentaObservada::obtenerNombreComunidad][usuario_residencia] ' . $e->getMessage());
+        }
+
+        /*
+         * Fallback defensivo para ambientes antiguos donde usuario todavía
+         * pudiera tener codigo_condominio / codigo_urbanizacion.
+         */
+        try {
+            $sql = "
+                SELECT
+                    COALESCE(
+                        NULLIF(TRIM(c.nombre_condominio), ''),
+                        NULLIF(TRIM(u.nombre_urbanizacion), '')
+                    ) AS nombre_comunidad
+                FROM usuario us
+                LEFT JOIN condominio c
+                    ON c.codigo_condominio = us.codigo_condominio
+                LEFT JOIN urbanizacion u
+                    ON u.codigo_urbanizacion = us.codigo_urbanizacion
+                WHERE us.codigo_usuario = :codigo_usuario
+                LIMIT 1
+            ";
+
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->execute([
+                ':codigo_usuario' => $codigoUsuario
+            ]);
+
+            $valor = $stmt->fetchColumn();
+
+            if ($valor !== false && trim((string)$valor) !== '') {
+                return trim((string)$valor);
+            }
+        } catch (Throwable $e) {
+            error_log('[EV][CuentaObservada::obtenerNombreComunidad][usuario] ' . $e->getMessage());
+        }
+
+        return '';
+    }
+
+    // ============================================================
+    // SUBSANACIÓN DE CUENTA OBSERVADA
+    // ============================================================
 
     public function subsanar(int $codigoUsuario, array $file): array
     {
@@ -64,13 +191,14 @@ final class CuentaObservada extends Conexion
             $okRevision = $revisionModel->registrarReenvio($codigoUsuario, $rutaRelativa);
             if (!$okRevision) {
                 $this->dblink->rollBack();
+
                 return [
                     'ok' => false,
                     'mensaje' => 'No se pudo registrar el reenvío del comprobante.'
                 ];
             }
 
-            // Mantener al usuario en "En revisión" para que soporte lo vuelva a evaluar
+            // Mantener al usuario en "En revisión" para que soporte lo vuelva a evaluar.
             $usuarioModel->actualizarEstado($codigoUsuario, 1);
 
             $this->dblink->commit();
@@ -79,13 +207,13 @@ final class CuentaObservada extends Conexion
                 'ok' => true,
                 'mensaje' => 'Comprobante reenviado correctamente. Tu cuenta vuelve a revisión.',
                 'data' => [
-                    'codigo_usuario'    => $codigoUsuario,
-                    'estado_revision'   => 1,
-                    'comprobante_path'  => $rutaRelativa
+                    'codigo_usuario'   => $codigoUsuario,
+                    'estado_revision'  => 1,
+                    'comprobante_path' => $rutaRelativa
                 ]
             ];
         } catch (Throwable $e) {
-            if ($this->dblink->inTransaction()) {
+            if ($this->dblink instanceof PDO && $this->dblink->inTransaction()) {
                 $this->dblink->rollBack();
             }
 
@@ -116,8 +244,8 @@ final class CuentaObservada extends Conexion
             $mensaje = match ($error) {
                 UPLOAD_ERR_INI_SIZE,
                 UPLOAD_ERR_FORM_SIZE => 'El archivo supera el tamaño máximo permitido.',
-                UPLOAD_ERR_PARTIAL   => 'El archivo se subió solo parcialmente.',
-                UPLOAD_ERR_NO_FILE   => 'Debes adjuntar un comprobante.',
+                UPLOAD_ERR_PARTIAL => 'El archivo se subió solo parcialmente.',
+                UPLOAD_ERR_NO_FILE => 'Debes adjuntar un comprobante.',
                 UPLOAD_ERR_NO_TMP_DIR => 'No existe directorio temporal para la carga.',
                 UPLOAD_ERR_CANT_WRITE => 'No se pudo escribir el archivo en el disco.',
                 UPLOAD_ERR_EXTENSION => 'La subida del archivo fue detenida por una extensión de PHP.',
@@ -186,6 +314,7 @@ final class CuentaObservada extends Conexion
 
         if (function_exists('finfo_open')) {
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
+
             if ($finfo) {
                 $mime = finfo_file($finfo, $tmpPath);
                 finfo_close($finfo);
