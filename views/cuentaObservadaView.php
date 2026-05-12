@@ -11,10 +11,42 @@ $baseUrl = isset($baseUrl)
     ? rtrim((string)$baseUrl, '/')
     : rtrim((string)BASE_URL, '/');
 
-$modoVista          = $modoVista ?? 'revision_inicial';
-$mensajeObservacion = trim((string)($mensajeObservacion ?? ''));
-$fechaObservacion   = $fechaObservacion ?? null;
-$nombreComunidad    = trim((string)($nombreComunidad ?? ''));
+$modoVista                  = $modoVista ?? 'revision_inicial';
+$tipoObservacion            = trim((string)($tipoObservacion ?? 'cuenta_pendiente'));
+$mensajeObservacion         = trim((string)($mensajeObservacion ?? ''));
+$fechaObservacion           = $fechaObservacion ?? null;
+$nombreComunidad            = trim((string)($nombreComunidad ?? ''));
+$esCambioResidencia         = (bool)($esCambioResidencia ?? false);
+$codigoSolicitudResidencia  = $codigoSolicitudResidencia ?? null;
+$estadoSolicitudResidencia  = strtolower(trim((string)($estadoSolicitudResidencia ?? '')));
+
+if (
+    $tipoObservacion === 'cambio_residencia'
+    || $tipoObservacion === 'cambio_residencia_pendiente'
+    || in_array($estadoSolicitudResidencia, ['observada', 'pendiente'], true)
+) {
+    $esCambioResidencia = true;
+}
+
+$esObservado = ($modoVista === 'observado');
+
+$esCambioResidenciaObservada = (
+    $esObservado
+    && $esCambioResidencia
+    && (
+        $tipoObservacion === 'cambio_residencia'
+        || $estadoSolicitudResidencia === 'observada'
+    )
+);
+
+$esCambioResidenciaPendiente = (
+    !$esObservado
+    && $esCambioResidencia
+    && (
+        $tipoObservacion === 'cambio_residencia_pendiente'
+        || $estadoSolicitudResidencia === 'pendiente'
+    )
+);
 
 $textoComunidad = $nombreComunidad !== ''
     ? 'la comunidad ' . $nombreComunidad
@@ -28,7 +60,80 @@ if (!empty($fechaObservacion)) {
     }
 }
 
-$esObservado = ($modoVista === 'observado');
+/*
+ * Textos dinámicos según flujo:
+ * - cuenta observada
+ * - cambio de residencia observado
+ * - revisión inicial
+ * - cambio de residencia pendiente
+ */
+if ($esCambioResidenciaObservada) {
+    $eyebrowObservado      = 'ACCIÓN REQUERIDA';
+    $tituloObservado       = 'Sube tu comprobante corregido';
+    $subtituloObservado    = 'Tu solicitud fue observada por soporte. Revisa el motivo indicado y envía un archivo actualizado para continuar con la validación.';
+    $tituloObservacionBox  = 'Motivo de observación';
+    $fallbackObservacion   = 'Se encontró una observación en tu solicitud. Por favor, vuelve a cargar el comprobante corregido para continuar con la validación.';
+    $tituloFormulario      = 'Enviar comprobante';
+    $textoFormulario       = 'Sube el comprobante corregido en PDF, JPG, JPEG o PNG.';
+    $step1Titulo           = 'Lee la observación';
+    $step1Texto            = 'Revisa el motivo indicado.';
+    $step2Titulo           = 'Adjunta el comprobante';
+    $step2Texto            = 'Sube un archivo válido y legible.';
+    $step3Titulo           = 'Nueva revisión';
+    $step3Texto            = 'Soporte evaluará tu solicitud.';
+    $successTitulo         = 'Comprobante enviado correctamente';
+    $successTexto          = 'Recibimos tu archivo. El equipo volverá a revisar tu solicitud a la brevedad.';
+    $tipoSubsanacionValue  = 'cambio_residencia';
+    $heroIcon              = 'bi-file-earmark-arrow-up';
+} else {
+    $eyebrowObservado      = 'ACCIÓN REQUERIDA';
+    $tituloObservado       = 'Sube tu comprobante corregido';
+    $subtituloObservado    = 'Tu cuenta fue observada por soporte. Revisa el motivo indicado y envía un archivo actualizado para continuar con la validación.';
+    $tituloObservacionBox  = 'Motivo de observación';
+    $fallbackObservacion   = 'Se encontró una observación en tu registro. Por favor, vuelve a cargar el comprobante corregido para continuar con la validación.';
+    $tituloFormulario      = 'Enviar comprobante';
+    $textoFormulario       = 'Sube el comprobante corregido en PDF, JPG, JPEG o PNG.';
+    $step1Titulo           = 'Lee la observación';
+    $step1Texto            = 'Revisa el motivo indicado.';
+    $step2Titulo           = 'Adjunta el comprobante';
+    $step2Texto            = 'Sube un archivo válido y legible.';
+    $step3Titulo           = 'Nueva revisión';
+    $step3Texto            = 'Soporte evaluará tu cuenta.';
+    $successTitulo         = 'Comprobante enviado correctamente';
+    $successTexto          = 'Recibimos tu archivo. El equipo volverá a revisar tu información a la brevedad.';
+    $tipoSubsanacionValue  = 'cuenta';
+    $heroIcon              = 'bi-file-earmark-arrow-up';
+}
+
+if ($esCambioResidenciaPendiente) {
+    $eyebrowRevision       = 'SOLICITUD EN REVISIÓN';
+    $tituloRevision        = 'Estamos validando tu solicitud';
+    $subtituloRevision     = 'Recibimos tu comprobante corregido. Soporte lo revisará y te avisaremos cuando haya una respuesta.';
+    $bannerTitulo          = 'Revisión en proceso';
+    $bannerTexto           = 'Te notificaremos si la solicitud es aprobada o si necesitas corregir algún dato.';
+    $timeline1Titulo       = 'Solicitud enviada';
+    $timeline2Titulo       = 'Revisión de soporte';
+    $timeline3Titulo       = 'Cambio aprobado';
+    $cardEstadoStrong      = 'En revisión';
+    $cardEstadoTexto       = 'Tu comprobante corregido fue recibido correctamente.';
+    $cardResultadoStrong   = 'Aprobación u observación';
+    $cardResultadoTexto    = 'Verás el resultado cuando soporte finalice la revisión.';
+    $revisionIcon          = 'bi-house-check';
+} else {
+    $eyebrowRevision       = 'SOLICITUD EN REVISIÓN';
+    $tituloRevision        = 'Estamos validando tu cuenta';
+    $subtituloRevision     = 'Recibimos tu registro. Soporte revisará tus datos y te avisaremos cuando haya una respuesta.';
+    $bannerTitulo          = 'Revisión en proceso';
+    $bannerTexto           = 'Te notificaremos si tu cuenta es aprobada o si necesitas corregir algún dato.';
+    $timeline1Titulo       = 'Registro enviado';
+    $timeline2Titulo       = 'Revisión de soporte';
+    $timeline3Titulo       = 'Cuenta activada';
+    $cardEstadoStrong      = 'En revisión';
+    $cardEstadoTexto       = 'Tu información fue recibida correctamente.';
+    $cardResultadoStrong   = 'Aprobación u observación';
+    $cardResultadoTexto    = 'Verás el resultado cuando soporte finalice la revisión.';
+    $revisionIcon          = 'bi-hourglass-split';
+}
 
 /**
  * Logo EV:
@@ -67,12 +172,16 @@ $tieneLogo  = file_exists($logoFsPath);
     class="ev-co-page <?= $esObservado ? 'is-observed' : 'is-review' ?>"
     data-base-url="<?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?>"
     data-modo-vista="<?= htmlspecialchars((string)$modoVista, ENT_QUOTES, 'UTF-8') ?>"
+    data-tipo-observacion="<?= htmlspecialchars($tipoObservacion, ENT_QUOTES, 'UTF-8') ?>"
+    data-es-cambio-residencia="<?= $esCambioResidencia ? '1' : '0' ?>"
+    data-codigo-solicitud-residencia="<?= htmlspecialchars((string)($codigoSolicitudResidencia ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+    data-estado-solicitud-residencia="<?= htmlspecialchars($estadoSolicitudResidencia, ENT_QUOTES, 'UTF-8') ?>"
 >
 
 <main class="ev-co-shell">
     <div class="ev-co-wrap">
 
-        <div class="ev-brand-pill">
+        <div class="ev-brand-pill" aria-label="Entre Vecinos">
             <span class="ev-brand-icon">
                 <?php if ($tieneLogo): ?>
                     <img
@@ -92,146 +201,195 @@ $tieneLogo  = file_exists($logoFsPath);
 
                 <?php if ($esObservado): ?>
 
-                    <div class="ev-co-hero">
-                        <div class="ev-hero-visual">
-                            <div class="ev-hero-orb is-warning">
-                                <i class="bi bi-exclamation-triangle"></i>
-                            </div>
-                            <div class="ev-hero-check is-warning">
-                                <i class="bi bi-pencil-square"></i>
-                            </div>
-                        </div>
-
-                        <div>
-                            <div class="ev-eyebrow is-warning">ACCIÓN REQUERIDA</div>
-                            <h1 class="ev-title">
-                                Necesitamos corregir tu información
-                            </h1>
-                            <p class="ev-subtitle">
-                                Nuestro equipo revisó tu registro y encontró un detalle pendiente.
-                                Sube el comprobante corregido para continuar con la activación de tu cuenta
-                                en <?= htmlspecialchars($textoComunidad, ENT_QUOTES, 'UTF-8') ?>.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div class="ev-observation-card" id="evObservacionBox">
-                        <div class="ev-observation-head">
-                            <span>
-                                <i class="bi bi-chat-left-text"></i>
-                            </span>
-
-                            <div>
-                                <h2>Observación del equipo de soporte</h2>
-                                <p>
-                                    <?php if ($fechaObservacionTexto !== ''): ?>
-                                        Revisado el <?= htmlspecialchars($fechaObservacionTexto, ENT_QUOTES, 'UTF-8') ?>
-                                    <?php else: ?>
-                                        Revisa el detalle antes de volver a enviar tu comprobante.
-                                    <?php endif; ?>
-                                </p>
-                            </div>
-                        </div>
-
-                        <div class="ev-observation-message">
-                            <?= $mensajeObservacion !== ''
-                                ? htmlspecialchars($mensajeObservacion, ENT_QUOTES, 'UTF-8')
-                                : 'Se encontró una observación en tu registro. Por favor, vuelve a cargar el comprobante corregido para continuar con la validación.' ?>
-                        </div>
-                    </div>
-
-                    <div class="ev-correction-layout">
-                        <div class="ev-correction-info">
-                            <div class="ev-mini-step is-done">
-                                <span>
-                                    <i class="bi bi-check2"></i>
-                                </span>
-                                <div>
-                                    <h3>Registro revisado</h3>
-                                    <p>Tu solicitud fue evaluada por el equipo de soporte.</p>
-                                </div>
-                            </div>
-
-                            <div class="ev-mini-step is-active">
-                                <span>
-                                    <i class="bi bi-exclamation-circle"></i>
-                                </span>
-                                <div>
-                                    <h3>Corrección pendiente</h3>
-                                    <p>Adjunta el comprobante corregido para continuar.</p>
-                                </div>
-                            </div>
-
-                            <div class="ev-mini-step">
-                                <span>
-                                    <i class="bi bi-shield-lock"></i>
-                                </span>
-                                <div>
-                                    <h3>Nueva revisión</h3>
-                                    <p>Validaremos nuevamente tu información enviada.</p>
-                                </div>
-                            </div>
-
-                            <div class="ev-support-mini">
-                                <i class="bi bi-headset"></i>
-                                <div>
-                                    <strong>¿Necesitas ayuda?</strong>
-                                    <div>Si tienes dudas, revisa la observación indicada por soporte.</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="ev-form-card">
-                            <h2>Sube tu comprobante corregido</h2>
-                            <p>
-                                Aceptamos archivos PDF, JPG, JPEG y PNG. El tamaño máximo permitido es de 5 MB.
-                            </p>
-
-                            <form id="evFormReenviar" enctype="multipart/form-data">
-                                <div class="mb-3">
-                                    <label class="form-label ev-label" for="evComprobante">
-                                        Archivo
-                                    </label>
-
-                                    <input
-                                        type="file"
-                                        class="form-control ev-file"
-                                        name="comprobante"
-                                        id="evComprobante"
-                                        accept=".pdf,.jpg,.jpeg,.png"
-                                        required
-                                    >
-
-                                    <div class="ev-help mt-2">
-                                        Formatos permitidos: PDF, JPG, JPEG y PNG. Tamaño máximo: 5 MB.
+                    <div class="ev-observed-grid">
+                        <section class="ev-observed-main">
+                            <div class="ev-co-hero ev-co-hero-compact">
+                                <div class="ev-hero-visual">
+                                    <div class="ev-hero-orb is-warning">
+                                        <i class="bi <?= htmlspecialchars($heroIcon, ENT_QUOTES, 'UTF-8') ?>"></i>
+                                    </div>
+                                    <div class="ev-hero-check is-warning">
+                                        <i class="bi bi-pencil-square"></i>
                                     </div>
                                 </div>
 
-                                <div class="ev-actions">
-                                    <a href="<?= htmlspecialchars($baseUrl . '/logout', ENT_QUOTES, 'UTF-8') ?>" class="btn ev-btn-secondary">
-                                        <i class="bi bi-box-arrow-right"></i>
-                                        Cerrar sesión
-                                    </a>
+                                <div class="ev-hero-copy">
+                                    <div class="ev-eyebrow is-warning">
+                                        <?= htmlspecialchars($eyebrowObservado, ENT_QUOTES, 'UTF-8') ?>
+                                    </div>
 
-                                    <button type="submit" class="btn ev-btn-primary">
-                                        <i class="bi bi-upload"></i>
-                                        Enviar comprobante
-                                    </button>
-                                </div>
-                            </form>
+                                    <h1 class="ev-title">
+                                        <?= htmlspecialchars($tituloObservado, ENT_QUOTES, 'UTF-8') ?>
+                                    </h1>
 
-                            <div id="evGraciasBox" class="ev-success d-none">
-                                <span>
-                                    <i class="bi bi-check-lg"></i>
-                                </span>
-                                <div>
-                                    <h3>Comprobante enviado correctamente</h3>
-                                    <p>
-                                        Recibimos tu archivo. El equipo volverá a revisar tu información a la brevedad.
+                                    <p class="ev-subtitle">
+                                        <?= htmlspecialchars($subtituloObservado, ENT_QUOTES, 'UTF-8') ?>
                                     </p>
                                 </div>
                             </div>
-                        </div>
+
+                            <div class="ev-observation-card" id="evObservacionBox">
+                                <div class="ev-observation-head">
+                                    <span>
+                                        <i class="bi bi-chat-left-text"></i>
+                                    </span>
+
+                                    <div>
+                                        <h2><?= htmlspecialchars($tituloObservacionBox, ENT_QUOTES, 'UTF-8') ?></h2>
+                                        <p>
+                                            <?php if ($fechaObservacionTexto !== ''): ?>
+                                                Revisado el <?= htmlspecialchars($fechaObservacionTexto, ENT_QUOTES, 'UTF-8') ?>
+                                            <?php else: ?>
+                                                Revisa el detalle antes de volver a enviar tu comprobante.
+                                            <?php endif; ?>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div class="ev-observation-message">
+                                    <?= $mensajeObservacion !== ''
+                                        ? htmlspecialchars($mensajeObservacion, ENT_QUOTES, 'UTF-8')
+                                        : htmlspecialchars($fallbackObservacion, ENT_QUOTES, 'UTF-8') ?>
+                                </div>
+                            </div>
+
+                            <div class="ev-next-card">
+                                <div class="ev-next-head">
+                                    <span><i class="bi bi-list-check"></i></span>
+                                    <div>
+                                        <h2>Qué debes hacer ahora</h2>
+                                        <p>Sigue estos pasos para que soporte revise nuevamente tu solicitud.</p>
+                                    </div>
+                                </div>
+
+                                <div class="ev-next-steps">
+                                    <div class="ev-mini-step is-done">
+                                        <span>
+                                            <i class="bi bi-check2"></i>
+                                        </span>
+                                        <div>
+                                            <h3><?= htmlspecialchars($step1Titulo, ENT_QUOTES, 'UTF-8') ?></h3>
+                                            <p><?= htmlspecialchars($step1Texto, ENT_QUOTES, 'UTF-8') ?></p>
+                                        </div>
+                                    </div>
+
+                                    <div class="ev-mini-step is-active">
+                                        <span>
+                                            <i class="bi bi-upload"></i>
+                                        </span>
+                                        <div>
+                                            <h3><?= htmlspecialchars($step2Titulo, ENT_QUOTES, 'UTF-8') ?></h3>
+                                            <p><?= htmlspecialchars($step2Texto, ENT_QUOTES, 'UTF-8') ?></p>
+                                        </div>
+                                    </div>
+
+                                    <div class="ev-mini-step">
+                                        <span>
+                                            <i class="bi bi-shield-check"></i>
+                                        </span>
+                                        <div>
+                                            <h3><?= htmlspecialchars($step3Titulo, ENT_QUOTES, 'UTF-8') ?></h3>
+                                            <p><?= htmlspecialchars($step3Texto, ENT_QUOTES, 'UTF-8') ?></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <aside class="ev-observed-side">
+                            <div class="ev-form-card">
+                                <h2><?= htmlspecialchars($tituloFormulario, ENT_QUOTES, 'UTF-8') ?></h2>
+                                <p>
+                                    <?= htmlspecialchars($textoFormulario, ENT_QUOTES, 'UTF-8') ?>
+                                </p>
+
+                                <form id="evFormReenviar" enctype="multipart/form-data">
+                                    <input
+                                        type="hidden"
+                                        name="tipo_subsanacion"
+                                        value="<?= htmlspecialchars($tipoSubsanacionValue, ENT_QUOTES, 'UTF-8') ?>"
+                                    >
+
+                                    <?php if ($codigoSolicitudResidencia !== null && $codigoSolicitudResidencia !== ''): ?>
+                                        <input
+                                            type="hidden"
+                                            name="codigo_solicitud_residencia"
+                                            value="<?= htmlspecialchars((string)$codigoSolicitudResidencia, ENT_QUOTES, 'UTF-8') ?>"
+                                        >
+                                    <?php endif; ?>
+
+                                    <div class="ev-upload-block">
+                                        <label class="form-label ev-label" for="evComprobante">
+                                            Comprobante corregido
+                                        </label>
+
+                                        <input
+                                            type="file"
+                                            class="ev-file-native"
+                                            name="comprobante"
+                                            id="evComprobante"
+                                            accept=".pdf,.jpg,.jpeg,.png"
+                                            required
+                                        >
+
+                                        <label class="ev-upload-zone" for="evComprobante">
+                                            <span class="ev-upload-icon">
+                                                <i class="bi bi-cloud-arrow-up"></i>
+                                            </span>
+
+                                            <span class="ev-upload-copy">
+                                                <strong>Selecciona tu archivo</strong>
+                                                <small>PDF, JPG, JPEG o PNG · Máximo 5 MB</small>
+                                            </span>
+
+                                            <span class="ev-upload-action">
+                                                Buscar
+                                            </span>
+                                        </label>
+
+                                        <div class="ev-selected-file" id="evSelectedFileName">
+                                            Ningún archivo seleccionado
+                                        </div>
+
+                                        <div class="ev-help">
+                                            Asegúrate de que el archivo sea legible y responda al motivo indicado.
+                                        </div>
+                                    </div>
+
+                                    <div class="ev-actions">
+                                        <button type="submit" class="btn ev-btn-primary">
+                                            <i class="bi bi-upload"></i>
+                                            Enviar comprobante
+                                        </button>
+
+                                        <a href="<?= htmlspecialchars($baseUrl . '/logout', ENT_QUOTES, 'UTF-8') ?>" class="btn ev-btn-secondary">
+                                            <i class="bi bi-box-arrow-right"></i>
+                                            Cerrar sesión
+                                        </a>
+                                    </div>
+                                </form>
+
+                                <div id="evGraciasBox" class="ev-success d-none">
+                                    <span>
+                                        <i class="bi bi-check-lg"></i>
+                                    </span>
+                                    <div>
+                                        <h3><?= htmlspecialchars($successTitulo, ENT_QUOTES, 'UTF-8') ?></h3>
+                                        <p>
+                                            <?= htmlspecialchars($successTexto, ENT_QUOTES, 'UTF-8') ?>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="ev-support-mini ev-support-mini-premium">
+                                <i class="bi bi-headset"></i>
+                                <div>
+                                    <strong>¿Necesitas ayuda?</strong>
+                                    <div>Lee el motivo indicado y adjunta el comprobante corregido.</div>
+                                </div>
+                            </div>
+                        </aside>
                     </div>
 
                 <?php else: ?>
@@ -239,7 +397,7 @@ $tieneLogo  = file_exists($logoFsPath);
                     <div class="ev-co-hero">
                         <div class="ev-hero-visual">
                             <div class="ev-hero-orb">
-                                <i class="bi bi-hourglass-split"></i>
+                                <i class="bi <?= htmlspecialchars($revisionIcon, ENT_QUOTES, 'UTF-8') ?>"></i>
                             </div>
                             <div class="ev-hero-check">
                                 <i class="bi bi-check2"></i>
@@ -247,13 +405,14 @@ $tieneLogo  = file_exists($logoFsPath);
                         </div>
 
                         <div>
-                            <div class="ev-eyebrow">VALIDACIÓN EN CURSO</div>
+                            <div class="ev-eyebrow">
+                                <?= htmlspecialchars($eyebrowRevision, ENT_QUOTES, 'UTF-8') ?>
+                            </div>
                             <h1 class="ev-title">
-                                Estamos revisando tu cuenta
+                                <?= htmlspecialchars($tituloRevision, ENT_QUOTES, 'UTF-8') ?>
                             </h1>
                             <p class="ev-subtitle">
-                                Gracias por registrarte. Estamos verificando tus datos para activar tu acceso
-                                de forma segura en <?= htmlspecialchars($textoComunidad, ENT_QUOTES, 'UTF-8') ?>.
+                                <?= htmlspecialchars($subtituloRevision, ENT_QUOTES, 'UTF-8') ?>
                             </p>
                         </div>
                     </div>
@@ -263,8 +422,8 @@ $tieneLogo  = file_exists($logoFsPath);
                             <i class="bi bi-shield-check"></i>
                         </div>
                         <div>
-                            <h2>La revisión continuará automáticamente</h2>
-                            <p>Cuando finalice, podrás ingresar o ver una observación si necesitamos corregir algo.</p>
+                            <h2><?= htmlspecialchars($bannerTitulo, ENT_QUOTES, 'UTF-8') ?></h2>
+                            <p><?= htmlspecialchars($bannerTexto, ENT_QUOTES, 'UTF-8') ?></p>
                         </div>
                     </div>
 
@@ -273,24 +432,36 @@ $tieneLogo  = file_exists($logoFsPath);
                             <div class="ev-step-dot">
                                 <i class="bi bi-check2"></i>
                             </div>
-                            <div class="ev-step-title">Registro enviado</div>
-                            <div class="ev-step-text">Completado</div>
+                            <div>
+                                <div class="ev-step-title">
+                                    <?= htmlspecialchars($timeline1Titulo, ENT_QUOTES, 'UTF-8') ?>
+                                </div>
+                                <div class="ev-step-text">Completado</div>
+                            </div>
                         </div>
 
                         <div class="ev-step is-active">
                             <div class="ev-step-dot">
                                 <i class="bi bi-clock-history"></i>
                             </div>
-                            <div class="ev-step-title">Revisión en curso</div>
-                            <div class="ev-step-text">En progreso</div>
+                            <div>
+                                <div class="ev-step-title">
+                                    <?= htmlspecialchars($timeline2Titulo, ENT_QUOTES, 'UTF-8') ?>
+                                </div>
+                                <div class="ev-step-text">En progreso</div>
+                            </div>
                         </div>
 
                         <div class="ev-step">
                             <div class="ev-step-dot">
                                 <i class="bi bi-shield-lock"></i>
                             </div>
-                            <div class="ev-step-title">Cuenta activada</div>
-                            <div class="ev-step-text">Pendiente</div>
+                            <div>
+                                <div class="ev-step-title">
+                                    <?= htmlspecialchars($timeline3Titulo, ENT_QUOTES, 'UTF-8') ?>
+                                </div>
+                                <div class="ev-step-text">Pendiente</div>
+                            </div>
                         </div>
                     </div>
 
@@ -301,8 +472,8 @@ $tieneLogo  = file_exists($logoFsPath);
                             </span>
                             <div>
                                 <h3>Estado actual</h3>
-                                <strong>Revisión en curso</strong>
-                                <p>Estamos verificando que la información enviada sea correcta.</p>
+                                <strong><?= htmlspecialchars($cardEstadoStrong, ENT_QUOTES, 'UTF-8') ?></strong>
+                                <p><?= htmlspecialchars($cardEstadoTexto, ENT_QUOTES, 'UTF-8') ?></p>
                             </div>
                         </div>
 
@@ -323,8 +494,8 @@ $tieneLogo  = file_exists($logoFsPath);
                             </span>
                             <div>
                                 <h3>Resultado de revisión</h3>
-                                <strong>Aprobación u observación</strong>
-                                <p>Te informaremos el resultado cuando el equipo termine de revisar tus datos.</p>
+                                <strong><?= htmlspecialchars($cardResultadoStrong, ENT_QUOTES, 'UTF-8') ?></strong>
+                                <p><?= htmlspecialchars($cardResultadoTexto, ENT_QUOTES, 'UTF-8') ?></p>
                             </div>
                         </div>
                     </div>

@@ -1,216 +1,537 @@
 // views/js/cuentaObservada.js
 (function () {
-  'use strict';
+  "use strict";
 
-  const page = document.body;
-  if (!page) return;
+  const body = document.body;
 
-  const baseUrl = String(page.dataset.baseUrl || window.BASE_URL || '').replace(/\/+$/, '');
-  const modoVista = String(page.dataset.modoVista || window.EV_MODO_VISTA || '').trim();
+  const baseUrl = (
+    body?.dataset?.baseUrl ||
+    window.BASE_URL ||
+    ""
+  ).replace(/\/+$/, "");
 
-  function hasSwal() {
-    return (
-      typeof window.Swal !== 'undefined' &&
-      window.Swal &&
-      typeof window.Swal.fire === 'function'
+  const modoVista = String(body?.dataset?.modoVista || "").trim();
+  const tipoObservacion = String(body?.dataset?.tipoObservacion || "").trim();
+  const esCambioResidencia = String(body?.dataset?.esCambioResidencia || "0") === "1";
+  const estadoSolicitudResidencia = String(body?.dataset?.estadoSolicitudResidencia || "").trim();
+
+  const MAX_FILE_BYTES = 5 * 1024 * 1024;
+  const ALLOWED_EXTENSIONS = ["pdf", "jpg", "jpeg", "png"];
+
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
+  function endpoint(path) {
+    const cleanPath = String(path || "").replace(/^\/+/, "");
+    return `${baseUrl}/${cleanPath}`;
+  }
+
+  function tieneSweetAlert() {
+    return typeof window.Swal !== "undefined" && typeof window.Swal.fire === "function";
+  }
+
+  function mostrarAlerta(options) {
+    const finalOptions = {
+      confirmButtonText: "Entendido",
+      confirmButtonColor: "#EA7C12",
+      ...options,
+
+      // EV: evita cierre accidental del modal.
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      allowEnterKey: true,
+      backdrop: true,
+
+      // EV: evita desplazamiento visual/layout shift al abrir SweetAlert2.
+      scrollbarPadding: false,
+      heightAuto: false
+    };
+
+    if (tieneSweetAlert()) {
+      return Swal.fire(finalOptions);
+    }
+
+    const title = finalOptions?.title || "Mensaje";
+    const text = finalOptions?.text || finalOptions?.html || "";
+    window.alert(`${title}\n\n${text}`);
+    return Promise.resolve({ isConfirmed: true });
+  }
+
+  function extensionArchivo(nombre) {
+    const parts = String(nombre || "").split(".");
+    if (parts.length < 2) return "";
+    return parts.pop().toLowerCase();
+  }
+
+  function formatoBytes(bytes) {
+    const n = Number(bytes || 0);
+
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function nombreArchivoSeguro(nombre) {
+    const raw = String(nombre || "").trim();
+    if (!raw) return "Archivo seleccionado";
+
+    if (raw.length <= 58) return raw;
+
+    const ext = extensionArchivo(raw);
+    const base = ext ? raw.slice(0, -(ext.length + 1)) : raw;
+
+    return `${base.slice(0, 34)}...${ext ? "." + ext : ""}`;
+  }
+
+  function validarArchivo(file) {
+    if (!file) {
+      return {
+        ok: false,
+        mensaje: "Debes seleccionar un comprobante."
+      };
+    }
+
+    const ext = extensionArchivo(file.name);
+
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return {
+        ok: false,
+        mensaje: "Formato no permitido. Sube un archivo PDF, JPG, JPEG o PNG."
+      };
+    }
+
+    if (Number(file.size || 0) <= 0) {
+      return {
+        ok: false,
+        mensaje: "El archivo seleccionado está vacío."
+      };
+    }
+
+    if (Number(file.size || 0) > MAX_FILE_BYTES) {
+      return {
+        ok: false,
+        mensaje: `El archivo pesa ${formatoBytes(file.size)}. El máximo permitido es 5 MB.`
+      };
+    }
+
+    return {
+      ok: true,
+      mensaje: "Archivo válido."
+    };
+  }
+
+  function actualizarNombreArchivo(file) {
+    const label = byId("evSelectedFileName");
+
+    if (!label) return;
+
+    if (!file) {
+      label.classList.remove("has-file");
+      label.textContent = "Ningún archivo seleccionado";
+      return;
+    }
+
+    const ext = extensionArchivo(file.name).toUpperCase();
+    const size = formatoBytes(file.size);
+
+    label.classList.add("has-file");
+    label.innerHTML = `
+      <i class="bi bi-file-earmark-check me-1"></i>
+      ${escapeHtml(nombreArchivoSeguro(file.name))}
+      <span class="ev-file-meta"> · ${escapeHtml(ext)} · ${escapeHtml(size)}</span>
+    `;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function setSubmitting(form, submitting) {
+    const submit = form?.querySelector('button[type="submit"]');
+    const input = byId("evComprobante");
+    const uploadZone = document.querySelector(".ev-upload-zone");
+
+    if (submit) {
+      submit.disabled = submitting;
+
+      if (submitting) {
+        submit.dataset.originalHtml = submit.innerHTML;
+        submit.innerHTML = `
+          <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+          Enviando...
+        `;
+      } else if (submit.dataset.originalHtml) {
+        submit.innerHTML = submit.dataset.originalHtml;
+      }
+    }
+
+    if (input) {
+      input.disabled = submitting;
+    }
+
+    if (uploadZone) {
+      uploadZone.classList.toggle("is-disabled", submitting);
+    }
+  }
+
+  function mostrarLoadingEnvio() {
+    if (!tieneSweetAlert()) return;
+
+    Swal.fire({
+      title: "Enviando comprobante",
+      text: "Estamos procesando tu archivo. No cierres esta ventana.",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      allowEnterKey: false,
+      showConfirmButton: false,
+      backdrop: true,
+
+      // EV: evita desplazamiento visual/layout shift al abrir SweetAlert2.
+      scrollbarPadding: false,
+      heightAuto: false,
+
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+  }
+
+  function cerrarLoading() {
+    if (tieneSweetAlert()) {
+      Swal.close();
+    }
+  }
+
+  function mostrarGracias(mensajeBackend, tipoSubsanacion) {
+    const form = byId("evFormReenviar");
+    const box = byId("evGraciasBox");
+
+    if (form) {
+      form.classList.add("d-none");
+    }
+
+    if (box) {
+      box.classList.remove("d-none");
+    }
+
+    const esResidencia =
+      tipoSubsanacion === "cambio_residencia" ||
+      esCambioResidencia ||
+      tipoObservacion === "cambio_residencia";
+
+    const titulo = esResidencia
+      ? "Cambio de residencia reenviado"
+      : "Comprobante reenviado";
+
+    const texto = mensajeBackend || (
+      esResidencia
+        ? "Tu cambio de residencia volvió a revisión."
+        : "Tu cuenta volvió a revisión."
     );
+
+    return mostrarAlerta({
+      icon: "success",
+      title: titulo,
+      text: texto
+    }).then(() => {
+      window.location.href = endpoint("cuenta-observada");
+    });
   }
 
-  function fireSwal(icon, title, text) {
-    if (!hasSwal()) {
-      alert(`${title}\n\n${text}`);
-      return Promise.resolve();
+  async function leerJsonSeguro(resp) {
+    const text = await resp.text();
+
+    if (!text) {
+      return {};
     }
 
-    return Swal.fire({
-      icon,
-      title,
-      text,
-      confirmButtonText: 'Entendido',
-      buttonsStyling: false,
-      customClass: {
-        popup: 'ev-swal-popup',
-        title: 'ev-swal-title',
-        htmlContainer: 'ev-swal-html',
-        confirmButton: 'ev-swal-confirm'
-      }
-    });
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return {
+        ok: false,
+        mensaje: "La respuesta del servidor no tiene un formato válido."
+      };
+    }
   }
 
-  function initBotonEntendido() {
-    const btnEntendido = document.getElementById('evBtnEntendido');
-    if (!btnEntendido || btnEntendido.dataset.evBound === '1') return;
+  async function enviarComprobante(e) {
+    e.preventDefault();
 
-    btnEntendido.dataset.evBound = '1';
+    const form = e.currentTarget;
+    const input = byId("evComprobante");
+    const file = input?.files?.[0] || null;
 
-    btnEntendido.addEventListener('click', function () {
-      fireSwal(
-        'info',
-        'Revisión en curso',
-        'No necesitas hacer nada más por ahora. La revisión continuará automáticamente y te mostraremos el resultado cuando finalice.'
-      );
-    });
-  }
+    const validacion = validarArchivo(file);
 
-  function initSoporteLinks() {
-    const links = document.querySelectorAll('.js-ev-soporte-link, #evBtnInfoSupport');
-
-    links.forEach(function (link) {
-      if (!link || link.dataset.evBound === '1') return;
-
-      link.dataset.evBound = '1';
-
-      link.addEventListener('click', function (e) {
-        e.preventDefault();
-
-        fireSwal(
-          'info',
-          'Más información',
-          'La revisión ayuda a mantener segura la comunidad. Si el equipo necesita una corrección, verás una observación y podrás reenviar tu comprobante.'
-        );
+    if (!validacion.ok) {
+      await mostrarAlerta({
+        icon: "warning",
+        title: "Archivo inválido",
+        text: validacion.mensaje
       });
+
+      if (input) input.focus();
+      actualizarNombreArchivo(null);
+      return;
+    }
+
+    const formData = new FormData(form);
+
+    try {
+      setSubmitting(form, true);
+      mostrarLoadingEnvio();
+
+      const resp = await fetch(endpoint("api/cuenta-observada/reenviar"), {
+        method: "POST",
+        headers: {
+          "X-Partial": "1"
+        },
+        credentials: "include",
+        body: formData
+      });
+
+      const json = await leerJsonSeguro(resp);
+
+      if (!resp.ok || json.ok !== true) {
+        const msg = json?.mensaje || "No se pudo reenviar el comprobante.";
+        throw new Error(msg);
+      }
+
+      cerrarLoading();
+
+      const tipoSubsanacion = String(json?.data?.tipo_subsanacion || "");
+      await mostrarGracias(json?.mensaje || "", tipoSubsanacion);
+
+    } catch (err) {
+      cerrarLoading();
+
+      await mostrarAlerta({
+        icon: "error",
+        title: "No se pudo enviar",
+        text: err?.message || "Ocurrió un error al reenviar el comprobante."
+      });
+    } finally {
+      setSubmitting(form, false);
+    }
+  }
+
+  function mostrarInfoSoporte() {
+    const esObservado = modoVista === "observado";
+
+    let title = "Información de revisión";
+    let html = `
+      <div style="text-align:left">
+        <p style="margin-bottom:10px">
+          La revisión ayuda a validar que cada vecino pertenezca a la comunidad indicada.
+        </p>
+        <p style="margin-bottom:0">
+          Cuando soporte termine de revisar tu información, el sistema actualizará el estado de tu cuenta.
+        </p>
+      </div>
+    `;
+
+    if (esObservado && esCambioResidencia) {
+      title = "Cambio de residencia observado";
+      html = `
+        <div style="text-align:left">
+          <p style="margin-bottom:10px">
+            Soporte encontró un detalle pendiente en tu solicitud de cambio de residencia.
+          </p>
+          <p style="margin-bottom:10px">
+            Revisa la observación, adjunta el comprobante corregido y vuelve a enviarlo.
+          </p>
+          <p style="margin-bottom:0">
+            Luego tu solicitud regresará a revisión.
+          </p>
+        </div>
+      `;
+    } else if (esObservado) {
+      title = "Cuenta observada";
+      html = `
+        <div style="text-align:left">
+          <p style="margin-bottom:10px">
+            Soporte encontró un detalle pendiente en tu registro.
+          </p>
+          <p style="margin-bottom:10px">
+            Revisa la observación, adjunta el comprobante corregido y vuelve a enviarlo.
+          </p>
+          <p style="margin-bottom:0">
+            Luego tu cuenta regresará a revisión.
+          </p>
+        </div>
+      `;
+    } else if (esCambioResidencia || estadoSolicitudResidencia === "pendiente") {
+      title = "Cambio de residencia en revisión";
+      html = `
+        <div style="text-align:left">
+          <p style="margin-bottom:10px">
+            Tu solicitud de cambio de residencia está siendo validada por soporte.
+          </p>
+          <p style="margin-bottom:0">
+            Si el comprobante coincide con la nueva residencia, el cambio podrá ser aprobado.
+          </p>
+        </div>
+      `;
+    }
+
+    mostrarAlerta({
+      icon: "info",
+      title,
+      html
     });
   }
 
-  function initReenvioComprobante() {
-    if (modoVista !== 'observado') return;
-    if (!baseUrl) return;
+  function mostrarEntendidoRevision() {
+    const esResidenciaPendiente =
+      esCambioResidencia ||
+      tipoObservacion === "cambio_residencia_pendiente" ||
+      estadoSolicitudResidencia === "pendiente";
 
-    const form = document.getElementById('evFormReenviar');
-    const boxObs = document.getElementById('evObservacionBox');
-    const boxOk = document.getElementById('evGraciasBox');
-    const input = document.getElementById('evComprobante');
+    const title = esResidenciaPendiente
+      ? "Cambio de residencia en revisión"
+      : "Cuenta en revisión";
 
-    if (!form || !input) return;
-    if (form.dataset.evBound === '1') return;
+    const text = esResidenciaPendiente
+      ? "Te avisaremos cuando soporte termine de revisar tu cambio de residencia."
+      : "Te avisaremos cuando soporte termine de revisar tu cuenta.";
 
-    form.dataset.evBound = '1';
+    mostrarAlerta({
+      icon: "success",
+      title,
+      text
+    });
+  }
 
-    const btnSubmit = form.querySelector('button[type="submit"]');
+  function wireForm() {
+    const form = byId("evFormReenviar");
+    if (!form || form.dataset.evWired === "1") return;
 
-    const MAX_MB = 5;
-    const MAX_BYTES = MAX_MB * 1024 * 1024;
-    const ALLOWED_EXT = ['pdf', 'jpg', 'jpeg', 'png'];
+    form.dataset.evWired = "1";
+    form.addEventListener("submit", enviarComprobante);
+  }
 
-    let isSubmitting = false;
-
-    function showError(msg) {
-      fireSwal('error', 'Error', msg);
+  function wireInfoButtons() {
+    const btnInfo = byId("evBtnInfoSupport");
+    if (btnInfo && btnInfo.dataset.evWired !== "1") {
+      btnInfo.dataset.evWired = "1";
+      btnInfo.addEventListener("click", mostrarInfoSoporte);
     }
 
-    function showSuccess(msg) {
-      fireSwal('success', 'Comprobante recibido', msg);
+    const linksInfo = document.querySelectorAll(".js-ev-soporte-link");
+    linksInfo.forEach((link) => {
+      if (link.dataset.evWired === "1") return;
+      link.dataset.evWired = "1";
+      link.addEventListener("click", mostrarInfoSoporte);
+    });
+
+    const btnEntendido = byId("evBtnEntendido");
+    if (btnEntendido && btnEntendido.dataset.evWired !== "1") {
+      btnEntendido.dataset.evWired = "1";
+      btnEntendido.addEventListener("click", mostrarEntendidoRevision);
     }
+  }
 
-    function setLoading(loading) {
-      if (!btnSubmit) return;
+  function wireFileInput() {
+    const input = byId("evComprobante");
+    const uploadZone = document.querySelector(".ev-upload-zone");
 
-      btnSubmit.disabled = loading;
+    if (!input || input.dataset.evWired === "1") return;
 
-      btnSubmit.innerHTML = loading
-        ? '<span class="spinner-border spinner-border-sm me-1"></span> Enviando...'
-        : '<i class="bi bi-upload"></i> Enviar comprobante';
-    }
+    input.dataset.evWired = "1";
 
-    function getFileExtension(name) {
-      const parts = String(name || '').split('.');
-      return parts.length > 1 ? parts.pop().toLowerCase() : '';
-    }
+    input.addEventListener("change", async () => {
+      const file = input.files?.[0] || null;
 
-    form.addEventListener('submit', async function (e) {
-      e.preventDefault();
-
-      if (isSubmitting) return;
-
-      if (!input.files || !input.files.length) {
-        showError('Selecciona un archivo.');
+      if (!file) {
+        actualizarNombreArchivo(null);
         return;
       }
 
-      const file = input.files[0];
-      const ext = getFileExtension(file.name);
+      const validacion = validarArchivo(file);
 
-      if (!ALLOWED_EXT.includes(ext)) {
-        showError('Formato no permitido. Usa PDF, JPG, JPEG o PNG.');
-        return;
-      }
+      if (!validacion.ok) {
+        input.value = "";
+        actualizarNombreArchivo(null);
 
-      if (file.size > MAX_BYTES) {
-        showError(`El archivo supera el límite de ${MAX_MB}MB.`);
-        return;
-      }
-
-      const fd = new FormData();
-      fd.append('comprobante', file);
-
-      isSubmitting = true;
-      setLoading(true);
-
-      try {
-        const resp = await fetch(`${baseUrl}/api/cuenta-observada/reenviar`, {
-          method: 'POST',
-          body: fd,
-          credentials: 'include',
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-          }
+        await mostrarAlerta({
+          icon: "warning",
+          title: "Archivo inválido",
+          text: validacion.mensaje
         });
 
-        let json;
+        return;
+      }
 
-        try {
-          json = await resp.json();
-        } catch (_) {
-          throw new Error('No se pudo procesar la respuesta del servidor.');
-        }
+      actualizarNombreArchivo(file);
 
-        if (!resp.ok || !json.ok) {
-          if (resp.status === 401) {
-            window.location.href = `${baseUrl}/login`;
-            return;
-          }
-
-          if (json.redirect) {
-            window.location.href = json.redirect;
-            return;
-          }
-
-          throw new Error(json.mensaje || json.message || 'No se pudo enviar el comprobante.');
-        }
-
-        form.classList.add('d-none');
-
-        if (boxObs) {
-          boxObs.classList.add('d-none');
-        }
-
-        if (boxOk) {
-          boxOk.classList.remove('d-none');
-        }
-
-        showSuccess('Recibimos tu comprobante corregido. El equipo volverá a revisar tu información.');
-
-      } catch (err) {
-        showError(
-          err.message ||
-          'Ocurrió un problema al enviar el archivo. Intenta nuevamente.'
-        );
-
-        setLoading(false);
-        isSubmitting = false;
+      if (uploadZone) {
+        uploadZone.classList.add("has-file");
       }
     });
+
+    if (uploadZone && uploadZone.dataset.evWired !== "1") {
+      uploadZone.dataset.evWired = "1";
+
+      uploadZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        uploadZone.classList.add("is-dragover");
+      });
+
+      uploadZone.addEventListener("dragleave", () => {
+        uploadZone.classList.remove("is-dragover");
+      });
+
+      uploadZone.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove("is-dragover");
+
+        const file = e.dataTransfer?.files?.[0] || null;
+
+        if (!file) return;
+
+        const validacion = validarArchivo(file);
+
+        if (!validacion.ok) {
+          input.value = "";
+          actualizarNombreArchivo(null);
+
+          await mostrarAlerta({
+            icon: "warning",
+            title: "Archivo inválido",
+            text: validacion.mensaje
+          });
+
+          return;
+        }
+
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        input.files = dataTransfer.files;
+
+        actualizarNombreArchivo(file);
+        uploadZone.classList.add("has-file");
+      });
+    }
   }
 
-  function boot() {
-    initBotonEntendido();
-    initSoporteLinks();
-    initReenvioComprobante();
+  function init() {
+    wireForm();
+    wireInfoButtons();
+    wireFileInput();
+    actualizarNombreArchivo(null);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
   } else {
-    boot();
+    init();
   }
 })();

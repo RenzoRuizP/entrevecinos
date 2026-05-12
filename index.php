@@ -2,7 +2,7 @@
 // ============================================================
 // index.php — Enrutamiento centralizado (EV)
 // Shell único (MenuPrincipal) + parciales para módulos
-// + Bloqueo por CUENTA OBSERVADA con página dedicada
+// + Bloqueo por CUENTA OBSERVADA / CAMBIO DE RESIDENCIA OBSERVADO
 // + Expulsión inmediata en siguiente request si SOPORTE bloquea cuenta
 // + Endpoint liviano para notificación global de pedidos vendedor
 // ============================================================
@@ -292,7 +292,7 @@ function evRenderCuentaBloqueada(string $loginUrl): void
 // ------------------------------
 // Validaciones contra BD
 // ------------------------------
-function evObtenerEstadoUsuario(int $codigoUsuario): ?int
+function evObtenerConexionIndex(): ?PDO
 {
     try {
         if (!class_exists('Conexion')) {
@@ -305,8 +305,20 @@ function evObtenerEstadoUsuario(int $codigoUsuario): ?int
             return null;
         }
 
-        /** @var PDO|null $db */
         $db = $cn->getDblink();
+
+        return $db instanceof PDO ? $db : null;
+    } catch (Throwable $e) {
+        error_log('[EV][INDEX][evObtenerConexionIndex] ' . $e->getMessage());
+        return null;
+    }
+}
+
+function evObtenerEstadoUsuario(int $codigoUsuario): ?int
+{
+    try {
+        $db = evObtenerConexionIndex();
+
         if (!$db) {
             return null;
         }
@@ -334,39 +346,74 @@ function evObtenerEstadoUsuario(int $codigoUsuario): ?int
     }
 }
 
-function evUsuarioEstaObservado(int $codigoUsuario): bool
+function evUsuarioTieneCuentaObservada(int $codigoUsuario): bool
 {
     try {
-        if (!class_exists('Conexion')) {
-            return false;
-        }
+        $db = evObtenerConexionIndex();
 
-        $cn = new Conexion();
-
-        if (!method_exists($cn, 'getDblink')) {
-            return false;
-        }
-
-        /** @var PDO|null $db */
-        $db = $cn->getDblink();
         if (!$db) {
             return false;
         }
 
         $st = $db->prepare("
-            SELECT MAX(COALESCE(estado_revision, 0)) AS mx
+            SELECT 1
             FROM usuario_revision
             WHERE codigo_usuario = :id
+              AND estado_revision = 3
+            LIMIT 1
         ");
 
         $st->execute([':id' => $codigoUsuario]);
-        $mx = (int)$st->fetchColumn();
 
-        return ($mx === 3);
+        return (bool)$st->fetchColumn();
     } catch (Throwable $e) {
-        error_log('[EV][INDEX][evUsuarioEstaObservado] ' . $e->getMessage());
+        error_log('[EV][INDEX][evUsuarioTieneCuentaObservada] ' . $e->getMessage());
         return false;
     }
+}
+
+function evUsuarioTieneCambioResidenciaObservado(int $codigoUsuario): bool
+{
+    try {
+        $db = evObtenerConexionIndex();
+
+        if (!$db) {
+            return false;
+        }
+
+        $st = $db->prepare("
+            SELECT 1
+            FROM usuario_residencia_solicitud
+            WHERE codigo_usuario = :id
+              AND estado = 'observada'
+            ORDER BY codigo_solicitud DESC
+            LIMIT 1
+        ");
+
+        $st->execute([':id' => $codigoUsuario]);
+
+        return (bool)$st->fetchColumn();
+    } catch (Throwable $e) {
+        error_log('[EV][INDEX][evUsuarioTieneCambioResidenciaObservado] ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Observado global EV:
+ * - Cuenta observada por validación inicial: usuario_revision.estado_revision = 3
+ * - Cambio de residencia observado: usuario_residencia_solicitud.estado = 'observada'
+ */
+function evUsuarioEstaObservado(int $codigoUsuario): bool
+{
+    if ($codigoUsuario <= 0) {
+        return false;
+    }
+
+    return (
+        evUsuarioTieneCuentaObservada($codigoUsuario)
+        || evUsuarioTieneCambioResidenciaObservado($codigoUsuario)
+    );
 }
 
 function evUsuarioEstaEnRevisionInicial(int $codigoUsuario): bool
@@ -545,7 +592,6 @@ $routes = [
     ['GET', '#^/billetera$#',   [billeteraController::class, 'index'],   'html'],
     ['GET', '#^/credencial$#',  [credencialController::class, 'index'],  'html'],
 
-    // Compatibilidad
     ['GET', '#^/recibir$#', [recibirPedidosController::class, 'index'], 'html'],
 
     ['GET', '#^/mis-pedidos-comprador$#', [misPedidosCompradorController::class, 'index'], 'html'],
@@ -630,7 +676,6 @@ $routes = [
     ['POST', '#^/api/soporte/productos/(\d+)/estado$#', [apiSoporteProductosController::class, 'actualizarEstado'], 'json'],
     ['POST', '#^/api/soporte/productos/(\d+)/revisar$#', [apiSoporteProductosController::class, 'revisar'], 'json'],
 
-    // Compatibilidad soporte productos
     ['GET',  '#^/api/soporte-productos/listar$#', [apiSoporteProductosController::class, 'listar'], 'json'],
     ['GET',  '#^/api/soporte-productos/(\d+)$#', [apiSoporteProductosController::class, 'detalle'], 'json'],
     ['POST', '#^/api/soporte-productos/(\d+)/estado$#', [apiSoporteProductosController::class, 'actualizarEstado'], 'json'],
@@ -756,7 +801,9 @@ foreach ($routes as $r) {
                     evJsonResponse(409, [
                         'ok'       => false,
                         'error'    => 'CUENTA_OBSERVADA',
-                        'mensaje'  => 'Tu cuenta está observada. Debes reenviar tu comprobante.',
+                        'mensaje'  => $observado
+                            ? 'Tienes una observación pendiente. Debes revisar y reenviar tu comprobante.'
+                            : 'Tu cuenta está en revisión.',
                         'redirect' => $redirect
                     ]);
                 }

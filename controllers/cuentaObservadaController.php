@@ -48,6 +48,16 @@ final class cuentaObservadaController
         $fechaObservacion   = null;
         $modoVista          = 'revision_inicial';
 
+        /*
+         * Nuevas variables de contexto.
+         * La vista actual puede funcionar sin usarlas, pero quedan listas
+         * para diferenciar cuenta observada vs cambio de residencia observado.
+         */
+        $tipoObservacion            = 'cuenta_pendiente';
+        $esCambioResidencia         = false;
+        $codigoSolicitudResidencia  = null;
+        $estadoSolicitudResidencia  = null;
+
         try {
             $model = new CuentaObservada();
 
@@ -63,22 +73,35 @@ final class cuentaObservadaController
             $estadoUsuario = (int)($usuario['estado'] ?? 0);
 
             /*
-             * Si más adelante decides bloquear esta vista para usuarios que
-             * ya no estén en revisión, puedes reactivar esta validación.
+             * Contexto unificado:
+             *
+             * 1) usuario_residencia_solicitud.estado = 'observada'
+             * 2) usuario_residencia_solicitud.estado = 'pendiente'
+             * 3) usuario_revision.estado_revision = 3
+             * 4) revisión inicial normal
              */
+            $contexto = $model->obtenerContextoVista($codigoUsuario);
+
+            $modoVista                 = (string)($contexto['modo_vista'] ?? 'revision_inicial');
+            $tipoObservacion           = (string)($contexto['tipo_observacion'] ?? 'cuenta_pendiente');
+            $mensajeObservacion        = (string)($contexto['mensaje_observacion'] ?? '');
+            $fechaObservacion          = $contexto['fecha_observacion'] ?? null;
+            $esCambioResidencia        = (bool)($contexto['es_cambio_residencia'] ?? false);
+            $codigoSolicitudResidencia = $contexto['codigo_solicitud_residencia'] ?? null;
+            $estadoSolicitudResidencia = $contexto['estado_solicitud_residencia'] ?? null;
+
             /*
-            if ($estadoUsuario !== 1) {
-                header('Location: ' . $baseUrl . '/MenuPrincipal', true, 302);
-                exit;
+             * Comunidad:
+             * - Si hay cambio de residencia, se prioriza la comunidad solicitada.
+             * - Si no, se usa la residencia vigente.
+             * - Finalmente, fallback desde token.
+             */
+            $nombreComunidad = trim((string)($contexto['nombre_comunidad'] ?? ''));
+
+            if ($nombreComunidad === '') {
+                $nombreComunidad = $model->obtenerNombreComunidad($codigoUsuario);
             }
-            */
 
-            $nombreComunidad = $model->obtenerNombreComunidad($codigoUsuario);
-
-            /*
-             * Fallback defensivo desde el token, por si el usuario todavía
-             * no tiene usuario_residencia correctamente registrado.
-             */
             if ($nombreComunidad === '') {
                 $nombreComunidad = trim((string)(
                     $auth['condominio_nombre']
@@ -88,14 +111,24 @@ final class cuentaObservadaController
                 ));
             }
 
-            $revision = $model->obtenerRevisionUsuario($codigoUsuario);
+            /*
+             * Blindaje:
+             * Si el usuario ya está habilitado y no tiene ninguna observación
+             * ni solicitud abierta de cambio de residencia, no debe ver esta pantalla.
+             */
+            $tieneObservacion = ($modoVista === 'observado');
+            $tieneCambioResidenciaPendiente = (
+                $esCambioResidencia
+                && strtolower((string)$estadoSolicitudResidencia) === 'pendiente'
+            );
 
-            if ($revision && (int)($revision['estado_revision'] ?? 0) === 3) {
-                $modoVista = 'observado';
-                $mensajeObservacion = (string)($revision['mensaje_observacion'] ?? '');
-                $fechaObservacion   = $revision['fecha_observacion'] ?? null;
-            } else {
-                $modoVista = 'revision_inicial';
+            if (
+                !$tieneObservacion
+                && !$tieneCambioResidenciaPendiente
+                && $estadoUsuario !== 1
+            ) {
+                header('Location: ' . $baseUrl . '/MenuPrincipal', true, 302);
+                exit;
             }
 
         } catch (Throwable $e) {
@@ -108,13 +141,17 @@ final class cuentaObservadaController
         // Render vista
         // ============================
         $data = [
-            'baseUrl'            => $baseUrl,
-            'nombre'             => $nombre,
-            'email'              => $email,
-            'nombreComunidad'    => $nombreComunidad,
-            'modoVista'          => $modoVista,
-            'mensajeObservacion' => $mensajeObservacion,
-            'fechaObservacion'   => $fechaObservacion,
+            'baseUrl'                    => $baseUrl,
+            'nombre'                     => $nombre,
+            'email'                      => $email,
+            'nombreComunidad'            => $nombreComunidad,
+            'modoVista'                  => $modoVista,
+            'tipoObservacion'            => $tipoObservacion,
+            'mensajeObservacion'         => $mensajeObservacion,
+            'fechaObservacion'           => $fechaObservacion,
+            'esCambioResidencia'         => $esCambioResidencia,
+            'codigoSolicitudResidencia'  => $codigoSolicitudResidencia,
+            'estadoSolicitudResidencia'  => $estadoSolicitudResidencia,
         ];
 
         extract($data, EXTR_SKIP);
