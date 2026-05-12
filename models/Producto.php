@@ -1,6 +1,6 @@
 <?php
 /*
-    Modelo Producto (EV)
+    models/Producto.php — Modelo Producto/Publicación (EV)
 
     Estados (visible):
       0 = borrador
@@ -8,6 +8,10 @@
       2 = aprobado
       3 = rechazado
       4 = anulado
+
+    tipo_publicacion:
+      producto = bien físico publicado por un vecino
+      servicio = servicio ofrecido por un vecino
 
     REGLA MARKETPLACE:
       - Una publicación solo puede mostrarse en marketplace si:
@@ -30,6 +34,7 @@ class Producto extends Conexion
     private ?string $descripcion = null;
     private float $precio = 0.0;
     private ?string $estado = null;
+    private string $tipo_publicacion = 'producto';
     private string $tipo_atencion_producto = 'no_requiere_preparacion';
 
     private int $visible = 0;
@@ -39,13 +44,49 @@ class Producto extends Conexion
     private ?int $codigo_categoria = null;
 
     // ====== SETTERS ======
-    public function setTitulo($titulo): void { $this->titulo = trim((string)$titulo); }
-    public function setImagen_portada($imagen_portada): void { $this->imagen_portada = $imagen_portada !== null ? trim((string)$imagen_portada) : null; }
-    public function setDescripcion($descripcion): void { $this->descripcion = trim((string)$descripcion); }
-    public function setPrecio($precio): void { $this->precio = (float)$precio; }
-    public function setEstado($estado): void { $this->estado = trim((string)$estado); }
-    public function setVisible($visible): void { $this->visible = (int)$visible; }
-    public function setCodigoUsuario($codigo_usuario): void { $this->codigo_usuario = (int)$codigo_usuario; }
+    public function setTitulo($titulo): void
+    {
+        $this->titulo = trim((string)$titulo);
+    }
+
+    public function setImagen_portada($imagen_portada): void
+    {
+        $this->imagen_portada = $imagen_portada !== null ? trim((string)$imagen_portada) : null;
+    }
+
+    public function setDescripcion($descripcion): void
+    {
+        $this->descripcion = trim((string)$descripcion);
+    }
+
+    public function setPrecio($precio): void
+    {
+        $this->precio = (float)$precio;
+    }
+
+    public function setEstado($estado): void
+    {
+        $estado = trim((string)$estado);
+        $permitidos = ['Nuevo', 'Usado', 'NoAplica'];
+        $this->estado = in_array($estado, $permitidos, true) ? $estado : 'NoAplica';
+    }
+
+    public function setVisible($visible): void
+    {
+        $this->visible = (int)$visible;
+    }
+
+    public function setCodigoUsuario($codigo_usuario): void
+    {
+        $this->codigo_usuario = (int)$codigo_usuario;
+    }
+
+    public function setTipoPublicacion($tipo_publicacion): void
+    {
+        $valor = strtolower(trim((string)$tipo_publicacion));
+        $permitidos = ['producto', 'servicio'];
+        $this->tipo_publicacion = in_array($valor, $permitidos, true) ? $valor : 'producto';
+    }
 
     public function setTipoAtencionProducto($tipo_atencion_producto): void
     {
@@ -64,6 +105,19 @@ class Producto extends Conexion
     public function setCodigoCategoria($codigo_categoria): void
     {
         $this->codigo_categoria = ($codigo_categoria !== null && $codigo_categoria !== '') ? (int)$codigo_categoria : null;
+    }
+
+    private function aplicarReglasPorTipoPublicacion(): void
+    {
+        if ($this->tipo_publicacion === 'servicio') {
+            // Un servicio no tiene estado físico ni preparación de producto.
+            $this->estado = 'NoAplica';
+            $this->tipo_atencion_producto = 'no_requiere_preparacion';
+        }
+
+        if ($this->estado === null || $this->estado === '') {
+            $this->estado = 'NoAplica';
+        }
     }
 
     /* ==========================================================
@@ -167,7 +221,7 @@ class Producto extends Conexion
 
     /* ==========================================================
        SNAPSHOT RESIDENCIAL PARA PUBLICACIÓN
-       - Se usa al crear producto
+       - Se usa al crear publicación
     ========================================================== */
     public function obtenerSnapshotResidenciaParaPublicacion(int $codigoUsuario): ?array
     {
@@ -189,11 +243,6 @@ class Producto extends Conexion
 
     /* ==========================================================
        CONDICIÓN BASE MARKETPLACE
-       Regla EV:
-       - Solo se muestran publicaciones aprobadas.
-       - El vendedor debe estar habilitado.
-       - El vendedor debe estar conectado/disponible para pedidos.
-       - La publicación debe seguir vigente para la residencia donde fue creada.
     ========================================================== */
     private function whereMarketplaceUsuarioHabilitado(string $aliasProducto = 'p', string $aliasUsuario = 'u'): string
     {
@@ -207,20 +256,22 @@ class Producto extends Conexion
     }
 
     /* ==========================================================
-       CREAR PRODUCTO (visible=0 borrador)
+       CREAR PUBLICACIÓN (visible=0 borrador)
        - Guarda snapshot residencial
     ========================================================== */
     public function crearProducto(): int
     {
         $codigoUsuario = (int)$this->codigo_usuario;
         if ($codigoUsuario <= 0) {
-            throw new Exception('Usuario inválido para registrar producto.');
+            throw new Exception('Usuario inválido para registrar la publicación.');
         }
 
         $snap = $this->obtenerSnapshotResidenciaParaPublicacion($codigoUsuario);
         if (!$snap) {
-            throw new Exception('No se encontró una residencia activa para registrar el producto.');
+            throw new Exception('No se encontró una residencia activa para registrar la publicación.');
         }
+
+        $this->aplicarReglasPorTipoPublicacion();
 
         $sql = "
             INSERT INTO producto
@@ -230,6 +281,7 @@ class Producto extends Conexion
                 descripcion,
                 estado,
                 precio,
+                tipo_publicacion,
                 tipo_atencion_producto,
                 visible,
                 codigo_usuario,
@@ -248,6 +300,7 @@ class Producto extends Conexion
                 :descripcion,
                 :estado,
                 :precio,
+                :tipo_publicacion,
                 :tipo_atencion_producto,
                 :visible,
                 :codigo_usuario,
@@ -273,6 +326,7 @@ class Producto extends Conexion
         $stmt->bindValue(':descripcion', $this->descripcion, PDO::PARAM_STR);
         $stmt->bindValue(':estado', $this->estado, PDO::PARAM_STR);
         $stmt->bindValue(':precio', $this->precio);
+        $stmt->bindValue(':tipo_publicacion', $this->tipo_publicacion, PDO::PARAM_STR);
         $stmt->bindValue(':tipo_atencion_producto', $this->tipo_atencion_producto, PDO::PARAM_STR);
         $stmt->bindValue(':visible', $this->visible, PDO::PARAM_INT);
         $stmt->bindValue(':codigo_usuario', $this->codigo_usuario, PDO::PARAM_INT);
@@ -511,13 +565,14 @@ class Producto extends Conexion
     }
 
     /* ==========================================================
-       LISTADOS / DETALLE
+       LISTADOS / DETALLE DEL VECINO
     ========================================================== */
     public function listarPorUsuario(int $codigoUsuario): array
     {
         $sql = "
             SELECT
                 p.codigo_producto,
+                p.tipo_publicacion,
                 p.titulo,
                 p.descripcion,
                 p.estado,
@@ -568,6 +623,7 @@ class Producto extends Conexion
         $sql = "
             SELECT
                 p.codigo_producto,
+                p.tipo_publicacion,
                 p.titulo,
                 p.descripcion,
                 p.estado,
@@ -607,21 +663,26 @@ class Producto extends Conexion
 
     public function actualizarProductoBase(int $codigoProducto, int $codigoUsuario): void
     {
+        $this->aplicarReglasPorTipoPublicacion();
+
         $sql = "
             UPDATE producto
             SET
+                tipo_publicacion        = :tipo_publicacion,
                 titulo                  = :titulo,
                 descripcion             = :descripcion,
                 estado                  = :estado,
                 precio                  = :precio,
                 tipo_atencion_producto  = :tipo_atencion_producto,
                 codigo_tipo             = :codigo_tipo,
-                codigo_categoria        = :codigo_categoria
+                codigo_categoria        = :codigo_categoria,
+                updated_at              = CURRENT_TIMESTAMP
             WHERE codigo_producto = :codigo_producto
               AND codigo_usuario  = :codigo_usuario
         ";
 
         $stmt = $this->dblink->prepare($sql);
+        $stmt->bindValue(':tipo_publicacion', $this->tipo_publicacion, PDO::PARAM_STR);
         $stmt->bindValue(':titulo', $this->titulo, PDO::PARAM_STR);
         $stmt->bindValue(':descripcion', $this->descripcion, PDO::PARAM_STR);
         $stmt->bindValue(':estado', $this->estado, PDO::PARAM_STR);
@@ -646,7 +707,8 @@ class Producto extends Conexion
     {
         $sql = "
             UPDATE producto
-            SET visible = 1
+            SET visible = 1,
+                updated_at = CURRENT_TIMESTAMP
             WHERE codigo_producto = :p_codigo_producto
               AND codigo_usuario  = :p_codigo_usuario
               AND visible = 0
@@ -662,7 +724,8 @@ class Producto extends Conexion
     {
         $sql = "
             UPDATE producto
-            SET visible = 2
+            SET visible = 2,
+                updated_at = CURRENT_TIMESTAMP
             WHERE codigo_producto = :p_codigo_producto
               AND visible = 1
         ";
@@ -676,7 +739,8 @@ class Producto extends Conexion
     {
         $sql = "
             UPDATE producto
-            SET visible = 4
+            SET visible = 4,
+                updated_at = CURRENT_TIMESTAMP
             WHERE codigo_producto = :p_codigo_producto
               AND codigo_usuario  = :p_codigo_usuario
               AND visible IN (0,1,2,3)
@@ -721,6 +785,7 @@ class Producto extends Conexion
         $sql = "
             SELECT
                 p.codigo_producto,
+                p.tipo_publicacion,
                 p.titulo,
                 p.descripcion,
                 p.estado,
@@ -751,7 +816,7 @@ class Producto extends Conexion
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    public function listarMarketplaceFiltrado(?int $tipo, ?int $categoria, string $q, int $page, int $size): array
+    public function listarMarketplaceFiltrado(?int $tipo, ?int $categoria, string $q, int $page, int $size, ?string $tipoPublicacion = null): array
     {
         $page = max(1, (int)$page);
         $size = max(1, min(50, (int)$size));
@@ -759,9 +824,15 @@ class Producto extends Conexion
 
         $q = trim((string)$q);
         $hasQ = ($q !== '');
+        $tipoPublicacion = $this->normalizarTipoPublicacionFiltro($tipoPublicacion);
 
         $where = " WHERE " . $this->whereMarketplaceUsuarioHabilitado('p', 'u') . " ";
         $params = [];
+
+        if ($tipoPublicacion !== null) {
+            $where .= " AND p.tipo_publicacion = :tipo_publicacion ";
+            $params[':tipo_publicacion'] = $tipoPublicacion;
+        }
 
         if ($tipo !== null && $tipo > 0) {
             $where .= " AND p.codigo_tipo = :tipo ";
@@ -785,15 +856,14 @@ class Producto extends Conexion
             {$where}
         ";
         $stT = $this->dblink->prepare($sqlTotal);
-        foreach ($params as $k => $v) {
-            $stT->bindValue($k, $v, ($k === ':tipo' || $k === ':cat') ? PDO::PARAM_INT : PDO::PARAM_STR);
-        }
+        $this->bindMarketplaceParams($stT, $params);
         $stT->execute();
         $total = (int)($stT->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
 
         $sql = "
             SELECT
                 p.codigo_producto,
+                p.tipo_publicacion,
                 p.titulo,
                 p.descripcion,
                 p.estado,
@@ -821,9 +891,7 @@ class Producto extends Conexion
         ";
 
         $stmt = $this->dblink->prepare($sql);
-        foreach ($params as $k => $v) {
-            $stmt->bindValue($k, $v, ($k === ':tipo' || $k === ':cat') ? PDO::PARAM_INT : PDO::PARAM_STR);
-        }
+        $this->bindMarketplaceParams($stmt, $params);
         $stmt->bindValue(':lim', $size, PDO::PARAM_INT);
         $stmt->bindValue(':off', $off, PDO::PARAM_INT);
         $stmt->execute();
@@ -847,7 +915,8 @@ class Producto extends Conexion
         ?int $categoria,
         string $q,
         int $page,
-        int $size
+        int $size,
+        ?string $tipoPublicacion = null
     ): array {
         $res = $this->obtenerResidenciaActivaUsuario($codigoUsuarioViewer);
         if (!$res) {
@@ -869,6 +938,7 @@ class Producto extends Conexion
 
         $q = trim((string)$q);
         $hasQ = ($q !== '');
+        $tipoPublicacion = $this->normalizarTipoPublicacionFiltro($tipoPublicacion);
 
         $where = " WHERE " . $this->whereMarketplaceUsuarioHabilitado('p', 'u') . " ";
         $params = [];
@@ -885,6 +955,11 @@ class Producto extends Conexion
                 AND p.codigo_urbanizacion_publicacion = :urb
             ";
             $params[':urb'] = $urbId;
+        }
+
+        if ($tipoPublicacion !== null) {
+            $where .= " AND p.tipo_publicacion = :tipo_publicacion ";
+            $params[':tipo_publicacion'] = $tipoPublicacion;
         }
 
         if ($tipo !== null && $tipo > 0) {
@@ -909,19 +984,14 @@ class Producto extends Conexion
             {$where}
         ";
         $stT = $this->dblink->prepare($sqlTotal);
-        foreach ($params as $k => $v) {
-            $stT->bindValue(
-                $k,
-                $v,
-                in_array($k, [':tipo', ':cat', ':cond', ':urb'], true) ? PDO::PARAM_INT : PDO::PARAM_STR
-            );
-        }
+        $this->bindMarketplaceParams($stT, $params);
         $stT->execute();
         $total = (int)($stT->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
 
         $sql = "
             SELECT
                 p.codigo_producto,
+                p.tipo_publicacion,
                 p.titulo,
                 p.descripcion,
                 p.estado,
@@ -951,13 +1021,7 @@ class Producto extends Conexion
         ";
 
         $stmt = $this->dblink->prepare($sql);
-        foreach ($params as $k => $v) {
-            $stmt->bindValue(
-                $k,
-                $v,
-                in_array($k, [':tipo', ':cat', ':cond', ':urb'], true) ? PDO::PARAM_INT : PDO::PARAM_STR
-            );
-        }
+        $this->bindMarketplaceParams($stmt, $params);
         $stmt->bindValue(':lim', $size, PDO::PARAM_INT);
         $stmt->bindValue(':off', $off, PDO::PARAM_INT);
         $stmt->execute();
@@ -970,6 +1034,24 @@ class Producto extends Conexion
             'size'  => $size,
             'items' => $items
         ];
+    }
+
+    private function normalizarTipoPublicacionFiltro(?string $tipoPublicacion): ?string
+    {
+        $v = strtolower(trim((string)$tipoPublicacion));
+        if ($v === '') return null;
+        return in_array($v, ['producto', 'servicio'], true) ? $v : null;
+    }
+
+    private function bindMarketplaceParams(PDOStatement $stmt, array $params): void
+    {
+        foreach ($params as $k => $v) {
+            $stmt->bindValue(
+                $k,
+                $v,
+                in_array($k, [':tipo', ':cat', ':cond', ':urb'], true) ? PDO::PARAM_INT : PDO::PARAM_STR
+            );
+        }
     }
 
     /* ==========================================================
@@ -1005,6 +1087,7 @@ class Producto extends Conexion
         $sql = "
             SELECT
                 p.codigo_producto,
+                p.tipo_publicacion,
                 p.titulo,
                 p.precio,
                 p.tipo_atencion_producto,
@@ -1058,7 +1141,7 @@ class Producto extends Conexion
         return $r ?: null;
     }
 
-    public function contarPorVisibles(): array
+    public function contarEstadosSoporte(): array
     {
         $sql = "
             SELECT
@@ -1069,9 +1152,10 @@ class Producto extends Conexion
                 SUM(CASE WHEN visible = 4 THEN 1 ELSE 0 END) AS anuladas
             FROM producto
         ";
-        $stmt = $this->dblink->prepare($sql);
-        $stmt->execute();
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $st = $this->dblink->prepare($sql);
+        $st->execute();
+        $row = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+
         return [
             'borradores' => (int)($row['borradores'] ?? 0),
             'pendientes' => (int)($row['pendientes'] ?? 0),
@@ -1100,6 +1184,7 @@ class Producto extends Conexion
         if ($hasQ) {
             $sqlTotal .= " AND (
                 p.titulo LIKE :q OR p.descripcion LIKE :q OR
+                p.tipo_publicacion LIKE :q OR
                 u.nombre LIKE :q OR u.email LIKE :q
             )";
         }
@@ -1112,6 +1197,7 @@ class Producto extends Conexion
         $sql = "
             SELECT
                 p.codigo_producto,
+                p.tipo_publicacion,
                 p.titulo,
                 p.descripcion,
                 p.estado,
@@ -1152,10 +1238,11 @@ class Producto extends Conexion
         if ($hasQ) {
             $sql .= " AND (
                 p.titulo LIKE :q OR p.descripcion LIKE :q OR
+                p.tipo_publicacion LIKE :q OR
                 u.nombre LIKE :q OR u.email LIKE :q
             )";
         }
-        $sql .= " ORDER BY p.updated_at DESC, p.created_at DESC LIMIT :lim OFFSET :off";
+        $sql .= " ORDER BY COALESCE(p.updated_at, p.created_at) DESC LIMIT :lim OFFSET :off";
 
         $stmt = $this->dblink->prepare($sql);
         $stmt->bindValue(':v', $visible, PDO::PARAM_INT);
@@ -1163,12 +1250,14 @@ class Producto extends Conexion
         $stmt->bindValue(':lim', $size, PDO::PARAM_INT);
         $stmt->bindValue(':off', $offset, PDO::PARAM_INT);
         $stmt->execute();
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
         $items = [];
+
         foreach ($rows as $r) {
             $it = [
                 'codigo_producto'                 => (int)$r['codigo_producto'],
+                'tipo_publicacion'                => $r['tipo_publicacion'] ?? 'producto',
                 'titulo'                          => $r['titulo'],
                 'descripcion'                     => $r['descripcion'],
                 'estado'                          => $r['estado'],
@@ -1216,6 +1305,7 @@ class Producto extends Conexion
         $sql = "
             SELECT
                 p.codigo_producto,
+                p.tipo_publicacion,
                 p.titulo,
                 p.descripcion,
                 p.estado,
@@ -1246,6 +1336,7 @@ class Producto extends Conexion
 
         return [
             'codigo_producto'                 => (int)$row['codigo_producto'],
+            'tipo_publicacion'                => $row['tipo_publicacion'] ?? 'producto',
             'titulo'                          => $row['titulo'],
             'descripcion'                     => $row['descripcion'],
             'estado'                          => $row['estado'],
@@ -1287,7 +1378,7 @@ class Producto extends Conexion
 
     public function actualizarVisibleSoporte(int $codigoProducto, int $visibleNuevo): bool
     {
-        $sql = "UPDATE producto SET visible = :v WHERE codigo_producto = :p";
+        $sql = "UPDATE producto SET visible = :v, updated_at = CURRENT_TIMESTAMP WHERE codigo_producto = :p";
         $stmt = $this->dblink->prepare($sql);
         $stmt->bindValue(':v', $visibleNuevo, PDO::PARAM_INT);
         $stmt->bindValue(':p', $codigoProducto, PDO::PARAM_INT);
@@ -1320,6 +1411,7 @@ class Producto extends Conexion
         $sql = "
             SELECT
                 p.codigo_producto,
+                p.tipo_publicacion,
                 p.titulo,
                 p.descripcion,
                 p.estado,
@@ -1366,6 +1458,7 @@ class Producto extends Conexion
 
         if (!$fila) return null;
 
+        $fila['tipo_publicacion'] = $fila['tipo_publicacion'] ?? 'producto';
         $fila['es_producto_propio'] = ((int)$fila['codigo_usuario'] === $codigoUsuarioViewer) ? 1 : 0;
         $fila['requiere_preparacion'] = ((string)($fila['tipo_atencion_producto'] ?? '') === 'requiere_preparacion') ? 1 : 0;
 

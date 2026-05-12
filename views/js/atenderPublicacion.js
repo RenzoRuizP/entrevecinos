@@ -67,6 +67,33 @@
     }
   }
 
+  function getTipoPublicacionKey(it) {
+    const directo = String(it?.tipo_publicacion || "").trim().toLowerCase();
+
+    if (directo === "servicio") return "servicio";
+    if (directo === "producto") return "producto";
+
+    const txt = String(
+      it?.tipo_nombre ||
+      it?.tipo ||
+      it?.nombre_tipo ||
+      ""
+    ).trim().toLowerCase();
+
+    if (txt.includes("servicio")) return "servicio";
+    return "producto";
+  }
+
+  function tipoPublicacionLabel(it) {
+    return getTipoPublicacionKey(it) === "servicio" ? "Servicio" : "Producto";
+  }
+
+  function tipoPublicacionBadgeClass(it) {
+    return getTipoPublicacionKey(it) === "servicio"
+      ? "ev-badge ev-badge-aprobada"
+      : "ev-badge ev-badge-pendiente";
+  }
+
   function getUltimaRevision(it) {
     if (!it) return null;
     if (it.ultima_revision && typeof it.ultima_revision === "object") {
@@ -182,7 +209,7 @@
       if (esSoloLectura) {
         txt.setAttribute("placeholder", "Esta publicación está en modo lectura.");
       } else {
-        txt.setAttribute("placeholder", "Ej. Hola, revisamos tu publicación y necesitamos que ajustes la imagen principal para que el producto se vea con más claridad.");
+        txt.setAttribute("placeholder", "Ej. Hola, revisamos tu publicación y necesitamos que ajustes la imagen principal para que se vea con más claridad.");
       }
     }
 
@@ -227,6 +254,7 @@
       const modalEl = document.getElementById("modalPub");
       return {
         modalEl,
+        mTipoPublicacion: document.getElementById("mTipoPublicacion"),
         mTitulo: document.getElementById("mTitulo"),
         mPrecio: document.getElementById("mPrecio"),
         mEstadoBadge: document.getElementById("mEstadoBadge"),
@@ -260,6 +288,7 @@
         [btnVerRech, "rechazada"],
         [btnVerBor, "borrador"],
       ];
+
       map.forEach(([el, st]) => {
         if (!el) return;
         el.classList.toggle("active", estado === st);
@@ -270,7 +299,7 @@
     function renderEmptyRow() {
       elBody.innerHTML = `
         <tr>
-          <td colspan="6" class="text-center py-4 ev-empty">
+          <td colspan="7" class="text-center py-4 ev-empty">
             <div class="ev-empty-wrap">
               <i class="bi bi-inbox ev-empty-ico"></i>
               <div class="ev-empty-text">No hay publicaciones para los filtros seleccionados.</div>
@@ -282,6 +311,7 @@
 
     function render(items) {
       elBody.innerHTML = "";
+
       if (!items || items.length === 0) {
         renderEmptyRow();
         return;
@@ -301,10 +331,12 @@
             : "-";
 
         const estTxt = estadoLabel(it);
+        const tipoPub = tipoPublicacionLabel(it);
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${escapeHtml(fecha)}</td>
+          <td><span class="${tipoPublicacionBadgeClass(it)}">${escapeHtml(tipoPub)}</span></td>
           <td>${escapeHtml(titulo)}</td>
           <td class="text-end">${escapeHtml(precio)}</td>
           <td>${escapeHtml(usuario)}</td>
@@ -400,14 +432,17 @@
     function ensureModal() {
       const { modalEl } = getModalEls();
       if (!modalEl) return null;
+
       if (!modalInstance && window.bootstrap?.Modal) {
         modalInstance = new bootstrap.Modal(modalEl);
       }
+
       return modalInstance;
     }
 
     function clearModal() {
       const {
+        mTipoPublicacion,
         mTitulo,
         mPrecio,
         mUsuario,
@@ -421,6 +456,7 @@
         modalEl
       } = getModalEls();
 
+      if (mTipoPublicacion) mTipoPublicacion.textContent = "—";
       if (mTitulo) mTitulo.textContent = "—";
       if (mPrecio) mPrecio.textContent = "—";
       if (mUsuario) mUsuario.textContent = "—";
@@ -430,10 +466,12 @@
       if (mUltimoComentario) mUltimoComentario.textContent = "Sin mensaje registrado.";
       if (mGaleria) mGaleria.innerHTML = "";
       if (mNoImgs) mNoImgs.style.display = "block";
+
       if (mEstadoBadge) {
         mEstadoBadge.textContent = "pendiente";
         mEstadoBadge.className = "ev-badge ev-badge-pendiente";
       }
+
       currentId = null;
 
       if (modalEl) {
@@ -446,6 +484,7 @@
 
     function fillModal(it) {
       const {
+        mTipoPublicacion,
         mTitulo,
         mPrecio,
         mUsuario,
@@ -461,6 +500,7 @@
       const usuarioNombre = safeStr(it.usuario_nombre, "");
       const usuarioEmail = safeStr(it.usuario_email, "");
 
+      if (mTipoPublicacion) mTipoPublicacion.textContent = tipoPublicacionLabel(it);
       if (mTitulo) mTitulo.textContent = safeStr(it.titulo);
       if (mPrecio) mPrecio.textContent = money(it.precio);
       if (mUsuario) mUsuario.textContent = (usuarioNombre || usuarioEmail) ? safeStr(usuarioNombre, "—") : "—";
@@ -511,13 +551,15 @@
       }
 
       if (mGaleria) mGaleria.innerHTML = "";
+
       if (urls.length > 0) {
         if (mNoImgs) mNoImgs.style.display = "none";
+
         for (const u of urls) {
           const img = document.createElement("img");
           const src = u.startsWith("http") ? u : (u.startsWith("/") ? (baseUrl + u) : (baseUrl + "/" + u));
           img.src = src;
-          img.alt = "Imagen";
+          img.alt = "Imagen de la publicación";
           img.loading = "lazy";
           if (mGaleria) mGaleria.appendChild(img);
         }
@@ -573,6 +615,7 @@
 
       const modalEl = document.getElementById("modalPub");
       const revisable = modalEl && modalEl.dataset.evRevisable === "1";
+
       if (!revisable) {
         toastInfo("Esta publicación está en modo lectura y no admite acciones.");
         return;
@@ -680,6 +723,7 @@
 
     quickMap.forEach(([btn, st]) => {
       if (!btn) return;
+
       btn.addEventListener("click", function (ev) {
         ev.preventDefault();
         estado = st;
@@ -696,8 +740,10 @@
     root.addEventListener("click", function (ev) {
       const btn = ev.target && ev.target.closest ? ev.target.closest(".js-revisar") : null;
       if (!btn) return;
+
       const id = btn.getAttribute("data-id");
       if (!id) return;
+
       abrirRevisar(id);
     });
 
@@ -710,11 +756,13 @@
         enviarRevision("aprobar");
         return;
       }
+
       if (t.closest("#btnRechazar")) {
         ev.preventDefault();
         enviarRevision("rechazar");
         return;
       }
+
       if (t.closest("#btnObservar")) {
         ev.preventDefault();
         enviarRevision("observar");

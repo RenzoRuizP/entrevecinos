@@ -8,6 +8,25 @@ class ProductoSoporte extends Conexion
 {
     private const REENVIO_PREFIX = 'REENVIO_CORRECCION|';
 
+    /**
+     * Normaliza el tipo de publicación para evitar valores inválidos.
+     */
+    private function normalizarTipoPublicacion(?string $tipo): string
+    {
+        $tipo = strtolower(trim((string)$tipo));
+        return in_array($tipo, ['producto', 'servicio'], true) ? $tipo : 'producto';
+    }
+
+    /**
+     * Lista publicaciones para el panel de soporte.
+     *
+     * visible:
+     * 0 = Borrador
+     * 1 = Pendiente
+     * 2 = Aprobada
+     * 3 = Rechazada
+     * 4 = Anulada
+     */
     public function listarSoporte(array $filtros): array
     {
         $estado = strtolower(trim((string)($filtros['estado'] ?? 'pendiente')));
@@ -33,7 +52,13 @@ class ProductoSoporte extends Conexion
         }
 
         if ($q !== '') {
-            $where[] = "(p.titulo LIKE :q OR p.descripcion LIKE :q OR u.nombre LIKE :q OR u.email LIKE :q)";
+            $where[] = "(
+                p.titulo LIKE :q
+                OR p.descripcion LIKE :q
+                OR p.tipo_publicacion LIKE :q
+                OR u.nombre LIKE :q
+                OR u.email LIKE :q
+            )";
             $params[':q'] = '%' . $q . '%';
         }
 
@@ -45,6 +70,7 @@ class ProductoSoporte extends Conexion
             LEFT JOIN usuario u ON u.codigo_usuario = p.codigo_usuario
             {$whereSql}
         ";
+
         $stTotal = $this->dblink->prepare($sqlTotal);
         foreach ($params as $k => $v) {
             $stTotal->bindValue($k, $v);
@@ -54,6 +80,10 @@ class ProductoSoporte extends Conexion
 
         $offset = ($page - 1) * $size;
 
+        /*
+         * Se mantiene detección de columnas para compatibilidad con instalaciones
+         * que aún no tengan campos opcionales como destacado / fecha_destacado.
+         */
         $cols = [];
         $stCols = $this->dblink->prepare("SHOW COLUMNS FROM producto");
         $stCols->execute();
@@ -68,19 +98,32 @@ class ProductoSoporte extends Conexion
         if (isset($cols['fecha_destacado'])) {
             $selectDestacado .= ", p.fecha_destacado";
         }
+        if (isset($cols['destacado_hasta'])) {
+            $selectDestacado .= ", p.destacado_hasta";
+        }
+
+        $selectTipoPublicacion = isset($cols['tipo_publicacion'])
+            ? "p.tipo_publicacion,"
+            : "'producto' AS tipo_publicacion,";
 
         $sql = "
             SELECT
                 p.codigo_producto,
+                {$selectTipoPublicacion}
                 p.titulo,
                 p.descripcion,
                 p.precio,
                 p.estado,
                 p.imagen_portada,
-                p.visible
+                p.visible,
+                p.codigo_tipo,
+                p.codigo_categoria,
+                p.tipo_atencion_producto,
+                p.requiere_preparacion
                 {$selectDestacado},
                 p.created_at,
                 p.updated_at,
+
                 u.nombre AS usuario_nombre,
                 u.email  AS usuario_email,
 
@@ -99,7 +142,7 @@ class ProductoSoporte extends Conexion
             ) prm ON prm.codigo_producto = p.codigo_producto
             LEFT JOIN producto_revision pr ON pr.codigo_revision = prm.max_rev
             {$whereSql}
-            ORDER BY p.updated_at DESC
+            ORDER BY COALESCE(p.updated_at, p.created_at) DESC, p.codigo_producto DESC
             LIMIT :limit OFFSET :offset
         ";
 
@@ -138,17 +181,12 @@ class ProductoSoporte extends Conexion
                 $r['rev_created_at']
             );
 
+            $r['tipo_publicacion'] = $this->normalizarTipoPublicacion($r['tipo_publicacion'] ?? 'producto');
             $r['ultima_revision'] = $ultima;
             $items[] = $r;
         }
 
-        $counts = [
-            'borradores' => (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 0")->fetchColumn() ?: 0),
-            'pendientes' => (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 1")->fetchColumn() ?: 0),
-            'aprobadas'  => (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 2")->fetchColumn() ?: 0),
-            'rechazadas' => (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 3")->fetchColumn() ?: 0),
-            'anuladas'   => (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 4")->fetchColumn() ?: 0),
-        ];
+        $counts = $this->obtenerConteosSoporte();
 
         return [
             'total'  => $total,
@@ -159,12 +197,43 @@ class ProductoSoporte extends Conexion
         ];
     }
 
+    private function obtenerConteosSoporte(): array
+    {
+        $counts = [
+            'borradores' => 0,
+            'pendientes' => 0,
+            'aprobadas'  => 0,
+            'rechazadas' => 0,
+            'anuladas'   => 0,
+            'productos'  => 0,
+            'servicios'  => 0,
+        ];
+
+        try {
+            $counts['borradores'] = (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 0")->fetchColumn() ?: 0);
+            $counts['pendientes'] = (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 1")->fetchColumn() ?: 0);
+            $counts['aprobadas']  = (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 2")->fetchColumn() ?: 0);
+            $counts['rechazadas'] = (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 3")->fetchColumn() ?: 0);
+            $counts['anuladas']   = (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 4")->fetchColumn() ?: 0);
+            $counts['productos']  = (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE tipo_publicacion = 'producto'")->fetchColumn() ?: 0);
+            $counts['servicios']  = (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE tipo_publicacion = 'servicio'")->fetchColumn() ?: 0);
+        } catch (Throwable $e) {
+            error_log('[EV][ProductoSoporte][obtenerConteosSoporte] ' . $e->getMessage());
+        }
+
+        return $counts;
+    }
+
     public function actualizarEstadoSoporte(int $codigoProducto, int $nuevoVisible): bool
     {
-        $sql = "UPDATE producto
-                SET visible = :v, updated_at = CURRENT_TIMESTAMP
-                WHERE codigo_producto = :id
-                LIMIT 1";
+        $sql = "
+            UPDATE producto
+            SET visible = :v,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE codigo_producto = :id
+            LIMIT 1
+        ";
+
         $st = $this->dblink->prepare($sql);
         $st->bindValue(':v', $nuevoVisible, PDO::PARAM_INT);
         $st->bindValue(':id', $codigoProducto, PDO::PARAM_INT);
@@ -177,8 +246,12 @@ class ProductoSoporte extends Conexion
         $st = $this->dblink->prepare($sql);
         $st->bindValue(':id', $codigoProducto, PDO::PARAM_INT);
         $st->execute();
+
         $v = $st->fetchColumn();
-        if ($v === false) return null;
+        if ($v === false) {
+            return null;
+        }
+
         return (int)$v;
     }
 
@@ -190,6 +263,7 @@ class ProductoSoporte extends Conexion
         string $comentario
     ): void {
         $comentario = trim($comentario);
+
         if (mb_strlen($comentario) > 500) {
             $comentario = mb_substr($comentario, 0, 500);
         }
@@ -200,6 +274,7 @@ class ProductoSoporte extends Conexion
             VALUES
                 (:p, :ea, :en, :c, :s)
         ";
+
         $st = $this->dblink->prepare($sql);
         $st->bindValue(':p',  $codigoProducto, PDO::PARAM_INT);
         $st->bindValue(':ea', $estadoAnterior, PDO::PARAM_INT);
@@ -211,7 +286,7 @@ class ProductoSoporte extends Conexion
             $st->bindValue(':c', null, PDO::PARAM_NULL);
         }
 
-        $st->bindValue(':s',  $codigoSoporte, PDO::PARAM_INT);
+        $st->bindValue(':s', $codigoSoporte, PDO::PARAM_INT);
         $st->execute();
     }
 
@@ -231,9 +306,11 @@ class ProductoSoporte extends Conexion
             ORDER BY created_at DESC, codigo_revision DESC
             LIMIT 1
         ";
+
         $st = $this->dblink->prepare($sql);
         $st->bindValue(':id', $codigoProducto, PDO::PARAM_INT);
         $st->execute();
+
         $row = $st->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -241,13 +318,17 @@ class ProductoSoporte extends Conexion
     public function esRevisionReenvioCorreccion(?string $comentario): bool
     {
         $c = trim((string)$comentario);
-        if ($c === '') return false;
+        if ($c === '') {
+            return false;
+        }
+
         return str_starts_with($c, self::REENVIO_PREFIX);
     }
 
     public function registrarReenvioCorreccion(int $codigoProducto, int $codigoActorVecino, int $estadoAnterior, int $estadoNuevo): void
     {
-        $msg = self::REENVIO_PREFIX . ' El usuario corrigió la publicación y la reenviò para revisión.';
+        $msg = self::REENVIO_PREFIX . ' El usuario corrigió la publicación y la reenvió para revisión.';
+
         $this->registrarRevisionTablaExistente(
             $codigoProducto,
             $codigoActorVecino,
@@ -259,16 +340,25 @@ class ProductoSoporte extends Conexion
 
     public function ultimaRevisionEsObservacionSoporte(int $codigoProducto, int $visibleActual): bool
     {
-        if ($visibleActual !== 1) return false;
+        if ($visibleActual !== 1) {
+            return false;
+        }
 
         $rev = $this->obtenerUltimaRevisionTablaExistente($codigoProducto);
-        if (!$rev) return false;
+        if (!$rev) {
+            return false;
+        }
 
         $comentario = trim((string)($rev['comentario'] ?? ''));
         $estadoNuevo = (int)($rev['estado_nuevo'] ?? -1);
 
-        if ($comentario === '') return false;
-        if ($this->esRevisionReenvioCorreccion($comentario)) return false;
+        if ($comentario === '') {
+            return false;
+        }
+
+        if ($this->esRevisionReenvioCorreccion($comentario)) {
+            return false;
+        }
 
         return ($estadoNuevo === 1);
     }
@@ -285,25 +375,42 @@ class ProductoSoporte extends Conexion
             WHERE p.codigo_producto = :id
             LIMIT 1
         ";
+
         $st = $this->dblink->prepare($sql);
         $st->bindValue(':id', $codigoProducto, PDO::PARAM_INT);
         $st->execute();
+
         $row = $st->fetch(PDO::FETCH_ASSOC);
-        if (!$row) return null;
+        if (!$row) {
+            return null;
+        }
+
+        $row['tipo_publicacion'] = $this->normalizarTipoPublicacion($row['tipo_publicacion'] ?? 'producto');
 
         $imgs = [];
+
         try {
             $sqlImg = "
-                SELECT codigo_producto_imagen, ruta, es_portada, orden, ancho, alto, peso_bytes, mime
+                SELECT
+                    codigo_producto_imagen,
+                    ruta,
+                    es_portada,
+                    orden,
+                    ancho,
+                    alto,
+                    peso_bytes,
+                    mime
                 FROM producto_imagen
                 WHERE codigo_producto = :id
-                ORDER BY es_portada DESC, orden ASC
+                ORDER BY es_portada DESC, orden ASC, codigo_producto_imagen ASC
             ";
+
             $st2 = $this->dblink->prepare($sqlImg);
             $st2->bindValue(':id', $codigoProducto, PDO::PARAM_INT);
             $st2->execute();
             $imgs = $st2->fetchAll(PDO::FETCH_ASSOC) ?: [];
         } catch (Throwable $e) {
+            error_log('[EV][ProductoSoporte][obtenerDetalle][imagenes] ' . $e->getMessage());
             $imgs = [];
         }
 

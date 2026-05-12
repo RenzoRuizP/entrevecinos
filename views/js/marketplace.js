@@ -220,6 +220,37 @@
     return getArrayFromPayload(payload);
   }
 
+  function normalizarTipoPublicacion(raw) {
+    const o = raw && typeof raw === 'object' ? raw : {};
+
+    const directo = normalizar(o.tipo_publicacion || o.tipo_publicacion_nombre || '');
+    if (directo === 'servicio' || directo === 'servicios') return 'servicio';
+    if (directo === 'producto' || directo === 'productos') return 'producto';
+
+    // Fallback para compatibilidad con registros antiguos o APIs previas.
+    const txt = normalizar(
+      (o.tipo_nombre || '') + ' ' +
+      (o.tipo || '') + ' ' +
+      (o.nombre_tipo || '') + ' ' +
+      (o.tipo_slug || '')
+    );
+
+    if (txt.includes('servicio')) return 'servicio';
+    return 'producto';
+  }
+
+  function tipoPublicacionLabelFromKey(key) {
+    return key === 'servicio' ? 'Servicio' : 'Producto';
+  }
+
+  function esServicioPublicacion(item) {
+    return String(item?.__tipo_publicacion || normalizarTipoPublicacion(item)) === 'servicio';
+  }
+
+  function esProductoPublicacion(item) {
+    return !esServicioPublicacion(item);
+  }
+
   function normalizarItem(raw) {
     const o = raw && typeof raw === 'object' ? raw : {};
 
@@ -227,6 +258,7 @@
     const titulo = o.titulo ?? o.nombre ?? '';
     const descripcion = o.descripcion ?? o.detalle ?? '';
     const precio = o.precio ?? 0;
+    const tipo_publicacion = normalizarTipoPublicacion(o);
 
     const codigo_tipo = Number(o.codigo_tipo || 0) || 0;
     const codigo_categoria = Number(o.codigo_categoria || 0) || 0;
@@ -259,6 +291,8 @@
       __titulo: titulo,
       __descripcion: descripcion,
       __precio: precio,
+      __tipo_publicacion: tipo_publicacion,
+      __tipo_publicacion_label: tipoPublicacionLabelFromKey(tipo_publicacion),
       __codigo_tipo: codigo_tipo,
       __codigo_categoria: codigo_categoria,
       __tipo_nombre: tipo_nombre,
@@ -1731,7 +1765,7 @@
       descEl.textContent      = desc;
 
       catEl.textContent  = pub.__categoria_nombre || '—';
-      tipoEl.textContent = pub.__tipo_nombre || '—';
+      tipoEl.textContent = pub.__tipo_publicacion_label || tipoPublicacionLabelFromKey(pub.__tipo_publicacion);
 
       const imgs = (Array.isArray(imagenes) ? imagenes : []).map((x) => {
         if (!x) return null;
@@ -1845,6 +1879,10 @@
       return;
     }
 
+    const tipoPublicacion = normalizarTipoPublicacion(producto);
+    const esServicio = tipoPublicacion === 'servicio';
+    const labelPublicacion = tipoPublicacionLabelFromKey(tipoPublicacion);
+
     if (Number(producto.es_producto_propio || 0) === 1) {
       notify('warning', 'Acción no permitida', 'No puedes solicitar un pedido sobre tu propia publicación.', {
         subtitle: 'Esta publicación te pertenece'
@@ -1856,7 +1894,7 @@
       notify('info', 'Vendedor no disponible', 'Este vecino no se encuentra disponible para recibir pedidos en este momento.', {
         subtitle: 'Intenta nuevamente más tarde',
         productLabel: 'Publicación',
-        productText: producto.titulo || 'Publicación'
+        productText: producto.titulo || labelPublicacion
       });
       return;
     }
@@ -1885,6 +1923,13 @@
     if (precioUnitarioEl) precioUnitarioEl.value = producto.precio || 0;
     if (requierePrepEl) requierePrepEl.value = Number(producto.requiere_preparacion || 0) === 1 ? '1' : '0';
     if (nombreProductoEl) nombreProductoEl.value = producto.titulo || '';
+
+    const labelNombreSolicitud = document.querySelector('label[for="mp_sp_nombre_producto"]') ||
+      (nombreProductoEl ? nombreProductoEl.closest('.col-12')?.querySelector('label') : null);
+    if (labelNombreSolicitud) {
+      labelNombreSolicitud.textContent = esServicio ? 'Nombre del servicio' : 'Nombre del producto';
+    }
+
     if (cantidadEl) cantidadEl.value = '1';
     if (tipoEntregaEl) tipoEntregaEl.value = 'inmediata';
     if (direccionEl) direccionEl.value = '';
@@ -2276,8 +2321,11 @@
 
     const esPotenciado = Number(p.__es_potenciado || 0) === 1;
     const vendedorDisponible = Number(p.__vendedor_disponible || 0) === 1;
+    const esServicio = esServicioPublicacion(p);
+    const tipoLabel = esServicio ? 'Servicio' : 'Producto';
+    const textoAccion = esServicio ? 'Solicitar servicio' : 'Pedir ahora';
 
-    let badgesHtml = '';
+    let badgesHtml = `<span class="ev-mp-badge" style="background:${esServicio ? '#0EA5E9cc' : '#16A34Acc'}">${tipoLabel}</span>`;
     if (esPotenciado) {
       badgesHtml += `<span class="ev-mp-badge ev-mp-badge-potenciado">Recomendado</span>`;
     }
@@ -2309,7 +2357,7 @@
 
           <div class="ev-mp-card-actions">
             <button type="button" class="btn btn-outline-success ev-mp-btn-detalle">Ver detalle</button>
-            <button type="button" class="btn btn-success ev-mp-btn-pedir" ${pedirAttrs}>Pedir ahora</button>
+            <button type="button" class="btn btn-success ev-mp-btn-pedir" ${pedirAttrs}>${textoAccion}</button>
           </div>
         </div>
       </div>
@@ -2444,17 +2492,9 @@
     let lista = Array.isArray(listaBase) ? [...listaBase] : [];
 
     if (scope === 'productos') {
-      if (tipoIdProducto) {
-        lista = lista.filter(p => Number(p.__codigo_tipo || 0) === tipoIdProducto);
-      } else {
-        lista = lista.filter(p => normalizar(p.__tipo_nombre || p.__tipo_slug || '').includes('producto'));
-      }
+      lista = lista.filter(p => esProductoPublicacion(p));
     } else if (scope === 'servicios') {
-      if (tipoIdServicio) {
-        lista = lista.filter(p => Number(p.__codigo_tipo || 0) === tipoIdServicio);
-      } else {
-        lista = lista.filter(p => normalizar(p.__tipo_nombre || p.__tipo_slug || '').includes('servicio'));
-      }
+      lista = lista.filter(p => esServicioPublicacion(p));
     }
 
     if (textoBusqueda.trim() !== '') {
@@ -2467,9 +2507,7 @@
 
     if ((scope === 'todos' || scope === 'productos') && Number(categoriaProductoId || 0) > 0) {
       lista = lista.filter((p) => {
-        const isProducto = tipoIdProducto
-          ? Number(p.__codigo_tipo || 0) === tipoIdProducto
-          : normalizar(p.__tipo_nombre || p.__tipo_slug || '').includes('producto');
+        const isProducto = esProductoPublicacion(p);
 
         if (!isProducto) return true;
 
@@ -2502,14 +2540,7 @@
     const productos = [];
 
     lista.forEach(p => {
-      const t = Number(p.__codigo_tipo || 0);
-      const tn = normalizar(p.__tipo_nombre || p.__tipo_slug || '');
-
-      const esProd = tipoIdProducto ? (t === tipoIdProducto) : tn.includes('producto');
-      const esServ = tipoIdServicio ? (t === tipoIdServicio) : tn.includes('servicio');
-
-      if (esServ) servicios.push(p);
-      else if (esProd) productos.push(p);
+      if (esServicioPublicacion(p)) servicios.push(p);
       else productos.push(p);
     });
 

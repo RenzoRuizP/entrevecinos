@@ -18,8 +18,8 @@ require_once __DIR__ . '/../Config/config.php';
           <div class="d-flex align-items-start gap-3">
             <div class="ev-mp-title-icon"><i class="bi bi-journal-text"></i></div>
             <div>
-              <h1 class="ev-mp-title mb-1">Mis Productos</h1>
-              <div class="ev-mp-subtitle">Gestiona tus productos y controla cuáles se muestran en el marketplace.</div>
+              <h1 class="ev-mp-title mb-1">Mis Publicaciones</h1>
+              <div class="ev-mp-subtitle">Gestiona tus productos y servicios antes de mostrarlos en el marketplace.</div>
             </div>
           </div>
         </div>
@@ -47,7 +47,7 @@ require_once __DIR__ . '/../Config/config.php';
           <span class="ev-summary-count" id="evTabCountAll">0</span>
         </div>
 
-        <div class="ev-mp-tabs" role="tablist" aria-label="Estados de productos">
+        <div class="ev-mp-tabs" role="tablist" aria-label="Estados de publicaciones">
           <button type="button" class="btn ev-tab ev-btn-light btn-sm active" data-tab="all" aria-selected="true">
             <i class="bi bi-grid-3x3-gap me-1"></i> Todos <span class="ev-pill" id="evTabCountAll2">0</span>
           </button>
@@ -100,7 +100,7 @@ require_once __DIR__ . '/../Config/config.php';
     <div class="ev-card-body">
       <form id="formFiltrosMisProductos" class="row g-3 align-items-end">
 
-        <div class="col-12 col-lg-4">
+        <div class="col-12 col-lg-3">
           <label class="form-label">Buscar</label>
           <div class="position-relative">
             <i class="bi bi-search ev-input-icon"></i>
@@ -113,6 +113,15 @@ require_once __DIR__ . '/../Config/config.php';
               autocomplete="off"
             />
           </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-lg-2">
+          <label class="form-label">Publicación</label>
+          <select class="form-select ev-input" id="fTipoPublicacion" name="tipo_publicacion">
+            <option value="">Todas</option>
+            <option value="producto">Productos</option>
+            <option value="servicio">Servicios</option>
+          </select>
         </div>
 
         <div class="col-12 col-sm-6 col-lg-2">
@@ -139,14 +148,14 @@ require_once __DIR__ . '/../Config/config.php';
           <input type="number" step="0.01" min="0" class="form-control ev-input" id="fPrecioMax" name="max" placeholder="999.99">
         </div>
 
-        <div class="col-12 col-lg-2">
+        <div class="col-12 col-lg-1">
           <label class="form-label">Ordenar</label>
           <select class="form-select ev-input" id="fOrden" name="orden">
-            <option value="recientes" selected>Más recientes</option>
-            <option value="precio_asc">Precio: menor a mayor</option>
-            <option value="precio_desc">Precio: mayor a menor</option>
-            <option value="titulo_asc">Título: A → Z</option>
-            <option value="titulo_desc">Título: Z → A</option>
+            <option value="recientes" selected>Recientes</option>
+            <option value="precio_asc">Precio ↑</option>
+            <option value="precio_desc">Precio ↓</option>
+            <option value="titulo_asc">A → Z</option>
+            <option value="titulo_desc">Z → A</option>
           </select>
         </div>
 
@@ -159,14 +168,14 @@ require_once __DIR__ . '/../Config/config.php';
       </form>
 
       <div class="ev-hint mt-2">
-        Tip: Combina <strong>tabs</strong> + <strong>filtros</strong> para encontrar productos en segundos.
+        Tip: Combina <strong>tabs</strong> + <strong>filtros</strong> para encontrar publicaciones en segundos.
       </div>
     </div>
   </div>
 
   <div class="ev-card">
     <div class="ev-card-header ev-card-header-row">
-      <h2 class="ev-card-title mb-0">Productos</h2>
+      <h2 class="ev-card-title mb-0">Publicaciones</h2>
       <div class="ev-table-meta" id="evLblFooterLeft">Mostrando 0 de 0</div>
     </div>
 
@@ -177,6 +186,7 @@ require_once __DIR__ . '/../Config/config.php';
             <thead>
               <tr>
                 <th class="ev-col-codigo text-center">Código</th>
+                <th class="ev-col-publicacion text-center">Publicación</th>
                 <th class="ev-col-titulo text-center">Título</th>
                 <th class="ev-col-precio text-center">Precio</th>
                 <th class="ev-col-tipo text-center">Tipo</th>
@@ -189,10 +199,10 @@ require_once __DIR__ . '/../Config/config.php';
             </thead>
             <tbody>
               <tr>
-                <td colspan="9" class="text-center py-4 ev-empty">
+                <td colspan="10" class="text-center py-4 ev-empty">
                   <div class="ev-empty-wrap">
                     <i class="bi bi-inbox ev-empty-ico"></i>
-                    <div class="ev-empty-text">Cargando productos…</div>
+                    <div class="ev-empty-text">Cargando publicaciones…</div>
                   </div>
                 </td>
               </tr>
@@ -214,7 +224,7 @@ require_once __DIR__ . '/../Config/config.php';
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content ev-modal-content">
       <div class="ev-modal-header">
-        <div class="ev-modal-title"><i class="bi bi-search"></i> Buscar producto</div>
+        <div class="ev-modal-title"><i class="bi bi-search"></i> Buscar publicación</div>
         <button type="button" class="btn-close btn-close-white ev-modal-close-icon" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
 
@@ -222,13 +232,13 @@ require_once __DIR__ . '/../Config/config.php';
         <div class="ev-modal-body">
           <div class="mb-3">
             <label class="form-label">Texto</label>
-            <input type="text" class="form-control" name="q" placeholder="Ej. camiseta, laptop, servicio…">
+            <input type="text" class="form-control" name="q" placeholder="Ej. camiseta, laptop, clases, reparación…">
             <div class="form-text">Busca por título o palabras clave.</div>
           </div>
         </div>
 
         <div class="ev-modal-footer">
-          <button type="button" class="btn btn-ev-outline" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-ev-outline" data-bs-dismiss="modal"><i class="bi bi-x-circle me-1"></i> Cancelar</button>
           <button type="submit" class="btn btn-ev-orange"><i class="bi bi-search"></i> Buscar</button>
         </div>
       </form>
@@ -237,29 +247,61 @@ require_once __DIR__ . '/../Config/config.php';
   </div>
 </div>
 
+
 <div class="modal fade ev-modal" id="modalAgregarPublicacion" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered ev-modal-xl">
     <div class="modal-content ev-modal-content ev-modal-flex">
       <div class="ev-modal-header">
-        <div class="ev-modal-title"><i class="bi bi-plus-circle"></i> Nuevo producto</div>
+        <div class="ev-modal-title"><i class="bi bi-plus-circle"></i> Nueva publicación</div>
         <button type="button" class="btn-close btn-close-white ev-modal-close-icon" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
 
       <form id="formAgregarPublicacion" class="ev-modal-flex">
         <div class="ev-modal-body ev-modal-body-scroll">
 
-          <div class="row g-3">
-            <div class="col-12 col-lg-7">
+          <div class="row g-3 ev-publicacion-modal-grid">
+            <div class="col-12 col-lg-7 ev-publicacion-form-col">
 
-              <div class="ev-section">
-                <div class="ev-section-title">1. Fotos del producto</div>
+              <div class="ev-section ev-kind-section">
+                <div class="ev-step-badge">Paso 1</div>
+                <div class="ev-section-title">¿Qué deseas publicar?</div>
+                <div class="ev-section-subtitle mb-3">
+                  Elige una opción para adaptar el formulario a producto o servicio.
+                </div>
+
+                <div class="ev-publicacion-switch ev-publicacion-choice-grid">
+                  <input type="radio" class="btn-check" name="tipo_publicacion" id="tipoPublicacionProducto" value="producto" autocomplete="off" checked>
+                  <label class="ev-publicacion-option" for="tipoPublicacionProducto">
+                    <span class="ev-publicacion-option-ico"><i class="bi bi-bag-check"></i></span>
+                    <span class="ev-publicacion-option-copy">
+                      <strong>Producto</strong>
+                      <small>Bien físico para vender o entregar.</small>
+                    </span>
+                    <span class="ev-publicacion-option-check"><i class="bi bi-check2"></i></span>
+                  </label>
+
+                  <input type="radio" class="btn-check" name="tipo_publicacion" id="tipoPublicacionServicio" value="servicio" autocomplete="off">
+                  <label class="ev-publicacion-option" for="tipoPublicacionServicio">
+                    <span class="ev-publicacion-option-ico"><i class="bi bi-stars"></i></span>
+                    <span class="ev-publicacion-option-copy">
+                      <strong>Servicio</strong>
+                      <small>Servicio ofrecido a tus vecinos.</small>
+                    </span>
+                    <span class="ev-publicacion-option-check"><i class="bi bi-check2"></i></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="ev-section mt-3">
+                <div class="ev-step-badge">Paso 2</div>
+                <div class="ev-section-title" id="tituloImagenesAdd">Imágenes de la publicación</div>
                 <div class="ev-section-subtitle">
-                  Fotos • <strong><span id="contadorImagenes">0</span>/10</strong> — Puedes agregar un máximo de 10 fotos.
+                  Imágenes • <strong><span id="contadorImagenes">0</span>/10</strong> — Puedes agregar un máximo de 10 imágenes.
                 </div>
 
                 <div id="dropZone" class="ev-dropzone mt-2">
                   <div class="ico"><i class="bi bi-cloud-arrow-up"></i></div>
-                  <div class="t1">Arrastra tus fotos aquí o haz clic para seleccionarlas</div>
+                  <div class="t1" id="dropZoneTituloAdd">Arrastra tus imágenes aquí o haz clic para seleccionarlas</div>
                   <div class="t2">JPG • PNG • WEBP • Máximo 10 imágenes</div>
                 </div>
 
@@ -271,26 +313,31 @@ require_once __DIR__ . '/../Config/config.php';
                   <button id="btnLimpiarImagenes" type="button" class="btn btn-ev-outline btn-sm">
                     <i class="bi bi-trash"></i> Limpiar imágenes
                   </button>
-                  <small class="text-muted"><span id="contadorImagenesToolbar">0</span>/10 fotos cargadas</small>
+                  <small class="text-muted"><span id="contadorImagenesToolbar">0</span>/10 imágenes cargadas</small>
                 </div>
 
-                <div class="form-text mt-2">La primera foto será la imagen principal de tu publicación.</div>
+                <div class="form-text mt-2" id="hintImagenPrincipalAdd">La primera imagen será la portada de tu publicación.</div>
               </div>
 
               <div class="ev-section mt-3">
-                <div class="ev-section-title">2. Información principal</div>
+                <div class="ev-step-badge">Paso 3</div>
+                <div class="ev-section-title">Información principal</div>
 
-                <div class="mb-3">
-                  <label class="form-label">Título <span class="text-danger">*</span></label>
+                <div class="mb-3 mt-2">
+                  <label class="form-label" id="labelTituloAdd">Título <span class="text-danger">*</span></label>
                   <input type="text" class="form-control" name="titulo" placeholder="Escribe un título claro y atractivo">
                 </div>
 
                 <div class="row g-3">
                   <div class="col-12 col-md-6">
-                    <label class="form-label">Precio (S/) <span class="text-danger">*</span></label>
+                    <label class="form-label" id="labelPrecioAdd">Precio (S/) <span class="text-danger">*</span></label>
                     <input type="number" step="0.01" min="0" class="form-control" name="precio" placeholder="0.00">
+                    <div class="form-text ev-service-hint d-none" data-ev-service-only>
+                      Para servicios, puedes registrar un precio base o referencial.
+                    </div>
                   </div>
-                  <div class="col-12 col-md-6">
+
+                  <div class="col-12 col-md-6" id="wrapEstadoProductoAdd" data-ev-product-only>
                     <label class="form-label">Estado <span class="text-danger">*</span></label>
                     <select class="form-select" name="estado">
                       <option value="Nuevo" selected>Nuevo</option>
@@ -305,14 +352,15 @@ require_once __DIR__ . '/../Config/config.php';
                       <option value="">-- Seleccione Tipos --</option>
                     </select>
                   </div>
+
                   <div class="col-12 col-md-6">
                     <label class="form-label">Categoría <span class="text-danger">*</span></label>
                     <select id="comboCategoria" class="form-select" name="categoria">
-                      <option value="">-- Selecciona un tipo primero --</option>
+                      <option value="">Primero elige tipo</option>
                     </select>
                   </div>
 
-                  <div class="col-12">
+                  <div class="col-12" id="wrapTipoAtencionProductoAdd" data-ev-product-only>
                     <label class="form-label">Tipo de atención del producto <span class="text-danger">*</span></label>
                     <select id="tipoAtencionProducto" class="form-select" name="tipo_atencion_producto">
                       <option value="no_requiere_preparacion" selected>No requiere preparación</option>
@@ -326,24 +374,27 @@ require_once __DIR__ . '/../Config/config.php';
               </div>
 
               <div class="ev-section mt-3">
-                <div class="ev-section-title">3. Detalles del producto o servicio</div>
-                <div class="mb-0">
-                  <label class="form-label">Descripción <span class="text-danger">*</span></label>
-                  <textarea class="form-control" name="descripcion" rows="4" placeholder="Cuenta los detalles más importantes para que tus vecinos se animen a comprar."></textarea>
+                <div class="ev-step-badge">Paso 4</div>
+                <div class="ev-section-title">Detalles de la publicación</div>
+                <div class="mb-0 mt-2">
+                  <label class="form-label" id="labelDescripcionAdd">Descripción <span class="text-danger">*</span></label>
+                  <textarea class="form-control" name="descripcion" rows="4" placeholder="Cuenta los detalles más importantes para que tus vecinos se animen a comprar o contactarte."></textarea>
                 </div>
               </div>
 
             </div>
 
-            <div class="col-12 col-lg-5">
-              <div id="previewMount"></div>
+            <div class="col-12 col-lg-5 ev-publicacion-preview-col">
+              <div class="ev-preview-sticky">
+                <div id="previewMount"></div>
+              </div>
             </div>
           </div>
 
         </div>
 
         <div class="ev-modal-footer">
-          <button type="button" class="btn btn-ev-outline" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-ev-outline" data-bs-dismiss="modal"><i class="bi bi-x-circle me-1"></i> Cancelar</button>
           <button type="submit" class="btn btn-ev-orange btn-guardar">
             <i class="bi bi-check2-circle"></i> Guardar
           </button>
@@ -358,7 +409,7 @@ require_once __DIR__ . '/../Config/config.php';
   <div class="modal-dialog modal-dialog-centered ev-modal-xl">
     <div class="modal-content ev-modal-content ev-modal-flex">
       <div class="ev-modal-header">
-        <div class="ev-modal-title"><i class="bi bi-pencil-square"></i> Editar producto</div>
+        <div class="ev-modal-title"><i class="bi bi-pencil-square"></i> Editar publicación</div>
         <button type="button" class="btn-close btn-close-white ev-modal-close-icon" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
 
@@ -367,15 +418,46 @@ require_once __DIR__ . '/../Config/config.php';
 
         <div class="ev-modal-body ev-modal-body-scroll">
 
-          <div class="row g-3">
-            <div class="col-12 col-lg-7">
+          <div class="row g-3 ev-publicacion-modal-grid">
+            <div class="col-12 col-lg-7 ev-publicacion-form-col">
 
-              <div class="ev-section">
-                <div class="d-flex align-items-center justify-content-between gap-2">
+              <div class="ev-section ev-kind-section">
+                <div class="ev-step-badge">Paso 1</div>
+                <div class="ev-section-title">Tipo de publicación</div>
+                <div class="ev-section-subtitle mb-3">
+                  Puedes ajustar si esta publicación corresponde a un producto o servicio.
+                </div>
+
+                <div class="ev-publicacion-switch ev-publicacion-choice-grid">
+                  <input type="radio" class="btn-check" name="edit_tipo_publicacion" id="edit_tipoPublicacionProducto" value="producto" autocomplete="off" checked>
+                  <label class="ev-publicacion-option" for="edit_tipoPublicacionProducto">
+                    <span class="ev-publicacion-option-ico"><i class="bi bi-bag-check"></i></span>
+                    <span class="ev-publicacion-option-copy">
+                      <strong>Producto</strong>
+                      <small>Bien físico para vender o entregar.</small>
+                    </span>
+                    <span class="ev-publicacion-option-check"><i class="bi bi-check2"></i></span>
+                  </label>
+
+                  <input type="radio" class="btn-check" name="edit_tipo_publicacion" id="edit_tipoPublicacionServicio" value="servicio" autocomplete="off">
+                  <label class="ev-publicacion-option" for="edit_tipoPublicacionServicio">
+                    <span class="ev-publicacion-option-ico"><i class="bi bi-stars"></i></span>
+                    <span class="ev-publicacion-option-copy">
+                      <strong>Servicio</strong>
+                      <small>Servicio ofrecido a tus vecinos.</small>
+                    </span>
+                    <span class="ev-publicacion-option-check"><i class="bi bi-check2"></i></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="ev-section mt-3">
+                <div class="d-flex align-items-start justify-content-between gap-2">
                   <div>
-                    <div class="ev-section-title">1. Fotos del producto</div>
+                    <div class="ev-step-badge">Paso 2</div>
+                    <div class="ev-section-title" id="tituloImagenesEdit">Imágenes de la publicación</div>
                     <div class="ev-section-subtitle">
-                      Fotos • <strong><span id="contadorImagenesEdit">0</span>/10</strong> — Puedes agregar un máximo de 10 fotos.
+                      Imágenes • <strong><span id="contadorImagenesEdit">0</span>/10</strong> — Puedes agregar un máximo de 10 imágenes.
                     </div>
                   </div>
                   <div class="text-muted small">Cargadas: <strong><span id="contadorImagenesToolbarEdit">0</span></strong></div>
@@ -383,7 +465,7 @@ require_once __DIR__ . '/../Config/config.php';
 
                 <div id="dropZoneEdit" class="ev-dropzone mt-2">
                   <div class="ico"><i class="bi bi-cloud-arrow-up"></i></div>
-                  <div class="t1">Arrastra tus fotos aquí o haz clic para seleccionarlas</div>
+                  <div class="t1" id="dropZoneTituloEdit">Arrastra tus imágenes aquí o haz clic para seleccionarlas</div>
                   <div class="t2">JPG • PNG • WEBP • Máximo 10 imágenes</div>
                 </div>
 
@@ -395,24 +477,29 @@ require_once __DIR__ . '/../Config/config.php';
                   <button id="btnLimpiarImagenesEdit" type="button" class="btn btn-ev-outline btn-sm">
                     <i class="bi bi-trash"></i> Limpiar imágenes
                   </button>
-                  <small class="text-muted">La primera foto será la imagen principal.</small>
+                  <small class="text-muted">La primera imagen será la portada.</small>
                 </div>
               </div>
 
               <div class="ev-section mt-3">
-                <div class="ev-section-title">2. Información principal</div>
+                <div class="ev-step-badge">Paso 3</div>
+                <div class="ev-section-title">Información principal</div>
 
-                <div class="mb-3">
-                  <label class="form-label">Título <span class="text-danger">*</span></label>
+                <div class="mb-3 mt-2">
+                  <label class="form-label" id="labelTituloEdit">Título <span class="text-danger">*</span></label>
                   <input id="edit_titulo" type="text" class="form-control" name="edit_titulo">
                 </div>
 
                 <div class="row g-3">
                   <div class="col-12 col-md-6">
-                    <label class="form-label">Precio (S/) <span class="text-danger">*</span></label>
+                    <label class="form-label" id="labelPrecioEdit">Precio (S/) <span class="text-danger">*</span></label>
                     <input id="edit_precio" type="number" step="0.01" min="0" class="form-control" name="edit_precio">
+                    <div class="form-text ev-service-hint d-none" data-ev-service-only>
+                      Para servicios, puedes registrar un precio base o referencial.
+                    </div>
                   </div>
-                  <div class="col-12 col-md-6">
+
+                  <div class="col-12 col-md-6" id="wrapEstadoProductoEdit" data-ev-product-only>
                     <label class="form-label">Estado <span class="text-danger">*</span></label>
                     <select id="edit_estado" class="form-select" name="edit_estado">
                       <option value="Nuevo">Nuevo</option>
@@ -427,14 +514,15 @@ require_once __DIR__ . '/../Config/config.php';
                       <option value="">-- Seleccione Tipos --</option>
                     </select>
                   </div>
+
                   <div class="col-12 col-md-6">
                     <label class="form-label">Categoría <span class="text-danger">*</span></label>
                     <select id="edit_comboCategoria" class="form-select" name="edit_comboCategoria">
-                      <option value="">-- Selecciona un tipo primero --</option>
+                      <option value="">Primero elige tipo</option>
                     </select>
                   </div>
 
-                  <div class="col-12">
+                  <div class="col-12" id="wrapTipoAtencionProductoEdit" data-ev-product-only>
                     <label class="form-label">Tipo de atención del producto <span class="text-danger">*</span></label>
                     <select id="edit_tipoAtencionProducto" class="form-select" name="edit_tipo_atencion_producto">
                       <option value="no_requiere_preparacion">No requiere preparación</option>
@@ -448,24 +536,27 @@ require_once __DIR__ . '/../Config/config.php';
               </div>
 
               <div class="ev-section mt-3">
-                <div class="ev-section-title">3. Detalles del producto o servicio</div>
-                <div class="mb-0">
-                  <label class="form-label">Descripción <span class="text-danger">*</span></label>
+                <div class="ev-step-badge">Paso 4</div>
+                <div class="ev-section-title">Detalles de la publicación</div>
+                <div class="mb-0 mt-2">
+                  <label class="form-label" id="labelDescripcionEdit">Descripción <span class="text-danger">*</span></label>
                   <textarea id="edit_descripcion" class="form-control" name="edit_descripcion" rows="4"></textarea>
                 </div>
               </div>
 
             </div>
 
-            <div class="col-12 col-lg-5">
-              <div id="evPreviewWrapperEditContainer"></div>
+            <div class="col-12 col-lg-5 ev-publicacion-preview-col">
+              <div class="ev-preview-sticky">
+                <div id="evPreviewWrapperEditContainer"></div>
+              </div>
             </div>
           </div>
 
         </div>
 
         <div class="ev-modal-footer">
-          <button type="button" class="btn btn-ev-outline" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-ev-outline" data-bs-dismiss="modal"><i class="bi bi-x-circle me-1"></i> Cancelar</button>
           <button type="submit" class="btn btn-ev-orange btn-guardar">
             <i class="bi bi-check2-circle"></i> Guardar cambios
           </button>

@@ -1,4 +1,4 @@
-/* producto.js – EV (premium filtros + tabs + responsive + no rompe menú) */
+/* producto.js – EV (Publicaciones: productos/servicios + filtros + tabs + responsive + no rompe menú) */
 
 (() => {
   'use strict';
@@ -10,6 +10,7 @@
   window.evProductosFiltro = window.evProductosFiltro || {
     q: '',
     tab: 'all',
+    tipo_publicacion: '',
     tipo: '',
     categoria: '',
     min: '',
@@ -201,6 +202,230 @@
     return c;
   }
 
+  function normalizarTipoPublicacion(valor, allowEmpty = false) {
+    const v = String(valor ?? '').trim().toLowerCase();
+    if (allowEmpty && v === '') return '';
+    return (v === 'servicio') ? 'servicio' : 'producto';
+  }
+
+  function tipoPublicacionLabel(valor) {
+    return normalizarTipoPublicacion(valor) === 'servicio' ? 'Servicio' : 'Producto';
+  }
+
+  function tipoPublicacionLabelPlural(valor) {
+    return normalizarTipoPublicacion(valor) === 'servicio' ? 'servicios' : 'productos';
+  }
+
+  function getTipoPublicacionItem(item) {
+    return normalizarTipoPublicacion(item?.tipo_publicacion || 'producto');
+  }
+
+  function getTipoPublicacionFromForm(form, edit = false) {
+    if (!form) return 'producto';
+    const name = edit ? 'edit_tipo_publicacion' : 'tipo_publicacion';
+    const checked = form.querySelector(`input[name="${name}"]:checked`);
+    return normalizarTipoPublicacion(checked?.value || 'producto');
+  }
+
+  function setTipoPublicacionRadio(form, tipo, edit = false) {
+    if (!form) return;
+    const name = edit ? 'edit_tipo_publicacion' : 'tipo_publicacion';
+    const normalized = normalizarTipoPublicacion(tipo);
+    const target = form.querySelector(`input[name="${name}"][value="${normalized}"]`);
+    if (target) target.checked = true;
+  }
+
+  function tipoPublicacionBadgeClass(tipo) {
+    return normalizarTipoPublicacion(tipo) === 'servicio'
+      ? 'ev-chip ev-chip-orange ev-chip-status'
+      : 'ev-chip ev-chip-green ev-chip-status';
+  }
+
+  function actualizarPreviewMetaTipo(modal, tipo) {
+    if (!modal) return;
+    const isEdit = modal.id === 'modalEditarPublicacion';
+    const badge = document.getElementById(isEdit ? 'evMetaKindEdit' : 'evMetaKindAdd');
+    if (!badge) return;
+
+    const normalized = normalizarTipoPublicacion(tipo);
+    badge.textContent = tipoPublicacionLabel(normalized);
+
+    if (badge.classList.contains('ev-preview-kind')) {
+      badge.className = normalized === 'servicio'
+        ? 'ev-preview-kind ev-preview-kind-servicio'
+        : 'ev-preview-kind ev-preview-kind-producto';
+      return;
+    }
+
+    badge.className = tipoPublicacionBadgeClass(normalized);
+  }
+
+  function dispararMetaPreviewLive(modal) {
+    if (!modal) return;
+    modal.querySelector('input[name="titulo"], #edit_titulo')?.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function setTextContentById(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
+  function setHtmlById(id, html) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  }
+
+  function setPlaceholder(el, text) {
+    if (el) el.setAttribute('placeholder', text);
+  }
+
+  function actualizarOpcionesTipoPublicacionVisual(modal, tipo) {
+    if (!modal) return;
+
+    const normalized = normalizarTipoPublicacion(tipo);
+    const selectorName = modal.id === 'modalEditarPublicacion'
+      ? 'edit_tipo_publicacion'
+      : 'tipo_publicacion';
+
+    modal.querySelectorAll(`input[name="${selectorName}"]`).forEach((radio) => {
+      const label = modal.querySelector(`label[for="${radio.id}"]`);
+      const active = normalizarTipoPublicacion(radio.value) === normalized && radio.checked;
+      if (label) {
+        label.classList.toggle('is-active', active);
+      }
+    });
+  }
+
+  function actualizarTextosTipoPublicacion(modal, tipo) {
+    if (!modal) return;
+
+    const esEdit = modal.id === 'modalEditarPublicacion';
+    const esServicio = normalizarTipoPublicacion(tipo) === 'servicio';
+
+    const suf = esEdit ? 'Edit' : 'Add';
+    const titleInput = esEdit
+      ? modal.querySelector('#edit_titulo')
+      : modal.querySelector('input[name="titulo"]');
+    const descInput = esEdit
+      ? modal.querySelector('#edit_descripcion')
+      : modal.querySelector('textarea[name="descripcion"]');
+
+    if (esServicio) {
+      setTextContentById(`tituloImagenes${suf}`, 'Imágenes del servicio');
+      setTextContentById(`dropZoneTitulo${suf}`, 'Sube imágenes referenciales del servicio o haz clic para seleccionarlas');
+      setTextContentById(`hintImagenPrincipal${suf}`, 'La primera imagen será la portada de tu servicio.');
+      setHtmlById(`labelTitulo${suf}`, 'Nombre del servicio <span class="text-danger">*</span>');
+      setHtmlById(`labelPrecio${suf}`, 'Precio base o referencial (S/) <span class="text-danger">*</span>');
+      setHtmlById(`labelDescripcion${suf}`, 'Descripción del servicio <span class="text-danger">*</span>');
+      setPlaceholder(titleInput, 'Ej. Clases de matemática, manicure, reparación de laptops');
+      setPlaceholder(descInput, 'Describe qué incluye el servicio, disponibilidad, forma de atención y condiciones importantes.');
+    } else {
+      setTextContentById(`tituloImagenes${suf}`, 'Fotos del producto');
+      setTextContentById(`dropZoneTitulo${suf}`, 'Arrastra tus fotos aquí o haz clic para seleccionarlas');
+      setTextContentById(`hintImagenPrincipal${suf}`, 'La primera foto será la imagen principal de tu publicación.');
+      setHtmlById(`labelTitulo${suf}`, 'Título <span class="text-danger">*</span>');
+      setHtmlById(`labelPrecio${suf}`, 'Precio (S/) <span class="text-danger">*</span>');
+      setHtmlById(`labelDescripcion${suf}`, 'Descripción <span class="text-danger">*</span>');
+      setPlaceholder(titleInput, 'Escribe un título claro y atractivo');
+      setPlaceholder(descInput, 'Cuenta los detalles más importantes para que tus vecinos se animen a comprar.');
+    }
+  }
+
+  function aplicarTipoPublicacionUI(modal, tipoRaw) {
+    if (!modal) return;
+
+    const form = modal.id === 'modalEditarPublicacion'
+      ? modal.querySelector('#formEditarPublicacion')
+      : modal.querySelector('#formAgregarPublicacion');
+
+    const tipo = normalizarTipoPublicacion(tipoRaw || (
+      modal.id === 'modalEditarPublicacion'
+        ? getTipoPublicacionFromForm(form, true)
+        : getTipoPublicacionFromForm(form, false)
+    ));
+
+    const esServicio = tipo === 'servicio';
+
+    modal.dataset.evTipoPublicacion = tipo;
+    modal.classList.toggle('ev-modal-publicacion-servicio', esServicio);
+    modal.classList.toggle('ev-modal-publicacion-producto', !esServicio);
+
+    actualizarOpcionesTipoPublicacionVisual(modal, tipo);
+    actualizarTextosTipoPublicacion(modal, tipo);
+
+    modal.querySelectorAll('[data-ev-product-only]').forEach((el) => {
+      el.classList.toggle('d-none', esServicio);
+      el.setAttribute('aria-hidden', esServicio ? 'true' : 'false');
+      el.querySelectorAll('input, select, textarea').forEach((node) => {
+        node.disabled = esServicio;
+      });
+    });
+
+    modal.querySelectorAll('[data-ev-service-only]').forEach((el) => {
+      el.classList.toggle('d-none', !esServicio);
+      el.setAttribute('aria-hidden', !esServicio ? 'true' : 'false');
+    });
+
+    const estado = modal.querySelector('select[name="estado"], #edit_estado');
+    const tipoAtencion = modal.querySelector('#tipoAtencionProducto, #edit_tipoAtencionProducto');
+
+    if (esServicio) {
+      if (estado) {
+        estado.value = 'NoAplica';
+        estado.disabled = true;
+      }
+      if (tipoAtencion) {
+        tipoAtencion.value = 'no_requiere_preparacion';
+        tipoAtencion.disabled = true;
+      }
+    } else {
+      if (estado) {
+        estado.disabled = false;
+        if (!estado.value || estado.value === 'NoAplica') estado.value = 'Nuevo';
+      }
+      if (tipoAtencion) {
+        tipoAtencion.disabled = false;
+        if (!tipoAtencion.value) tipoAtencion.value = 'no_requiere_preparacion';
+      }
+    }
+
+    evShortenCategoriaPlaceholder(modal);
+    actualizarPreviewMetaTipo(modal, tipo);
+    dispararMetaPreviewLive(modal);
+  }
+
+  function resetTipoPublicacionAgregarUI() {
+    const modal = document.getElementById('modalAgregarPublicacion');
+    const form = document.getElementById('formAgregarPublicacion');
+    if (!modal || !form) return;
+    setTipoPublicacionRadio(form, 'producto', false);
+    aplicarTipoPublicacionUI(modal, 'producto');
+  }
+
+  function bindTipoPublicacionUI() {
+    const modalAdd = document.getElementById('modalAgregarPublicacion');
+    const formAdd = document.getElementById('formAgregarPublicacion');
+    const modalEdit = document.getElementById('modalEditarPublicacion');
+    const formEdit = document.getElementById('formEditarPublicacion');
+
+    if (formAdd && !formAdd.dataset.evTipoPublicacionBound) {
+      formAdd.dataset.evTipoPublicacionBound = '1';
+      formAdd.querySelectorAll('input[name="tipo_publicacion"]').forEach((radio) => {
+        radio.addEventListener('change', () => aplicarTipoPublicacionUI(modalAdd, radio.value));
+      });
+    }
+
+    if (formEdit && !formEdit.dataset.evTipoPublicacionBound) {
+      formEdit.dataset.evTipoPublicacionBound = '1';
+      formEdit.querySelectorAll('input[name="edit_tipo_publicacion"]').forEach((radio) => {
+        radio.addEventListener('change', () => aplicarTipoPublicacionUI(modalEdit, radio.value));
+      });
+    }
+
+    if (modalAdd) aplicarTipoPublicacionUI(modalAdd, getTipoPublicacionFromForm(formAdd, false));
+    if (modalEdit) aplicarTipoPublicacionUI(modalEdit, getTipoPublicacionFromForm(formEdit, true));
+  }
+
   async function evFetchJson(url) {
     const resp = await fetch(url, { method: 'GET' });
     const data = await resp.json().catch(() => null);
@@ -274,6 +499,7 @@
 
   function syncFiltrosFromUI() {
     const q = document.getElementById('fTexto')?.value ?? '';
+    const tipoPublicacion = document.getElementById('fTipoPublicacion')?.value ?? '';
     const tipo = document.getElementById('fTipo')?.value ?? '';
     const cat = document.getElementById('fCategoria')?.value ?? '';
     const min = document.getElementById('fPrecioMin')?.value ?? '';
@@ -281,6 +507,7 @@
     const orden = document.getElementById('fOrden')?.value ?? 'recientes';
 
     window.evProductosFiltro.q = String(q).trim();
+    window.evProductosFiltro.tipo_publicacion = normalizarTipoPublicacion(tipoPublicacion, true);
     window.evProductosFiltro.tipo = String(tipo).trim();
     window.evProductosFiltro.categoria = String(cat).trim();
     window.evProductosFiltro.min = String(min).trim();
@@ -296,6 +523,7 @@
     };
 
     setVal('fTexto', '');
+    setVal('fTipoPublicacion', '');
     setVal('fTipo', '');
     setVal('fPrecioMin', '');
     setVal('fPrecioMax', '');
@@ -309,6 +537,7 @@
     }
 
     window.evProductosFiltro.q = '';
+    window.evProductosFiltro.tipo_publicacion = '';
     window.evProductosFiltro.tipo = '';
     window.evProductosFiltro.categoria = '';
     window.evProductosFiltro.min = '';
@@ -325,24 +554,39 @@
     if (!container) return null;
 
     container.innerHTML = `
-      <div id="evPreviewWrapperAdd" class="ev-preview-area">
-        <div class="ev-preview-title"><span><i class="bi bi-images me-1"></i>Previsualización</span></div>
-        <div class="ev-preview-main"><img id="evPreviewMainImgAdd" alt="Vista previa"></div>
-        <div id="evPreviewThumbsAdd" class="ev-preview-thumbs"></div>
-      </div>
-      <div class="card ev-card mt-3">
-        <div class="card-body p-3">
-          <h6 id="evMetaTitleAdd" class="mb-1" style="font-weight:800;color:#0b3d27;">Título</h6>
-          <div id="evMetaPriceAdd" class="mb-2" style="color:#0F592F;font-weight:800;">S/ 0.00</div>
-          <div style="font-size:.9rem;color:#64748b">Detalles</div>
-          <p id="evMetaDescAdd" class="mb-0" style="color:#475569;">La descripción aparecerá aquí.</p>
+      <aside class="ev-preview-panel" aria-label="Vista previa de la publicación">
+        <div class="ev-preview-panel-head">
+          <div>
+            <div class="ev-preview-kicker">Vista previa</div>
+            <div class="ev-preview-heading">Así lo verá tu vecino</div>
+          </div>
+          <div id="evMetaKindAdd" class="ev-preview-kind ev-preview-kind-producto">Producto</div>
         </div>
-      </div>
+
+        <div id="evPreviewWrapperAdd" class="ev-preview-area ev-preview-media-card">
+          <div class="ev-preview-title"><span><i class="bi bi-images me-1"></i>Imagen principal</span></div>
+          <div class="ev-preview-main"><img id="evPreviewMainImgAdd" alt="Vista previa"></div>
+          <div id="evPreviewThumbsAdd" class="ev-preview-thumbs"></div>
+        </div>
+
+        <div class="ev-preview-summary-card">
+          <h6 id="evMetaTitleAdd" class="ev-preview-summary-title">Título</h6>
+          <div id="evMetaPriceAdd" class="ev-preview-summary-price">S/ 0.00</div>
+          <div class="ev-preview-summary-label">Detalles</div>
+          <p id="evMetaDescAdd" class="ev-preview-summary-desc">La descripción aparecerá aquí.</p>
+        </div>
+
+        <div class="ev-preview-tips">
+          <div class="ev-preview-tip"><i class="bi bi-shield-check"></i><span>Se enviará a revisión antes de publicarse.</span></div>
+          <div class="ev-preview-tip"><i class="bi bi-stars"></i><span>Usa imágenes claras para generar confianza.</span></div>
+        </div>
+      </aside>
     `;
 
     evAddPreview.wrapper   = document.getElementById('evPreviewWrapperAdd');
     evAddPreview.mainImg   = document.getElementById('evPreviewMainImgAdd');
     evAddPreview.thumbs    = document.getElementById('evPreviewThumbsAdd');
+    evAddPreview.metaKind  = document.getElementById('evMetaKindAdd');
     evAddPreview.metaTitle = document.getElementById('evMetaTitleAdd');
     evAddPreview.metaPrice = document.getElementById('evMetaPriceAdd');
     evAddPreview.metaDesc  = document.getElementById('evMetaDescAdd');
@@ -364,6 +608,9 @@
         const n      = Number(priceRaw || 0);
         const precio = isNaN(n) ? '0.00' : n.toFixed(2);
 
+        const tipoPublicacion = getTipoPublicacionFromForm(modal.querySelector('#formAgregarPublicacion'), false);
+        actualizarPreviewMetaTipo(modal, tipoPublicacion);
+
         evAddPreview.metaTitle.textContent = title;
         evAddPreview.metaPrice.textContent = `S/ ${precio}`;
         evAddPreview.metaDesc.textContent  = desc;
@@ -372,6 +619,9 @@
       modal.querySelector('input[name="titulo"]')?.addEventListener('input', updateMetaLive);
       modal.querySelector('input[name="precio"]')?.addEventListener('input', updateMetaLive);
       modal.querySelector('textarea[name="descripcion"]')?.addEventListener('input', updateMetaLive);
+      modal.querySelectorAll('input[name="tipo_publicacion"]').forEach((radio) => {
+        radio.addEventListener('change', updateMetaLive);
+      });
     }
 
     return evAddPreview;
@@ -474,8 +724,7 @@
         add.className = 'ev-tile ev-tile-add';
         add.innerHTML = `
           <div class="ico"><i class="bi bi-plus-lg"></i></div>
-          <div class="t1">Agregar fotos</div>
-          <div class="t2">o arrastra y suelta</div>
+          <div class="t1">Agregar</div>
         `;
         add.addEventListener('click', () => els.input?.click());
         els.tiles.appendChild(add);
@@ -599,24 +848,39 @@
     if (!container) return null;
 
     container.innerHTML = `
-      <div id="evPreviewWrapperEdit" class="ev-preview-area">
-        <div class="ev-preview-title"><span><i class="bi bi-images me-1"></i>Previsualización</span></div>
-        <div class="ev-preview-main"><img id="evPreviewMainImgEdit" alt="Vista previa"></div>
-        <div id="evPreviewThumbsEdit" class="ev-preview-thumbs"></div>
-      </div>
-      <div class="card ev-card mt-3">
-        <div class="card-body p-3">
-          <h6 id="evMetaTitleEdit" class="mb-1" style="font-weight:800;color:#0b3d27;">Título</h6>
-          <div id="evMetaPriceEdit" class="mb-2" style="color:#0F592F;font-weight:800;">S/ 0.00</div>
-          <div style="font-size:.9rem;color:#64748b">Detalles</div>
-          <p id="evMetaDescEdit" class="mb-0" style="color:#475569;">La descripción aparecerá aquí.</p>
+      <aside class="ev-preview-panel" aria-label="Vista previa de la publicación">
+        <div class="ev-preview-panel-head">
+          <div>
+            <div class="ev-preview-kicker">Vista previa</div>
+            <div class="ev-preview-heading">Así lo verá tu vecino</div>
+          </div>
+          <div id="evMetaKindEdit" class="ev-preview-kind ev-preview-kind-producto">Producto</div>
         </div>
-      </div>
+
+        <div id="evPreviewWrapperEdit" class="ev-preview-area ev-preview-media-card">
+          <div class="ev-preview-title"><span><i class="bi bi-images me-1"></i>Imagen principal</span></div>
+          <div class="ev-preview-main"><img id="evPreviewMainImgEdit" alt="Vista previa"></div>
+          <div id="evPreviewThumbsEdit" class="ev-preview-thumbs"></div>
+        </div>
+
+        <div class="ev-preview-summary-card">
+          <h6 id="evMetaTitleEdit" class="ev-preview-summary-title">Título</h6>
+          <div id="evMetaPriceEdit" class="ev-preview-summary-price">S/ 0.00</div>
+          <div class="ev-preview-summary-label">Detalles</div>
+          <p id="evMetaDescEdit" class="ev-preview-summary-desc">La descripción aparecerá aquí.</p>
+        </div>
+
+        <div class="ev-preview-tips">
+          <div class="ev-preview-tip"><i class="bi bi-shield-check"></i><span>Los cambios pueden volver a revisión.</span></div>
+          <div class="ev-preview-tip"><i class="bi bi-stars"></i><span>Usa imágenes claras para generar confianza.</span></div>
+        </div>
+      </aside>
     `;
 
     evEditPreview.wrapper   = document.getElementById('evPreviewWrapperEdit');
     evEditPreview.mainImg   = document.getElementById('evPreviewMainImgEdit');
     evEditPreview.thumbs    = document.getElementById('evPreviewThumbsEdit');
+    evEditPreview.metaKind  = document.getElementById('evMetaKindEdit');
     evEditPreview.metaTitle = document.getElementById('evMetaTitleEdit');
     evEditPreview.metaPrice = document.getElementById('evMetaPriceEdit');
     evEditPreview.metaDesc  = document.getElementById('evMetaDescEdit');
@@ -632,6 +896,9 @@
         const n       = Number(priceRaw || 0);
         const precio  = isNaN(n) ? '0.00' : n.toFixed(2);
 
+        const tipoPublicacion = getTipoPublicacionFromForm(modal.querySelector('#formEditarPublicacion'), true);
+        actualizarPreviewMetaTipo(modal, tipoPublicacion);
+
         evEditPreview.metaTitle.textContent = title;
         evEditPreview.metaPrice.textContent = `S/ ${precio}`;
         evEditPreview.metaDesc.textContent  = desc;
@@ -640,6 +907,9 @@
       modal.querySelector('#edit_titulo')?.addEventListener('input', updateMetaLive);
       modal.querySelector('#edit_precio')?.addEventListener('input', updateMetaLive);
       modal.querySelector('#edit_descripcion')?.addEventListener('input', updateMetaLive);
+      modal.querySelectorAll('input[name="edit_tipo_publicacion"]').forEach((radio) => {
+        radio.addEventListener('change', updateMetaLive);
+      });
     }
 
     return evEditPreview;
@@ -653,6 +923,9 @@
     const n      = Number(prod?.precio || 0);
     const precio = isNaN(n) ? '0.00' : n.toFixed(2);
     const desc   = (prod?.descripcion || '').trim() || 'La descripción aparecerá aquí.';
+
+    const modal = document.getElementById('modalEditarPublicacion');
+    actualizarPreviewMetaTipo(modal, getTipoPublicacionItem(prod));
 
     st.metaTitle.textContent = titulo;
     st.metaPrice.textContent = `S/ ${precio}`;
@@ -776,8 +1049,7 @@
         add.className = 'ev-tile ev-tile-add';
         add.innerHTML = `
           <div class="ico"><i class="bi bi-plus-lg"></i></div>
-          <div class="t1">Agregar fotos</div>
-          <div class="t2">o arrastra y suelta</div>
+          <div class="t1">Agregar</div>
         `;
         add.addEventListener('click', () => els.input?.click());
         els.tiles.appendChild(add);
@@ -916,22 +1188,30 @@
       if (await evHandleAuthResponse(resp, data)) return;
 
       if (!data.ok) {
-        evNotify("error", "Error", data.mensaje || "Error al cargar el producto.");
+        evNotify("error", "Error", data.mensaje || "Error al cargar la publicación.");
         return;
       }
 
       const prod  = data.data.producto;
       const fotos = data.data.imagenes || [];
+      const tipoPublicacion = getTipoPublicacionItem(prod);
 
       document.querySelector("#edit_id").value          = prod.codigo_producto;
       document.querySelector("#edit_titulo").value      = prod.titulo || "";
       document.querySelector("#edit_precio").value      = prod.precio || "";
-      document.querySelector("#edit_estado").value      = prod.estado || "Nuevo";
+      document.querySelector("#edit_estado").value      = tipoPublicacion === 'servicio' ? 'NoAplica' : (prod.estado || "Nuevo");
       document.querySelector("#edit_descripcion").value = prod.descripcion || "";
+
+      const formEdit = document.getElementById('formEditarPublicacion');
+      const modalEdit = document.getElementById('modalEditarPublicacion');
+      setTipoPublicacionRadio(formEdit, tipoPublicacion, true);
+      aplicarTipoPublicacionUI(modalEdit, tipoPublicacion);
 
       const editTipoAtencion = document.querySelector("#edit_tipoAtencionProducto");
       if (editTipoAtencion) {
-        editTipoAtencion.value = prod.tipo_atencion_producto || "no_requiere_preparacion";
+        editTipoAtencion.value = tipoPublicacion === 'servicio'
+          ? "no_requiere_preparacion"
+          : (prod.tipo_atencion_producto || "no_requiere_preparacion");
       }
 
       const comboTipo = document.getElementById("edit_comboTipo");
@@ -947,6 +1227,7 @@
         const modal = evGetStaticModal('modalEditarPublicacion');
         requestAnimationFrame(() => {
           modal?.show();
+          aplicarTipoPublicacionUI(modalEl, tipoPublicacion);
           requestAnimationFrame(setEvVh);
         });
       }
@@ -956,7 +1237,7 @@
       }
 
     } catch (e) {
-      console.error("Error cargando producto:", e);
+      console.error("Error cargando publicación:", e);
       evNotify("error", "Error", "No se pudo cargar los datos.");
     }
   }
@@ -966,8 +1247,8 @@
 
     const ok = await evConfirm({
       icon: 'warning',
-      title: 'Anular producto',
-      text: '¿Seguro que deseas anular este producto? Ya no estará disponible.',
+      title: 'Anular publicación',
+      text: '¿Seguro que deseas anular esta publicación? Ya no estará disponible.',
       confirmText: 'Sí, anular',
       cancelText: 'Cancelar',
       confirmBtnClass: 'btn btn-danger me-2'
@@ -981,16 +1262,16 @@
       if (await evHandleAuthResponse(resp, data)) return;
 
       if (!resp.ok || !data.ok) {
-        evNotify('error', 'Error', data.mensaje || data.error || 'No se pudo anular el producto.');
+        evNotify('error', 'Error', data.mensaje || data.error || 'No se pudo anular la publicación.');
         return;
       }
 
-      evNotify('success', 'Producto anulado', data.mensaje || 'El producto ha sido anulado correctamente.');
+      evNotify('success', 'Publicación anulada', data.mensaje || 'La publicación ha sido anulada correctamente.');
       window.evCargarProductos?.();
 
     } catch (err) {
       console.error(err);
-      evNotify('error', 'Error inesperado', 'Ocurrió un problema al anular el producto.');
+      evNotify('error', 'Error inesperado', 'Ocurrió un problema al anular la publicación.');
     }
   }
 
@@ -1000,7 +1281,7 @@
     const ok = await evConfirm({
       icon: 'question',
       title: 'Enviar a revisión',
-      text: 'Al enviar a revisión, tu producto quedará en estado Pendiente hasta que el administrador lo apruebe. Aún no se mostrará en el marketplace.',
+      text: 'Al enviar a revisión, tu publicación quedará en estado Pendiente hasta que soporte la apruebe. Aún no se mostrará en el marketplace.',
       confirmText: 'Sí, enviar',
       cancelText: 'Cancelar',
       confirmBtnClass: 'btn btn-success me-2'
@@ -1014,18 +1295,161 @@
       if (await evHandleAuthResponse(resp, data)) return;
 
       if (!resp.ok || !data.ok) {
-        evNotify('error', 'Error', data.mensaje || data.error || 'No se pudo enviar el producto a revisión.');
+        evNotify('error', 'Error', data.mensaje || data.error || 'No se pudo enviar la publicación a revisión.');
         return;
       }
 
-      evNotify('success', 'Enviado a revisión', data.mensaje || 'Solicitud enviada. El producto quedó Pendiente de aprobación.');
+      evNotify('success', 'Enviado a revisión', data.mensaje || 'Solicitud enviada. La publicación quedó Pendiente de aprobación.');
       window.evCargarProductos?.();
 
     } catch (err) {
       console.error(err);
-      evNotify('error', 'Error inesperado', 'Ocurrió un problema al enviar el producto a revisión.');
+      evNotify('error', 'Error inesperado', 'Ocurrió un problema al enviar la publicación a revisión.');
     }
   }
+
+
+  function evShortenCategoriaPlaceholder(scope) {
+    const root = scope || document;
+    const selects = root.querySelectorAll
+      ? root.querySelectorAll('#comboCategoria, #edit_comboCategoria, select[name="categoria"], select[name="edit_comboCategoria"]')
+      : [];
+
+    selects.forEach((sel) => {
+      if (!sel) return;
+      const first = sel.querySelector('option[value=""]') || sel.options?.[0];
+      if (!first) return;
+
+      const current = String(first.textContent || '').trim().toLowerCase();
+      if (
+        current === '' ||
+        current.includes('selecciona un tipo primero') ||
+        current.includes('selecciona un tipo') ||
+        current.includes('tipo primero') ||
+        current.includes('selecciona una categoría') ||
+        current.includes('selecciona una categoria')
+      ) {
+        first.textContent = 'Primero elige tipo';
+      }
+    });
+  }
+
+  function evClearFieldErrors(form) {
+    if (!form) return;
+    form.querySelectorAll('.is-invalid, .ev-field-invalid').forEach((el) => {
+      el.classList.remove('is-invalid', 'ev-field-invalid');
+      el.removeAttribute('aria-invalid');
+    });
+    form.querySelectorAll('.ev-field-error').forEach((el) => el.remove());
+  }
+
+  function evGetFieldForValidation(form, isEdit, key) {
+    if (!form) return null;
+
+    const mapAdd = {
+      titulo: 'input[name="titulo"]',
+      precio: 'input[name="precio"]',
+      tipo: '#comboTipo, select[name="comboTipo"]',
+      categoria: '#comboCategoria, select[name="categoria"]',
+      tipoAtencion: '#tipoAtencionProducto',
+      descripcion: 'textarea[name="descripcion"]'
+    };
+
+    const mapEdit = {
+      titulo: '#edit_titulo',
+      precio: '#edit_precio',
+      tipo: '#edit_comboTipo',
+      categoria: '#edit_comboCategoria',
+      tipoAtencion: '#edit_tipoAtencionProducto',
+      descripcion: '#edit_descripcion'
+    };
+
+    return form.querySelector((isEdit ? mapEdit : mapAdd)[key] || '');
+  }
+
+  function evShowFieldError(form, isEdit, key, message) {
+    const field = evGetFieldForValidation(form, isEdit, key);
+    if (!field) return null;
+
+    field.classList.add('is-invalid', 'ev-field-invalid');
+    field.setAttribute('aria-invalid', 'true');
+
+    const holder = field.closest('.mb-3, .col-12, .col-md-6') || field.parentElement || form;
+    const err = document.createElement('div');
+    err.className = 'ev-field-error';
+    err.textContent = message;
+    holder.appendChild(err);
+
+    if (!field.dataset.evErrorClearBound) {
+      field.dataset.evErrorClearBound = '1';
+      ['input', 'change'].forEach((evt) => {
+        field.addEventListener(evt, () => {
+          field.classList.remove('is-invalid', 'ev-field-invalid');
+          field.removeAttribute('aria-invalid');
+
+          const parent = field.closest('.mb-3, .col-12, .col-md-6') || field.parentElement;
+          parent?.querySelectorAll('.ev-field-error').forEach((node) => node.remove());
+        });
+      });
+    }
+
+    return field;
+  }
+
+  function evValidatePublicacionForm(form, isEdit, data) {
+    evClearFieldErrors(form);
+
+    const errores = [];
+
+    const add = (key, message) => {
+      const field = evShowFieldError(form, isEdit, key, message);
+      errores.push({ key, message, field });
+    };
+
+    if (!String(data.titulo || '').trim()) {
+      add('titulo', data.tipoPublicacion === 'servicio'
+        ? 'Ingresa el nombre del servicio.'
+        : 'Ingresa un título para la publicación.');
+    }
+
+    if (!Number.isFinite(data.precio) || data.precio <= 0) {
+      add('precio', 'Ingresa un precio mayor a 0.');
+    }
+
+    if (!String(data.comboTipo || '').trim()) {
+      add('tipo', 'Selecciona un tipo.');
+    }
+
+    if (!String(data.categoria || '').trim()) {
+      add('categoria', 'Selecciona una categoría.');
+    }
+
+    if (data.tipoPublicacion === 'producto' && !String(data.tipoAtencionProducto || '').trim()) {
+      add('tipoAtencion', 'Selecciona el tipo de atención.');
+    }
+
+    if (!String(data.descripcion || '').trim()) {
+      add('descripcion', data.tipoPublicacion === 'servicio'
+        ? 'Describe qué incluye el servicio.'
+        : 'Ingresa una descripción.');
+    }
+
+    if (!errores.length) return true;
+
+    const first = errores.find(e => e.field)?.field;
+    if (first) {
+      try {
+        first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        window.setTimeout(() => first.focus({ preventScroll: true }), 220);
+      } catch (_) {
+        try { first.focus(); } catch (__) {}
+      }
+    }
+
+    evNotify('warning', 'Revisa la publicación', 'Completa los campos marcados antes de guardar.');
+    return false;
+  }
+
 
   async function registrarProducto(form) {
     const btnGuardar = form.querySelector('.btn-guardar') || form.querySelector('button[type="submit"]');
@@ -1036,43 +1460,33 @@
       btnGuardar.classList.toggle('saving', saving);
     };
 
+    const tipoPublicacion = getTipoPublicacionFromForm(form, false);
+    const label = tipoPublicacionLabel(tipoPublicacion).toLowerCase();
+
     const titulo      = form.querySelector('input[name="titulo"]')?.value?.trim() || '';
     const precioRaw   = form.querySelector('input[name="precio"]')?.value || '';
-    const estado      = form.querySelector('select[name="estado"]')?.value || 'NoAplica';
+    const estado      = tipoPublicacion === 'servicio'
+      ? 'NoAplica'
+      : (form.querySelector('select[name="estado"]')?.value || 'NoAplica');
     const descripcion = form.querySelector('textarea[name="descripcion"]')?.value?.trim() || '';
 
     const comboTipo   = form.querySelector('#comboTipo')?.value || form.querySelector('select[name="comboTipo"]')?.value || '';
     const categoria   = form.querySelector('#comboCategoria')?.value || form.querySelector('select[name="categoria"]')?.value || '';
-    const tipoAtencionProducto = form.querySelector('#tipoAtencionProducto')?.value || 'no_requiere_preparacion';
-
-    if (!titulo) {
-      evNotify('warning','Validación','Debes ingresar un título para el producto.');
-      return;
-    }
+    const tipoAtencionProducto = tipoPublicacion === 'servicio'
+      ? 'no_requiere_preparacion'
+      : (form.querySelector('#tipoAtencionProducto')?.value || 'no_requiere_preparacion');
 
     const precio = Number(precioRaw || 0);
-    if (!precio || precio <= 0) {
-      evNotify('warning','Validación','El precio debe ser mayor a 0.');
-      return;
-    }
-
-    if (!comboTipo) {
-      evNotify('warning','Validación','Debes seleccionar un tipo.');
-      return;
-    }
-
-    if (!categoria) {
-      evNotify('warning','Validación','Debes seleccionar una categoría.');
-      return;
-    }
-
-    if (!tipoAtencionProducto) {
-      evNotify('warning','Validación','Debes seleccionar el tipo de atención del producto.');
-      return;
-    }
-
-    if (!descripcion) {
-      evNotify('warning','Validación','Debes ingresar una descripción.');
+    if (!evValidatePublicacionForm(form, false, {
+      tipoPublicacion,
+      label,
+      titulo,
+      precio,
+      comboTipo,
+      categoria,
+      tipoAtencionProducto,
+      descripcion
+    })) {
       return;
     }
 
@@ -1083,6 +1497,7 @@
     const nuevas = Array.isArray(estadoImgs.nuevas) ? estadoImgs.nuevas : [];
 
     const fd = new FormData();
+    fd.append('tipo_publicacion', tipoPublicacion);
     fd.append('titulo', titulo);
     fd.append('precio', precio.toString());
     fd.append('estado', estado);
@@ -1109,21 +1524,22 @@
 
       if (!resp.ok || !data.ok) {
         const extra = Array.isArray(data.errores) && data.errores.length ? `\n\n• ${data.errores.join('\n• ')}` : '';
-        evNotify('error', 'Error', (data.mensaje || data.error || 'No se pudo registrar el producto.') + extra);
+        evNotify('error', 'Error', (data.mensaje || data.error || 'No se pudo registrar la publicación.') + extra);
         return;
       }
 
-      evNotify('success', 'Producto registrado', data.mensaje || 'Producto registrado como borrador. Presiona "Publicar" para enviarlo a revisión.');
+      evNotify('success', `${tipoPublicacionLabel(tipoPublicacion)} registrado`, data.mensaje || `${tipoPublicacionLabel(tipoPublicacion)} registrado como borrador. Presiona "Publicar" para enviarlo a revisión.`);
 
       const modal = evGetStaticModal('modalAgregarPublicacion');
       modal?.hide();
 
       window.evCargarProductos?.();
       try { form.reset(); } catch (_) {}
+      resetTipoPublicacionAgregarUI();
 
     } catch (err) {
       console.error(err);
-      evNotify('error', 'Error inesperado', 'Ocurrió un problema al registrar el producto.');
+      evNotify('error', 'Error inesperado', 'Ocurrió un problema al registrar la publicación.');
     } finally {
       setSaving(false);
     }
@@ -1138,33 +1554,48 @@
       btnGuardar.classList.toggle('saving', saving);
     };
 
+    const tipoPublicacion = getTipoPublicacionFromForm(form, true);
+    const label = tipoPublicacionLabel(tipoPublicacion).toLowerCase();
+
     const id          = form.querySelector('#edit_id')?.value || '';
     const titulo      = form.querySelector('#edit_titulo')?.value?.trim() || '';
     const precioRaw   = form.querySelector('#edit_precio')?.value || '';
-    const estado      = form.querySelector('#edit_estado')?.value || 'NoAplica';
+    const estado      = tipoPublicacion === 'servicio'
+      ? 'NoAplica'
+      : (form.querySelector('#edit_estado')?.value || 'NoAplica');
     const descripcion = form.querySelector('#edit_descripcion')?.value?.trim() || '';
 
     const comboTipo   = form.querySelector('#edit_comboTipo')?.value || '';
     const categoria   = form.querySelector('#edit_comboCategoria')?.value || '';
-    const tipoAtencionProducto = form.querySelector('#edit_tipoAtencionProducto')?.value || 'no_requiere_preparacion';
+    const tipoAtencionProducto = tipoPublicacion === 'servicio'
+      ? 'no_requiere_preparacion'
+      : (form.querySelector('#edit_tipoAtencionProducto')?.value || 'no_requiere_preparacion');
 
-    if (!tipoAtencionProducto) {
-      evNotify('warning','Validación','Debes seleccionar el tipo de atención del producto.');
+    if (!id) {
+      evNotify('error','Error','No se encontró el código de la publicación.');
       return;
     }
 
-    if (!id) { evNotify('error','Error','No se encontró el código del producto.'); return; }
-    if (!titulo) { evNotify('warning','Validación','Debes ingresar un título.'); return; }
-
     const precio = Number(precioRaw || 0);
-    if (!precio || precio <= 0) { evNotify('warning','Validación','El precio debe ser mayor a 0.'); return; }
-    if (!descripcion) { evNotify('warning','Validación','Debes ingresar una descripción.'); return; }
+    if (!evValidatePublicacionForm(form, true, {
+      tipoPublicacion,
+      label,
+      titulo,
+      precio,
+      comboTipo,
+      categoria,
+      tipoAtencionProducto,
+      descripcion
+    })) {
+      return;
+    }
 
     const estadoImgs = typeof window.evGetEstadoImagenesEditar === 'function'
       ? window.evGetEstadoImagenesEditar()
       : { eliminadas: [], nuevas: [] };
 
     const fd = new FormData();
+    fd.append('tipo_publicacion', tipoPublicacion);
     fd.append('titulo', titulo);
     fd.append('precio', precio.toString());
     fd.append('estado', estado);
@@ -1187,11 +1618,11 @@
       if (await evHandleAuthResponse(resp, data)) return;
 
       if (!resp.ok || !data.ok) {
-        evNotify('error', 'Error', data.mensaje || data.error || 'No se pudo actualizar el producto.');
+        evNotify('error', 'Error', data.mensaje || data.error || 'No se pudo actualizar la publicación.');
         return;
       }
 
-      evNotify('success', 'Producto actualizado', 'Los cambios se guardaron correctamente.');
+      evNotify('success', 'Publicación actualizada', data.mensaje || 'Los cambios se guardaron correctamente.');
 
       const modal = evGetStaticModal('modalEditarPublicacion');
       modal?.hide();
@@ -1200,7 +1631,7 @@
 
     } catch (err) {
       console.error(err);
-      evNotify('error', 'Error inesperado', 'Ocurrió un problema al actualizar el producto.');
+      evNotify('error', 'Error inesperado', 'Ocurrió un problema al actualizar la publicación.');
     } finally {
       setSaving(false);
     }
@@ -1308,6 +1739,7 @@
   function filtrarItems(items) {
     const f = window.evProductosFiltro || {};
     const q = String(f.q || '').trim().toLowerCase();
+    const tipoPublicacion = normalizarTipoPublicacion(f.tipo_publicacion || '', true);
     const tipo = String(f.tipo || '').trim();
     const cat  = String(f.categoria || '').trim();
 
@@ -1324,11 +1756,13 @@
         const d  = String(p.descripcion || '').toLowerCase();
         const c  = String(p.categoria_nombre || p.categoria || '').toLowerCase();
         const tp = String(p.tipo_nombre || p.tipo || '').toLowerCase();
+        const pub = tipoPublicacionLabel(getTipoPublicacionItem(p)).toLowerCase();
         const ms = String(evGetMensajeSoporte(p) || '').toLowerCase();
-        return (t.includes(q) || d.includes(q) || c.includes(q) || tp.includes(q) || ms.includes(q));
+        return (t.includes(q) || d.includes(q) || c.includes(q) || tp.includes(q) || pub.includes(q) || ms.includes(q));
       });
     }
 
+    if (tipoPublicacion) out = out.filter(p => getTipoPublicacionItem(p) === tipoPublicacion);
     if (tipo) out = out.filter(p => String(p.codigo_tipo ?? '') === tipo);
     if (cat)  out = out.filter(p => String(p.codigo_categoria ?? '') === cat);
 
@@ -1365,7 +1799,7 @@
     const tbody = table?.querySelector('tbody');
     if (!table || !tbody) return;
 
-    tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">Cargando productos…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted">Cargando publicaciones…</td></tr>`;
 
     try {
       const resp = await fetch(`${EV_API_BASE}/api/producto/listar`, { method: 'GET' });
@@ -1374,7 +1808,7 @@
       if (await evHandleAuthResponse(resp, data)) return;
 
       if (!resp.ok || !data.ok) {
-        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-danger">${escAttr(data.mensaje || data.error || 'No se pudo obtener el listado.')}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-danger">${escAttr(data.mensaje || data.error || 'No se pudo obtener el listado.')}</td></tr>`;
         return;
       }
 
@@ -1401,18 +1835,22 @@
       if (lblFooterLeft) lblFooterLeft.textContent = `Mostrando ${filtrados.length} de ${items.length}`;
 
       if (!items.length) {
-        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">Aún no tienes productos registrados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted">Aún no tienes publicaciones registradas.</td></tr>`;
         return;
       }
 
       if (!filtrados.length) {
-        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">No hay productos para los filtros seleccionados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted">No hay publicaciones para los filtros seleccionados.</td></tr>`;
         return;
       }
 
       tbody.innerHTML = filtrados.map((p) => {
         const id = Number(p.codigo_producto ?? 0);
         const cod = String(id || '').padStart(6, '0');
+
+        const tipoPublicacion = getTipoPublicacionItem(p);
+        const tipoPublicacionTxt = tipoPublicacionLabel(tipoPublicacion);
+        const tipoPublicacionCls = tipoPublicacionBadgeClass(tipoPublicacion);
 
         const tituloRaw = (p.titulo || '').toString();
         const titulo = escAttr(tituloRaw.substring(0, 80));
@@ -1466,6 +1904,7 @@
         return `
           <tr ${trStyle}>
             <td data-label="Código" class="text-center"><span class="ev-code">${cod}</span></td>
+            <td data-label="Publicación" class="text-center"><span class="${tipoPublicacionCls}">${tipoPublicacionTxt}</span></td>
             <td data-label="Título" class="td-trunc" title="${titulo}">${titulo || '-'}</td>
             <td data-label="Precio" class="text-end">S/ ${precio}</td>
             <td data-label="Tipo" class="td-trunc" title="${tipo}">${tipo}</td>
@@ -1500,7 +1939,7 @@
 
     } catch (err) {
       console.error(err);
-      tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-danger">Ocurrió un error al cargar los productos.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-danger">Ocurrió un error al cargar las publicaciones.</td></tr>`;
     }
   }
 
@@ -1527,6 +1966,7 @@
       if (e.target.closest('#btnAgregarPublicacion')) {
         const modal = evGetStaticModal('modalAgregarPublicacion');
         if (!modal) return;
+        resetTipoPublicacionAgregarUI();
         requestAnimationFrame(() => {
           modal.show();
           requestAnimationFrame(setEvVh);
@@ -1577,6 +2017,22 @@
     document.addEventListener('change', (e) => {
       if (window.__EV_AUTH_REDIRECTING__ === true) return;
 
+      if (e.target && e.target.matches('input[name="tipo_publicacion"]')) {
+        aplicarTipoPublicacionUI(document.getElementById('modalAgregarPublicacion'), e.target.value);
+        return;
+      }
+
+      if (e.target && e.target.matches('input[name="edit_tipo_publicacion"]')) {
+        aplicarTipoPublicacionUI(document.getElementById('modalEditarPublicacion'), e.target.value);
+        return;
+      }
+
+      if (e.target && e.target.id === 'fTipoPublicacion') {
+        syncFiltrosFromUI();
+        window.evCargarProductos?.();
+        return;
+      }
+
       if (e.target && e.target.id === 'fTipo') {
         (async () => {
           syncFiltrosFromUI();
@@ -1600,6 +2056,16 @@
         return;
       }
     });
+
+
+    document.addEventListener('change', (e) => {
+      const t = e.target;
+      if (!t || !t.matches) return;
+      if (t.matches('#comboTipo, #edit_comboTipo')) {
+        const modal = t.closest('.ev-modal');
+        window.setTimeout(() => evShortenCategoriaPlaceholder(modal || document), 250);
+      }
+    }, true);
 
     document.addEventListener('submit', (e) => {
       const form = e.target;
@@ -1639,11 +2105,31 @@
         return;
       }
     });
+
+    document.addEventListener('shown.bs.modal', (e) => {
+      if (e.target && e.target.id === 'modalAgregarPublicacion') {
+        bindTipoPublicacionUI();
+        aplicarTipoPublicacionUI(e.target, getTipoPublicacionFromForm(document.getElementById('formAgregarPublicacion'), false));
+        evShortenCategoriaPlaceholder(e.target);
+      }
+      if (e.target && e.target.id === 'modalEditarPublicacion') {
+        bindTipoPublicacionUI();
+        aplicarTipoPublicacionUI(e.target, getTipoPublicacionFromForm(document.getElementById('formEditarPublicacion'), true));
+        evShortenCategoriaPlaceholder(e.target);
+      }
+    });
+
+    document.addEventListener('hidden.bs.modal', (e) => {
+      if (e.target && e.target.id === 'modalAgregarPublicacion') {
+        resetTipoPublicacionAgregarUI();
+      }
+    });
   }
 
   async function initIfNeeded() {
     bindOnceGlobalEvents();
     evMountAllModalsToBody();
+    bindTipoPublicacionUI();
 
     const tipoSel = document.getElementById('fTipo');
     if (tipoSel && !tipoSel.dataset.evLoaded) {

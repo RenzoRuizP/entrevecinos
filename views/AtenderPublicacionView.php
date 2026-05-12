@@ -12,8 +12,10 @@ require_once __DIR__ . '/../Config/config.php';
     <div class="ev-hero-body">
       <div class="ev-hero-top">
         <div class="ev-hero-left">
-          <h1 class="ev-title mb-1">Atender publicación</h1>
-          <div class="ev-subtitle">Aprueba, observa o rechaza publicaciones antes de mostrarlas en el Marketplace.</div>
+          <h1 class="ev-title mb-1">Atender publicaciones</h1>
+          <div class="ev-subtitle">
+            Aprueba, observa o rechaza productos y servicios antes de mostrarlos en el Marketplace.
+          </div>
         </div>
 
         <div class="ev-hero-right">
@@ -94,7 +96,7 @@ require_once __DIR__ . '/../Config/config.php';
               class="form-control ev-input ps-5"
               id="fTexto"
               name="q"
-              placeholder="Buscar por título o descripción..."
+              placeholder="Buscar por título, descripción, vecino, producto o servicio..."
               autocomplete="off"
             />
           </div>
@@ -123,6 +125,7 @@ require_once __DIR__ . '/../Config/config.php';
             <thead>
               <tr>
                 <th class="ev-col-fecha">Fecha</th>
+                <th class="ev-col-publicacion">Publicación</th>
                 <th class="ev-col-titulo">Título</th>
                 <th class="text-end ev-col-precio">Precio</th>
                 <th class="ev-col-usuario">Usuario</th>
@@ -132,7 +135,7 @@ require_once __DIR__ . '/../Config/config.php';
             </thead>
             <tbody id="tbodyItems">
               <tr>
-                <td colspan="6" class="text-center py-4 ev-empty">
+                <td colspan="7" class="text-center py-4 ev-empty">
                   <div class="ev-empty-wrap">
                     <i class="bi bi-inbox ev-empty-ico"></i>
                     <div class="ev-empty-text">No hay publicaciones para los filtros seleccionados.</div>
@@ -170,6 +173,7 @@ require_once __DIR__ . '/../Config/config.php';
         <div class="row g-4">
           <div class="col-12 col-lg-6">
             <div class="ev-kv">
+              <div class="ev-kv-item"><span>Publicación:</span> <strong id="mTipoPublicacion">—</strong></div>
               <div class="ev-kv-item"><span>Título:</span> <strong id="mTitulo">—</strong></div>
               <div class="ev-kv-item"><span>Precio:</span> <strong id="mPrecio">—</strong></div>
               <div class="ev-kv-item"><span>Estado:</span> <span id="mEstadoBadge" class="ev-badge ev-badge-pendiente">pendiente</span></div>
@@ -183,7 +187,7 @@ require_once __DIR__ . '/../Config/config.php';
                 class="form-control ev-input"
                 id="mComentario"
                 rows="4"
-                placeholder="Ej. Hola, revisamos tu publicación y necesitamos que corrijas la imagen principal porque no se aprecia bien el producto."
+                placeholder="Ej. Hola, revisamos tu publicación y necesitamos que corrijas la imagen principal porque no se aprecia bien."
               ></textarea>
               <div class="form-text">
                 Este mensaje se mostrará al vecino. Usa un tono claro, respetuoso y específico.
@@ -208,7 +212,9 @@ require_once __DIR__ . '/../Config/config.php';
                 <div id="mGaleria" class="ev-galeria"></div>
                 <div id="mNoImgs" class="ev-proof-empty">No hay imágenes disponibles.</div>
               </div>
-              <div class="ev-proof-hint">Verifica que el contenido cumpla políticas y sea claro.</div>
+              <div class="ev-proof-hint">
+                Verifica que el contenido sea claro, corresponda a la publicación y cumpla las políticas de Entre Vecinos.
+              </div>
             </div>
           </div>
 
