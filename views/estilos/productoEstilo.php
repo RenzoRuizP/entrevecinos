@@ -1684,4 +1684,424 @@
   font-weight:600 !important;
 }
 
+
+
+/* ==========================================================
+   EV MODAL DESKTOP — Scroll solo en columna de pasos
+   La vista previa se mantiene visible.
+========================================================== */
+@media (min-width: 860px){
+  .ev-modal .modal-content.ev-modal-content,
+  .ev-modal-content{
+    height:calc(var(--ev-vh, 1vh) * 100 - (var(--bs-modal-margin) * 2));
+  }
+
+  .ev-modal .ev-modal-flex{
+    flex:1 1 auto;
+    min-height:0;
+  }
+
+  .ev-modal .ev-modal-body-scroll{
+    flex:1 1 auto;
+    overflow:hidden !important;
+    min-height:0;
+    padding:16px 18px 18px !important;
+    max-height:none !important;
+  }
+
+  .ev-modal .ev-publicacion-modal-grid{
+    height:100%;
+    min-height:0;
+    align-items:stretch !important;
+  }
+
+  .ev-modal .ev-publicacion-form-col{
+    min-height:0;
+    max-height:100%;
+    overflow-y:auto;
+    overflow-x:hidden;
+    padding-right:10px !important;
+    scrollbar-width:thin;
+    scrollbar-color:rgba(107,114,128,.34) transparent;
+  }
+
+  .ev-modal .ev-publicacion-form-col::-webkit-scrollbar{
+    width:8px;
+  }
+
+  .ev-modal .ev-publicacion-form-col::-webkit-scrollbar-track{
+    background:transparent;
+  }
+
+  .ev-modal .ev-publicacion-form-col::-webkit-scrollbar-thumb{
+    background:rgba(107,114,128,.30);
+    border-radius:999px;
+    border:2px solid #fff;
+  }
+
+  .ev-modal .ev-publicacion-form-col::-webkit-scrollbar-thumb:hover{
+    background:rgba(107,114,128,.46);
+  }
+
+  .ev-modal .ev-publicacion-preview-col{
+    min-height:0;
+    max-height:100%;
+    overflow:hidden;
+    padding-left:2px !important;
+  }
+
+  .ev-modal .ev-preview-sticky{
+    position:sticky;
+    top:0;
+    max-height:100%;
+    overflow:auto;
+    padding-right:2px;
+    scrollbar-width:thin;
+    scrollbar-color:rgba(107,114,128,.24) transparent;
+  }
+
+  .ev-modal .ev-preview-sticky::-webkit-scrollbar{
+    width:6px;
+  }
+
+  .ev-modal .ev-preview-sticky::-webkit-scrollbar-track{
+    background:transparent;
+  }
+
+  .ev-modal .ev-preview-sticky::-webkit-scrollbar-thumb{
+    background:rgba(107,114,128,.24);
+    border-radius:999px;
+  }
+
+  .ev-modal .ev-preview-panel{
+    margin-bottom:0;
+  }
+}
+
+/* En móvil/tablet angosta se mantiene el flujo normal apilado */
+@media (max-width: 859.98px){
+  .ev-modal .modal-content.ev-modal-content,
+  .ev-modal-content{
+    height:auto;
+  }
+
+  .ev-modal .ev-modal-body-scroll{
+    overflow:auto !important;
+  }
+
+  .ev-modal .ev-publicacion-form-col,
+  .ev-modal .ev-publicacion-preview-col,
+  .ev-modal .ev-preview-sticky{
+    max-height:none;
+    overflow:visible;
+  }
+}
+
+
+
+
+
+
+
+
+/* ==========================================================
+   EV CIERRE FINAL 100% — Preview con placeholder + responsive
+========================================================== */
+
+/* Placeholder premium cuando todavía no hay imágenes */
+.ev-preview-media-card.is-empty{
+  display:block !important;
+}
+
+.ev-preview-empty{
+  min-height:148px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:16px;
+  border-radius:16px;
+  border:1px dashed rgba(15,89,47,.22);
+  background:
+    radial-gradient(circle at 90% 8%, rgba(230,244,236,.78), transparent 42%),
+    linear-gradient(180deg, #FFFFFF 0%, #F8FCFA 100%);
+}
+
+.ev-preview-empty-icon{
+  flex:0 0 46px;
+  width:46px;
+  height:46px;
+  border-radius:16px;
+  display:grid;
+  place-items:center;
+  color:var(--ev-verde-oscuro);
+  background:rgba(230,244,236,.95);
+  border:1px solid rgba(15,89,47,.12);
+  font-size:1.25rem;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.90);
+}
+
+.ev-preview-empty-title{
+  color:var(--ev-verde-oscuro);
+  font-weight:750;
+  line-height:1.20;
+  margin-bottom:3px;
+}
+
+.ev-preview-empty-text{
+  color:#64748B;
+  font-size:.84rem;
+  line-height:1.30;
+}
+
+/* Desktop / laptop: solo scrollea la columna de pasos y preview queda visible */
+@media (min-width: 860px){
+  .ev-modal .modal-content.ev-modal-content,
+  .ev-modal-content{
+    height:calc(var(--ev-vh, 1vh) * 100 - (var(--bs-modal-margin) * 2));
+  }
+
+  .ev-modal .ev-modal-flex{
+    flex:1 1 auto;
+    min-height:0;
+  }
+
+  .ev-modal .ev-modal-body-scroll{
+    flex:1 1 auto;
+    overflow:hidden !important;
+    min-height:0;
+    padding:16px 18px 18px !important;
+    max-height:none !important;
+  }
+
+  .ev-modal .ev-publicacion-modal-grid{
+    height:100%;
+    min-height:0;
+    display:grid !important;
+    grid-template-columns:minmax(0,58%) minmax(320px,42%) !important;
+    gap:22px !important;
+    align-items:stretch !important;
+    margin-left:0 !important;
+    margin-right:0 !important;
+    position:relative;
+  }
+
+  .ev-modal .ev-publicacion-modal-grid > .ev-publicacion-form-col,
+  .ev-modal .ev-publicacion-modal-grid > .ev-publicacion-preview-col{
+    width:auto !important;
+    max-width:none !important;
+    flex:0 0 auto !important;
+  }
+
+  .ev-modal .ev-publicacion-modal-grid::after{
+    content:'';
+    position:absolute;
+    top:10px;
+    bottom:10px;
+    left:calc(58% + 10px);
+    width:1px;
+    pointer-events:none;
+    background:linear-gradient(
+      180deg,
+      rgba(229,231,235,0),
+      rgba(229,231,235,.14) 22%,
+      rgba(229,231,235,.09) 50%,
+      rgba(229,231,235,.14) 78%,
+      rgba(229,231,235,0)
+    );
+  }
+
+  .ev-modal .ev-publicacion-form-col{
+    min-height:0;
+    max-height:100%;
+    overflow-y:auto;
+    overflow-x:hidden;
+    padding-right:14px !important;
+    padding-left:0 !important;
+    scrollbar-width:thin;
+    scrollbar-color:rgba(148,163,184,.10) transparent;
+  }
+
+  .ev-modal .ev-publicacion-form-col::-webkit-scrollbar{
+    width:4px;
+  }
+
+  .ev-modal .ev-publicacion-form-col::-webkit-scrollbar-track{
+    background:transparent;
+  }
+
+  .ev-modal .ev-publicacion-form-col::-webkit-scrollbar-thumb{
+    background:rgba(148,163,184,.10);
+    border-radius:999px;
+  }
+
+  .ev-modal .ev-publicacion-form-col:hover::-webkit-scrollbar-thumb,
+  .ev-modal .ev-publicacion-form-col:focus-within::-webkit-scrollbar-thumb{
+    background:rgba(148,163,184,.28);
+  }
+
+  .ev-modal .ev-publicacion-form-col::after{
+    content:'';
+    position:sticky;
+    display:block;
+    bottom:-1px;
+    height:14px;
+    margin-top:-14px;
+    pointer-events:none;
+    background:linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.94));
+    z-index:2;
+  }
+
+  .ev-modal .ev-publicacion-preview-col{
+    min-height:0;
+    max-height:100%;
+    overflow:hidden;
+    padding-left:4px !important;
+    padding-right:0 !important;
+    border-radius:20px;
+    background:
+      radial-gradient(circle at 80% 0%, rgba(230,244,236,.36), transparent 34%),
+      linear-gradient(180deg, rgba(250,252,251,.72) 0%, rgba(255,255,255,.96) 48%, rgba(255,255,255,1) 100%);
+  }
+
+  .ev-modal .ev-preview-sticky{
+    position:sticky;
+    top:0;
+    max-height:100%;
+    overflow:auto;
+    padding:0 2px 2px 0;
+    scrollbar-width:thin;
+    scrollbar-color:rgba(148,163,184,.12) transparent;
+  }
+
+  .ev-modal .ev-preview-sticky::-webkit-scrollbar{
+    width:4px;
+  }
+
+  .ev-modal .ev-preview-sticky::-webkit-scrollbar-track{
+    background:transparent;
+  }
+
+  .ev-modal .ev-preview-sticky::-webkit-scrollbar-thumb{
+    background:rgba(148,163,184,.12);
+    border-radius:999px;
+  }
+
+  .ev-modal .ev-preview-panel{
+    margin-bottom:0;
+    border-color:rgba(203,213,225,.42);
+    background:
+      radial-gradient(circle at 90% 8%, rgba(22,163,74,.08), transparent 34%),
+      linear-gradient(180deg, #FFFFFF 0%, #FBFDFB 100%);
+    box-shadow:
+      0 18px 42px rgba(15,23,42,.060),
+      inset 0 1px 0 rgba(255,255,255,.94);
+  }
+
+  .ev-modal .ev-section{
+    background:rgba(255,255,255,.98);
+    border-color:rgba(203,213,225,.58);
+    box-shadow:
+      0 14px 34px rgba(15,23,42,.048),
+      inset 0 1px 0 rgba(255,255,255,.92);
+  }
+}
+
+/* Tablet y móvil: flujo apilado, legible y sin paneles forzados */
+@media (max-width: 859.98px){
+  .ev-modal .modal-content.ev-modal-content,
+  .ev-modal-content{
+    height:auto;
+  }
+
+  .ev-modal .ev-modal-body-scroll{
+    overflow:auto !important;
+    padding:14px !important;
+  }
+
+  .ev-modal .ev-publicacion-modal-grid{
+    display:block !important;
+    height:auto;
+  }
+
+  .ev-modal .ev-publicacion-modal-grid::after,
+  .ev-modal .ev-publicacion-form-col::after{
+    display:none !important;
+  }
+
+  .ev-modal .ev-publicacion-form-col,
+  .ev-modal .ev-publicacion-preview-col,
+  .ev-modal .ev-preview-sticky{
+    max-height:none !important;
+    overflow:visible !important;
+    padding-left:0 !important;
+    padding-right:0 !important;
+    background:transparent !important;
+  }
+
+  .ev-modal .ev-publicacion-preview-col{
+    margin-top:14px;
+  }
+
+  .ev-modal .ev-preview-panel{
+    box-shadow:0 14px 32px rgba(15,23,42,.055);
+  }
+
+  .ev-preview-empty{
+    min-height:118px;
+    padding:14px;
+  }
+
+  .ev-preview-main img{
+    max-height:240px;
+  }
+}
+
+/* Móvil pequeño: preview más compacto y botones cómodos */
+@media (max-width: 575.98px){
+  .ev-preview-panel{
+    padding:12px;
+  }
+
+  .ev-preview-panel-head{
+    gap:8px;
+    margin-bottom:10px;
+    padding-bottom:9px;
+  }
+
+  .ev-preview-empty{
+    flex-direction:column;
+    text-align:center;
+    min-height:112px;
+    gap:8px;
+  }
+
+  .ev-preview-empty-icon{
+    width:42px;
+    height:42px;
+    flex-basis:42px;
+  }
+
+  .ev-preview-summary-card{
+    padding:12px;
+  }
+
+  .ev-preview-summary-price{
+    font-size:1.18rem;
+  }
+
+  .ev-preview-tip{
+    padding:9px 10px;
+    font-size:.80rem;
+  }
+
+  .ev-preview-thumbs{
+    gap:8px;
+  }
+
+  .ev-preview-thumb{
+    width:58px;
+    height:44px;
+  }
+}
+
 </style>

@@ -563,8 +563,17 @@
           <div id="evMetaKindAdd" class="ev-preview-kind ev-preview-kind-producto">Producto</div>
         </div>
 
-        <div id="evPreviewWrapperAdd" class="ev-preview-area ev-preview-media-card">
+        <div id="evPreviewWrapperAdd" class="ev-preview-area ev-preview-media-card is-empty">
           <div class="ev-preview-title"><span><i class="bi bi-images me-1"></i>Imagen principal</span></div>
+
+          <div id="evPreviewEmptyAdd" class="ev-preview-empty">
+            <div class="ev-preview-empty-icon"><i class="bi bi-image"></i></div>
+            <div>
+              <div class="ev-preview-empty-title">Tu imagen principal aparecerá aquí</div>
+              <div class="ev-preview-empty-text">Agrega una foto clara para generar confianza.</div>
+            </div>
+          </div>
+
           <div class="ev-preview-main"><img id="evPreviewMainImgAdd" alt="Vista previa"></div>
           <div id="evPreviewThumbsAdd" class="ev-preview-thumbs"></div>
         </div>
@@ -584,6 +593,7 @@
     `;
 
     evAddPreview.wrapper   = document.getElementById('evPreviewWrapperAdd');
+    evAddPreview.empty     = document.getElementById('evPreviewEmptyAdd');
     evAddPreview.mainImg   = document.getElementById('evPreviewMainImgAdd');
     evAddPreview.thumbs    = document.getElementById('evPreviewThumbsAdd');
     evAddPreview.metaKind  = document.getElementById('evMetaKindAdd');
@@ -631,14 +641,24 @@
     const st = evEnsurePreviewAgregar();
     if (!st) return;
 
+    const mainBox = st.mainImg?.closest('.ev-preview-main');
+
     if (!Array.isArray(fotos) || !fotos.length) {
-      st.wrapper.style.display = 'none';
+      st.wrapper.style.display = '';
+      st.wrapper.classList.add('is-empty');
+      if (st.empty) st.empty.style.display = '';
+      if (mainBox) mainBox.style.display = 'none';
       st.thumbs.innerHTML = '';
+      st.thumbs.style.display = 'none';
       st.mainImg.src = '';
       return;
     }
 
     st.wrapper.style.display = '';
+    st.wrapper.classList.remove('is-empty');
+    if (st.empty) st.empty.style.display = 'none';
+    if (mainBox) mainBox.style.display = '';
+    st.thumbs.style.display = '';
     st.mainImg.src = fotos[0]?.url || '';
 
     st.thumbs.innerHTML = '';
@@ -857,8 +877,17 @@
           <div id="evMetaKindEdit" class="ev-preview-kind ev-preview-kind-producto">Producto</div>
         </div>
 
-        <div id="evPreviewWrapperEdit" class="ev-preview-area ev-preview-media-card">
+        <div id="evPreviewWrapperEdit" class="ev-preview-area ev-preview-media-card is-empty">
           <div class="ev-preview-title"><span><i class="bi bi-images me-1"></i>Imagen principal</span></div>
+
+          <div id="evPreviewEmptyEdit" class="ev-preview-empty">
+            <div class="ev-preview-empty-icon"><i class="bi bi-image"></i></div>
+            <div>
+              <div class="ev-preview-empty-title">Tu imagen principal aparecerá aquí</div>
+              <div class="ev-preview-empty-text">Agrega una foto clara para generar confianza.</div>
+            </div>
+          </div>
+
           <div class="ev-preview-main"><img id="evPreviewMainImgEdit" alt="Vista previa"></div>
           <div id="evPreviewThumbsEdit" class="ev-preview-thumbs"></div>
         </div>
@@ -878,6 +907,7 @@
     `;
 
     evEditPreview.wrapper   = document.getElementById('evPreviewWrapperEdit');
+    evEditPreview.empty     = document.getElementById('evPreviewEmptyEdit');
     evEditPreview.mainImg   = document.getElementById('evPreviewMainImgEdit');
     evEditPreview.thumbs    = document.getElementById('evPreviewThumbsEdit');
     evEditPreview.metaKind  = document.getElementById('evMetaKindEdit');
@@ -931,14 +961,24 @@
     st.metaPrice.textContent = `S/ ${precio}`;
     st.metaDesc.textContent  = desc;
 
+    const mainBox = st.mainImg?.closest('.ev-preview-main');
+
     if (!Array.isArray(fotos) || !fotos.length) {
-      st.wrapper.style.display = 'none';
+      st.wrapper.style.display = '';
+      st.wrapper.classList.add('is-empty');
+      if (st.empty) st.empty.style.display = '';
+      if (mainBox) mainBox.style.display = 'none';
       st.thumbs.innerHTML = '';
+      st.thumbs.style.display = 'none';
       st.mainImg.src = '';
       return;
     }
 
     st.wrapper.style.display = '';
+    st.wrapper.classList.remove('is-empty');
+    if (st.empty) st.empty.style.display = 'none';
+    if (mainBox) mainBox.style.display = '';
+    st.thumbs.style.display = '';
     st.mainImg.src = evGetFotoSrc(fotos[0]) || '';
 
     st.thumbs.innerHTML = '';
