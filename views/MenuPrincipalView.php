@@ -22,10 +22,49 @@ $menusParaMenuIzquierda = $menusParaMenuIzquierda ?? ($menus ?? []);
 // base href para rutas profundas
 $baseHref = rtrim(BASE_URL, '/') . '/';
 
-// deep-link (viene del router): /MenuPrincipal?ev_goto=/mi-perfil
-$evGoto = trim((string)($_GET['ev_goto'] ?? ''));
-
 $baseUrl = rtrim(BASE_URL, '/');
+
+/**
+ * Normaliza ev_goto para evitar que el shell /MenuPrincipal
+ * se cargue dentro de sí mismo como vista parcial.
+ *
+ * Caso problemático corregido:
+ * /MenuPrincipal?ev_goto=%2FMenuPrincipal
+ */
+$evGotoRaw = trim((string)($_GET['ev_goto'] ?? ''));
+$evGoto = $evGotoRaw;
+
+if ($evGoto !== '') {
+  $evGoto = rawurldecode($evGoto);
+  $evGoto = explode('?', $evGoto, 2)[0];
+
+  if ($evGoto === '' || $evGoto[0] !== '/') {
+    $evGoto = '/' . $evGoto;
+  }
+
+  $basePath = rtrim(parse_url(BASE_URL, PHP_URL_PATH) ?? '', '/');
+
+  if ($basePath !== '' && $basePath !== '/') {
+    if (stripos($evGoto, $basePath . '/') === 0) {
+      $evGoto = substr($evGoto, strlen($basePath));
+      if ($evGoto === '') {
+        $evGoto = '/';
+      }
+    }
+  }
+
+  $evGoto = preg_replace('#/+#', '/', $evGoto);
+  $evGoto = rtrim($evGoto, '/');
+
+  if ($evGoto === '' || $evGoto === '/') {
+    $evGoto = '/MenuPrincipal';
+  }
+
+  if (strcasecmp($evGoto, '/MenuPrincipal') === 0) {
+    header('Location: ' . rtrim(BASE_URL, '/') . '/MenuPrincipal', true, 302);
+    exit;
+  }
+}
 
 // cache bust por filemtime
 function ev_ver($pathAbs) {

@@ -4,6 +4,7 @@
 // - Usa data-vista / data-ruta / href
 // - Evita doble navegación con menuPrincipal.js
 // - Mantiene shell /MenuPrincipal?ev_goto=...
+// - Nunca permite /MenuPrincipal dentro de ev_goto
 // - Maneja 401 / 403 / cuenta bloqueada / cuenta observada
 // - Mantiene overlay, watchdog, scripts dinámicos y popstate
 // - Inicializa módulos EV después de inyectar parciales
@@ -298,6 +299,43 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   }
 
+  function isShellHomePath(path) {
+    return samePath(path, '/MenuPrincipal') || samePath(path, '/');
+  }
+
+  function currentUrlHasEvGoto() {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      return qs.has('ev_goto');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function goToShellHome(options = {}) {
+    const forceReload = options.forceReload === true;
+
+    setActiveSidebarByPath('/MenuPrincipal');
+    closeSidebarMobile();
+
+    try {
+      hideEvOverlay(true);
+      killLegacyLoaders();
+    } catch (_) {}
+
+    const currentPath = normalizeInternalPath(window.location.pathname);
+    const alreadyCleanHome = isShellHomePath(currentPath) && !currentUrlHasEvGoto();
+
+    if (alreadyCleanHome) {
+      if (forceReload) {
+        window.location.reload();
+      }
+      return;
+    }
+
+    window.location.assign(SHELL_URL);
+  }
+
   function getCurrentSidebarPath() {
     try {
       const qs = new URLSearchParams(window.location.search);
@@ -430,6 +468,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function buildShellUrl(path) {
     const clean = normalizeInternalPath(path);
+
+    if (isShellHomePath(clean)) {
+      return SHELL_URL;
+    }
+
     return `${SHELL_URL}?ev_goto=${encodeURIComponent(clean)}`;
   }
 
@@ -585,6 +628,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.__EV_AUTH_REDIRECTING__ === true) return;
 
     const cleanPath = normalizeInternalPath(path);
+
+    if (isShellHomePath(cleanPath)) {
+      goToShellHome();
+      return;
+    }
+
     const moduleUrl = buildModuleUrl(cleanPath);
     const finalUrl = addPartial(moduleUrl);
 
@@ -765,6 +814,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     e.preventDefault();
 
+    if (isShellHomePath(path)) {
+      goToShellHome();
+      return;
+    }
+
     setActiveSidebarByPath(path);
 
     loadPage(path, {
@@ -780,7 +834,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const goto = p.get('ev_goto');
 
     if (!goto) {
-      setActiveSidebarByPath('/MenuPrincipal');
+      goToShellHome({ forceReload: true });
+      return;
+    }
+
+    if (isShellHomePath(goto)) {
+      goToShellHome();
       return;
     }
 
@@ -799,6 +858,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const goto = qs.get('ev_goto');
 
     if (goto) {
+      if (isShellHomePath(goto)) {
+        goToShellHome();
+        return;
+      }
+
       setActiveSidebarByPath(goto);
 
       loadPage(goto, {
@@ -812,6 +876,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.EVNav = {
     loadPage,
-    setActiveSidebarByPath
+    setActiveSidebarByPath,
+    goToShellHome
   };
 });
