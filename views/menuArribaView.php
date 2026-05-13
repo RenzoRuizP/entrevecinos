@@ -24,6 +24,7 @@ $baseUrl = rtrim(BASE_URL, '/');
            class="img-fluid"
            style="max-height: 40px;">
     </span>
+
     <span class="navbar-brand mb-0 h5 text-white d-none d-md-inline">Entre Vecinos</span>
 
     <div class="ev-topbar-tools">
@@ -46,7 +47,10 @@ $baseUrl = rtrim(BASE_URL, '/');
             class="rounded-circle me-2 border border-white"
             style="width:38px; height:38px; object-fit:cover;"
           />
-          <span class="fw-semibold d-none d-lg-inline"><?= htmlspecialchars($nombreUsuario, ENT_QUOTES, 'UTF-8') ?></span>
+
+          <span class="fw-semibold d-none d-lg-inline">
+            <?= htmlspecialchars($nombreUsuario, ENT_QUOTES, 'UTF-8') ?>
+          </span>
         </a>
 
         <ul class="dropdown-menu border-0 shadow-lg mt-3 rounded-4 overflow-hidden" style="min-width: 230px;">
@@ -58,7 +62,11 @@ $baseUrl = rtrim(BASE_URL, '/');
               style="width:70px; height:70px; object-fit:cover;"
               alt="Usuario"
             />
-            <p class="mb-0 fw-semibold"><?= htmlspecialchars($nombreUsuario, ENT_QUOTES, 'UTF-8') ?></p>
+
+            <p class="mb-0 fw-semibold">
+              <?= htmlspecialchars($nombreUsuario, ENT_QUOTES, 'UTF-8') ?>
+            </p>
+
             <small><?= ucfirst(htmlspecialchars($rolUsuario, ENT_QUOTES, 'UTF-8')) ?></small>
           </li>
 
@@ -90,42 +98,83 @@ $baseUrl = rtrim(BASE_URL, '/');
 (() => {
   const BASE = <?= json_encode($baseUrl) ?>;
   const mount = document.getElementById('evDisponibilidadMount');
+
   if (!mount) return;
 
   if (window.__EV_DISP_PEDIDOS_INIT__) return;
   window.__EV_DISP_PEDIDOS_INIT__ = true;
 
+  function textoEstado(activo) {
+    return activo
+      ? 'Disponible para recibir pedidos'
+      : 'No disponible para recibir pedidos';
+  }
+
   function renderSkeleton() {
-    mount.innerHTML = `<div class="ev-disp-skeleton" aria-hidden="true"></div>`;
+    mount.innerHTML = `
+      <div class="ev-disp-control-skeleton" aria-hidden="true"></div>
+    `;
+  }
+
+  function aplicarEstadoVisual(control, switchLabel, input, activo) {
+    const estado = textoEstado(activo);
+
+    if (control) {
+      control.classList.toggle('is-on', activo);
+      control.classList.toggle('is-off', !activo);
+      control.setAttribute('title', estado);
+      control.setAttribute('aria-label', estado);
+      control.setAttribute('data-estado', activo ? 'disponible' : 'no-disponible');
+    }
+
+    if (switchLabel) {
+      switchLabel.classList.toggle('is-on', activo);
+      switchLabel.classList.toggle('is-off', !activo);
+      switchLabel.setAttribute('title', estado);
+    }
+
+    if (input) {
+      input.checked = activo;
+      input.setAttribute('aria-label', estado);
+      input.setAttribute('aria-checked', activo ? 'true' : 'false');
+    }
   }
 
   function renderControl(disponibilidad) {
     const isOn = Number(disponibilidad) === 1;
+    const estado = textoEstado(isOn);
 
     mount.innerHTML = `
-      <div class="ev-disp-card">
-        <div class="ev-disp-copy">
-          <span class="ev-disp-label">Disponibilidad</span>
-          <span class="ev-disp-state ${isOn ? 'is-on' : 'is-off'}" id="evDispEstadoTexto">
-            ${isOn ? 'Disponible' : 'No disponible'}
-          </span>
-        </div>
-
-        <label class="ev-switch" title="Cambiar disponibilidad">
-          <input type="checkbox" id="evDispSwitch" ${isOn ? 'checked' : ''}>
+      <div class="ev-disp-control ${isOn ? 'is-on' : 'is-off'}"
+           title="${estado}"
+           aria-label="${estado}"
+           data-estado="${isOn ? 'disponible' : 'no-disponible'}">
+        <label class="ev-switch ${isOn ? 'is-on' : 'is-off'}" title="${estado}">
+          <input
+            type="checkbox"
+            role="switch"
+            id="evDispSwitch"
+            ${isOn ? 'checked' : ''}
+            aria-checked="${isOn ? 'true' : 'false'}"
+            aria-label="${estado}"
+          >
           <span class="ev-switch-slider"></span>
         </label>
       </div>
     `;
 
+    const control = mount.querySelector('.ev-disp-control');
     const sw = document.getElementById('evDispSwitch');
-    const tx = document.getElementById('evDispEstadoTexto');
+    const switchLabel = mount.querySelector('.ev-switch');
 
-    if (!sw || !tx) return;
+    if (!control || !sw || !switchLabel) return;
 
     sw.addEventListener('change', async () => {
       const nuevo = sw.checked ? 1 : 0;
+      const anterior = nuevo === 1 ? 0 : 1;
+
       sw.disabled = true;
+      control.classList.add('is-updating');
 
       try {
         const fd = new FormData();
@@ -133,13 +182,17 @@ $baseUrl = rtrim(BASE_URL, '/');
 
         const resp = await fetch(`${BASE}/api/usuario/disponibilidad-pedidos`, {
           method: 'POST',
-          body: fd
+          body: fd,
+          credentials: 'same-origin',
+          headers: {
+            'Accept': 'application/json'
+          }
         });
 
         const data = await resp.json().catch(() => ({}));
 
         if (!resp.ok || !data.ok) {
-          sw.checked = !sw.checked;
+          aplicarEstadoVisual(control, switchLabel, sw, Number(anterior) === 1);
 
           if (window.Swal?.fire) {
             Swal.fire({
@@ -150,15 +203,14 @@ $baseUrl = rtrim(BASE_URL, '/');
               confirmButtonColor: '#EA7C12'
             });
           }
+
+          return;
         }
 
-        const activo = sw.checked;
-        tx.textContent = activo ? 'Disponible' : 'No disponible';
-        tx.classList.toggle('is-on', activo);
-        tx.classList.toggle('is-off', !activo);
+        aplicarEstadoVisual(control, switchLabel, sw, nuevo === 1);
 
       } catch (e) {
-        sw.checked = !sw.checked;
+        aplicarEstadoVisual(control, switchLabel, sw, Number(anterior) === 1);
 
         if (window.Swal?.fire) {
           Swal.fire({
@@ -170,6 +222,7 @@ $baseUrl = rtrim(BASE_URL, '/');
           });
         }
       } finally {
+        control.classList.remove('is-updating');
         sw.disabled = false;
       }
     });
@@ -179,7 +232,14 @@ $baseUrl = rtrim(BASE_URL, '/');
     renderSkeleton();
 
     try {
-      const resp = await fetch(`${BASE}/api/usuario/disponibilidad-pedidos`, { method: 'GET' });
+      const resp = await fetch(`${BASE}/api/usuario/disponibilidad-pedidos`, {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
       const data = await resp.json().catch(() => ({}));
 
       if (!resp.ok || !data.ok) {
@@ -188,6 +248,7 @@ $baseUrl = rtrim(BASE_URL, '/');
       }
 
       const info = data.data || {};
+
       if (!info.mostrar_control) {
         mount.innerHTML = '';
         return;

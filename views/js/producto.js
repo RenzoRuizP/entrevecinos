@@ -121,6 +121,53 @@
     return window.confirm(`${title}\n\n${text}`);
   }
 
+  async function evMostrarSaldoInsuficienteServicio(data = {}) {
+    const redirect = data.redirect || `${EV_API_BASE}/billetera`;
+    const saldoActual = Number(data.saldo_actual ?? 0);
+    const montoRequerido = Number(data.monto_requerido ?? 1);
+
+    const saldoTxt = Number.isFinite(saldoActual) ? saldoActual.toFixed(2) : '0.00';
+    const montoTxt = Number.isFinite(montoRequerido) ? montoRequerido.toFixed(2) : '1.00';
+
+    if (window.Swal?.fire) {
+      const { isConfirmed } = await Swal.fire({
+        icon: 'warning',
+        title: 'Saldo insuficiente',
+        html: `
+          <div class="text-start" style="line-height:1.55">
+            <p class="mb-2">No cuentas con saldo suficiente para publicar este servicio.</p>
+            <p class="mb-2">Necesitas tener como mínimo <strong>S/ ${montoTxt}</strong> en tu billetera.</p>
+            <p class="mb-0">Saldo disponible actual: <strong>S/ ${saldoTxt}</strong>.</p>
+            <hr class="my-3">
+            <p class="mb-0">Haz clic en <strong>Recargar saldo</strong> para ir a la vista de <strong>Mi billetera</strong>.</p>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Recargar saldo',
+        cancelButtonText: 'Ahora no',
+        customClass: {
+          confirmButton: 'btn btn-warning me-2',
+          cancelButton: 'btn btn-outline-secondary'
+        },
+        buttonsStyling: false,
+        focusConfirm: true
+      });
+
+      if (isConfirmed) {
+        window.location.assign(redirect);
+      }
+      return;
+    }
+
+    const ir = window.confirm(
+      `No cuentas con saldo suficiente para publicar este servicio.\n\n` +
+      `Necesitas como mínimo S/ ${montoTxt}. Tu saldo actual es S/ ${saldoTxt}.\n\n` +
+      `Aceptar: Recargar saldo en Mi billetera.`
+    );
+
+    if (ir) window.location.assign(redirect);
+  }
+
   function setEvVh() {
     const vh = window.innerHeight * 0.01;
     document.documentElement.style.setProperty('--ev-vh', `${vh}px`);
@@ -1341,13 +1388,19 @@
   async function confirmarYPublicar(id) {
     if (!id) return;
 
+    const publicacion = (window.evProductosCache || []).find((p) => String(p?.codigo_producto ?? '') === String(id));
+    const tipoPublicacion = getTipoPublicacionItem(publicacion || {});
+    const esServicio = tipoPublicacion === 'servicio';
+
     const ok = await evConfirm({
-      icon: 'question',
-      title: 'Enviar a revisión',
-      text: 'Al enviar a revisión, tu publicación quedará en estado Pendiente hasta que soporte la apruebe. Aún no se mostrará en el marketplace.',
-      confirmText: 'Sí, enviar',
+      icon: esServicio ? 'warning' : 'question',
+      title: esServicio ? 'Publicar servicio' : 'Enviar a revisión',
+      text: esServicio
+        ? 'Para enviar este servicio a revisión se validará tu billetera y se descontará S/ 1.00 si tienes saldo suficiente. Aún no se mostrará en el marketplace hasta que soporte lo apruebe.'
+        : 'Al enviar a revisión, tu publicación quedará en estado Pendiente hasta que soporte la apruebe. Aún no se mostrará en el marketplace.',
+      confirmText: esServicio ? 'Sí, publicar servicio' : 'Sí, enviar',
       cancelText: 'Cancelar',
-      confirmBtnClass: 'btn btn-success me-2'
+      confirmBtnClass: esServicio ? 'btn btn-warning me-2' : 'btn btn-success me-2'
     });
     if (!ok) return;
 
@@ -1358,6 +1411,13 @@
       if (await evHandleAuthResponse(resp, data)) return;
 
       if (!resp.ok || !data.ok) {
+        const codigoError = String(data?.error || data?.codigo || '').trim();
+
+        if (codigoError === 'SALDO_INSUFICIENTE') {
+          await evMostrarSaldoInsuficienteServicio(data || {});
+          return;
+        }
+
         evNotify('error', 'Error', data.mensaje || data.error || 'No se pudo enviar la publicación a revisión.');
         return;
       }
@@ -1370,7 +1430,6 @@
       evNotify('error', 'Error inesperado', 'Ocurrió un problema al enviar la publicación a revisión.');
     }
   }
-
 
   function evShortenCategoriaPlaceholder(scope) {
     const root = scope || document;

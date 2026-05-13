@@ -1,7 +1,7 @@
 <style>
 /* ============================================================
    ENTRE VECINOS - SIDEBAR
-   Degradado EV + activo persistente + collapse premium
+   Degradado EV + activo persistente + responsive premium
 ============================================================ */
 
 :root{
@@ -35,7 +35,9 @@
   color: rgba(255,255,255,.92);
   box-shadow: 10px 0 24px rgba(0,0,0,.10);
   overflow: hidden;
-  transition: transform .26s cubic-bezier(.22,.9,.32,1);
+  transition:
+    transform .28s cubic-bezier(.22,.9,.32,1),
+    box-shadow .28s ease;
 }
 
 #sidebar.app-sidebar::before{
@@ -61,6 +63,7 @@
   border-bottom: 1px solid rgba(255,255,255,.14);
   background: rgba(255,255,255,.04);
   backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 /* Scroll */
@@ -109,7 +112,6 @@
     opacity .22s ease;
 }
 
-/* Hover general */
 .app-sidebar .nav-link:hover{
   background: linear-gradient(135deg, rgba(234,124,18,.95), rgba(245,158,11,.92));
   color: #fff !important;
@@ -123,8 +125,7 @@
 }
 
 /* ============================================================
-   MENÚ PADRE - PREMIUM
-   Evita que el padre se vea tosco al expandir/contraer
+   MENÚ PADRE
 ============================================================ */
 
 .app-sidebar .menu-parent-link{
@@ -132,7 +133,6 @@
   letter-spacing: -.01em;
 }
 
-/* Hover especial para padres: más elegante, no tan naranja */
 .app-sidebar .menu-parent-link:hover{
   background:
     linear-gradient(135deg, rgba(255,255,255,.13), rgba(255,255,255,.07));
@@ -149,7 +149,6 @@
   color:#fff !important;
 }
 
-/* Padre activo / grupo abierto */
 .app-sidebar .menu-parent-link.active-parent,
 .app-sidebar .menu-parent-link[aria-expanded="true"]{
   background:
@@ -183,7 +182,6 @@
   color:#fff !important;
 }
 
-/* Flecha premium */
 .app-sidebar .bi-chevron-down{
   transition:
     transform .32s cubic-bezier(.22,.9,.32,1),
@@ -197,7 +195,6 @@
   opacity: 1;
 }
 
-/* Padre clickeado directamente */
 .app-sidebar .nav-link.active-menu{
   background: linear-gradient(135deg, var(--ev-naranja), #F59E0B);
   color: #fff !important;
@@ -210,7 +207,7 @@
 }
 
 /* ============================================================
-   SUBMENÚ CONTENEDOR - COLLAPSE SUAVE
+   SUBMENÚ
 ============================================================ */
 
 .nav-treeview{
@@ -229,13 +226,11 @@
   transform-origin: top center;
 }
 
-/* Cuando está abierto */
 .nav-treeview.collapse.show{
   opacity: 1;
   transform: translateY(0) scaleY(1);
 }
 
-/* Bootstrap usa .collapsing durante abrir/cerrar */
 .nav-treeview.collapsing{
   overflow: hidden;
   opacity: .55;
@@ -246,12 +241,10 @@
     transform .34s cubic-bezier(.22,.9,.32,1);
 }
 
-/* Cuando está cerrado */
 .nav-treeview.collapse:not(.show){
   opacity: 0;
 }
 
-/* Links de submenú */
 .nav-treeview .nav-link{
   font-weight: 600;
   font-size: .94rem;
@@ -268,7 +261,6 @@
     color .22s ease;
 }
 
-/* Hover en submenú */
 .nav-treeview .nav-link:hover{
   background: linear-gradient(135deg, rgba(234,124,18,.92), rgba(245,158,11,.88));
   color:#fff !important;
@@ -276,7 +268,6 @@
   transform: translateX(2px);
 }
 
-/* Item activo persistente */
 .nav-treeview .nav-link.submenu-active,
 .nav-treeview .nav-link.active,
 .nav-treeview .submenu-link.submenu-active,
@@ -291,7 +282,6 @@
   transform: translateX(2px);
 }
 
-/* Indicador lateral del item activo */
 .nav-treeview .nav-link.submenu-active::before,
 .nav-treeview .nav-link.active::before,
 .nav-treeview .submenu-link.submenu-active::before,
@@ -315,17 +305,52 @@
 }
 
 /* ============================================================
-   MÓVIL
+   MÓVIL / TABLET
 ============================================================ */
 
 @media (max-width: 991.98px){
   #sidebar.app-sidebar{
-    transform: translateX(-105%);
+    top: var(--ev-topbar-h);
+    left: 0;
+    height: calc(100vh - var(--ev-topbar-h));
+    width: min(82vw, 286px);
+    z-index: 1040;
+    transform: translateX(-106%);
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 24px;
+    box-shadow:
+      18px 0 42px rgba(15,23,42,.26),
+      4px 0 12px rgba(15,23,42,.12);
   }
 
   #sidebar.active,
-  #sidebar.open{
+  #sidebar.open,
+  body.ev-sidebar-open #sidebar.app-sidebar{
     transform: translateX(0);
+  }
+
+  #sidebar .sidebar-brand{
+    display:none;
+  }
+
+  .sidebar-wrapper{
+    max-height: calc(100vh - var(--ev-topbar-h));
+    padding: .85rem .42rem 1.25rem .42rem;
+  }
+
+  .app-sidebar .nav-link{
+    min-height: 44px;
+    margin: .20rem .45rem;
+    border-radius: 15px;
+  }
+
+  .nav-treeview{
+    margin: .18rem .55rem .60rem .55rem;
+  }
+
+  body.ev-sidebar-open{
+    overflow:hidden;
+    touch-action:none;
   }
 }
 
@@ -333,18 +358,26 @@
 #sidebar-backdrop{
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(2px);
-  z-index: 1025;
+  background: rgba(15, 23, 42, 0.54);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 1035;
   opacity: 0;
   pointer-events: none;
   transition: opacity .22s ease;
 }
 
 #sidebar-backdrop.show,
-#sidebar-backdrop.active{
+#sidebar-backdrop.active,
+body.ev-sidebar-open #sidebar-backdrop{
   opacity: 1;
   pointer-events: auto;
+}
+
+@media (min-width: 992px){
+  #sidebar-backdrop{
+    display:none;
+  }
 }
 
 @media (max-width: 991.98px){

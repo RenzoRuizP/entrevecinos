@@ -781,6 +781,320 @@ class Producto extends Conexion
         return $stmt->rowCount() > 0;
     }
 
+    private function normalizarTipoPublicacionPersistida($valor): string
+    {
+        $v = strtolower(trim((string)$valor));
+        return in_array($v, ['producto', 'servicio'], true) ? $v : 'producto';
+    }
+
+    private function limpiarTituloMovimientoBilletera(string $titulo): string
+    {
+        $titulo = trim((string)preg_replace('/\s+/u', ' ', $titulo));
+        if ($titulo === '') {
+            return 'servicio';
+        }
+
+        if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+            if (mb_strlen($titulo, 'UTF-8') > 70) {
+                return mb_substr($titulo, 0, 67, 'UTF-8') . '...';
+            }
+            return $titulo;
+        }
+
+        return strlen($titulo) > 70 ? substr($titulo, 0, 67) . '...' : $titulo;
+    }
+
+    private function obtenerOBilleteraBloqueadaParaPublicacion(int $codigoUsuario): array
+    {
+        $sql = "
+            SELECT
+                b.codigo_billetera,
+                b.codigo_usuario,
+                b.saldo_actual
+            FROM billetera b
+            WHERE b.codigo_usuario = :codigo_usuario
+            FOR UPDATE
+        ";
+
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($row) {
+            return [
+                'codigo_billetera' => (int)$row['codigo_billetera'],
+                'codigo_usuario'   => (int)$row['codigo_usuario'],
+                'saldo_actual'     => (float)$row['saldo_actual'],
+            ];
+        }
+
+        $sqlInsert = "
+            INSERT INTO billetera (codigo_usuario, saldo_actual, estado)
+            VALUES (:codigo_usuario, 0.00, 1)
+        ";
+        $stmtInsert = $this->dblink->prepare($sqlInsert);
+        $stmtInsert->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+        $stmtInsert->execute();
+
+        return [
+            'codigo_billetera' => (int)$this->dblink->lastInsertId(),
+            'codigo_usuario'   => $codigoUsuario,
+            'saldo_actual'     => 0.00,
+        ];
+    }
+
+    private function existeDebitoPublicacionServicio(int $codigoBilletera, int $codigoProducto): bool
+    {
+        $sql = "
+            SELECT 1
+            FROM billetera_movimiento
+            WHERE codigo_billetera = :codigo_billetera
+              AND tipo_movimiento = 'D'
+              AND origen = 'PUBLICACION_SERVICIO'
+              AND codigo_referencia = :codigo_producto
+            LIMIT 1
+        ";
+
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindValue(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
+        $stmt->bindValue(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return (bool)$stmt->fetchColumn();
+    }
+
+    private function registrarDebitoPublicacionServicio(
+        int $codigoBilletera,
+        int $codigoProducto,
+        float $monto,
+        float $saldoAntes,
+        float $saldoDespues,
+        string $tituloServicio
+    ): void {
+        $descripcion = 'Costo por publicar servicio: ' . $this->limpiarTituloMovimientoBilletera($tituloServicio);
+
+        $sqlMov = "
+            INSERT INTO billetera_movimiento
+            (
+                codigo_billetera,
+                tipo_movimiento,
+                monto,
+                saldo_antes,
+                saldo_despues,
+                descripcion,
+                origen,
+                codigo_referencia,
+                es_promocional,
+                fecha_expira
+            )
+            VALUES
+            (
+                :codigo_billetera,
+                'D',
+                :monto,
+                :saldo_antes,
+                :saldo_despues,
+                :descripcion,
+                'PUBLICACION_SERVICIO',
+                :codigo_producto,
+                0,
+                NULL
+            )
+        ";
+
+        $stmtMov = $this->dblink->prepare($sqlMov);
+        $stmtMov->bindValue(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
+        $stmtMov->bindValue(':monto', $monto);
+        $stmtMov->bindValue(':saldo_antes', $saldoAntes);
+        $stmtMov->bindValue(':saldo_despues', $saldoDespues);
+        $stmtMov->bindValue(':descripcion', $descripcion, PDO::PARAM_STR);
+        $stmtMov->bindValue(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
+        $stmtMov->execute();
+    }
+
+    private function actualizarSaldoBilleteraPublicacion(int $codigoBilletera, float $nuevoSaldo): void
+    {
+        $sqlUpd = "
+            UPDATE billetera
+            SET saldo_actual = :saldo_actual
+            WHERE codigo_billetera = :codigo_billetera
+        ";
+
+        $stmtUpd = $this->dblink->prepare($sqlUpd);
+        $stmtUpd->bindValue(':saldo_actual', $nuevoSaldo);
+        $stmtUpd->bindValue(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
+        $stmtUpd->execute();
+    }
+
+    /**
+     * Publica una publicación en una sola transacción.
+     * - Producto: solo pasa de borrador a pendiente.
+     * - Servicio: valida saldo mínimo, descuenta S/ 1.00 e inmediatamente pasa a pendiente.
+     *
+     * Esto evita estados inconsistentes: cobrado sin publicar o publicado sin cobrar.
+     */
+    public function publicarConValidacionBilleteraServicio(
+        int $codigoProducto,
+        int $codigoUsuario,
+        float $montoServicio = 1.00
+    ): array {
+        $montoServicio = round($montoServicio, 2);
+
+        if ($codigoProducto <= 0 || $codigoUsuario <= 0) {
+            return [
+                'ok'      => false,
+                'codigo'  => 'PARAMETROS_INVALIDOS',
+                'mensaje' => 'No se pudo identificar la publicación o el usuario.',
+            ];
+        }
+
+        if ($montoServicio <= 0) {
+            return [
+                'ok'      => false,
+                'codigo'  => 'MONTO_INVALIDO',
+                'mensaje' => 'El monto de publicación de servicio no es válido.',
+            ];
+        }
+
+        $abrioTx = false;
+
+        try {
+            if (!$this->dblink->inTransaction()) {
+                $this->dblink->beginTransaction();
+                $abrioTx = true;
+            }
+
+            $sqlProducto = "
+                SELECT
+                    p.codigo_producto,
+                    p.codigo_usuario,
+                    p.titulo,
+                    p.tipo_publicacion,
+                    p.visible
+                FROM producto p
+                WHERE p.codigo_producto = :codigo_producto
+                  AND p.codigo_usuario = :codigo_usuario
+                FOR UPDATE
+            ";
+
+            $stmtProducto = $this->dblink->prepare($sqlProducto);
+            $stmtProducto->bindValue(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
+            $stmtProducto->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+            $stmtProducto->execute();
+            $producto = $stmtProducto->fetch(PDO::FETCH_ASSOC);
+
+            if (!$producto) {
+                if ($abrioTx && $this->dblink->inTransaction()) $this->dblink->rollBack();
+                return [
+                    'ok'      => false,
+                    'codigo'  => 'PUBLICACION_NO_ENCONTRADA',
+                    'mensaje' => 'Publicación no encontrada para este usuario.',
+                ];
+            }
+
+            $visibleActual = (int)($producto['visible'] ?? -1);
+            $tipoPublicacion = $this->normalizarTipoPublicacionPersistida($producto['tipo_publicacion'] ?? 'producto');
+
+            if ($visibleActual !== 0) {
+                if ($abrioTx && $this->dblink->inTransaction()) $this->dblink->rollBack();
+                return [
+                    'ok'               => false,
+                    'codigo'           => 'ESTADO_NO_PUBLICABLE',
+                    'mensaje'          => 'La publicación no está en estado borrador.',
+                    'visible_actual'   => $visibleActual,
+                    'tipo_publicacion' => $tipoPublicacion,
+                ];
+            }
+
+            $saldoActual = null;
+            $saldoDespues = null;
+            $cargoAplicado = false;
+            $yaCobrado = false;
+
+            if ($tipoPublicacion === 'servicio') {
+                $billetera = $this->obtenerOBilleteraBloqueadaParaPublicacion($codigoUsuario);
+                $codigoBilletera = (int)$billetera['codigo_billetera'];
+                $saldoActual = (float)$billetera['saldo_actual'];
+
+                if ($this->existeDebitoPublicacionServicio($codigoBilletera, $codigoProducto)) {
+                    $yaCobrado = true;
+                    $saldoDespues = $saldoActual;
+                } else {
+                    if ($saldoActual < $montoServicio) {
+                        if ($abrioTx && $this->dblink->inTransaction()) $this->dblink->rollBack();
+                        return [
+                            'ok'              => false,
+                            'codigo'          => 'SALDO_INSUFICIENTE',
+                            'mensaje'         => 'No cuentas con saldo suficiente para publicar este servicio.',
+                            'saldo_actual'    => round($saldoActual, 2),
+                            'monto_requerido' => $montoServicio,
+                            'tipo_publicacion'=> $tipoPublicacion,
+                        ];
+                    }
+
+                    $saldoDespues = round($saldoActual - $montoServicio, 2);
+
+                    $this->registrarDebitoPublicacionServicio(
+                        $codigoBilletera,
+                        $codigoProducto,
+                        $montoServicio,
+                        $saldoActual,
+                        $saldoDespues,
+                        (string)($producto['titulo'] ?? '')
+                    );
+
+                    $this->actualizarSaldoBilleteraPublicacion($codigoBilletera, $saldoDespues);
+                    $cargoAplicado = true;
+                }
+            }
+
+            $sqlUpdate = "
+                UPDATE producto
+                SET visible = 1,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_producto = :codigo_producto
+                  AND codigo_usuario = :codigo_usuario
+                  AND visible = 0
+            ";
+            $stmtUpdate = $this->dblink->prepare($sqlUpdate);
+            $stmtUpdate->bindValue(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
+            $stmtUpdate->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+            $stmtUpdate->execute();
+
+            if ($stmtUpdate->rowCount() <= 0) {
+                if ($abrioTx && $this->dblink->inTransaction()) $this->dblink->rollBack();
+                return [
+                    'ok'      => false,
+                    'codigo'  => 'NO_SE_PUDO_PUBLICAR',
+                    'mensaje' => 'No se pudo enviar la publicación a revisión. Verifica que esté en borrador.',
+                ];
+            }
+
+            if ($abrioTx && $this->dblink->inTransaction()) {
+                $this->dblink->commit();
+            }
+
+            return [
+                'ok'               => true,
+                'codigo'           => 'PUBLICACION_ENVIADA_REVISION',
+                'mensaje'          => 'Publicación enviada a revisión. Ahora está en estado Pendiente.',
+                'tipo_publicacion' => $tipoPublicacion,
+                'visible'          => 1,
+                'cargo_aplicado'   => $cargoAplicado,
+                'ya_cobrado'       => $yaCobrado,
+                'monto_debitado'   => $cargoAplicado ? $montoServicio : 0.00,
+                'saldo_anterior'   => $saldoActual !== null ? round($saldoActual, 2) : null,
+                'saldo_actual'     => $saldoDespues !== null ? round($saldoDespues, 2) : null,
+            ];
+        } catch (Exception $e) {
+            if ($abrioTx && $this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+            throw $e;
+        }
+    }
+
     public function aprobarProducto(int $codigoProducto): bool
     {
         $sql = "

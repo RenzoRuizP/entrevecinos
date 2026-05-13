@@ -33,10 +33,15 @@
     searchInput: null,
     emptyState: null,
     selectOrdenar: null,
+    customOrdenar: null,
     scopeButtons: [],
     selectCategoriaProductos: null,
+    customCategoria: null,
+    categoriaLabel: null,
     countServicios: null,
     countProductos: null,
+    emptyServicios: null,
+    emptyProductos: null,
     wrapServicios: null,
     wrapProductos: null,
     wrapCategoriaProductos: null
@@ -46,7 +51,7 @@
   let textoBusqueda = '';
   let criterioOrden = 'recientes';
   let scope = 'todos';
-  let categoriaProductoId = 0;
+  let categoriaFiltroValor = '0';
 
   let tipoIdProducto = 0;
   let tipoIdServicio = 0;
@@ -516,6 +521,218 @@
     if (refs.emptyState) refs.emptyState.style.display = 'none';
   }
 
+
+  function getSelectDisplayText(selectEl) {
+    if (!selectEl) return '';
+    const opt = selectEl.selectedOptions && selectEl.selectedOptions[0]
+      ? selectEl.selectedOptions[0]
+      : Array.from(selectEl.options || []).find(o => String(o.value || '') === String(selectEl.value || ''));
+    return opt ? String(opt.textContent || '').trim() : '';
+  }
+
+  function closeCustomSelects(exceptWrap = null) {
+    document.querySelectorAll('.ev-mp-select.open').forEach((wrap) => {
+      if (exceptWrap && wrap === exceptWrap) return;
+      wrap.classList.remove('open');
+      const btn = wrap.querySelector('.ev-mp-select-trigger');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  function buildCustomSelectOptions(selectEl, wrap) {
+    if (!selectEl || !wrap) return;
+
+    const menu = wrap.querySelector('.ev-mp-select-menu');
+    const valueEl = wrap.querySelector('.ev-mp-select-value');
+    if (!menu || !valueEl) return;
+
+    const selectedValue = String(selectEl.value || '');
+    valueEl.textContent = getSelectDisplayText(selectEl) || 'Seleccionar';
+    menu.innerHTML = '';
+
+    const addOptionButton = (opt) => {
+      const value = String(opt.value || '');
+      const label = String(opt.textContent || '').trim();
+      if (!label) return;
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ev-mp-select-option';
+      btn.setAttribute('role', 'option');
+      btn.dataset.value = value;
+      btn.setAttribute('aria-selected', value === selectedValue ? 'true' : 'false');
+
+      if (value === selectedValue) {
+        btn.classList.add('is-active');
+      }
+
+      btn.innerHTML = `
+        <span class="ev-mp-select-check"><i class="bi bi-check"></i></span>
+        <span class="ev-mp-select-option-text"></span>
+      `;
+
+      const text = btn.querySelector('.ev-mp-select-option-text');
+      if (text) text.textContent = label;
+
+      btn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        selectEl.value = value;
+        categoriaFiltroValor = selectEl.id === 'mp_categoria_producto' ? value : categoriaFiltroValor;
+        closeCustomSelects();
+        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+        refreshCustomSelect(wrap);
+      });
+
+      menu.appendChild(btn);
+    };
+
+    Array.from(selectEl.children).forEach((child) => {
+      if (!child) return;
+
+      if (child.tagName && child.tagName.toLowerCase() === 'optgroup') {
+        const label = String(child.getAttribute('label') || '').trim();
+        if (label) {
+          const group = document.createElement('div');
+          group.className = 'ev-mp-select-group';
+          group.textContent = label;
+          menu.appendChild(group);
+        }
+
+        Array.from(child.children).forEach(addOptionButton);
+        return;
+      }
+
+      if (child.tagName && child.tagName.toLowerCase() === 'option') {
+        addOptionButton(child);
+      }
+    });
+  }
+
+  function refreshCustomSelect(wrapOrSelectId) {
+    let wrap = null;
+
+    if (typeof wrapOrSelectId === 'string') {
+      wrap = document.querySelector(`[data-ev-select="${wrapOrSelectId}"]`);
+    } else {
+      wrap = wrapOrSelectId;
+    }
+
+    if (!wrap) return;
+
+    const selectId = wrap.getAttribute('data-ev-select');
+    const selectEl = selectId ? document.getElementById(selectId) : null;
+    if (!selectEl) return;
+
+    buildCustomSelectOptions(selectEl, wrap);
+  }
+
+  function refreshCustomSelects() {
+    refreshCustomSelect('mp_orden');
+    refreshCustomSelect('mp_categoria_producto');
+  }
+
+  function bindCustomSelect(wrap) {
+    if (!wrap || wrap.dataset.evSelectBound === '1') return;
+
+    const selectId = wrap.getAttribute('data-ev-select');
+    const selectEl = selectId ? document.getElementById(selectId) : null;
+    const trigger = wrap.querySelector('.ev-mp-select-trigger');
+
+    if (!selectEl || !trigger) return;
+
+    wrap.dataset.evSelectBound = '1';
+
+    trigger.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      marcarInteraccionUi();
+
+      const willOpen = !wrap.classList.contains('open');
+      closeCustomSelects(wrap);
+
+      if (willOpen) {
+        refreshCustomSelect(wrap);
+        wrap.classList.add('open');
+        trigger.setAttribute('aria-expanded', 'true');
+      } else {
+        wrap.classList.remove('open');
+        trigger.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    trigger.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape') {
+        closeCustomSelects();
+      }
+
+      if (ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault();
+        trigger.click();
+      }
+    });
+
+    selectEl.addEventListener('change', () => {
+      refreshCustomSelect(wrap);
+    });
+
+    refreshCustomSelect(wrap);
+  }
+
+  function initCustomSelects() {
+    bindCustomSelect(refs.customOrdenar);
+    bindCustomSelect(refs.customCategoria);
+    refreshCustomSelects();
+
+    if (!document.body.dataset.boundEvMpSelectClose) {
+      document.body.dataset.boundEvMpSelectClose = '1';
+
+      document.addEventListener('click', (ev) => {
+        if (!ev.target.closest('.ev-mp-select')) {
+          closeCustomSelects();
+        }
+      }, true);
+
+      document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') {
+          closeCustomSelects();
+        }
+      });
+
+      window.addEventListener('resize', () => closeCustomSelects(), { passive: true });
+      window.addEventListener('scroll', () => closeCustomSelects(), { passive: true, capture: true });
+    }
+  }
+
+  function showLoadingMarketplace() {
+    hideEmpty();
+
+    if (refs.wrapServicios) refs.wrapServicios.style.display = 'none';
+    if (refs.wrapProductos) refs.wrapProductos.style.display = '';
+    if (refs.emptyServicios) refs.emptyServicios.style.display = 'none';
+    if (refs.emptyProductos) refs.emptyProductos.style.display = 'none';
+    if (refs.countServicios) refs.countServicios.textContent = '0';
+    if (refs.countProductos) refs.countProductos.textContent = '...';
+    if (refs.gridServicios) refs.gridServicios.innerHTML = '';
+
+    if (refs.gridProductos) {
+      refs.gridProductos.innerHTML = `
+        <div class="ev-mp-loading-grid" aria-hidden="true">
+          ${[1,2,3].map(() => `
+            <div class="ev-mp-skeleton-card">
+              <div class="ev-mp-skeleton-img"></div>
+              <div class="ev-mp-skeleton-body">
+                <div class="ev-mp-skeleton-line w70"></div>
+                <div class="ev-mp-skeleton-line w90"></div>
+                <div class="ev-mp-skeleton-line w45"></div>
+                <div class="ev-mp-skeleton-line w90"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+  }
+
   function ensureGridCSS() {
     const ID = 'ev-mp-grid-fix';
     const old = document.getElementById(ID);
@@ -525,8 +742,8 @@
 #mp_grid_servicios,
 #mp_grid_productos{
   display:grid !important;
-  grid-template-columns:repeat(auto-fill, minmax(250px, 250px)) !important;
-  gap:18px !important;
+  grid-template-columns:repeat(auto-fill, minmax(280px, 280px)) !important;
+  gap:20px !important;
   align-items:stretch !important;
   justify-content:start !important;
   justify-items:stretch !important;
@@ -535,10 +752,10 @@
 
 #mp_grid_servicios .ev-mp-card,
 #mp_grid_productos .ev-mp-card{
-  width:250px !important;
-  height:430px !important;
-  min-height:430px !important;
-  max-height:430px !important;
+  width:280px !important;
+  height:440px !important;
+  min-height:440px !important;
+  max-height:440px !important;
   display:flex !important;
   flex-direction:column !important;
   overflow:hidden !important;
@@ -547,18 +764,18 @@
 
 #mp_grid_servicios .ev-mp-card-top-status,
 #mp_grid_productos .ev-mp-card-top-status{
-  height:38px !important;
-  min-height:38px !important;
-  max-height:38px !important;
-  flex:0 0 38px !important;
+  height:40px !important;
+  min-height:40px !important;
+  max-height:40px !important;
+  flex:0 0 40px !important;
 }
 
 #mp_grid_servicios .ev-mp-card-media,
 #mp_grid_productos .ev-mp-card-media{
-  height:170px !important;
-  min-height:170px !important;
-  max-height:170px !important;
-  flex:0 0 170px !important;
+  height:188px !important;
+  min-height:188px !important;
+  max-height:188px !important;
+  flex:0 0 188px !important;
   display:flex !important;
   align-items:center !important;
   justify-content:center !important;
@@ -581,18 +798,18 @@
   min-height:0 !important;
   display:flex !important;
   flex-direction:column !important;
-  padding:13px 14px !important;
+  padding:14px 15px !important;
 }
 
 #mp_grid_servicios .ev-mp-card-title,
 #mp_grid_productos .ev-mp-card-title{
-  min-height:38px !important;
-  max-height:38px !important;
+  min-height:40px !important;
+  max-height:40px !important;
   overflow:hidden !important;
   display:-webkit-box !important;
   -webkit-line-clamp:2 !important;
   -webkit-box-orient:vertical !important;
-  line-height:1.32 !important;
+  line-height:1.34 !important;
 }
 
 #mp_grid_servicios .ev-mp-card-price,
@@ -601,46 +818,58 @@
   line-height:1.25 !important;
 }
 
-#mp_grid_servicios .ev-mp-card-body p:not(.ev-mp-card-price),
-#mp_grid_productos .ev-mp-card-body p:not(.ev-mp-card-price){
-  min-height:38px !important;
-  max-height:38px !important;
+#mp_grid_servicios .ev-mp-card-desc,
+#mp_grid_productos .ev-mp-card-desc{
+  min-height:36px !important;
+  max-height:36px !important;
   overflow:hidden !important;
   display:-webkit-box !important;
   -webkit-line-clamp:2 !important;
   -webkit-box-orient:vertical !important;
   margin-bottom:0 !important;
-  line-height:1.35 !important;
+  line-height:1.42 !important;
 }
 
 #mp_grid_servicios .ev-mp-card-actions,
 #mp_grid_productos .ev-mp-card-actions{
   margin-top:auto !important;
   display:flex !important;
-  gap:8px !important;
+  gap:10px !important;
 }
 
 #mp_grid_servicios .ev-mp-card-actions .btn,
 #mp_grid_productos .ev-mp-card-actions .btn{
   flex:1 1 0 !important;
   min-width:0 !important;
-  height:38px !important;
+  height:40px !important;
   white-space:nowrap !important;
   font-size:13px !important;
+}
+
+@media (min-width:1600px){
+  #mp_grid_servicios,
+  #mp_grid_productos{
+    grid-template-columns:repeat(auto-fill, minmax(292px, 292px)) !important;
+  }
+
+  #mp_grid_servicios .ev-mp-card,
+  #mp_grid_productos .ev-mp-card{
+    width:292px !important;
+  }
 }
 
 @media (max-width:991.98px){
   #mp_grid_servicios,
   #mp_grid_productos{
-    grid-template-columns:repeat(auto-fill, minmax(230px, 230px)) !important;
+    grid-template-columns:repeat(auto-fill, minmax(245px, 1fr)) !important;
   }
 
   #mp_grid_servicios .ev-mp-card,
   #mp_grid_productos .ev-mp-card{
-    width:230px !important;
-    height:420px !important;
-    min-height:420px !important;
-    max-height:420px !important;
+    width:100% !important;
+    height:444px !important;
+    min-height:444px !important;
+    max-height:444px !important;
   }
 }
 
@@ -654,8 +883,16 @@
   #mp_grid_productos .ev-mp-card{
     width:100% !important;
     height:auto !important;
-    min-height:420px !important;
+    min-height:438px !important;
     max-height:none !important;
+  }
+
+  #mp_grid_servicios .ev-mp-card-media,
+  #mp_grid_productos .ev-mp-card-media{
+    height:190px !important;
+    min-height:190px !important;
+    max-height:190px !important;
+    flex:0 0 190px !important;
   }
 }
     `.trim();
@@ -673,14 +910,19 @@
     refs.gridProductos        = document.getElementById('mp_grid_productos');
     refs.countServicios       = document.getElementById('mp_count_servicios');
     refs.countProductos       = document.getElementById('mp_count_productos');
+    refs.emptyServicios       = document.getElementById('mp_empty_servicios');
+    refs.emptyProductos       = document.getElementById('mp_empty_productos');
 
     refs.resumenResultados    = document.getElementById('mp_resumen_resultados');
     refs.searchInput          = document.getElementById('mp_busqueda');
     refs.emptyState           = document.getElementById('mp_empty_state');
     refs.selectOrdenar        = document.getElementById('mp_orden');
+    refs.customOrdenar        = document.querySelector('[data-ev-select="mp_orden"]');
 
     refs.scopeButtons         = Array.from(document.querySelectorAll('.ev-mp-seg-btn'));
     refs.selectCategoriaProductos = document.getElementById('mp_categoria_producto');
+    refs.customCategoria = document.querySelector('[data-ev-select="mp_categoria_producto"]');
+    refs.categoriaLabel = document.getElementById('mp_categoria_label');
 
     refs.wrapServicios = refs.gridServicios ? (refs.gridServicios.closest('.ev-mp-section') || refs.gridServicios.parentElement) : null;
     refs.wrapProductos = refs.gridProductos ? (refs.gridProductos.closest('.ev-mp-section') || refs.gridProductos.parentElement) : null;
@@ -702,13 +944,10 @@
     if (refs.wrapServicios) refs.wrapServicios.style.display = showServ ? '' : 'none';
     if (refs.wrapProductos) refs.wrapProductos.style.display = showProd ? '' : 'none';
 
+    // El combo de categoría se mantiene visible en todos los scopes.
+    // En "Todos" carga categorías agrupadas de productos y servicios.
     if (refs.wrapCategoriaProductos) {
-      refs.wrapCategoriaProductos.style.display = (scope === 'todos' || scope === 'productos') ? '' : 'none';
-    }
-
-    if (scope === 'servicios') {
-      categoriaProductoId = 0;
-      if (refs.selectCategoriaProductos) refs.selectCategoriaProductos.value = '0';
+      refs.wrapCategoriaProductos.style.display = '';
     }
   }
 
@@ -2425,7 +2664,7 @@
     const vendedorDisponible = Number(p.__vendedor_disponible || 0) === 1;
     const esServicio = esServicioPublicacion(p);
     const tipoLabel = esServicio ? 'Servicio' : 'Producto';
-    const textoAccion = esServicio ? 'Solicitar servicio' : 'Pedir ahora';
+    const textoAccion = esServicio ? 'Solicitar' : 'Pedir ahora';
 
     let badgesHtml = `<span class="ev-mp-badge" style="background:${esServicio ? '#0EA5E9cc' : '#16A34Acc'}">${tipoLabel}</span>`;
     if (esPotenciado) {
@@ -2437,7 +2676,7 @@
       : 'ev-mp-card-top-status ev-mp-card-top-status-off';
 
     const estadoLabel = vendedorDisponible ? 'Disponible' : 'No disponible';
-    const pedirAttrs = vendedorDisponible ? '' : 'disabled aria-disabled="true"';
+    const pedirAttrs = vendedorDisponible ? '' : 'disabled aria-disabled="true" title="El vendedor no está disponible"';
 
     return `
       <div class="ev-mp-card" data-id="${escapeHtml(String(id))}">
@@ -2446,16 +2685,14 @@
         </div>
 
         <div class="ev-mp-card-media">
-          <img src="${imgUrl}" alt="${titulo}">
+          <img src="${imgUrl}" alt="${titulo}" loading="lazy">
           <div class="ev-mp-card-badges">${badgesHtml}</div>
         </div>
 
         <div class="ev-mp-card-body">
           <h5 class="ev-mp-card-title">${titulo}</h5>
           <p class="ev-mp-card-price">${precio}</p>
-          <p style="font-size:13px;color:var(--ev-texto-suave);margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">
-            ${desc}
-          </p>
+          <p class="ev-mp-card-desc">${desc}</p>
 
           <div class="ev-mp-card-actions">
             <button type="button" class="btn btn-outline-success ev-mp-btn-detalle">Ver detalle</button>
@@ -2515,6 +2752,7 @@
 
       if (!resp.ok || !json) {
         warn('No se pudo cargar /tipos:', (text || '').slice(0, 200));
+        await cargarCategoriasPorScope();
         return;
       }
 
@@ -2543,51 +2781,170 @@
       }
 
       log('Tipos detectados:', { tipoIdProducto, tipoIdServicio });
-
-      if (tipoIdProducto) {
-        await cargarCategoriasProductos(tipoIdProducto);
-      } else if (refs.selectCategoriaProductos) {
-        refs.selectCategoriaProductos.innerHTML = `<option value="0">Todas las categorías</option>`;
-      }
+      await cargarCategoriasPorScope();
     } catch (e) {
       warn('Error cargando tipos/categorías:', e);
+      await cargarCategoriasPorScope();
     }
   }
 
-  async function cargarCategoriasProductos(tipoId) {
+  async function obtenerCategoriasPorTipo(tipoId) {
+    if (!tipoId) return [];
+
+    const url = `${BASE}/tipos/${encodeURIComponent(tipoId)}/categoria_grupo`;
+    const { resp, json, text } = await fetchJsonRobusto(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'same-origin',
+      cache: 'no-store'
+    });
+
+    if (!resp.ok || !json) {
+      warn('No se pudo cargar categorías:', (text || '').slice(0, 200));
+      return [];
+    }
+
+    return getArrayFromPayload(json);
+  }
+
+  function categoriaOptionHtml(r, tipoKey) {
+    const id = Number(r.codigo_categoria || 0) || 0;
+    if (!id) return '';
+
+    const grupo = (r.grupo || '').toString().trim();
+    const cat = (r.categoria || '').toString().trim();
+    const label = grupo ? `${grupo} — ${cat}` : cat;
+
+    return `<option value="${tipoKey}:${id}">${escapeHtml(label || 'Categoría')}</option>`;
+  }
+
+  async function cargarCategoriasPorScope() {
     if (!refs.selectCategoriaProductos) return;
 
-    try {
-      const url = `${BASE}/tipos/${encodeURIComponent(tipoId)}/categoria_grupo`;
-      const { resp, json, text } = await fetchJsonRobusto(url, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        credentials: 'same-origin',
-        cache: 'no-store'
-      });
-
-      if (!resp.ok || !json) {
-        warn('No se pudo cargar categorias:', (text || '').slice(0, 200));
-        refs.selectCategoriaProductos.innerHTML = `<option value="0">Todas las categorías</option>`;
-        return;
-      }
-
-      const rows = getArrayFromPayload(json);
-
-      const opt0 = `<option value="0">Todas las categorías</option>`;
-      const options = rows.map(r => {
-        const id = Number(r.codigo_categoria || 0) || 0;
-        const grupo = (r.grupo || '').toString().trim();
-        const cat = (r.categoria || '').toString().trim();
-        const label = grupo ? `${grupo} — ${cat}` : cat;
-        return `<option value="${id}">${escapeHtml(label)}</option>`;
-      }).join('');
-
-      refs.selectCategoriaProductos.innerHTML = opt0 + options;
-    } catch (e) {
-      warn('Error cargando categorias productos:', e);
-      refs.selectCategoriaProductos.innerHTML = `<option value="0">Todas las categorías</option>`;
+    // Cierre UX: en Marketplace las categorías deben corresponder a las publicaciones visibles.
+    // Esto evita que en Productos aparezcan categorías de Servicios, y viceversa.
+    if (Array.isArray(publicaciones) && publicaciones.length > 0) {
+      cargarCategoriasDesdePublicacionesFallback();
+      return;
     }
+
+    const previous = String(categoriaFiltroValor || '0');
+    let html = '';
+
+    if (scope === 'servicios') {
+      if (refs.categoriaLabel) refs.categoriaLabel.textContent = 'Categoría';
+      const rowsServicios = await obtenerCategoriasPorTipo(tipoIdServicio);
+      html = `<option value="0">Todas las categorías</option>` +
+        rowsServicios.map(r => categoriaOptionHtml(r, 'servicio')).join('');
+    } else if (scope === 'productos') {
+      if (refs.categoriaLabel) refs.categoriaLabel.textContent = 'Categoría';
+      const rowsProductos = await obtenerCategoriasPorTipo(tipoIdProducto);
+      html = `<option value="0">Todas las categorías</option>` +
+        rowsProductos.map(r => categoriaOptionHtml(r, 'producto')).join('');
+    } else {
+      if (refs.categoriaLabel) refs.categoriaLabel.textContent = 'Categoría';
+      const [rowsProductos, rowsServicios] = await Promise.all([
+        obtenerCategoriasPorTipo(tipoIdProducto),
+        obtenerCategoriasPorTipo(tipoIdServicio)
+      ]);
+
+      const optsProductos = rowsProductos.map(r => categoriaOptionHtml(r, 'producto')).join('');
+      const optsServicios = rowsServicios.map(r => categoriaOptionHtml(r, 'servicio')).join('');
+
+      html = `<option value="0">Todas las categorías</option>`;
+      if (optsProductos) html += `<optgroup label="Productos">${optsProductos}</optgroup>`;
+      if (optsServicios) html += `<optgroup label="Servicios">${optsServicios}</optgroup>`;
+    }
+
+    refs.selectCategoriaProductos.innerHTML = html || `<option value="0">Todas las categorías</option>`;
+
+    const existsPrevious = Array.from(refs.selectCategoriaProductos.options).some(opt => opt.value === previous);
+    categoriaFiltroValor = existsPrevious ? previous : '0';
+    refs.selectCategoriaProductos.value = categoriaFiltroValor;
+    refreshCustomSelect('mp_categoria_producto');
+  }
+
+  function parseCategoriaFiltroValor() {
+    const raw = String(categoriaFiltroValor || '0').trim();
+    if (!raw || raw === '0') {
+      return { tipo: '', id: 0 };
+    }
+
+    if (raw.includes(':')) {
+      const [tipo, idRaw] = raw.split(':', 2);
+      return {
+        tipo: normalizar(tipo),
+        id: Number(idRaw || 0) || 0
+      };
+    }
+
+    return {
+      tipo: scope === 'servicios' ? 'servicio' : 'producto',
+      id: Number(raw || 0) || 0
+    };
+  }
+
+  function optionCategoriaDesdePublicacion(item) {
+    const id = Number(item.__codigo_categoria || 0) || 0;
+    if (!id) return null;
+
+    const tipo = esServicioPublicacion(item) ? 'servicio' : 'producto';
+    const nombre = String(item.__categoria_nombre || item.categoria_nombre || item.categoria || '').trim();
+    const label = nombre || 'Categoría';
+
+    return {
+      key: `${tipo}:${id}`,
+      tipo,
+      id,
+      label
+    };
+  }
+
+  function cargarCategoriasDesdePublicacionesFallback() {
+    if (!refs.selectCategoriaProductos) return;
+    if (!Array.isArray(publicaciones) || publicaciones.length === 0) return;
+
+    const previous = String(categoriaFiltroValor || '0');
+    const mapProductos = new Map();
+    const mapServicios = new Map();
+
+    publicaciones.forEach(item => {
+      const opt = optionCategoriaDesdePublicacion(item);
+      if (!opt) return;
+
+      if (opt.tipo === 'servicio') mapServicios.set(opt.key, opt);
+      else mapProductos.set(opt.key, opt);
+    });
+
+    const buildOptions = (items) => Array.from(items.values())
+      .sort((a, b) => a.label.localeCompare(b.label, 'es'))
+      .map(o => `<option value="${o.key}">${escapeHtml(o.label)}</option>`)
+      .join('');
+
+    let html = '';
+
+    if (scope === 'servicios') {
+      if (refs.categoriaLabel) refs.categoriaLabel.textContent = 'Categoría';
+      html = `<option value="0">Todas las categorías</option>` + buildOptions(mapServicios);
+    } else if (scope === 'productos') {
+      if (refs.categoriaLabel) refs.categoriaLabel.textContent = 'Categoría';
+      html = `<option value="0">Todas las categorías</option>` + buildOptions(mapProductos);
+    } else {
+      if (refs.categoriaLabel) refs.categoriaLabel.textContent = 'Categoría';
+      const optsProductos = buildOptions(mapProductos);
+      const optsServicios = buildOptions(mapServicios);
+
+      html = `<option value="0">Todas las categorías</option>`;
+      if (optsProductos) html += `<optgroup label="Productos">${optsProductos}</optgroup>`;
+      if (optsServicios) html += `<optgroup label="Servicios">${optsServicios}</optgroup>`;
+    }
+
+    refs.selectCategoriaProductos.innerHTML = html || `<option value="0">Todas las categorías</option>`;
+
+    const existsPrevious = Array.from(refs.selectCategoriaProductos.options).some(opt => opt.value === previous);
+    categoriaFiltroValor = existsPrevious ? previous : '0';
+    refs.selectCategoriaProductos.value = categoriaFiltroValor;
+    refreshCustomSelect('mp_categoria_producto');
   }
 
   function aplicarFiltros(listaBase) {
@@ -2607,13 +2964,16 @@
       });
     }
 
-    if ((scope === 'todos' || scope === 'productos') && Number(categoriaProductoId || 0) > 0) {
+    const categoriaFiltro = parseCategoriaFiltroValor();
+    if (categoriaFiltro.id > 0) {
       lista = lista.filter((p) => {
-        const isProducto = esProductoPublicacion(p);
+        const tipoItem = esServicioPublicacion(p) ? 'servicio' : 'producto';
 
-        if (!isProducto) return true;
+        if (categoriaFiltro.tipo && categoriaFiltro.tipo !== 'all' && categoriaFiltro.tipo !== tipoItem) {
+          return false;
+        }
 
-        return Number(p.__codigo_categoria || 0) === Number(categoriaProductoId);
+        return Number(p.__codigo_categoria || 0) === Number(categoriaFiltro.id);
       });
     }
 
@@ -2657,13 +3017,37 @@
     if (refs.countServicios) refs.countServicios.textContent = String(servicios.length);
     if (refs.countProductos) refs.countProductos.textContent = String(productos.length);
 
-    refs.gridServicios.innerHTML = (scope === 'todos' || scope === 'servicios')
+    /*
+      UX EV premium:
+      - En "Todos", si una sección está vacía y la otra sí tiene resultados,
+        ocultamos la sección vacía para que el usuario vea contenido útil de inmediato.
+      - Si el usuario entra específicamente a "Servicios" o "Productos", sí mostramos
+        su empty state contextual.
+    */
+    const ocultarServiciosVacioEnTodos = (scope === 'todos' && servicios.length === 0 && productos.length > 0);
+    const ocultarProductosVacioEnTodos = (scope === 'todos' && productos.length === 0 && servicios.length > 0);
+
+    const mostrarServicios = (scope === 'todos' || scope === 'servicios') && !ocultarServiciosVacioEnTodos;
+    const mostrarProductos = (scope === 'todos' || scope === 'productos') && !ocultarProductosVacioEnTodos;
+
+    if (refs.wrapServicios) refs.wrapServicios.style.display = mostrarServicios ? '' : 'none';
+    if (refs.wrapProductos) refs.wrapProductos.style.display = mostrarProductos ? '' : 'none';
+
+    refs.gridServicios.innerHTML = mostrarServicios
       ? servicios.map(cardHtml).join('')
       : '';
 
-    refs.gridProductos.innerHTML = (scope === 'todos' || scope === 'productos')
+    refs.gridProductos.innerHTML = mostrarProductos
       ? productos.map(cardHtml).join('')
       : '';
+
+    if (refs.emptyServicios) {
+      refs.emptyServicios.style.display = (mostrarServicios && servicios.length === 0) ? 'flex' : 'none';
+    }
+
+    if (refs.emptyProductos) {
+      refs.emptyProductos.style.display = (mostrarProductos && productos.length === 0) ? 'flex' : 'none';
+    }
 
     bindCardActions(refs.gridServicios);
     bindCardActions(refs.gridProductos);
@@ -2674,7 +3058,8 @@
         ? productos.length
         : (servicios.length + productos.length);
 
-    setResumen(`Mostrando ${total} resultado${total === 1 ? '' : 's'} en ${CONDO_NOMBRE_RESUMEN}`);
+    const etiqueta = total === 1 ? 'publicación disponible' : 'publicaciones disponibles';
+    setResumen(`${total} ${etiqueta} en ${CONDO_NOMBRE_RESUMEN}`);
   }
 
   function aplicarYRedibujar() {
@@ -2686,8 +3071,21 @@
     if (!total) {
       showEmpty('No encontramos publicaciones con los filtros actuales.');
       setResumen(`Mostrando 0 resultados en ${CONDO_NOMBRE_RESUMEN}`);
+
       if (refs.countServicios) refs.countServicios.textContent = '0';
       if (refs.countProductos) refs.countProductos.textContent = '0';
+
+      if (refs.gridServicios) refs.gridServicios.innerHTML = '';
+      if (refs.gridProductos) refs.gridProductos.innerHTML = '';
+
+      const mostrarServicios = (scope === 'todos' || scope === 'servicios');
+      const mostrarProductos = (scope === 'todos' || scope === 'productos');
+
+      if (refs.wrapServicios) refs.wrapServicios.style.display = mostrarServicios ? '' : 'none';
+      if (refs.wrapProductos) refs.wrapProductos.style.display = mostrarProductos ? '' : 'none';
+
+      if (refs.emptyServicios) refs.emptyServicios.style.display = mostrarServicios ? 'flex' : 'none';
+      if (refs.emptyProductos) refs.emptyProductos.style.display = mostrarProductos ? 'flex' : 'none';
       return;
     }
 
@@ -2701,7 +3099,7 @@
     if (!refs.gridAllWrapper) return;
 
     if (!esSilent) {
-      hideEmpty();
+      showLoadingMarketplace();
       setResumen('Cargando publicaciones…');
     }
 
@@ -2753,6 +3151,10 @@
 
       const rawList = normalizarListaDesdeAPI(json);
       publicaciones = Array.isArray(rawList) ? rawList.map(normalizarItem) : [];
+
+      if (refs.selectCategoriaProductos && refs.selectCategoriaProductos.options.length <= 1) {
+        cargarCategoriasDesdePublicacionesFallback();
+      }
 
       if (!publicaciones.length) {
         aplicarYRedibujar();
@@ -2842,6 +3244,7 @@
       criterioOrden = refs.selectOrdenar.value || 'recientes';
       refs.selectOrdenar.addEventListener('change', () => {
         criterioOrden = refs.selectOrdenar.value || 'recientes';
+        refreshCustomSelect('mp_orden');
         aplicarYRedibujar();
       });
     }
@@ -2855,20 +3258,24 @@
         btn.classList.add('active');
 
         scope = btn.dataset.scope || 'todos';
+        categoriaFiltroValor = '0';
 
-        if ((scope === 'productos' || scope === 'todos') && tipoIdProducto && refs.selectCategoriaProductos) {
-          const opts = refs.selectCategoriaProductos.querySelectorAll('option');
-          if (!opts || opts.length <= 1) cargarCategoriasProductos(tipoIdProducto);
-        }
-
-        aplicarYRedibujar();
+        closeCustomSelects();
+        Promise.resolve(cargarCategoriasPorScope()).then(() => {
+          if (refs.selectCategoriaProductos && refs.selectCategoriaProductos.options.length <= 1) {
+            cargarCategoriasDesdePublicacionesFallback();
+          }
+          refreshCustomSelect('mp_categoria_producto');
+          aplicarYRedibujar();
+        });
       });
     });
 
     if (refs.selectCategoriaProductos && !refs.selectCategoriaProductos.dataset.boundMarketplace) {
       refs.selectCategoriaProductos.dataset.boundMarketplace = '1';
       refs.selectCategoriaProductos.addEventListener('change', () => {
-        categoriaProductoId = Number(refs.selectCategoriaProductos.value || 0) || 0;
+        categoriaFiltroValor = String(refs.selectCategoriaProductos.value || '0');
+        refreshCustomSelect('mp_categoria_producto');
         aplicarYRedibujar();
       });
     }
@@ -2936,6 +3343,7 @@
 
     ensureGridCSS();
     bindEvents();
+    initCustomSelects();
     bindSolicitudModalEvents();
     initStaticModals();
 
@@ -2943,8 +3351,10 @@
       marketplaceInicializado = true;
       await cargarTiposYDetectar();
     } else {
-      if ((!tipoIdProducto && !tipoIdServicio) || (refs.selectCategoriaProductos && refs.selectCategoriaProductos.options.length <= 1)) {
+      if ((!tipoIdProducto && !tipoIdServicio)) {
         await cargarTiposYDetectar();
+      } else {
+        await cargarCategoriasPorScope();
       }
     }
 

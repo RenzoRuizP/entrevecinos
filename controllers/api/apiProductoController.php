@@ -499,21 +499,67 @@ class apiProductoController
                 return;
             }
 
-            $ok = $model->publicarProducto($codigoProducto, $codigoUsuario);
+            $resultado = $model->publicarConValidacionBilleteraServicio(
+                $codigoProducto,
+                $codigoUsuario,
+                1.00
+            );
 
-            if (!$ok) {
-                $this->json(400, [
+            if (!($resultado['ok'] ?? false)) {
+                $codigoError = (string)($resultado['codigo'] ?? 'NO_SE_PUDO_PUBLICAR');
+
+                if ($codigoError === 'SALDO_INSUFICIENTE') {
+                    $redirect = (defined('BASE_URL') ? rtrim((string)BASE_URL, '/') : '') . '/billetera';
+
+                    $this->json(402, [
+                        'ok'              => false,
+                        'error'           => 'SALDO_INSUFICIENTE',
+                        'codigo'          => 'SALDO_INSUFICIENTE',
+                        'mensaje'         => 'No cuentas con saldo suficiente para publicar este servicio.',
+                        'detalle'         => 'Necesitas tener como mínimo S/ 1.00 en tu billetera. Haz clic en Recargar saldo para ir a Mi billetera.',
+                        'redirect'        => $redirect,
+                        'saldo_actual'    => round((float)($resultado['saldo_actual'] ?? 0), 2),
+                        'monto_requerido' => round((float)($resultado['monto_requerido'] ?? 1.00), 2),
+                        'tipo_publicacion'=> $tipoPublicacion,
+                    ]);
+                    return;
+                }
+
+                $status = match ($codigoError) {
+                    'PUBLICACION_NO_ENCONTRADA' => 404,
+                    'ESTADO_NO_PUBLICABLE'      => 409,
+                    'PARAMETROS_INVALIDOS',
+                    'MONTO_INVALIDO'            => 400,
+                    default                     => 400,
+                };
+
+                $this->json($status, [
                     'ok'      => false,
-                    'mensaje' => 'No se pudo enviar la publicación a revisión. Verifica que esté en borrador.',
+                    'error'   => $codigoError,
+                    'codigo'  => $codigoError,
+                    'mensaje' => $resultado['mensaje'] ?? 'No se pudo enviar la publicación a revisión.',
+                    'visible' => $resultado['visible_actual'] ?? $visibleActual,
                 ]);
                 return;
             }
 
+            $mensaje = $tipoPublicacion === 'servicio'
+                ? 'Servicio enviado a revisión. Se descontó S/ 1.00 de tu billetera.'
+                : 'Publicación enviada a revisión. Ahora está en estado Pendiente.';
+
+            if (!empty($resultado['ya_cobrado'])) {
+                $mensaje = 'Servicio enviado a revisión. El cargo ya había sido aplicado previamente, por eso no se volvió a descontar saldo.';
+            }
+
             $this->json(200, [
                 'ok'               => true,
-                'mensaje'          => 'Publicación enviada a revisión. Ahora está en estado Pendiente.',
+                'mensaje'          => $mensaje,
                 'tipo_publicacion' => $tipoPublicacion,
                 'visible'          => 1,
+                'cargo_aplicado'   => (bool)($resultado['cargo_aplicado'] ?? false),
+                'ya_cobrado'       => (bool)($resultado['ya_cobrado'] ?? false),
+                'monto_debitado'   => round((float)($resultado['monto_debitado'] ?? 0), 2),
+                'saldo_actual'     => $resultado['saldo_actual'] ?? null,
             ]);
             return;
 

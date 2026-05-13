@@ -632,17 +632,34 @@
 }
 
 .ev-mp-modal-header{
-  border-bottom:1px solid var(--ev-gris-borde);
-  background:#ffffff;
+  min-height:56px;
+  border-bottom:0;
+  background:linear-gradient(135deg, #0F592F 0%, #118544 54%, #16A34A 100%);
+  color:#ffffff;
+  box-shadow:0 10px 28px rgba(15,89,47,.18);
 }
 
 .ev-mp-modal-header .modal-title{
-  font-weight:700;
-  color:var(--ev-verde-oscuro);
+  font-weight:900;
+  color:#ffffff;
   font-size:1rem;
+  letter-spacing:-.01em;
 }
 
-.ev-mp-modal-header i{ color:var(--ev-verde-oscuro); }
+.ev-mp-modal-header i{
+  color:#ffffff;
+}
+
+.ev-mp-modal-header .btn-close{
+  filter:brightness(0) invert(1);
+  opacity:.92;
+  box-shadow:none !important;
+}
+
+.ev-mp-modal-header .btn-close:hover{
+  opacity:1;
+  transform:scale(1.04);
+}
 
 .ev-mp-modal-body{
   padding:18px 22px;
@@ -1171,4 +1188,1707 @@
     padding:13px 14px;
   }
 }
+
+
+/* ==========================================================
+   EV MARKETPLACE PREMIUM RESPONSIVE 2.0
+   Pulido visual: desktop/laptop/tablet/móvil
+========================================================== */
+.ev-mp-wrapper{
+  background:
+    radial-gradient(circle at 12% 0%, rgba(230,244,236,.55), transparent 34%),
+    radial-gradient(circle at 90% 10%, rgba(255,122,26,.07), transparent 28%),
+    var(--ev-gris-fondo) !important;
+}
+
+.ev-mp-content{
+  padding-top:14px !important;
+}
+
+.ev-mp-header{
+  overflow:hidden;
+  border-color:rgba(15,89,47,.10) !important;
+  background:
+    linear-gradient(120deg, rgba(255,255,255,.98) 0%, rgba(255,255,255,.96) 46%, rgba(230,244,236,.82) 100%) !important;
+  box-shadow:0 18px 48px rgba(15,23,42,.075) !important;
+}
+
+.ev-mp-header::before{
+  content:'';
+  display:block;
+  height:4px;
+  background:linear-gradient(90deg, #0F592F 0%, #198754 58%, #FF7A1A 100%);
+}
+
+.ev-mp-header .card-body{
+  padding:18px 24px 16px 24px !important;
+}
+
+.ev-mp-hero-row{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:18px;
+}
+
+.ev-mp-title-zone{
+  display:flex;
+  align-items:flex-start;
+  gap:14px;
+  min-width:0;
+}
+
+.ev-mp-title-icon{
+  flex:0 0 44px;
+  width:44px;
+  height:44px;
+  border-radius:16px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:var(--ev-verde-oscuro);
+  background:linear-gradient(180deg, #E6F4EC 0%, #FFFFFF 100%);
+  border:1px solid rgba(15,89,47,.10);
+  box-shadow:0 12px 24px rgba(15,89,47,.08);
+  font-size:20px;
+}
+
+.ev-mp-kicker{
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.10em;
+  text-transform:uppercase;
+  color:#7A8A9A;
+  margin-bottom:2px;
+}
+
+.ev-mp-title{
+  font-size:clamp(25px, 2vw, 32px) !important;
+  line-height:1.05;
+  letter-spacing:-.035em !important;
+}
+
+.ev-mp-subtitle{
+  max-width:760px;
+  line-height:1.45;
+}
+
+.ev-mp-condominio{
+  flex:0 0 auto;
+  border:1px solid rgba(15,89,47,.08);
+  background:linear-gradient(135deg, rgba(230,244,236,.98), rgba(240,253,244,.92)) !important;
+  box-shadow:0 10px 22px rgba(15,89,47,.06);
+}
+
+.ev-mp-condominio-icon{
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9);
+}
+
+.ev-mp-toolbar{
+  display:grid;
+  grid-template-columns:minmax(280px, 1fr) minmax(380px, 560px);
+  gap:14px;
+  align-items:center;
+}
+
+.ev-mp-toolbar-controls{
+  display:grid;
+  grid-template-columns: minmax(160px, 210px) minmax(210px, 1fr);
+  gap:12px;
+  align-items:center;
+}
+
+.ev-mp-search-row{
+  display:none !important;
+}
+
+.ev-mp-search-input-wrapper{
+  height:48px !important;
+  border-color:rgba(15,89,47,.12) !important;
+  box-shadow:0 8px 18px rgba(15,23,42,.04);
+  transition:border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+.ev-mp-search-input-wrapper:focus-within{
+  border-color:rgba(25,135,84,.55) !important;
+  box-shadow:0 12px 26px rgba(15,89,47,.10);
+  transform:translateY(-1px);
+}
+
+.ev-mp-sort-wrapper,
+.ev-mp-cat-producto{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.ev-mp-sort-label,
+.ev-mp-scope-label{
+  font-weight:700;
+  color:#5E6A78 !important;
+}
+
+.ev-mp-sort-select,
+.ev-mp-cat-select{
+  height:44px !important;
+  min-width:0 !important;
+  width:100%;
+  border-radius:14px !important;
+  border-color:rgba(15,89,47,.12) !important;
+  box-shadow:0 8px 18px rgba(15,23,42,.035);
+}
+
+.ev-mp-filters-advanced{
+  margin-top:14px !important;
+  padding-top:2px;
+}
+
+.ev-mp-seg{
+  border-color:rgba(15,89,47,.10) !important;
+  box-shadow:0 10px 24px rgba(15,23,42,.055) !important;
+}
+
+.ev-mp-seg-btn{
+  min-height:34px;
+  font-weight:800 !important;
+}
+
+.ev-mp-seg-btn.active{
+  background:linear-gradient(135deg, #0F592F, #198754) !important;
+  box-shadow:0 8px 16px rgba(15,89,47,.18);
+}
+
+.ev-mp-resumen{
+  margin-top:0 !important;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  min-height:34px;
+  padding:7px 12px;
+  border-radius:999px;
+  background:rgba(255,255,255,.74);
+  border:1px solid rgba(15,89,47,.08);
+  color:#526071 !important;
+  font-weight:700;
+  box-shadow:0 8px 18px rgba(15,23,42,.04);
+}
+
+.ev-mp-resumen::before{
+  content:'';
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background:#22C55E;
+  box-shadow:0 0 0 4px rgba(34,197,94,.12);
+}
+
+.ev-mp-global-empty{
+  display:none;
+  margin:18px 0;
+  padding:22px;
+  border-radius:22px;
+  background:#fff;
+  border:1px solid rgba(229,231,235,.95);
+  box-shadow:0 12px 34px rgba(15,23,42,.055);
+  text-align:center;
+  color:var(--ev-texto-suave);
+  font-weight:700;
+}
+
+.ev-mp-split{
+  gap:20px !important;
+}
+
+.ev-mp-section{
+  padding:18px;
+  background:rgba(255,255,255,.70) !important;
+  border:1px solid rgba(229,231,235,.86);
+  border-radius:24px !important;
+  box-shadow:0 16px 42px rgba(15,23,42,.055);
+  backdrop-filter:blur(4px);
+}
+
+.ev-mp-section-head{
+  align-items:center !important;
+  padding:0 0 14px 0 !important;
+  border-bottom:1px solid rgba(229,231,235,.72);
+  margin-bottom:14px;
+}
+
+.ev-mp-section-title-wrap{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:0;
+}
+
+.ev-mp-section-icon{
+  flex:0 0 42px;
+  width:42px;
+  height:42px;
+  border-radius:16px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:19px;
+  border:1px solid rgba(15,89,47,.10);
+  box-shadow:0 10px 22px rgba(15,89,47,.06);
+}
+
+.ev-mp-section-icon-serv{
+  color:#0284C7;
+  background:linear-gradient(180deg, #E0F2FE, #FFFFFF);
+}
+
+.ev-mp-section-icon-prod{
+  color:var(--ev-verde-oscuro);
+  background:linear-gradient(180deg, #E6F4EC, #FFFFFF);
+}
+
+.ev-mp-section-kicker{
+  font-weight:900 !important;
+}
+
+.ev-mp-section-title{
+  font-size:19px !important;
+  letter-spacing:-.02em;
+}
+
+.ev-mp-section-sub{
+  line-height:1.35;
+}
+
+.ev-mp-section-pill{
+  min-width:unset !important;
+  height:36px !important;
+  padding:0 12px !important;
+  gap:7px;
+  border-color:rgba(15,89,47,.10) !important;
+  color:var(--ev-verde-oscuro) !important;
+  box-shadow:0 10px 22px rgba(15,23,42,.055) !important;
+}
+
+.ev-mp-section-pill span{
+  font-size:15px;
+  font-weight:900;
+}
+
+.ev-mp-section-pill small{
+  font-size:12px;
+  color:#64748B;
+  font-weight:800;
+}
+
+.ev-mp-section-empty{
+  display:none;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  min-height:64px;
+  padding:12px 16px;
+  border-radius:20px;
+  border:1px dashed rgba(15,89,47,.18);
+  background:linear-gradient(180deg, rgba(255,255,255,.86), rgba(248,250,252,.88));
+  color:#64748B;
+  font-weight:700;
+}
+
+.ev-mp-section-empty i{
+  color:var(--ev-verde-oscuro);
+  font-size:18px;
+}
+
+.ev-mp-grid{
+  grid-template-columns:repeat(auto-fill, minmax(280px, 280px)) !important;
+  gap:20px !important;
+}
+
+.ev-mp-card{
+  width:280px !important;
+  height:440px !important;
+  min-height:440px !important;
+  max-height:440px !important;
+  border-radius:22px !important;
+  border-color:rgba(15,89,47,.10) !important;
+  box-shadow:0 14px 34px rgba(15,23,42,.09) !important;
+}
+
+.ev-mp-card:hover{
+  transform:translateY(-5px) !important;
+  box-shadow:0 22px 48px rgba(15,23,42,.14) !important;
+}
+
+.ev-mp-card-top-status{
+  height:40px !important;
+  min-height:40px !important;
+  max-height:40px !important;
+  flex-basis:40px !important;
+}
+
+.ev-mp-card-top-status-text{
+  font-size:13px !important;
+}
+
+.ev-mp-card-media{
+  height:188px !important;
+  min-height:188px !important;
+  max-height:188px !important;
+  flex-basis:188px !important;
+  background:
+    linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%) !important;
+}
+
+.ev-mp-card-media::after{
+  content:'';
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  height:1px;
+  background:rgba(229,231,235,.86);
+}
+
+.ev-mp-badge{
+  box-shadow:0 8px 16px rgba(15,23,42,.12);
+  font-size:11px !important;
+}
+
+.ev-mp-card-body{
+  padding:14px 15px 14px 15px !important;
+  gap:7px !important;
+}
+
+.ev-mp-card-meta{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  min-height:20px;
+  color:#64748B;
+  font-size:11.5px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+
+.ev-mp-card-meta span{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.ev-mp-card-title{
+  min-height:40px !important;
+  max-height:40px !important;
+  font-size:14.5px !important;
+  line-height:1.34 !important;
+}
+
+.ev-mp-card-price{
+  font-size:18px !important;
+  color:#00875A !important;
+}
+
+.ev-mp-card-desc{
+  font-size:12.5px !important;
+  color:var(--ev-texto-suave) !important;
+  min-height:36px !important;
+  max-height:36px !important;
+  line-height:1.42 !important;
+  margin:0 !important;
+  overflow:hidden !important;
+  display:-webkit-box !important;
+  -webkit-line-clamp:2 !important;
+  -webkit-box-orient:vertical !important;
+}
+
+.ev-mp-card-actions{
+  gap:10px !important;
+}
+
+.ev-mp-card-actions .btn{
+  height:40px !important;
+  font-size:13px !important;
+}
+
+.ev-mp-card-actions .ev-mp-btn-detalle{
+  color:#526071 !important;
+  border-color:rgba(15,23,42,.11) !important;
+}
+
+.ev-mp-card-actions .ev-mp-btn-pedir:disabled,
+.ev-mp-card-actions .ev-mp-btn-pedir[aria-disabled="true"]{
+  background:#EEF2F7 !important;
+  color:#94A3B8 !important;
+  opacity:1 !important;
+}
+
+@media (min-width:1600px){
+  .ev-mp-grid{
+    grid-template-columns:repeat(auto-fill, minmax(292px, 292px)) !important;
+  }
+
+  .ev-mp-card{
+    width:292px !important;
+  }
+}
+
+@media (max-width:1199.98px){
+  .ev-mp-toolbar{
+    grid-template-columns:1fr;
+  }
+
+  .ev-mp-toolbar-controls{
+    grid-template-columns:1fr 1fr;
+  }
+}
+
+@media (max-width:991.98px){
+  .ev-mp-content{
+    padding-left:18px !important;
+    padding-right:18px !important;
+  }
+
+  .ev-mp-hero-row{
+    flex-direction:column;
+  }
+
+  .ev-mp-condominio{
+    width:100%;
+  }
+
+  .ev-mp-grid{
+    grid-template-columns:repeat(auto-fill, minmax(245px, 1fr)) !important;
+  }
+
+  .ev-mp-card{
+    width:100% !important;
+    height:444px !important;
+    min-height:444px !important;
+    max-height:444px !important;
+  }
+}
+
+@media (max-width:767.98px){
+  .ev-mp-header .card-body{
+    padding:16px 14px 14px 14px !important;
+  }
+
+  .ev-mp-title-zone{
+    gap:10px;
+  }
+
+  .ev-mp-title-icon{
+    width:40px;
+    height:40px;
+    flex-basis:40px;
+    border-radius:14px;
+  }
+
+  .ev-mp-toolbar-controls{
+    grid-template-columns:1fr;
+  }
+
+  .ev-mp-sort-wrapper,
+  .ev-mp-cat-producto,
+  .ev-mp-scope{
+    width:100%;
+    flex-direction:column;
+    align-items:stretch !important;
+    gap:7px;
+  }
+
+  .ev-mp-seg{
+    width:100%;
+  }
+
+  .ev-mp-seg-btn{
+    flex:1;
+    padding-left:8px !important;
+    padding-right:8px !important;
+  }
+
+  .ev-mp-resumen{
+    width:100%;
+    justify-content:center;
+    text-align:center;
+    white-space:normal;
+  }
+
+  .ev-mp-section{
+    padding:14px;
+    border-radius:22px !important;
+  }
+
+  .ev-mp-section-head{
+    align-items:flex-start !important;
+    flex-direction:column;
+  }
+
+  .ev-mp-section-pill{
+    align-self:flex-start;
+  }
+}
+
+@media (max-width:575.98px){
+  .ev-mp-content{
+    padding-left:12px !important;
+    padding-right:12px !important;
+    padding-top:10px !important;
+  }
+
+  .ev-mp-title{
+    font-size:25px !important;
+  }
+
+  .ev-mp-subtitle{
+    font-size:13px !important;
+  }
+
+  .ev-mp-condominio{
+    border-radius:18px !important;
+  }
+
+  .ev-mp-grid{
+    grid-template-columns:1fr !important;
+    gap:14px !important;
+  }
+
+  .ev-mp-card{
+    width:100% !important;
+    height:auto !important;
+    min-height:438px !important;
+    max-height:none !important;
+  }
+
+  .ev-mp-card-media{
+    height:190px !important;
+    min-height:190px !important;
+    max-height:190px !important;
+    flex-basis:190px !important;
+  }
+
+  .ev-mp-card-actions .btn{
+    height:42px !important;
+  }
+}
+
+/* ==========================================================
+   EV MARKETPLACE — Ajuste final ultra fino
+   - Evita ruido visual en cards.
+   - Compacta empty states.
+   - Mantiene el modal usable en laptop y móvil.
+========================================================== */
+.ev-mp-card-meta{
+  display:none !important;
+}
+
+.ev-mp-section[style*="display: none"]{
+  margin:0 !important;
+}
+
+.ev-mp-modal-content{
+  max-height:calc(100vh - 32px);
+  display:flex;
+  flex-direction:column;
+}
+
+.ev-mp-modal-body{
+  overflow:auto;
+}
+
+.ev-mp-modal-dialog{
+  width:min(920px, calc(100% - 24px));
+  max-width:920px !important;
+}
+
+.ev-mp-modal-media{
+  height:min(48vh, 420px);
+  max-height:420px;
+  padding:10px;
+  margin-bottom:12px;
+}
+
+.ev-mp-modal-media img{
+  max-height:390px !important;
+}
+
+.ev-mp-modal-thumbs{
+  margin:12px 0 14px;
+}
+
+.ev-mp-modal-title{
+  font-size:19px;
+  line-height:1.2;
+}
+
+.ev-mp-modal-price{
+  margin-bottom:8px;
+}
+
+@media (max-width:575.98px){
+  .ev-mp-modal-dialog{
+    width:calc(100% - 18px);
+  }
+
+  .ev-mp-modal-media{
+    height:min(42vh, 320px);
+    max-height:320px;
+  }
+
+  .ev-mp-modal-media img{
+    max-height:292px !important;
+  }
+}
+
+/* ==========================================================
+   EV MARKETPLACE — CIERRE UX/UI 100% PREMIUM
+   Dropdowns custom, modal sin línea blanca, skeleton y responsive fino.
+========================================================== */
+.ev-mp-field{
+  display:flex !important;
+  align-items:center !important;
+  gap:8px !important;
+  min-width:0 !important;
+}
+
+.ev-mp-native-select{
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  min-width:1px !important;
+  padding:0 !important;
+  margin:-1px !important;
+  overflow:hidden !important;
+  clip:rect(0,0,0,0) !important;
+  white-space:nowrap !important;
+  border:0 !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+
+.ev-mp-select{
+  position:relative !important;
+  min-width:190px !important;
+  max-width:100% !important;
+  z-index:20 !important;
+}
+
+.ev-mp-select-category{
+  min-width:260px !important;
+}
+
+.ev-mp-select-trigger{
+  width:100% !important;
+  min-height:46px !important;
+  border:1px solid rgba(15,89,47,.12) !important;
+  border-radius:16px !important;
+  background:rgba(255,255,255,.96) !important;
+  color:var(--ev-texto) !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:12px !important;
+  padding:0 14px !important;
+  font-size:13px !important;
+  font-weight:700 !important;
+  line-height:1.2 !important;
+  box-shadow:0 10px 26px rgba(15,23,42,.06) !important;
+  transition:border-color .16s ease, box-shadow .16s ease, background .16s ease, transform .16s ease !important;
+  cursor:pointer !important;
+  text-align:left !important;
+}
+
+.ev-mp-select-trigger:hover{
+  border-color:rgba(15,89,47,.24) !important;
+  background:#fff !important;
+  box-shadow:0 14px 30px rgba(15,23,42,.08) !important;
+}
+
+.ev-mp-select.open .ev-mp-select-trigger,
+.ev-mp-select-trigger:focus-visible{
+  outline:none !important;
+  border-color:rgba(15,89,47,.78) !important;
+  box-shadow:0 0 0 4px rgba(15,89,47,.10), 0 16px 34px rgba(15,23,42,.10) !important;
+}
+
+.ev-mp-select-value{
+  flex:1 1 auto !important;
+  min-width:0 !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+}
+
+.ev-mp-select-trigger i{
+  flex:0 0 auto !important;
+  color:#0F592F !important;
+  font-size:14px !important;
+  transition:transform .16s ease !important;
+}
+
+.ev-mp-select.open .ev-mp-select-trigger i{
+  transform:rotate(180deg) !important;
+}
+
+.ev-mp-select-menu{
+  position:absolute !important;
+  top:calc(100% + 8px) !important;
+  left:0 !important;
+  right:0 !important;
+  min-width:100% !important;
+  max-height:280px !important;
+  overflow:auto !important;
+  display:none !important;
+  padding:8px !important;
+  border-radius:18px !important;
+  background:#ffffff !important;
+  border:1px solid rgba(15,89,47,.14) !important;
+  box-shadow:0 24px 56px rgba(15,23,42,.18), 0 8px 18px rgba(15,89,47,.08) !important;
+  z-index:9999 !important;
+}
+
+.ev-mp-select.open .ev-mp-select-menu{
+  display:block !important;
+  animation:evMpSelectIn .14s ease-out !important;
+}
+
+@keyframes evMpSelectIn{
+  from{ opacity:0; transform:translateY(-4px) scale(.98); }
+  to{ opacity:1; transform:translateY(0) scale(1); }
+}
+
+.ev-mp-select-group{
+  padding:8px 10px 5px !important;
+  font-size:10px !important;
+  line-height:1 !important;
+  font-weight:900 !important;
+  text-transform:uppercase !important;
+  letter-spacing:.08em !important;
+  color:#94A3B8 !important;
+}
+
+.ev-mp-select-option{
+  width:100% !important;
+  min-height:40px !important;
+  border:0 !important;
+  background:transparent !important;
+  color:#1A1F36 !important;
+  display:flex !important;
+  align-items:center !important;
+  gap:9px !important;
+  padding:9px 10px !important;
+  border-radius:13px !important;
+  font-size:13px !important;
+  font-weight:700 !important;
+  text-align:left !important;
+  cursor:pointer !important;
+  transition:background .14s ease, color .14s ease, transform .14s ease !important;
+}
+
+.ev-mp-select-option:hover,
+.ev-mp-select-option:focus-visible{
+  outline:none !important;
+  background:#F0FDF4 !important;
+  color:#0F592F !important;
+}
+
+.ev-mp-select-option.is-active{
+  background:linear-gradient(135deg, #E6F4EC, #F0FDF4) !important;
+  color:#0F592F !important;
+  font-weight:900 !important;
+}
+
+.ev-mp-select-check{
+  flex:0 0 18px !important;
+  width:18px !important;
+  height:18px !important;
+  border-radius:999px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  font-size:12px !important;
+  color:#0F592F !important;
+  background:rgba(15,89,47,.10) !important;
+  opacity:0 !important;
+}
+
+.ev-mp-select-option.is-active .ev-mp-select-check{
+  opacity:1 !important;
+}
+
+.ev-mp-loading-grid{
+  display:grid !important;
+  grid-template-columns:repeat(auto-fill, minmax(276px, 276px)) !important;
+  gap:20px !important;
+  width:100% !important;
+}
+
+.ev-mp-skeleton-card{
+  width:276px !important;
+  height:438px !important;
+  border-radius:22px !important;
+  background:#fff !important;
+  border:1px solid rgba(229,231,235,.88) !important;
+  box-shadow:0 14px 34px rgba(15,23,42,.08) !important;
+  overflow:hidden !important;
+}
+
+.ev-mp-skeleton-line,
+.ev-mp-skeleton-img{
+  background:linear-gradient(90deg, #F1F5F9 0%, #FFFFFF 48%, #F1F5F9 100%) !important;
+  background-size:220% 100% !important;
+  animation:evMpSkeleton 1.05s ease-in-out infinite !important;
+}
+
+.ev-mp-skeleton-img{
+  height:210px !important;
+}
+
+.ev-mp-skeleton-body{
+  padding:16px !important;
+}
+
+.ev-mp-skeleton-line{
+  height:14px !important;
+  border-radius:999px !important;
+  margin-bottom:12px !important;
+}
+
+.ev-mp-skeleton-line.w70{ width:70% !important; }
+.ev-mp-skeleton-line.w45{ width:45% !important; }
+.ev-mp-skeleton-line.w90{ width:90% !important; }
+
+@keyframes evMpSkeleton{
+  0%{ background-position:120% 0; }
+  100%{ background-position:-120% 0; }
+}
+
+.ev-mp-modal-content{
+  border:none !important;
+  border-radius:20px !important;
+  overflow:hidden !important;
+  background:#fff !important;
+  box-shadow:0 28px 78px rgba(15,23,42,.32) !important;
+}
+
+.ev-mp-modal-header{
+  min-height:58px !important;
+  margin:0 !important;
+  padding:14px 18px !important;
+  border:0 !important;
+  border-bottom:none !important;
+  border-radius:0 !important;
+  background:linear-gradient(90deg, #0B4B28 0%, #0F592F 34%, #118544 70%, #16A34A 100%) !important;
+  color:#fff !important;
+  box-shadow:none !important;
+}
+
+.ev-mp-modal-header::before,
+.ev-mp-modal-header::after{
+  content:none !important;
+  display:none !important;
+}
+
+.ev-mp-modal-header .modal-title,
+.ev-mp-modal-header .modal-title span,
+.ev-mp-modal-header i{
+  color:#fff !important;
+}
+
+.ev-mp-modal-header .btn-close{
+  filter:brightness(0) invert(1) !important;
+  opacity:.95 !important;
+  box-shadow:none !important;
+  background-color:transparent !important;
+}
+
+.ev-mp-modal-header .btn-close:hover{
+  opacity:1 !important;
+  transform:scale(1.05) !important;
+}
+
+.ev-mp-modal-body{
+  border-top:0 !important;
+}
+
+.ev-mp-card-actions .ev-mp-btn-pedir:disabled,
+.ev-mp-card-actions .ev-mp-btn-pedir[aria-disabled="true"]{
+  background:#E5E7EB !important;
+  color:#6B7280 !important;
+  box-shadow:none !important;
+  opacity:1 !important;
+}
+
+@media (max-width:991.98px){
+  .ev-mp-loading-grid{
+    grid-template-columns:repeat(auto-fill, minmax(238px, 238px)) !important;
+  }
+
+  .ev-mp-skeleton-card{
+    width:238px !important;
+    height:430px !important;
+  }
+}
+
+@media (max-width:575.98px){
+  .ev-mp-toolbar-controls{
+    width:100% !important;
+  }
+
+  .ev-mp-field,
+  .ev-mp-sort-wrapper,
+  .ev-mp-cat-producto{
+    width:100% !important;
+    align-items:stretch !important;
+    flex-direction:column !important;
+    gap:7px !important;
+  }
+
+  .ev-mp-select,
+  .ev-mp-select-category{
+    width:100% !important;
+    min-width:0 !important;
+  }
+
+  .ev-mp-select-trigger{
+    min-height:44px !important;
+    border-radius:15px !important;
+  }
+
+  .ev-mp-select-menu{
+    left:0 !important;
+    right:0 !important;
+    width:100% !important;
+    max-width:100% !important;
+    max-height:240px !important;
+    border-radius:16px !important;
+  }
+
+  .ev-mp-select-option{
+    min-height:42px !important;
+    font-size:13px !important;
+  }
+
+  .ev-mp-loading-grid{
+    grid-template-columns:1fr !important;
+  }
+
+  .ev-mp-skeleton-card{
+    width:100% !important;
+    height:438px !important;
+  }
+}
+
+
+
+/* ==========================================================
+   EV MARKETPLACE — CIERRE DEFINITIVO UX/UI
+   Objetivo:
+   - Dropdowns premium sin cortes en desktop/tablet/móvil.
+   - Header de modal 100% verde degradado, sin línea blanca.
+   - Menús de filtros por encima de tarjetas/secciones.
+========================================================== */
+.ev-mp-header{
+  overflow:visible !important;
+  position:relative !important;
+  z-index:60 !important;
+}
+
+.ev-mp-header .card-body,
+.ev-mp-toolbar,
+.ev-mp-toolbar-controls,
+.ev-mp-field{
+  overflow:visible !important;
+}
+
+.ev-mp-split,
+.ev-mp-section{
+  position:relative !important;
+  z-index:1 !important;
+}
+
+.ev-mp-select{
+  position:relative !important;
+  z-index:100 !important;
+}
+
+.ev-mp-select.open{
+  z-index:99999 !important;
+}
+
+.ev-mp-select-trigger{
+  min-height:46px !important;
+  border:1px solid rgba(15,89,47,.16) !important;
+  border-radius:18px !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,255,255,.92)) !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.92) inset,
+    0 10px 24px rgba(15,23,42,.055) !important;
+  color:#1A1F36 !important;
+  font-weight:850 !important;
+  letter-spacing:-.01em !important;
+}
+
+.ev-mp-select.open .ev-mp-select-trigger,
+.ev-mp-select-trigger:focus-visible{
+  border-color:rgba(15,89,47,.92) !important;
+  background:#fff !important;
+  box-shadow:
+    0 0 0 4px rgba(15,89,47,.11),
+    0 18px 38px rgba(15,23,42,.12) !important;
+}
+
+.ev-mp-select-menu{
+  top:calc(100% + 10px) !important;
+  left:0 !important;
+  right:auto !important;
+  width:100% !important;
+  min-width:100% !important;
+  max-width:min(420px, calc(100vw - 32px)) !important;
+  max-height:min(310px, 52vh) !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  padding:8px !important;
+  border-radius:20px !important;
+  background:#ffffff !important;
+  border:1px solid rgba(15,89,47,.14) !important;
+  box-shadow:
+    0 26px 70px rgba(15,23,42,.22),
+    0 10px 26px rgba(15,89,47,.10),
+    0 1px 0 rgba(255,255,255,.85) inset !important;
+  z-index:100000 !important;
+}
+
+.ev-mp-select-category .ev-mp-select-menu{
+  width:max(100%, 320px) !important;
+}
+
+.ev-mp-select-menu::-webkit-scrollbar{
+  width:8px !important;
+}
+
+.ev-mp-select-menu::-webkit-scrollbar-thumb{
+  background:rgba(15,89,47,.22) !important;
+  border-radius:999px !important;
+  border:2px solid #fff !important;
+}
+
+.ev-mp-select-option{
+  min-height:42px !important;
+  padding:10px 11px !important;
+  border-radius:14px !important;
+  gap:10px !important;
+  font-size:13px !important;
+  font-weight:800 !important;
+  line-height:1.2 !important;
+  color:#1A1F36 !important;
+}
+
+.ev-mp-select-option-text{
+  flex:1 1 auto !important;
+  min-width:0 !important;
+  white-space:normal !important;
+  overflow:visible !important;
+  text-overflow:clip !important;
+}
+
+.ev-mp-select-option:hover,
+.ev-mp-select-option:focus-visible{
+  background:linear-gradient(135deg, #F0FDF4, #ECFDF3) !important;
+  color:#0F592F !important;
+}
+
+.ev-mp-select-option.is-active{
+  background:linear-gradient(135deg, #E6F4EC, #F0FDF4) !important;
+  color:#0F592F !important;
+  box-shadow:0 8px 18px rgba(15,89,47,.07) !important;
+}
+
+.ev-mp-select-check{
+  flex:0 0 20px !important;
+  width:20px !important;
+  height:20px !important;
+  background:rgba(15,89,47,.10) !important;
+}
+
+.ev-mp-select-option.is-active .ev-mp-select-check{
+  opacity:1 !important;
+  background:#DFF5E7 !important;
+}
+
+.ev-mp-select-group{
+  padding:10px 12px 6px !important;
+  color:#64748B !important;
+  font-size:10px !important;
+  font-weight:950 !important;
+  letter-spacing:.09em !important;
+}
+
+.ev-mp-field{
+  position:relative !important;
+}
+
+.ev-mp-field .ev-mp-scope-label,
+.ev-mp-field .ev-mp-sort-label{
+  white-space:nowrap !important;
+  font-weight:800 !important;
+  color:#64748B !important;
+}
+
+/* Modal detalle: eliminar cualquier borde/línea blanca superior */
+#mp_modal_detalle .modal-dialog{
+  border:0 !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-content{
+  position:relative !important;
+  border:0 !important;
+  outline:0 !important;
+  border-radius:22px !important;
+  overflow:hidden !important;
+  background:#fff !important;
+  box-shadow:0 30px 82px rgba(15,23,42,.34) !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-content::before{
+  content:'' !important;
+  position:absolute !important;
+  top:-2px !important;
+  left:-2px !important;
+  right:-2px !important;
+  height:66px !important;
+  background:linear-gradient(90deg, #0B4B28 0%, #0F6A38 48%, #16A34A 100%) !important;
+  z-index:0 !important;
+  pointer-events:none !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-header{
+  position:relative !important;
+  z-index:2 !important;
+  min-height:64px !important;
+  margin:0 !important;
+  padding:16px 20px !important;
+  border:0 !important;
+  border-bottom:0 !important;
+  border-radius:22px 22px 0 0 !important;
+  background:linear-gradient(90deg, #0B4B28 0%, #0F6A38 48%, #16A34A 100%) !important;
+  color:#fff !important;
+  box-shadow:none !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-header .modal-title,
+#mp_modal_detalle .ev-mp-modal-header .modal-title span,
+#mp_modal_detalle .ev-mp-modal-header i{
+  color:#fff !important;
+  text-shadow:0 1px 0 rgba(0,0,0,.08) !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-header .btn-close{
+  filter:none !important;
+  opacity:1 !important;
+  width:36px !important;
+  height:36px !important;
+  border-radius:999px !important;
+  background:rgba(255,255,255,.14) !important;
+  position:relative !important;
+  transition:background .16s ease, transform .16s ease !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-header .btn-close::before,
+#mp_modal_detalle .ev-mp-modal-header .btn-close::after{
+  content:'' !important;
+  position:absolute !important;
+  left:50% !important;
+  top:50% !important;
+  width:18px !important;
+  height:2px !important;
+  border-radius:999px !important;
+  background:#fff !important;
+  transform-origin:center !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-header .btn-close::before{
+  transform:translate(-50%, -50%) rotate(45deg) !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-header .btn-close::after{
+  transform:translate(-50%, -50%) rotate(-45deg) !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-header .btn-close:hover{
+  background:rgba(255,255,255,.22) !important;
+  transform:scale(1.04) !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-body{
+  position:relative !important;
+  z-index:1 !important;
+  border-top:0 !important;
+}
+
+@media (max-width:991.98px){
+  .ev-mp-toolbar-controls{
+    overflow:visible !important;
+  }
+
+  .ev-mp-select,
+  .ev-mp-select-category{
+    width:100% !important;
+    min-width:0 !important;
+  }
+
+  .ev-mp-select-category .ev-mp-select-menu,
+  .ev-mp-select-menu{
+    width:100% !important;
+    min-width:100% !important;
+    max-width:100% !important;
+  }
+}
+
+@media (max-width:575.98px){
+  .ev-mp-header{
+    overflow:visible !important;
+  }
+
+  .ev-mp-select-menu{
+    max-height:42vh !important;
+    border-radius:18px !important;
+  }
+
+  .ev-mp-select-option{
+    min-height:44px !important;
+    font-size:13px !important;
+  }
+
+  #mp_modal_detalle .ev-mp-modal-content{
+    border-radius:20px !important;
+  }
+
+  #mp_modal_detalle .ev-mp-modal-header{
+    border-radius:20px 20px 0 0 !important;
+  }
+}
+
+
+
+/* ==========================================================
+   EV MARKETPLACE — CORRECCIÓN FINAL REAL DE FILTROS + MODAL
+   Objetivo:
+   - Evitar que la palabra Categoría se tape.
+   - Reducir el buscador solo cuando sea necesario.
+   - Hacer dropdowns compactos, premium y sin desbordes.
+   - Eliminar línea blanca del header del modal Detalle.
+========================================================== */
+
+/* El header debe permitir que los menús salgan sin recortarse */
+.ev-mp-header,
+.ev-mp-header .card-body,
+.ev-mp-toolbar,
+.ev-mp-toolbar-controls,
+.ev-mp-field{
+  overflow:visible !important;
+}
+
+.ev-mp-header{
+  position:relative !important;
+  z-index:3000 !important;
+}
+
+.ev-mp-split,
+.ev-mp-section{
+  position:relative !important;
+  z-index:1 !important;
+}
+
+/* Desktop/laptop: buscador más corto y controles con espacio fijo suficiente */
+.ev-mp-toolbar{
+  display:grid !important;
+  grid-template-columns:minmax(360px, 1fr) minmax(640px, 680px) !important;
+  gap:16px !important;
+  align-items:center !important;
+}
+
+.ev-mp-toolbar-controls{
+  display:grid !important;
+  grid-template-columns:250px 1fr !important;
+  gap:14px !important;
+  align-items:center !important;
+  min-width:0 !important;
+  width:100% !important;
+}
+
+.ev-mp-field{
+  display:grid !important;
+  align-items:center !important;
+  column-gap:8px !important;
+  min-width:0 !important;
+}
+
+.ev-mp-sort-wrapper{
+  grid-template-columns:auto minmax(0, 1fr) !important;
+  width:250px !important;
+}
+
+.ev-mp-cat-producto{
+  grid-template-columns:auto minmax(0, 1fr) !important;
+  width:100% !important;
+}
+
+.ev-mp-field .ev-mp-sort-label,
+.ev-mp-field .ev-mp-scope-label{
+  display:block !important;
+  min-width:max-content !important;
+  max-width:max-content !important;
+  white-space:nowrap !important;
+  overflow:visible !important;
+  color:#64748B !important;
+  font-size:13px !important;
+  line-height:1.1 !important;
+  font-weight:850 !important;
+  letter-spacing:-.01em !important;
+  margin:0 !important;
+}
+
+.ev-mp-select,
+.ev-mp-select-category{
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  position:relative !important;
+  z-index:3200 !important;
+}
+
+.ev-mp-select.open{
+  z-index:999999 !important;
+}
+
+.ev-mp-select-trigger{
+  width:100% !important;
+  min-width:0 !important;
+  min-height:44px !important;
+  height:44px !important;
+  border-radius:16px !important;
+  padding:0 13px !important;
+  background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,255,255,.94)) !important;
+  border:1px solid rgba(15,89,47,.16) !important;
+  box-shadow:0 1px 0 rgba(255,255,255,.9) inset, 0 10px 22px rgba(15,23,42,.055) !important;
+}
+
+.ev-mp-select-value{
+  min-width:0 !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+  display:block !important;
+}
+
+.ev-mp-select.open .ev-mp-select-trigger,
+.ev-mp-select-trigger:focus-visible{
+  border-color:rgba(15,89,47,.85) !important;
+  box-shadow:0 0 0 4px rgba(15,89,47,.10), 0 18px 38px rgba(15,23,42,.12) !important;
+}
+
+/* Dropdown premium: no se corta, no invade raro y mantiene lectura */
+.ev-mp-select-menu{
+  position:absolute !important;
+  top:calc(100% + 8px) !important;
+  left:0 !important;
+  right:auto !important;
+  width:100% !important;
+  min-width:100% !important;
+  max-width:100% !important;
+  max-height:min(300px, 48vh) !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  padding:8px !important;
+  border-radius:18px !important;
+  background:#fff !important;
+  border:1px solid rgba(15,89,47,.14) !important;
+  box-shadow:0 28px 70px rgba(15,23,42,.22), 0 10px 24px rgba(15,89,47,.10) !important;
+  z-index:1000000 !important;
+}
+
+.ev-mp-select-category .ev-mp-select-menu{
+  width:100% !important;
+  min-width:100% !important;
+  max-width:100% !important;
+}
+
+.ev-mp-select-option{
+  width:100% !important;
+  min-height:42px !important;
+  padding:10px 11px !important;
+  border-radius:14px !important;
+  display:flex !important;
+  align-items:center !important;
+  gap:10px !important;
+  font-size:13px !important;
+  font-weight:800 !important;
+  line-height:1.22 !important;
+  color:#172033 !important;
+}
+
+.ev-mp-select-option-text{
+  min-width:0 !important;
+  flex:1 1 auto !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+}
+
+.ev-mp-select-option:hover,
+.ev-mp-select-option:focus-visible{
+  background:linear-gradient(135deg, #F0FDF4, #ECFDF3) !important;
+  color:#0F592F !important;
+}
+
+.ev-mp-select-option.is-active{
+  background:linear-gradient(135deg, #E6F4EC, #F0FDF4) !important;
+  color:#0F592F !important;
+  box-shadow:0 8px 18px rgba(15,89,47,.07) !important;
+}
+
+/* Responsivo: cuando el ancho ya no alcanza, no forzar una sola fila */
+@media (max-width:1399.98px){
+  .ev-mp-toolbar{
+    grid-template-columns:1fr !important;
+    gap:12px !important;
+  }
+
+  .ev-mp-toolbar-controls{
+    grid-template-columns:minmax(230px, 260px) minmax(280px, 1fr) !important;
+    justify-content:end !important;
+  }
+}
+
+@media (max-width:991.98px){
+  .ev-mp-toolbar-controls{
+    grid-template-columns:1fr 1fr !important;
+    justify-content:stretch !important;
+  }
+
+  .ev-mp-sort-wrapper,
+  .ev-mp-cat-producto{
+    width:100% !important;
+  }
+}
+
+@media (max-width:575.98px){
+  .ev-mp-toolbar{
+    grid-template-columns:1fr !important;
+  }
+
+  .ev-mp-toolbar-controls{
+    grid-template-columns:1fr !important;
+    gap:12px !important;
+  }
+
+  .ev-mp-field{
+    grid-template-columns:1fr !important;
+    row-gap:7px !important;
+  }
+
+  .ev-mp-field .ev-mp-sort-label,
+  .ev-mp-field .ev-mp-scope-label{
+    max-width:100% !important;
+  }
+
+  .ev-mp-select-trigger{
+    height:46px !important;
+    min-height:46px !important;
+  }
+
+  .ev-mp-select-menu{
+    max-height:42vh !important;
+  }
+
+  .ev-mp-select-option-text{
+    white-space:normal !important;
+    overflow:visible !important;
+    text-overflow:clip !important;
+  }
+}
+
+/* Modal Detalle: cubrir cualquier línea blanca superior/inferior del header */
+#mp_modal_detalle .modal-dialog{
+  border:0 !important;
+  outline:0 !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-content{
+  border:0 !important;
+  outline:0 !important;
+  padding:0 !important;
+  overflow:hidden !important;
+  border-radius:22px !important;
+  background:#fff !important;
+  box-shadow:0 30px 82px rgba(15,23,42,.34) !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-content::before{
+  display:none !important;
+  content:none !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-header{
+  position:relative !important;
+  z-index:4 !important;
+  min-height:64px !important;
+  margin:-1px -1px 0 -1px !important;
+  width:calc(100% + 2px) !important;
+  padding:17px 20px 16px 20px !important;
+  border:0 !important;
+  border-bottom:0 !important;
+  border-radius:22px 22px 0 0 !important;
+  background:linear-gradient(90deg, #0B4B28 0%, #0F6A38 48%, #16A34A 100%) !important;
+  color:#fff !important;
+  box-shadow:none !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-header::after{
+  content:'' !important;
+  position:absolute !important;
+  left:0 !important;
+  right:0 !important;
+  bottom:-2px !important;
+  height:3px !important;
+  background:linear-gradient(90deg, #0B4B28 0%, #0F6A38 48%, #16A34A 100%) !important;
+  pointer-events:none !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-header .modal-title,
+#mp_modal_detalle .ev-mp-modal-header .modal-title span,
+#mp_modal_detalle .ev-mp-modal-header i{
+  color:#fff !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-header .btn-close{
+  background:rgba(255,255,255,.16) !important;
+  border:0 !important;
+  box-shadow:none !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-body{
+  border-top:0 !important;
+  margin-top:0 !important;
+}
+
+
+
+/* ==========================================================
+   EV MARKETPLACE — FIX DEFINITIVO DE STACKING / MODAL
+   Problema corregido:
+   - El header/card del Marketplace quedaba por encima del backdrop/modal
+     por z-index excesivo usado para dropdowns.
+   Regla:
+   - Header y dropdowns por encima de secciones normales.
+   - Modal/backdrop siempre por encima de Marketplace.
+========================================================== */
+.ev-mp-wrapper,
+.ev-mp-content{
+  position:relative !important;
+  z-index:0 !important;
+}
+
+.ev-mp-header{
+  position:relative !important;
+  z-index:20 !important;
+  overflow:visible !important;
+}
+
+.ev-mp-header .card-body,
+.ev-mp-toolbar,
+.ev-mp-toolbar-controls,
+.ev-mp-field{
+  overflow:visible !important;
+}
+
+.ev-mp-split,
+.ev-mp-section,
+.ev-mp-grid,
+.ev-mp-card{
+  position:relative !important;
+  z-index:1 !important;
+}
+
+.ev-mp-select{
+  position:relative !important;
+  z-index:30 !important;
+}
+
+.ev-mp-select.open{
+  z-index:80 !important;
+}
+
+.ev-mp-select-menu{
+  z-index:90 !important;
+}
+
+body.modal-open .ev-mp-header,
+body.modal-open .ev-mp-select,
+body.modal-open .ev-mp-select.open,
+body.modal-open .ev-mp-select-menu,
+body.modal-open .ev-mp-section,
+body.modal-open .ev-mp-card{
+  z-index:auto !important;
+}
+
+.modal-backdrop{
+  z-index:1050 !important;
+}
+
+#mp_modal_detalle,
+#mp_modal_solicitud{
+  z-index:1060 !important;
+}
+
+#mp_modal_detalle .modal-dialog,
+#mp_modal_solicitud .modal-dialog{
+  position:relative !important;
+  z-index:1061 !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-content{
+  position:relative !important;
+  z-index:1062 !important;
+  background:#fff !important;
+  opacity:1 !important;
+  border:0 !important;
+  overflow:hidden !important;
+  border-radius:22px !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-header{
+  isolation:isolate !important;
+  position:relative !important;
+  z-index:2 !important;
+  margin:-1px -1px 0 -1px !important;
+  width:calc(100% + 2px) !important;
+  border:0 !important;
+  border-bottom:0 !important;
+  border-radius:22px 22px 0 0 !important;
+  background:linear-gradient(90deg, #0B4B28 0%, #0F6A38 52%, #16A34A 100%) !important;
+  box-shadow:none !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-header::before,
+#mp_modal_detalle .ev-mp-modal-header::after{
+  display:none !important;
+  content:none !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-body,
+#mp_modal_detalle .ev-mp-modal-footer{
+  position:relative !important;
+  z-index:1 !important;
+  background:#F3F4F6 !important;
+}
+
+#mp_modal_detalle .ev-mp-modal-footer{
+  background:#fff !important;
+}
+
 </style>

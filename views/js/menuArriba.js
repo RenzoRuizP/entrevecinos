@@ -1,33 +1,121 @@
 // ============================================================
 // 🎯 Script para el menú superior (navbar) - Entre Vecinos
+// Sidebar responsive + usuario + logout
 // ============================================================
 
 document.addEventListener("DOMContentLoaded", () => {
+  "use strict";
 
   const btnToggleSidebar = document.getElementById("btnToggleSidebar");
-  const sidebar = document.querySelector(".main-sidebar");
-  const layout = document.querySelector(".main-layout") || document.body;
+  const sidebar =
+    document.getElementById("sidebar") ||
+    document.querySelector(".app-sidebar") ||
+    document.querySelector(".main-sidebar");
+
   const backdrop = document.getElementById("sidebar-backdrop");
   const btnCerrarSesion = document.getElementById("btnCerrarSesion");
   const btnPerfil = document.getElementById("btnPerfil");
   const userDropdown = document.getElementById("userDropdown");
-  const dropdownMenu = userDropdown?.nextElementSibling;
+  const dropdownMenu = userDropdown?.nextElementSibling || null;
 
-  // 🟢 Mostrar / ocultar menú lateral
+  const baseUrl = String(window.BASE_URL || window.EV_BASE_URL || "/entrevecinos").replace(/\/+$/, "");
+  const mediaMobile = window.matchMedia("(max-width: 991.98px)");
+
+  function esMobile() {
+    return mediaMobile.matches;
+  }
+
+  function sidebarEstaAbierto() {
+    return !!(
+      sidebar &&
+      (
+        sidebar.classList.contains("active") ||
+        sidebar.classList.contains("open") ||
+        document.body.classList.contains("ev-sidebar-open")
+      )
+    );
+  }
+
+  function sincronizarAccesibilidadSidebar(abierto) {
+    if (btnToggleSidebar) {
+      btnToggleSidebar.setAttribute("aria-expanded", abierto ? "true" : "false");
+      btnToggleSidebar.setAttribute("aria-controls", "sidebar");
+    }
+
+    if (sidebar) {
+      sidebar.setAttribute("aria-hidden", abierto ? "false" : "true");
+    }
+  }
+
+  function abrirSidebar() {
+    if (!sidebar) return;
+
+    sidebar.classList.add("active", "open");
+    backdrop?.classList.add("active", "show");
+    document.body.classList.add("ev-sidebar-open");
+
+    sincronizarAccesibilidadSidebar(true);
+  }
+
+  function cerrarSidebar() {
+    if (!sidebar) return;
+
+    sidebar.classList.remove("active", "open");
+    backdrop?.classList.remove("active", "show");
+    document.body.classList.remove("ev-sidebar-open");
+
+    sincronizarAccesibilidadSidebar(false);
+  }
+
+  function alternarSidebar() {
+    if (sidebarEstaAbierto()) {
+      cerrarSidebar();
+    } else {
+      abrirSidebar();
+    }
+  }
+
+  // ============================================================
+  // 🔹 Menú lateral responsive
+  // ============================================================
   if (btnToggleSidebar && sidebar) {
-    btnToggleSidebar.addEventListener("click", () => {
-      layout.classList.toggle("sidebar-open");
-      backdrop.classList.toggle("active");
+    sincronizarAccesibilidadSidebar(false);
+
+    btnToggleSidebar.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      alternarSidebar();
     });
   }
 
-  // 🔹 Cerrar el menú al tocar el fondo oscuro
   if (backdrop) {
-    backdrop.addEventListener("click", () => {
-      layout.classList.remove("sidebar-open");
-      backdrop.classList.remove("active");
+    backdrop.addEventListener("click", cerrarSidebar);
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && sidebarEstaAbierto()) {
+      cerrarSidebar();
+    }
+  });
+
+  // Cerrar sidebar al navegar desde un submenu en móvil.
+  if (sidebar) {
+    sidebar.addEventListener("click", (e) => {
+      const link = e.target.closest("a.submenu-link");
+      if (!link) return;
+
+      if (esMobile()) {
+        cerrarSidebar();
+      }
     });
   }
+
+  // Si pasa de móvil a desktop, limpiar estado offcanvas.
+  mediaMobile.addEventListener?.("change", (e) => {
+    if (!e.matches) {
+      cerrarSidebar();
+    }
+  });
 
   // ============================================================
   // 🔹 Botón "Mis datos" → cargar vista /mi-perfil con AJAX
@@ -36,18 +124,21 @@ document.addEventListener("DOMContentLoaded", () => {
     btnPerfil.addEventListener("click", (e) => {
       e.preventDefault();
 
-      // Cerrar dropdown del usuario
-      const dropdownInstance = bootstrap.Dropdown.getInstance(userDropdown);
+      const dropdownInstance = userDropdown
+        ? bootstrap.Dropdown.getInstance(userDropdown)
+        : null;
+
       dropdownInstance?.hide();
 
-      // Buscar en el menú lateral el enlace a /mi-perfil
-      const link = document.querySelector(`.submenu-link[href="/mi-perfil"]`);
+      const linkPerfil =
+        document.querySelector('.submenu-link[data-vista="/mi-perfil"]') ||
+        document.querySelector(`.submenu-link[href="${baseUrl}/mi-perfil"]`) ||
+        document.querySelector('.submenu-link[href$="/mi-perfil"]');
 
-      if (link) {
-        link.click(); // Dispara el flujo AJAX de menuIzquierda.js
+      if (linkPerfil) {
+        linkPerfil.click();
       } else {
-        // Fallback seguro si no se encuentra el link (no debería pasar)
-        window.location.href = `${window.BASE_URL || '/entrevecinos'}/mi-perfil`;
+        window.location.href = `${baseUrl}/mi-perfil`;
       }
     });
   }
@@ -69,73 +160,86 @@ document.addEventListener("DOMContentLoaded", () => {
         confirmButtonColor: "#BF3604",
         cancelButtonColor: "#6c757d"
       }).then(async (result) => {
-        if (result.isConfirmed) {
-          try {
-            const response = await fetch(
-              `${window.location.origin}/entrevecinos/controllers/logoutController.php`,
-              { method: "GET", credentials: "include" }
-            );
-            const data = await response.json();
+        if (!result.isConfirmed) return;
 
-            if (data.success) {
-              Swal.fire({
-                icon: "success",
-                title: "Sesión cerrada",
-                text: "Has cerrado sesión correctamente.",
-                timer: 1500,
-                showConfirmButton: false
-              }).then(() => {
-                window.location.replace(`${window.location.origin}/entrevecinos/views/login.php`);
-              });
-            } else {
-              Swal.fire({
-                icon: "error",
-                title: "Error",
-                text: data.message || "No se pudo cerrar sesión."
-              });
+        try {
+          const response = await fetch(
+            `${baseUrl}/controllers/logoutController.php`,
+            {
+              method: "GET",
+              credentials: "include",
+              headers: {
+                "Accept": "application/json"
+              }
             }
-          } catch (error) {
+          );
+
+          const data = await response.json().catch(() => ({}));
+
+          if (data.success) {
+            Swal.fire({
+              icon: "success",
+              title: "Sesión cerrada",
+              text: "Has cerrado sesión correctamente.",
+              timer: 1500,
+              showConfirmButton: false
+            }).then(() => {
+              window.location.replace(`${baseUrl}/views/login.php`);
+            });
+          } else {
             Swal.fire({
               icon: "error",
-              title: "Error del servidor",
-              text: "No se pudo conectar con el servidor."
+              title: "Error",
+              text: data.message || "No se pudo cerrar sesión."
             });
           }
+        } catch (error) {
+          Swal.fire({
+            icon: "error",
+            title: "Error del servidor",
+            text: "No se pudo conectar con el servidor."
+          });
         }
       });
     });
   }
 
-  // 🔹 Cerrar automáticamente el menú del usuario al hacer clic fuera
-  document.addEventListener("click", function (event) {
-    if (!dropdownMenu) return;
+  // ============================================================
+  // 🔹 Cerrar dropdown del usuario al hacer clic fuera
+  // ============================================================
+  document.addEventListener("click", (event) => {
+    if (!userDropdown || !dropdownMenu) return;
 
-    const isClickInside = userDropdown.contains(event.target) || dropdownMenu.contains(event.target);
-    if (!isClickInside && dropdownMenu.classList.contains("show")) {
+    const clickDentro =
+      userDropdown.contains(event.target) ||
+      dropdownMenu.contains(event.target);
+
+    if (!clickDentro && dropdownMenu.classList.contains("show")) {
       const dropdown = bootstrap.Dropdown.getInstance(userDropdown);
-      dropdown.hide();
+      dropdown?.hide();
     }
   });
 
-  // 🔹 Ajustes responsivos del dropdown
+  // ============================================================
+  // 🔹 Ajustes responsivos del dropdown del usuario
+  // ============================================================
   function ajustarDropdownUsuario() {
-    const menu = document.querySelector('#userDropdown + .dropdown-menu');
+    const menu = document.querySelector("#userDropdown + .dropdown-menu");
     if (!menu) return;
 
     if (window.innerWidth < 992) {
-      menu.classList.remove('dropdown-menu-end');
-      menu.style.left = '50%';
-      menu.style.transform = 'translateX(-50%)';
-      menu.style.minWidth = '90%';
+      menu.classList.remove("dropdown-menu-end");
+      menu.style.left = "50%";
+      menu.style.transform = "translateX(-50%)";
+      menu.style.minWidth = "min(92vw, 340px)";
     } else {
-      menu.classList.add('dropdown-menu-end');
-      menu.style.left = '';
-      menu.style.transform = '';
-      menu.style.minWidth = '230px';
+      menu.classList.add("dropdown-menu-end");
+      menu.style.left = "";
+      menu.style.transform = "";
+      menu.style.minWidth = "230px";
     }
   }
 
   ajustarDropdownUsuario();
-  window.addEventListener('resize', ajustarDropdownUsuario);
-
+  window.addEventListener("resize", ajustarDropdownUsuario);
 });
