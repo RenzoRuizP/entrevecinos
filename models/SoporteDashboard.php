@@ -204,7 +204,20 @@ final class SoporteDashboard extends Conexion
         $reportadas = 0;
         $suspendidas = 0;
 
-        if ($estadoCol) {
+        /*
+         * REGLA EV:
+         * visible = 0 => Borrador. NO debe aparecer en soporte.
+         * visible = 1 => Pendiente / En revisión. SÍ debe aparecer en soporte.
+         * visible = 2 => Aprobada.
+         * visible = 3 => Rechazada.
+         */
+        if ($visibleCol) {
+            $enRevision = $this->countSql("
+                SELECT COUNT(*)
+                FROM {$this->qt($table)}
+                WHERE {$this->qc($visibleCol)} = 1
+            ");
+        } elseif ($estadoCol) {
             $enRevision = $this->countEstadoValues($table, $estadoCol, [
                 'en_revision',
                 'revision',
@@ -214,42 +227,47 @@ final class SoporteDashboard extends Conexion
                 'observada',
                 'observado',
             ]);
-
-            $reportadas = $this->countEstadoValues($table, $estadoCol, [
-                'reportada',
-                'reportado',
-            ]);
-
-            $suspendidas = $this->countEstadoValues($table, $estadoCol, [
-                'suspendida',
-                'suspendido',
-                'bloqueada',
-                'bloqueado',
-            ]);
         }
 
-        if ($visibleCol && $enRevision === 0) {
-            $enRevision = $this->countSql("
+        $whereReportadas = [];
+
+        if ($reportadoCol) {
+            $whereReportadas[] = "COALESCE({$this->qc($reportadoCol)}, 0) = 1";
+        }
+
+        if ($estadoCol) {
+            $whereReportadas[] = "{$this->estadoExpr($estadoCol)} IN ('reportada', 'reportado')";
+        }
+
+        if ($whereReportadas) {
+            $reportadas = $this->countSql("
                 SELECT COUNT(*)
                 FROM {$this->qt($table)}
-                WHERE {$this->qc($visibleCol)} = 0
+                WHERE (" . implode(' OR ', $whereReportadas) . ")
             ");
         }
 
-        if ($reportadoCol) {
-            $reportadas = max($reportadas, $this->countSql("
-                SELECT COUNT(*)
-                FROM {$this->qt($table)}
-                WHERE {$this->qc($reportadoCol)} = 1
-            "));
-        }
+        $whereSuspendidas = [];
 
         if ($suspendidoCol) {
-            $suspendidas = max($suspendidas, $this->countSql("
+            $whereSuspendidas[] = "COALESCE({$this->qc($suspendidoCol)}, 0) = 1";
+        }
+
+        if ($estadoCol) {
+            $whereSuspendidas[] = "{$this->estadoExpr($estadoCol)} IN (
+                'suspendida',
+                'suspendido',
+                'bloqueada',
+                'bloqueado'
+            )";
+        }
+
+        if ($whereSuspendidas) {
+            $suspendidas = $this->countSql("
                 SELECT COUNT(*)
                 FROM {$this->qt($table)}
-                WHERE {$this->qc($suspendidoCol)} = 1
-            "));
+                WHERE (" . implode(' OR ', $whereSuspendidas) . ")
+            ");
         }
 
         return [
@@ -350,11 +368,6 @@ final class SoporteDashboard extends Conexion
             $urCompCol = $this->firstColumn('usuario_residencia', ['comprobante_domicilio']);
 
             if ($urUserCol && $urIdCol) {
-                /*
-                 * Corrección anti-duplicados:
-                 * Un usuario puede tener varias residencias históricas.
-                 * Para el dashboard solo tomamos la residencia más reciente por ID.
-                 */
                 $join = "
                     LEFT JOIN {$this->qt('usuario_residencia')} ur
                            ON ur.{$this->qc($urUserCol)} = u.{$this->qc($idCol)}
@@ -371,9 +384,6 @@ final class SoporteDashboard extends Conexion
                 $select[] = $urDirCol ? "ur.{$this->qc($urDirCol)} AS direccion" : "'' AS direccion";
                 $select[] = $urCompCol ? "ur.{$this->qc($urCompCol)} AS comprobante_domicilio" : "'' AS comprobante_domicilio";
             } elseif ($urUserCol && $urFechaCol) {
-                /*
-                 * Fallback: si no hay ID claro, tomamos la residencia más reciente por fecha.
-                 */
                 $join = "
                     LEFT JOIN {$this->qt('usuario_residencia')} ur
                            ON ur.{$this->qc($urUserCol)} = u.{$this->qc($idCol)}
@@ -420,11 +430,6 @@ final class SoporteDashboard extends Conexion
 
         $rows = $st->fetchAll(\PDO::FETCH_ASSOC) ?: [];
 
-        /*
-         * Blindaje extra:
-         * aunque existan datos históricos empatados, nunca se muestra
-         * dos veces el mismo usuario en "Atender ahora".
-         */
         $usuariosProcesados = [];
         $out = [];
 
@@ -641,7 +646,14 @@ final class SoporteDashboard extends Conexion
 
         $where = [];
 
-        if ($estadoCol) {
+        /*
+         * REGLA EV:
+         * Para "Publicación en revisión" se usa visible = 1.
+         * Nunca se usa visible = 0, porque visible = 0 es Borrador.
+         */
+        if ($visibleCol) {
+            $where[] = "p.{$this->qc($visibleCol)} = 1";
+        } elseif ($estadoCol) {
             $estadoExpr = "LOWER(TRIM(CAST(p.{$this->qc($estadoCol)} AS CHAR)))";
 
             $where[] = "{$estadoExpr} IN (
@@ -651,7 +663,22 @@ final class SoporteDashboard extends Conexion
                 'pendiente_revision',
                 'pendiente_aprobacion',
                 'observada',
-                'observado',
+                'observado'
+            )";
+        }
+
+        if ($reportadoCol) {
+            $where[] = "COALESCE(p.{$this->qc($reportadoCol)}, 0) = 1";
+        }
+
+        if ($suspendidoCol) {
+            $where[] = "COALESCE(p.{$this->qc($suspendidoCol)}, 0) = 1";
+        }
+
+        if ($estadoCol) {
+            $estadoExpr = "LOWER(TRIM(CAST(p.{$this->qc($estadoCol)} AS CHAR)))";
+
+            $where[] = "{$estadoExpr} IN (
                 'reportada',
                 'reportado',
                 'suspendida',
@@ -659,18 +686,6 @@ final class SoporteDashboard extends Conexion
                 'bloqueada',
                 'bloqueado'
             )";
-        }
-
-        if ($visibleCol) {
-            $where[] = "p.{$this->qc($visibleCol)} = 0";
-        }
-
-        if ($reportadoCol) {
-            $where[] = "p.{$this->qc($reportadoCol)} = 1";
-        }
-
-        if ($suspendidoCol) {
-            $where[] = "p.{$this->qc($suspendidoCol)} = 1";
         }
 
         if (!$where) {
@@ -700,26 +715,58 @@ final class SoporteDashboard extends Conexion
 
         foreach ($rows as $r) {
             $estado = strtolower(trim((string)($r['estado_publicacion'] ?? '')));
-            $visible = $r['visible'];
+            $visible = $r['visible'] ?? null;
             $reportado = (int)($r['reportado'] ?? 0);
             $suspendido = (int)($r['suspendido'] ?? 0);
             $fechaRaw = $r['fecha_raw'] ?? null;
 
+            $esRevision = false;
+
+            if ($visible !== null) {
+                $esRevision = ((int)$visible === 1);
+            } else {
+                $esRevision = in_array($estado, [
+                    'en_revision',
+                    'revision',
+                    'pendiente',
+                    'pendiente_revision',
+                    'pendiente_aprobacion',
+                    'observada',
+                    'observado',
+                ], true);
+            }
+
+            $esReportada = $reportado === 1 || in_array($estado, [
+                'reportada',
+                'reportado',
+            ], true);
+
+            $esSuspendida = $suspendido === 1 || in_array($estado, [
+                'suspendida',
+                'suspendido',
+                'bloqueada',
+                'bloqueado',
+            ], true);
+
+            /*
+             * Blindaje final:
+             * Si el producto está en borrador, aprobado o rechazado normal,
+             * no debe aparecer en "Atender ahora".
+             */
+            if (!$esRevision && !$esReportada && !$esSuspendida) {
+                continue;
+            }
+
             $tipo = 'Publicación en revisión';
             $prioridad = 'Media';
 
-            if ($reportado === 1 || in_array($estado, ['reportada', 'reportado'], true)) {
+            if ($esReportada) {
                 $tipo = 'Publicación reportada';
                 $prioridad = 'Alta';
             }
 
-            if ($suspendido === 1 || in_array($estado, ['suspendida', 'suspendido', 'bloqueada', 'bloqueado'], true)) {
+            if ($esSuspendida) {
                 $tipo = 'Publicación suspendida';
-                $prioridad = 'Media';
-            }
-
-            if ($visible !== null && (int)$visible === 0 && $estado === '') {
-                $tipo = 'Publicación en revisión';
                 $prioridad = 'Media';
             }
 

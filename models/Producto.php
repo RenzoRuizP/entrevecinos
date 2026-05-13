@@ -308,7 +308,6 @@ class Producto extends Conexion
 
         return " {$aliasProducto}.visible = 2
                  AND {$aliasUsuario}.estado = 2
-                 AND COALESCE({$aliasUsuario}.disponibilidad_pedidos, 0) = 1
                  AND {$aliasProducto}.estado_residencial_publicacion = 'activa' ";
     }
 

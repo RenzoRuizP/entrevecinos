@@ -518,43 +518,145 @@
 
   function ensureGridCSS() {
     const ID = 'ev-mp-grid-fix';
-    if (document.getElementById(ID)) return;
+    const old = document.getElementById(ID);
+    if (old) old.remove();
 
     const css = `
-#mp_grid_servicios, #mp_grid_productos{
+#mp_grid_servicios,
+#mp_grid_productos{
   display:grid !important;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
-  gap:16px !important;
-  align-items:start !important;
-  justify-items:start !important;
+  grid-template-columns:repeat(auto-fill, minmax(250px, 250px)) !important;
+  gap:18px !important;
+  align-items:stretch !important;
+  justify-content:start !important;
+  justify-items:stretch !important;
   width:100% !important;
 }
+
 #mp_grid_servicios .ev-mp-card,
 #mp_grid_productos .ev-mp-card{
-  width:100% !important;
-  max-width:340px !important;
-  justify-self:start !important;
+  width:250px !important;
+  height:430px !important;
+  min-height:430px !important;
+  max-height:430px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  overflow:hidden !important;
+  justify-self:stretch !important;
 }
+
+#mp_grid_servicios .ev-mp-card-top-status,
+#mp_grid_productos .ev-mp-card-top-status{
+  height:38px !important;
+  min-height:38px !important;
+  max-height:38px !important;
+  flex:0 0 38px !important;
+}
+
+#mp_grid_servicios .ev-mp-card-media,
+#mp_grid_productos .ev-mp-card-media{
+  height:170px !important;
+  min-height:170px !important;
+  max-height:170px !important;
+  flex:0 0 170px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  background:#F8FAFC !important;
+  overflow:hidden !important;
+}
+
 #mp_grid_servicios .ev-mp-card-media img,
 #mp_grid_productos .ev-mp-card-media img{
   width:100% !important;
-  height:170px !important;
-  object-fit:cover !important;
+  height:100% !important;
+  object-fit:contain !important;
+  object-position:center !important;
   display:block !important;
 }
+
 #mp_grid_servicios .ev-mp-card-body,
 #mp_grid_productos .ev-mp-card-body{
-  padding:14px !important;
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  display:flex !important;
+  flex-direction:column !important;
+  padding:13px 14px !important;
 }
+
+#mp_grid_servicios .ev-mp-card-title,
+#mp_grid_productos .ev-mp-card-title{
+  min-height:38px !important;
+  max-height:38px !important;
+  overflow:hidden !important;
+  display:-webkit-box !important;
+  -webkit-line-clamp:2 !important;
+  -webkit-box-orient:vertical !important;
+  line-height:1.32 !important;
+}
+
+#mp_grid_servicios .ev-mp-card-price,
+#mp_grid_productos .ev-mp-card-price{
+  min-height:22px !important;
+  line-height:1.25 !important;
+}
+
+#mp_grid_servicios .ev-mp-card-body p:not(.ev-mp-card-price),
+#mp_grid_productos .ev-mp-card-body p:not(.ev-mp-card-price){
+  min-height:38px !important;
+  max-height:38px !important;
+  overflow:hidden !important;
+  display:-webkit-box !important;
+  -webkit-line-clamp:2 !important;
+  -webkit-box-orient:vertical !important;
+  margin-bottom:0 !important;
+  line-height:1.35 !important;
+}
+
 #mp_grid_servicios .ev-mp-card-actions,
 #mp_grid_productos .ev-mp-card-actions{
+  margin-top:auto !important;
   display:flex !important;
-  gap:10px !important;
+  gap:8px !important;
 }
+
 #mp_grid_servicios .ev-mp-card-actions .btn,
 #mp_grid_productos .ev-mp-card-actions .btn{
-  flex:1 1 auto !important;
+  flex:1 1 0 !important;
+  min-width:0 !important;
+  height:38px !important;
   white-space:nowrap !important;
+  font-size:13px !important;
+}
+
+@media (max-width:991.98px){
+  #mp_grid_servicios,
+  #mp_grid_productos{
+    grid-template-columns:repeat(auto-fill, minmax(230px, 230px)) !important;
+  }
+
+  #mp_grid_servicios .ev-mp-card,
+  #mp_grid_productos .ev-mp-card{
+    width:230px !important;
+    height:420px !important;
+    min-height:420px !important;
+    max-height:420px !important;
+  }
+}
+
+@media (max-width:575.98px){
+  #mp_grid_servicios,
+  #mp_grid_productos{
+    grid-template-columns:1fr !important;
+  }
+
+  #mp_grid_servicios .ev-mp-card,
+  #mp_grid_productos .ev-mp-card{
+    width:100% !important;
+    height:auto !important;
+    min-height:420px !important;
+    max-height:none !important;
+  }
 }
     `.trim();
 
