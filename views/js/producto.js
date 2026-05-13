@@ -376,6 +376,7 @@
       }
       if (tipoAtencion) {
         tipoAtencion.value = 'no_requiere_preparacion';
+        tipoAtencion.dataset.evAutoTipoAtencion = 'no_requiere_preparacion';
         tipoAtencion.disabled = true;
       }
     } else {
@@ -384,8 +385,12 @@
         if (!estado.value || estado.value === 'NoAplica') estado.value = 'Nuevo';
       }
       if (tipoAtencion) {
-        tipoAtencion.disabled = false;
+        // El vendedor no decide este campo: lo define EV según la categoría.
+        tipoAtencion.disabled = true;
         if (!tipoAtencion.value) tipoAtencion.value = 'no_requiere_preparacion';
+        if (!tipoAtencion.dataset.evAutoTipoAtencion) {
+          tipoAtencion.dataset.evAutoTipoAtencion = tipoAtencion.value;
+        }
       }
     }
 
@@ -451,7 +456,16 @@
     const selTipo = document.getElementById('fTipo');
     if (!selTipo) return;
 
-    const data = await evFetchJson(`${EV_API_BASE}/tipos`);
+    const tipoPublicacion = normalizarTipoPublicacion(
+      document.getElementById('fTipoPublicacion')?.value || window.evProductosFiltro?.tipo_publicacion || '',
+      true
+    );
+
+    const url = tipoPublicacion
+      ? `${EV_API_BASE}/tipos?tipo_publicacion=${encodeURIComponent(tipoPublicacion)}`
+      : `${EV_API_BASE}/tipos`;
+
+    const data = await evFetchJson(url);
     if (!data || !data.ok || !Array.isArray(data.data)) return;
 
     const prev = String(window.evProductosFiltro?.tipo || '');
@@ -479,7 +493,16 @@
     const tid = String(tipoId || '').trim();
     if (!tid) return;
 
-    const data = await evFetchJson(`${EV_API_BASE}/tipos/${encodeURIComponent(tid)}/categoria_grupo`);
+    const tipoPublicacion = normalizarTipoPublicacion(
+      document.getElementById('fTipoPublicacion')?.value || window.evProductosFiltro?.tipo_publicacion || '',
+      true
+    );
+
+    const url = tipoPublicacion
+      ? `${EV_API_BASE}/tipos/${encodeURIComponent(tid)}/categoria_grupo?tipo_publicacion=${encodeURIComponent(tipoPublicacion)}`
+      : `${EV_API_BASE}/tipos/${encodeURIComponent(tid)}/categoria_grupo`;
+
+    const data = await evFetchJson(url);
     if (!data || !data.ok || !Array.isArray(data.data)) return;
 
     data.data.forEach(r => {
@@ -1512,9 +1535,10 @@
 
     const comboTipo   = form.querySelector('#comboTipo')?.value || form.querySelector('select[name="comboTipo"]')?.value || '';
     const categoria   = form.querySelector('#comboCategoria')?.value || form.querySelector('select[name="categoria"]')?.value || '';
+    const tipoAtencionSelect = form.querySelector('#tipoAtencionProducto');
     const tipoAtencionProducto = tipoPublicacion === 'servicio'
       ? 'no_requiere_preparacion'
-      : (form.querySelector('#tipoAtencionProducto')?.value || 'no_requiere_preparacion');
+      : (tipoAtencionSelect?.dataset?.evAutoTipoAtencion || tipoAtencionSelect?.value || 'no_requiere_preparacion');
 
     const precio = Number(precioRaw || 0);
     if (!evValidatePublicacionForm(form, false, {
@@ -1607,9 +1631,10 @@
 
     const comboTipo   = form.querySelector('#edit_comboTipo')?.value || '';
     const categoria   = form.querySelector('#edit_comboCategoria')?.value || '';
+    const tipoAtencionSelect = form.querySelector('#edit_tipoAtencionProducto');
     const tipoAtencionProducto = tipoPublicacion === 'servicio'
       ? 'no_requiere_preparacion'
-      : (form.querySelector('#edit_tipoAtencionProducto')?.value || 'no_requiere_preparacion');
+      : (tipoAtencionSelect?.dataset?.evAutoTipoAtencion || tipoAtencionSelect?.value || 'no_requiere_preparacion');
 
     if (!id) {
       evNotify('error','Error','No se encontró el código de la publicación.');
@@ -2068,8 +2093,24 @@
       }
 
       if (e.target && e.target.id === 'fTipoPublicacion') {
-        syncFiltrosFromUI();
-        window.evCargarProductos?.();
+        (async () => {
+          syncFiltrosFromUI();
+          window.evProductosFiltro.tipo = '';
+          window.evProductosFiltro.categoria = '';
+
+          const selTipo = document.getElementById('fTipo');
+          if (selTipo) selTipo.value = '';
+
+          const selCat = document.getElementById('fCategoria');
+          if (selCat) {
+            selCat.innerHTML = `<option value="">Todas</option>`;
+            selCat.value = '';
+            selCat.disabled = true;
+          }
+
+          await cargarTiposFiltro();
+          window.evCargarProductos?.();
+        })();
         return;
       }
 

@@ -360,12 +360,23 @@ class apiProductoController
 
             $precio = (float)$precioRaw;
             $estado = $this->normalizarEstadoPublicacion($_POST['estado'] ?? 'NoAplica', $tipoPublicacion);
-            $tipoAtencionProducto = $this->normalizarTipoAtencionProducto(
-                $_POST['tipo_atencion_producto'] ?? 'no_requiere_preparacion',
-                $tipoPublicacion
-            );
 
             $prod = new Producto();
+
+            try {
+                $tipoAtencionProducto = $prod->resolverTipoAtencionPorCategoria(
+                    (int)$categoria,
+                    (int)$tipo,
+                    $tipoPublicacion
+                );
+            } catch (InvalidArgumentException $e) {
+                $this->json(400, [
+                    'ok'      => false,
+                    'campo'   => 'categoria',
+                    'mensaje' => $e->getMessage(),
+                ]);
+                return;
+            }
 
             $resActiva = $prod->obtenerResidenciaActivaUsuario($codigoUsuario);
             if (!$resActiva) {
@@ -646,10 +657,21 @@ class apiProductoController
 
             $precio = (float)$precioRaw;
             $estado = $this->normalizarEstadoPublicacion($_POST['estado'] ?? 'NoAplica', $tipoPublicacion);
-            $tipoAtencionProducto = $this->normalizarTipoAtencionProducto(
-                $_POST['tipo_atencion_producto'] ?? 'no_requiere_preparacion',
-                $tipoPublicacion
-            );
+
+            try {
+                $tipoAtencionProducto = $model->resolverTipoAtencionPorCategoria(
+                    (int)$categoria,
+                    (int)$tipo,
+                    $tipoPublicacion
+                );
+            } catch (InvalidArgumentException $e) {
+                $this->json(400, [
+                    'ok'      => false,
+                    'campo'   => 'categoria',
+                    'mensaje' => $e->getMessage(),
+                ]);
+                return;
+            }
 
             $this->aplicarDatosAProducto(
                 $model,

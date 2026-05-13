@@ -361,13 +361,13 @@ require_once __DIR__ . '/../Config/config.php';
                   </div>
 
                   <div class="col-12" id="wrapTipoAtencionProductoAdd" data-ev-product-only>
-                    <label class="form-label">Tipo de atención del producto <span class="text-danger">*</span></label>
-                    <select id="tipoAtencionProducto" class="form-select" name="tipo_atencion_producto">
+                    <label class="form-label">Tipo de atención detectado</label>
+                    <select id="tipoAtencionProducto" class="form-select" name="tipo_atencion_producto" disabled>
                       <option value="no_requiere_preparacion" selected>No requiere preparación</option>
                       <option value="requiere_preparacion">Requiere preparación</option>
                     </select>
-                    <div class="form-text">
-                      Define si el producto necesita preparación previa antes de ser entregado.
+                    <div class="form-text" id="hintTipoAtencionProductoAdd">
+                      EV detectará automáticamente este valor según el tipo y la categoría seleccionada.
                     </div>
                   </div>
                 </div>
@@ -523,13 +523,13 @@ require_once __DIR__ . '/../Config/config.php';
                   </div>
 
                   <div class="col-12" id="wrapTipoAtencionProductoEdit" data-ev-product-only>
-                    <label class="form-label">Tipo de atención del producto <span class="text-danger">*</span></label>
-                    <select id="edit_tipoAtencionProducto" class="form-select" name="edit_tipo_atencion_producto">
+                    <label class="form-label">Tipo de atención detectado</label>
+                    <select id="edit_tipoAtencionProducto" class="form-select" name="edit_tipo_atencion_producto" disabled>
                       <option value="no_requiere_preparacion">No requiere preparación</option>
                       <option value="requiere_preparacion">Requiere preparación</option>
                     </select>
-                    <div class="form-text">
-                      Define si el producto necesita preparación previa antes de ser entregado.
+                    <div class="form-text" id="hintTipoAtencionProductoEdit">
+                      EV detectará automáticamente este valor según el tipo y la categoría seleccionada.
                     </div>
                   </div>
                 </div>

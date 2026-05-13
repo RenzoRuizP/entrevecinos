@@ -36,6 +36,7 @@ class Producto extends Conexion
     private ?string $estado = null;
     private string $tipo_publicacion = 'producto';
     private string $tipo_atencion_producto = 'no_requiere_preparacion';
+    private int $requiere_preparacion = 0;
 
     private int $visible = 0;
 
@@ -92,9 +93,12 @@ class Producto extends Conexion
     {
         $valor = strtolower(trim((string)$tipo_atencion_producto));
         $permitidos = ['requiere_preparacion', 'no_requiere_preparacion'];
+
         $this->tipo_atencion_producto = in_array($valor, $permitidos, true)
             ? $valor
             : 'no_requiere_preparacion';
+
+        $this->requiere_preparacion = ($this->tipo_atencion_producto === 'requiere_preparacion') ? 1 : 0;
     }
 
     public function setCodigoTipo($codigo_tipo): void
@@ -107,12 +111,65 @@ class Producto extends Conexion
         $this->codigo_categoria = ($codigo_categoria !== null && $codigo_categoria !== '') ? (int)$codigo_categoria : null;
     }
 
+    /**
+     * Fuente de verdad para decidir si una publicación de producto requiere preparación.
+     *
+     * También valida que la categoría pertenezca al grupo correcto:
+     *   producto => categoria.codigo_grupo = 1
+     *   servicio => categoria.codigo_grupo = 2
+     */
+    public function resolverTipoAtencionPorCategoria(int $codigoCategoria, int $codigoTipo, string $tipoPublicacion = 'producto'): string
+    {
+        $tipoPublicacion = strtolower(trim($tipoPublicacion));
+        $codigoGrupoEsperado = ($tipoPublicacion === 'servicio') ? 2 : 1;
+
+        if ($codigoCategoria <= 0 || $codigoTipo <= 0) {
+            throw new InvalidArgumentException('Tipo o categoría inválida para resolver la publicación.');
+        }
+
+        $sql = "
+            SELECT
+                c.requiere_preparacion_default,
+                c.codigo_grupo
+            FROM categoria c
+            WHERE c.codigo_categoria = :codigo_categoria
+              AND c.codigo_tipo = :codigo_tipo
+              AND c.codigo_grupo = :codigo_grupo
+              AND c.estado = 1
+            LIMIT 1
+        ";
+
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindValue(':codigo_categoria', $codigoCategoria, PDO::PARAM_INT);
+        $stmt->bindValue(':codigo_tipo', $codigoTipo, PDO::PARAM_INT);
+        $stmt->bindValue(':codigo_grupo', $codigoGrupoEsperado, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            $label = ($tipoPublicacion === 'servicio') ? 'servicio' : 'producto';
+            throw new InvalidArgumentException('La categoría seleccionada no corresponde a una publicación de tipo ' . $label . '.');
+        }
+
+        // Por ahora los servicios no usan preparación de producto.
+        if ($tipoPublicacion === 'servicio') {
+            return 'no_requiere_preparacion';
+        }
+
+        return ((int)($row['requiere_preparacion_default'] ?? 0) === 1)
+            ? 'requiere_preparacion'
+            : 'no_requiere_preparacion';
+    }
+
     private function aplicarReglasPorTipoPublicacion(): void
     {
         if ($this->tipo_publicacion === 'servicio') {
             // Un servicio no tiene estado físico ni preparación de producto.
             $this->estado = 'NoAplica';
             $this->tipo_atencion_producto = 'no_requiere_preparacion';
+            $this->requiere_preparacion = 0;
+        } else {
+            $this->requiere_preparacion = ($this->tipo_atencion_producto === 'requiere_preparacion') ? 1 : 0;
         }
 
         if ($this->estado === null || $this->estado === '') {
@@ -283,6 +340,7 @@ class Producto extends Conexion
                 precio,
                 tipo_publicacion,
                 tipo_atencion_producto,
+                requiere_preparacion,
                 visible,
                 codigo_usuario,
                 codigo_usuario_residencia,
@@ -302,6 +360,7 @@ class Producto extends Conexion
                 :precio,
                 :tipo_publicacion,
                 :tipo_atencion_producto,
+                :requiere_preparacion,
                 :visible,
                 :codigo_usuario,
                 :codigo_usuario_residencia,
@@ -328,6 +387,7 @@ class Producto extends Conexion
         $stmt->bindValue(':precio', $this->precio);
         $stmt->bindValue(':tipo_publicacion', $this->tipo_publicacion, PDO::PARAM_STR);
         $stmt->bindValue(':tipo_atencion_producto', $this->tipo_atencion_producto, PDO::PARAM_STR);
+        $stmt->bindValue(':requiere_preparacion', $this->requiere_preparacion, PDO::PARAM_INT);
         $stmt->bindValue(':visible', $this->visible, PDO::PARAM_INT);
         $stmt->bindValue(':codigo_usuario', $this->codigo_usuario, PDO::PARAM_INT);
 
@@ -674,6 +734,7 @@ class Producto extends Conexion
                 estado                  = :estado,
                 precio                  = :precio,
                 tipo_atencion_producto  = :tipo_atencion_producto,
+                requiere_preparacion    = :requiere_preparacion,
                 codigo_tipo             = :codigo_tipo,
                 codigo_categoria        = :codigo_categoria,
                 updated_at              = CURRENT_TIMESTAMP
@@ -688,6 +749,7 @@ class Producto extends Conexion
         $stmt->bindValue(':estado', $this->estado, PDO::PARAM_STR);
         $stmt->bindValue(':precio', $this->precio);
         $stmt->bindValue(':tipo_atencion_producto', $this->tipo_atencion_producto, PDO::PARAM_STR);
+        $stmt->bindValue(':requiere_preparacion', $this->requiere_preparacion, PDO::PARAM_INT);
         $stmt->bindValue(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
         $stmt->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
 
