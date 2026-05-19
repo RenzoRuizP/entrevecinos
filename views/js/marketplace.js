@@ -71,7 +71,8 @@
     cancelButtonVisible: false,
     modo: '',
     segundosRestantes: 0,
-    segundosParaCancelarRestantes: SEGUNDOS_CANCELACION_SOLICITUD
+    segundosParaCancelarRestantes: SEGUNDOS_CANCELACION_SOLICITUD,
+    requierePreparacion: false
   };
 
   function log()  { if (console && console.log)  console.log(LOG_PREFIX, ...arguments); }
@@ -1087,6 +1088,7 @@
     solicitudFlow.modo = '';
     solicitudFlow.segundosRestantes = 0;
     solicitudFlow.segundosParaCancelarRestantes = SEGUNDOS_CANCELACION_SOLICITUD;
+    solicitudFlow.requierePreparacion = false;
   }
 
   function formatDuracionSegundos(segundos) {
@@ -1392,7 +1394,7 @@
       ? `
         <div class="ev-mp-swal-note">
           Se reservó <strong>${formatPrecio(montoDescontado)}</strong> de tu billetera por tratarse de un producto con preparación.
-          Si la solicitud no continúa, el saldo se devolverá automáticamente.
+          Si el vendedor rechaza o no responde, se devolverá automáticamente. Si el vendedor acepta y luego no recoges el producto, no habrá devolución.
         </div>
       `
       : '';
@@ -1659,7 +1661,8 @@
       );
     }
 
-    const yaPuedeCancelar = segundosParaCancelarRestantes <= 0;
+    const esPreparado = solicitudFlow.requierePreparacion === true;
+    const yaPuedeCancelar = !esPreparado && segundosParaCancelarRestantes <= 0;
 
     solicitudFlow.segundosRestantes = segundosRestantes;
     solicitudFlow.segundosParaCancelarRestantes = segundosParaCancelarRestantes;
@@ -1945,6 +1948,7 @@
     solicitudFlow.activo = true;
     solicitudFlow.modo = 'respuesta';
     solicitudFlow.cancelButtonVisible = false;
+    solicitudFlow.requierePreparacion = Number(data.requiere_preparacion || 0) === 1;
 
     const payloadSync = {};
 
@@ -2405,6 +2409,7 @@
       fd.append('tipo_entrega', tipoEntrega);
       fd.append('direccion_entrega', direccionEntrega);
       fd.append('mensaje_comprador', mensajeComprador);
+      fd.append('metodo_pago', requierePreparacion ? 'billetera' : 'efectivo');
       if (tipoEntrega === 'programada') {
         fd.append('fecha_hora_programada', fechaProgramada);
       }

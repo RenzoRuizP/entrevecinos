@@ -619,6 +619,7 @@ $routes = [
 
     ['GET',  '#^/api/usuario/disponibilidad-pedidos$#', [apiDisponibilidadPedidosController::class, 'obtenerEstado'], 'json'],
     ['POST', '#^/api/usuario/disponibilidad-pedidos$#', [apiDisponibilidadPedidosController::class, 'actualizarEstado'], 'json'],
+    
 
     // ---------------------------
     // PRODUCTOS / MARKETPLACE
@@ -651,6 +652,13 @@ $routes = [
     ['POST', '#^/api/pedidos/(\d+)/confirmar-cola$#', [apiPedidoController::class, 'confirmarCola'], 'json'],
     ['POST', '#^/api/pedidos/(\d+)/confirmar-entrega$#', [apiPedidoController::class, 'confirmarEntrega'], 'json'],
     ['GET',  '#^/api/pedidos/mis-comprador$#', [apiPedidoController::class, 'listarMisPedidosComprador'], 'json'],
+
+    ['GET',  '#^/api/pedidos/alertas$#', [apiPedidoController::class, 'listarAlertasPedido'], 'json'],
+    ['POST', '#^/api/pedidos/alertas/(\d+)/leer$#', [apiPedidoController::class, 'marcarAlertaPedidoLeida'], 'json'],
+
+    ['GET',  '#^/api/pedidos/registrar/?$#', [apiPedidoController::class, 'registrarPedido'], 'json'],
+    ['POST', '#^/api/pedidos/registrar/?$#', [apiPedidoController::class, 'registrarPedido'], 'json'],
+
 
     // ---------------------------
     // PEDIDOS - VENDEDOR

@@ -50,6 +50,14 @@
     });
   }
 
+
+  function formatTiempoCorto(segundos) {
+    const s = Math.max(0, Number(segundos || 0));
+    const min = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  }
+
   function normalizarUrlImagen(url) {
     const raw = String(url || '').trim();
     return raw !== '' ? raw : PLACEHOLDER;
@@ -110,7 +118,7 @@
       despachando: 'Despachando',
       listo_para_entrega: 'Listo para entrega',
       en_camino: 'En camino',
-      en_punto_entrega: 'En punto de entrega',
+      en_punto_entrega: 'En punto de recojo',
       entregado_vendedor: 'Entregado por vendedor',
       entrega_confirmada_comprador: 'Entrega confirmada',
       rechazado_vendedor: 'Rechazado por vendedor',
@@ -340,6 +348,19 @@
       `;
     }
 
+    if (estado === 'en_punto_entrega') {
+      const restantes = Number(item.segundos_recojo_restantes || 0);
+      return `
+        <div class="ev-mpc-state-box ev-mpc-state-box-info">
+          <div class="ev-mpc-state-title">Pedido en punto de recojo</div>
+          <div class="ev-mpc-state-text">
+            El vendedor ya llegó al punto de recojo. Tienes 6 minutos para recibir tu pedido.
+            ${restantes > 0 ? ` Tiempo restante: ${formatTiempoCorto(restantes)}.` : ' El tiempo de recojo ya venció.'}
+          </div>
+        </div>
+      `;
+    }
+
     if (estado === 'entregado_vendedor') {
       return `
         <div class="ev-mpc-state-box ev-mpc-state-box-info">
@@ -439,6 +460,19 @@
     const tieneProgramacion = String(item.tipo_entrega_raw || '').trim() === 'programada' && !!item.fecha_hora_programada;
     const puedeCancelar = Number(item.puede_cancelar || 0) === 1;
     const puedeConfirmarCola = Number(item.puede_confirmar_cola || 0) === 1;
+
+    if (estado === 'en_punto_entrega') {
+      const restantes = Number(item.segundos_recojo_restantes || 0);
+      return `
+        <div class="ev-mpc-state-box ev-mpc-state-box-info">
+          <div class="ev-mpc-state-title">Pedido en punto de recojo</div>
+          <div class="ev-mpc-state-text">
+            El vendedor ya llegó al punto de recojo. Tienes 6 minutos para recibir tu pedido.
+            ${restantes > 0 ? ` Tiempo restante: ${formatTiempoCorto(restantes)}.` : ' El tiempo de recojo ya venció.'}
+          </div>
+        </div>
+      `;
+    }
 
     if (estado === 'entregado_vendedor') {
       acciones.push(`
@@ -806,7 +840,7 @@
     await Swal.fire({
       icon: 'success',
       title: 'Solicitud cancelada',
-      text: json?.mensaje || 'Tu solicitud fue cancelada correctamente.',
+      text: (Number(json?.data?.penalidad_generada || 0) > 0) ? 'Pedido cancelado. Se aplicará una penalidad de S/ 1.00 en tu siguiente pedido.' : (json?.mensaje || 'Tu solicitud fue cancelada correctamente.'),
       confirmButtonColor: '#EA7C12'
     });
 

@@ -8,6 +8,539 @@ class Pedido extends Conexion
     private const SEGUNDOS_CANCELACION = 120;
     private const SEGUNDOS_TIMEOUT = 240;
     private const MINUTOS_GRACIA_FECHA_PROGRAMADA = 1;
+    private const SEGUNDOS_RECOJO = 360;
+    private const PENALIDAD_CANCELACION_COMPRADOR = 1.00;
+    private const COMISION_EV_PORCENTAJE = 0.10;
+
+
+    // =========================================================
+    // REGLAS EV 2.0: comisiones, penalidades, recojo y alertas
+    // =========================================================
+
+    private function esProductoPreparadoPedido(array $pedido): bool
+    {
+        return (int)($pedido['requiere_preparacion'] ?? 0) === 1;
+    }
+
+    private function pedidoFueAceptado(array $pedido): bool
+    {
+        $fechaAceptacion = trim((string)($pedido['fecha_aceptacion'] ?? ''));
+        return (string)($pedido['fase'] ?? '') === 'pedido' || $fechaAceptacion !== '';
+    }
+
+    private function baseComisionPedido(array $pedido): float
+    {
+        $cantidad = max(1, (int)($pedido['cantidad'] ?? 1));
+        $unitario = (float)($pedido['costo_unitario'] ?? 0);
+
+        if ($unitario <= 0) {
+            $unitario = (float)($pedido['precio_unitario'] ?? 0);
+        }
+
+        if ($unitario > 0) {
+            return round($unitario * $cantidad, 2);
+        }
+
+        $total = (float)($pedido['total'] ?? $pedido['monto_total'] ?? 0);
+        $penalidad = (float)($pedido['penalidad_comprador_monto'] ?? 0);
+
+        return max(0.00, round($total - $penalidad, 2));
+    }
+
+    private function obtenerConceptoMovimiento(string $origen, string $descripcion): string
+    {
+        $concepto = trim($origen);
+        if ($concepto === '') {
+            $concepto = trim($descripcion);
+        }
+        if ($concepto === '') {
+            $concepto = 'Movimiento de billetera';
+        }
+        return mb_substr($concepto, 0, 150, 'UTF-8');
+    }
+
+    private function obtenerPenalidadPendienteComprador(int $codigoUsuarioComprador): float
+    {
+        if ($codigoUsuarioComprador <= 0) return 0.00;
+
+        $sql = "
+            SELECT COALESCE(SUM(monto), 0)
+            FROM usuario_penalidad
+            WHERE codigo_usuario = :codigo_usuario
+              AND estado = 'pendiente'
+        ";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_usuario', $codigoUsuarioComprador, PDO::PARAM_INT);
+        $st->execute();
+
+        return round((float)$st->fetchColumn(), 2);
+    }
+
+    private function reservarPenalidadesPendientesParaPedido(int $codigoUsuarioComprador, int $codigoPedido): float
+    {
+        if ($codigoUsuarioComprador <= 0 || $codigoPedido <= 0) return 0.00;
+
+        $total = $this->obtenerPenalidadPendienteComprador($codigoUsuarioComprador);
+        if ($total <= 0) return 0.00;
+
+        $sql = "
+            UPDATE usuario_penalidad
+            SET estado = 'reservada', codigo_pedido_aplicado = :codigo_pedido, updated_at = NOW()
+            WHERE codigo_usuario = :codigo_usuario
+              AND estado = 'pendiente'
+        ";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+        $st->bindValue(':codigo_usuario', $codigoUsuarioComprador, PDO::PARAM_INT);
+        $st->execute();
+
+        return $total;
+    }
+
+    private function liberarPenalidadesReservadasPedido(int $codigoPedido): void
+    {
+        if ($codigoPedido <= 0) return;
+
+        $sql = "
+            UPDATE usuario_penalidad
+            SET estado = 'pendiente', codigo_pedido_aplicado = NULL, updated_at = NOW()
+            WHERE codigo_pedido_aplicado = :codigo_pedido
+              AND estado = 'reservada'
+        ";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+        $st->execute();
+    }
+
+    private function aplicarPenalidadesReservadasPedido(int $codigoPedido): void
+    {
+        if ($codigoPedido <= 0) return;
+
+        $sql = "
+            UPDATE usuario_penalidad
+            SET estado = 'aplicada', fecha_aplicacion = NOW(), updated_at = NOW()
+            WHERE codigo_pedido_aplicado = :codigo_pedido
+              AND estado = 'reservada'
+        ";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+        $st->execute();
+    }
+
+    private function registrarPenalidadCompradorPendiente(
+        int $codigoUsuarioComprador,
+        int $codigoPedidoOrigen,
+        string $motivoClave,
+        string $descripcion
+    ): void {
+        if ($codigoUsuarioComprador <= 0 || $codigoPedidoOrigen <= 0) return;
+
+        $sqlExiste = "
+            SELECT 1
+            FROM usuario_penalidad
+            WHERE codigo_usuario = :codigo_usuario
+              AND codigo_pedido_origen = :codigo_pedido_origen
+              AND estado IN ('pendiente', 'reservada', 'aplicada')
+            LIMIT 1
+        ";
+        $stExiste = $this->dblink->prepare($sqlExiste);
+        $stExiste->bindValue(':codigo_usuario', $codigoUsuarioComprador, PDO::PARAM_INT);
+        $stExiste->bindValue(':codigo_pedido_origen', $codigoPedidoOrigen, PDO::PARAM_INT);
+        $stExiste->execute();
+
+        if ($stExiste->fetchColumn()) return;
+
+        $sql = "
+            INSERT INTO usuario_penalidad
+            (
+                codigo_usuario,
+                codigo_pedido_origen,
+                monto,
+                estado,
+                motivo_clave,
+                descripcion
+            )
+            VALUES
+            (
+                :codigo_usuario,
+                :codigo_pedido_origen,
+                :monto,
+                'pendiente',
+                :motivo_clave,
+                :descripcion
+            )
+        ";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_usuario', $codigoUsuarioComprador, PDO::PARAM_INT);
+        $st->bindValue(':codigo_pedido_origen', $codigoPedidoOrigen, PDO::PARAM_INT);
+        $st->bindValue(':monto', self::PENALIDAD_CANCELACION_COMPRADOR);
+        $st->bindValue(':motivo_clave', mb_substr($motivoClave, 0, 80, 'UTF-8'), PDO::PARAM_STR);
+        $st->bindValue(':descripcion', mb_substr($descripcion, 0, 255, 'UTF-8'), PDO::PARAM_STR);
+        $st->execute();
+    }
+
+    private function registrarComisionPendienteVendedor(int $codigoPedido, int $codigoUsuarioVendedor, float $monto): void
+    {
+        if ($codigoPedido <= 0 || $codigoUsuarioVendedor <= 0 || $monto <= 0) return;
+
+        $sql = "
+            INSERT INTO vendedor_comision_ev
+            (
+                codigo_pedido,
+                codigo_usuario_vendedor,
+                monto,
+                estado
+            )
+            VALUES
+            (
+                :codigo_pedido,
+                :codigo_usuario_vendedor,
+                :monto,
+                'pendiente'
+            )
+            ON DUPLICATE KEY UPDATE
+                monto = VALUES(monto),
+                estado = IF(estado = 'cobrada', estado, 'pendiente'),
+                updated_at = NOW()
+        ";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+        $st->bindValue(':codigo_usuario_vendedor', $codigoUsuarioVendedor, PDO::PARAM_INT);
+        $st->bindValue(':monto', $monto);
+        $st->execute();
+    }
+
+    private function aplicarComisionEVPorAceptacion(array $pedido): void
+    {
+        $codigoPedido = (int)($pedido['codigo_pedido'] ?? 0);
+        $codigoVendedor = (int)($pedido['codigo_usuario_vendedor'] ?? 0);
+
+        if ($codigoPedido <= 0 || $codigoVendedor <= 0) return;
+
+        if ((int)($pedido['comision_ev_aplicada'] ?? 0) === 1 || (int)($pedido['comision_ev_pendiente'] ?? 0) === 1) {
+            return;
+        }
+
+        $base = $this->baseComisionPedido($pedido);
+        $monto = round($base * self::COMISION_EV_PORCENTAJE, 2);
+
+        if ($monto <= 0) return;
+
+        $billetera = $this->obtenerOBilleteraBloqueada($codigoVendedor);
+        $codigoBilletera = (int)$billetera['codigo_billetera'];
+        $saldoAntes = (float)$billetera['saldo_actual'];
+
+        if ($saldoAntes >= $monto) {
+            $saldoDespues = round($saldoAntes - $monto, 2);
+
+            $this->registrarMovimientoBilletera(
+                $codigoBilletera,
+                'D',
+                $monto,
+                $saldoAntes,
+                $saldoDespues,
+                'Comisión EV por pedido aceptado',
+                'COMISION_EV_PEDIDO',
+                $codigoPedido
+            );
+            $this->actualizarSaldoBilletera($codigoBilletera, $saldoDespues);
+
+            $sql = "
+                UPDATE pedido
+                SET
+                    comision_ev_monto = :monto,
+                    comision_ev_aplicada = 1,
+                    comision_ev_pendiente = 0
+                WHERE codigo_pedido = :codigo_pedido
+            ";
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':monto', $monto);
+            $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+            $st->execute();
+            return;
+        }
+
+        $this->registrarComisionPendienteVendedor($codigoPedido, $codigoVendedor, $monto);
+
+        $sql = "
+            UPDATE pedido
+            SET
+                comision_ev_monto = :monto,
+                comision_ev_aplicada = 0,
+                comision_ev_pendiente = 1
+            WHERE codigo_pedido = :codigo_pedido
+        ";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':monto', $monto);
+        $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+        $st->execute();
+    }
+
+    private function textoEstadoPedidoEV(string $estado): string
+    {
+        return match ($estado) {
+            'pendiente_vendedor' => 'Pendiente de atención',
+            'cola_pendiente_confirmacion' => 'Pendiente de confirmación de cola',
+            'cola_aceptada' => 'En cola',
+            'en_preparacion' => 'En preparación',
+            'despachando' => 'Despachando',
+            'listo_para_entrega' => 'Listo para entrega',
+            'en_camino' => 'En camino',
+            'en_punto_entrega' => 'En punto de recojo',
+            'entregado_vendedor' => 'Entregado por vendedor',
+            'entrega_confirmada_comprador' => 'Entrega confirmada',
+            'cancelado_comprador' => 'Cancelado por comprador',
+            'cancelado_vendedor' => 'Cancelado por vendedor',
+            'rechazado_vendedor' => 'Rechazado por vendedor',
+            'sin_respuesta_vendedor' => 'Sin respuesta del vendedor',
+            default => 'Estado actualizado',
+        };
+    }
+
+    private function mensajeEstadoCompradorEV(string $estado, array $pedido): string
+    {
+        $titulo = trim((string)($pedido['titulo_producto'] ?? 'tu pedido'));
+
+        return match ($estado) {
+            'en_preparacion' => "El vendedor aceptó tu pedido de {$titulo} y ya está en preparación.",
+            'despachando' => "El vendedor aceptó tu pedido de {$titulo} y está despachándolo.",
+            'listo_para_entrega' => "Tu pedido de {$titulo} ya está listo para entrega.",
+            'en_camino' => "Tu pedido de {$titulo} ya va en camino.",
+            'en_punto_entrega' => "Tu pedido de {$titulo} llegó al punto de recojo. Recuerda que tienes 6 minutos para recibirlo.",
+            'entregado_vendedor' => "El vendedor marcó tu pedido de {$titulo} como entregado. Confirma la recepción cuando corresponda.",
+            'cancelado_vendedor' => (string)($pedido['motivo_estado'] ?? 'El vendedor canceló el pedido.'),
+            'rechazado_vendedor' => (string)($pedido['motivo_estado'] ?? 'El vendedor rechazó tu solicitud.'),
+            'sin_respuesta_vendedor' => 'El vendedor no respondió dentro del tiempo esperado.',
+            default => (string)($pedido['motivo_estado'] ?? 'Tu pedido cambió de estado.'),
+        };
+    }
+
+    private function registrarNotificacionPedido(
+        int $codigoUsuario,
+        string $subcategoria,
+        int $codigoPedido,
+        string $titulo,
+        string $mensaje,
+        array $payload = []
+    ): void {
+        if ($codigoUsuario <= 0 || $codigoPedido <= 0) return;
+
+        $sqlExiste = "
+            SELECT codigo_notificacion
+            FROM notificacion
+            WHERE codigo_usuario = :codigo_usuario
+              AND categoria = 'pedido'
+              AND subcategoria = :subcategoria
+              AND referencia_id = :referencia_id
+              AND estado = 'no_leida'
+            LIMIT 1
+        ";
+        $stExiste = $this->dblink->prepare($sqlExiste);
+        $stExiste->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+        $stExiste->bindValue(':subcategoria', $subcategoria, PDO::PARAM_STR);
+        $stExiste->bindValue(':referencia_id', $codigoPedido, PDO::PARAM_INT);
+        $stExiste->execute();
+
+        if ($stExiste->fetchColumn()) return;
+
+        $payload['codigo_pedido'] = $codigoPedido;
+        $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        $sql = "
+            INSERT INTO notificacion
+            (
+                codigo_usuario,
+                canal,
+                categoria,
+                subcategoria,
+                referencia_id,
+                titulo,
+                mensaje,
+                payload_json,
+                estado
+            )
+            VALUES
+            (
+                :codigo_usuario,
+                'app',
+                'pedido',
+                :subcategoria,
+                :referencia_id,
+                :titulo,
+                :mensaje,
+                :payload_json,
+                'no_leida'
+            )
+        ";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+        $st->bindValue(':subcategoria', $subcategoria, PDO::PARAM_STR);
+        $st->bindValue(':referencia_id', $codigoPedido, PDO::PARAM_INT);
+        $st->bindValue(':titulo', mb_substr($titulo, 0, 180, 'UTF-8'), PDO::PARAM_STR);
+        $st->bindValue(':mensaje', $mensaje, PDO::PARAM_STR);
+        $st->bindValue(':payload_json', $payloadJson, PDO::PARAM_STR);
+        $st->execute();
+    }
+
+    private function registrarAlertaAvanceComprador(array $pedido, string $estadoNuevo): void
+    {
+        $codigoComprador = (int)($pedido['codigo_usuario_comprador'] ?? 0);
+        $codigoPedido = (int)($pedido['codigo_pedido'] ?? 0);
+        if ($codigoComprador <= 0 || $codigoPedido <= 0) return;
+
+        $titulo = $this->textoEstadoPedidoEV($estadoNuevo);
+        $mensaje = $this->mensajeEstadoCompradorEV($estadoNuevo, $pedido);
+
+        $this->registrarNotificacionPedido(
+            $codigoComprador,
+            'avance_estado',
+            $codigoPedido,
+            $titulo,
+            $mensaje,
+            [
+                'estado_actual' => $estadoNuevo,
+                'rol_destino' => 'comprador',
+                'ruta' => '/mis-pedidos-comprador',
+                'titulo_producto' => (string)($pedido['titulo_producto'] ?? '')
+            ]
+        );
+    }
+
+    private function registrarAlertaPedidoVendedor(array $pedido, string $subcategoria, string $titulo, string $mensaje): void
+    {
+        $codigoVendedor = (int)($pedido['codigo_usuario_vendedor'] ?? 0);
+        $codigoPedido = (int)($pedido['codigo_pedido'] ?? 0);
+        if ($codigoVendedor <= 0 || $codigoPedido <= 0) return;
+
+        $this->registrarNotificacionPedido(
+            $codigoVendedor,
+            $subcategoria,
+            $codigoPedido,
+            $titulo,
+            $mensaje,
+            [
+                'rol_destino' => 'vendedor',
+                'ruta' => '/mis-pedidos-vendedor',
+                'titulo_producto' => (string)($pedido['titulo_producto'] ?? '')
+            ]
+        );
+    }
+
+    private function segundosRecojoRestantes(array $pedido): int
+    {
+        $estado = (string)($pedido['estado_actual'] ?? '');
+        if ($estado !== 'en_punto_entrega') return 0;
+
+        $limite = trim((string)($pedido['fecha_limite_recojo'] ?? ''));
+        if ($limite === '') return 0;
+
+        try {
+            // EV: comparar contra NOW() de MySQL/MariaDB evita desfases de zona horaria
+            // entre PHP (UTC) y la BD/local (Lima). Si se usa time(), el sistema puede
+            // considerar vencidos los 6 minutos inmediatamente.
+            $st = $this->dblink->prepare("SELECT GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), :fecha_limite))");
+            $st->bindValue(':fecha_limite', $limite, PDO::PARAM_STR);
+            $st->execute();
+            return max(0, (int)$st->fetchColumn());
+        } catch (Throwable $e) {
+            error_log('[EV][Pedido][segundosRecojoRestantes] ' . $e->getMessage());
+
+            $ts = strtotime($limite);
+            if ($ts === false) return 0;
+
+            return max(0, $ts - time());
+        }
+    }
+
+    private function puedeVendedorCancelarPorNoRecojo(array $pedido): bool
+    {
+        return (string)($pedido['estado_actual'] ?? '') === 'en_punto_entrega'
+            && trim((string)($pedido['fecha_limite_recojo'] ?? '')) !== ''
+            && $this->segundosRecojoRestantes($pedido) <= 0;
+    }
+
+    private function motivoCancelacionVendedorTexto(string $clave, string $detalle = ''): string
+    {
+        $base = match ($clave) {
+            'comprador_no_se_presento' => 'El comprador no se presentó en el punto de recojo.',
+            'comprador_no_responde' => 'El comprador no respondió para concretar la entrega.',
+            'comprador_rechazo_recepcion' => 'El comprador rechazó recibir el pedido.',
+            'no_se_pudo_concretar' => 'No se pudo concretar la entrega.',
+            'otro' => 'El vendedor canceló el pedido por otro motivo.',
+            default => 'El vendedor canceló el pedido por no concretarse el recojo.',
+        };
+
+        $detalle = trim($detalle);
+        return $detalle !== '' ? $base . ' Detalle: ' . $detalle : $base;
+    }
+
+    public function listarAlertasPedidoUsuario(int $codigoUsuario): array
+    {
+        try {
+            if ($codigoUsuario <= 0) {
+                return ['ok' => false, 'error' => 'USUARIO_INVALIDO', 'mensaje' => 'Usuario inválido.'];
+            }
+
+            $sql = "
+                SELECT
+                    codigo_notificacion,
+                    subcategoria,
+                    referencia_id,
+                    titulo,
+                    mensaje,
+                    payload_json,
+                    DATE_FORMAT(created_at, '%d/%m/%Y %H:%i') AS fecha
+                FROM notificacion
+                WHERE codigo_usuario = :codigo_usuario
+                  AND categoria = 'pedido'
+                  AND estado = 'no_leida'
+                ORDER BY codigo_notificacion ASC
+                LIMIT 5
+            ";
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+            $st->execute();
+            $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+            foreach ($rows as &$row) {
+                $payload = json_decode((string)($row['payload_json'] ?? '{}'), true);
+                $row['payload'] = is_array($payload) ? $payload : [];
+                unset($row['payload_json']);
+            }
+            unset($row);
+
+            return ['ok' => true, 'data' => $rows];
+        } catch (Throwable $e) {
+            error_log('[EV][Pedido][listarAlertasPedidoUsuario] ' . $e->getMessage());
+            return ['ok' => false, 'error' => 'ERROR_ALERTAS_PEDIDO', 'mensaje' => 'No se pudieron obtener las alertas de pedido.'];
+        }
+    }
+
+    public function marcarAlertaPedidoLeida(int $codigoUsuario, int $codigoNotificacion): array
+    {
+        try {
+            if ($codigoUsuario <= 0 || $codigoNotificacion <= 0) {
+                return ['ok' => false, 'error' => 'PARAMETROS_INVALIDOS', 'mensaje' => 'Parámetros inválidos.'];
+            }
+
+            $sql = "
+                UPDATE notificacion
+                SET estado = 'leida', read_at = NOW()
+                WHERE codigo_notificacion = :codigo_notificacion
+                  AND codigo_usuario = :codigo_usuario
+                  AND categoria = 'pedido'
+            ";
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':codigo_notificacion', $codigoNotificacion, PDO::PARAM_INT);
+            $st->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+            $st->execute();
+
+            return ['ok' => true];
+        } catch (Throwable $e) {
+            error_log('[EV][Pedido][marcarAlertaPedidoLeida] ' . $e->getMessage());
+            return ['ok' => false, 'error' => 'ERROR_MARCAR_ALERTA', 'mensaje' => 'No se pudo marcar la alerta como leída.'];
+        }
+    }
 
     // =========================================================
     // HELPERS GENERALES
@@ -232,17 +765,24 @@ class Pedido extends Conexion
         int $esPromocional = 0,
         ?string $fechaExpira = null
     ): void {
+        $concepto = $this->obtenerConceptoMovimiento($origen, $descripcion);
+
         $sql = "
             INSERT INTO billetera_movimiento
             (
                 codigo_billetera,
                 tipo_movimiento,
+                concepto,
                 monto,
                 saldo_antes,
                 saldo_despues,
+                saldo_anterior,
+                saldo_posterior,
                 descripcion,
                 origen,
                 codigo_referencia,
+                referencia_tipo,
+                referencia_id,
                 es_promocional,
                 fecha_expira
             )
@@ -250,12 +790,17 @@ class Pedido extends Conexion
             (
                 :codigo_billetera,
                 :tipo_movimiento,
+                :concepto,
                 :monto,
                 :saldo_antes,
                 :saldo_despues,
+                :saldo_anterior,
+                :saldo_posterior,
                 :descripcion,
                 :origen,
                 :codigo_referencia,
+                :referencia_tipo,
+                :referencia_id,
                 :es_promocional,
                 :fecha_expira
             )
@@ -264,16 +809,23 @@ class Pedido extends Conexion
         $st = $this->dblink->prepare($sql);
         $st->bindValue(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
         $st->bindValue(':tipo_movimiento', $tipoMovimiento, PDO::PARAM_STR);
+        $st->bindValue(':concepto', $concepto, PDO::PARAM_STR);
         $st->bindValue(':monto', $monto);
         $st->bindValue(':saldo_antes', $saldoAntes);
         $st->bindValue(':saldo_despues', $saldoDespues);
-        $st->bindValue(':descripcion', $descripcion, PDO::PARAM_STR);
+        $st->bindValue(':saldo_anterior', $saldoAntes);
+        $st->bindValue(':saldo_posterior', $saldoDespues);
+        $st->bindValue(':descripcion', mb_substr($descripcion, 0, 180, 'UTF-8'), PDO::PARAM_STR);
         $st->bindValue(':origen', $origen, PDO::PARAM_STR);
 
         if ($codigoReferencia !== null) {
             $st->bindValue(':codigo_referencia', $codigoReferencia, PDO::PARAM_INT);
+            $st->bindValue(':referencia_tipo', $origen, PDO::PARAM_STR);
+            $st->bindValue(':referencia_id', $codigoReferencia, PDO::PARAM_INT);
         } else {
             $st->bindValue(':codigo_referencia', null, PDO::PARAM_NULL);
+            $st->bindValue(':referencia_tipo', null, PDO::PARAM_NULL);
+            $st->bindValue(':referencia_id', null, PDO::PARAM_NULL);
         }
 
         $st->bindValue(':es_promocional', $esPromocional, PDO::PARAM_INT);
@@ -281,19 +833,23 @@ class Pedido extends Conexion
         $st->execute();
     }
 
+
     private function actualizarSaldoBilletera(int $codigoBilletera, float $nuevoSaldo): void
     {
         $sql = "
             UPDATE billetera
-            SET saldo_actual = :saldo_actual
+            SET saldo_actual = :saldo_actual,
+                saldo = :saldo
             WHERE codigo_billetera = :codigo_billetera
         ";
 
         $st = $this->dblink->prepare($sql);
         $st->bindValue(':saldo_actual', $nuevoSaldo);
+        $st->bindValue(':saldo', $nuevoSaldo);
         $st->bindValue(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
         $st->execute();
     }
+
 
     private function debitarBilleteraPorSolicitudPreparada(
         int $codigoUsuarioComprador,
@@ -374,6 +930,17 @@ class Pedido extends Conexion
         $devolucionAplicada = (int)($pedido['devolucion_billetera_aplicada'] ?? 0) === 1;
         $monto = round((float)($pedido['monto_descontado_billetera'] ?? 0), 2);
 
+        $esPreparado = $this->esProductoPreparadoPedido($pedido);
+        $fueAceptado = $this->pedidoFueAceptado($pedido);
+        $sinReembolso = (int)($pedido['sin_reembolso'] ?? 0) === 1;
+
+        // Regla EV 2.0:
+        // Producto preparado solo devuelve si la solicitud NO llegó a ser aceptada por el vendedor.
+        // Si ya fue aceptada y el comprador cancela/no recoge, no hay devolución.
+        if ($sinReembolso || ($esPreparado && $fueAceptado && in_array($contexto, ['cancelado_comprador', 'cancelado_vendedor'], true))) {
+            return;
+        }
+
         if (
             $codigoPedido <= 0 ||
             $codigoUsuarioComprador <= 0 ||
@@ -410,6 +977,7 @@ class Pedido extends Conexion
         $up->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
         $up->execute();
     }
+
 
     private function registrarHistorialEstado(
         int $codigoPedido,
@@ -909,6 +1477,7 @@ class Pedido extends Conexion
                 SET
                     fase = 'pedido',
                     estado_actual = 'sin_respuesta_vendedor',
+                    estado = 'sin_respuesta_vendedor',
                     motivo_estado = :motivo_estado,
                     fecha_cierre = NOW(),
                     fecha_limite_respuesta = NULL,
@@ -931,7 +1500,9 @@ class Pedido extends Conexion
                 'La solicitud venció sin respuesta del vendedor.'
             );
 
+            $this->liberarPenalidadesReservadasPedido($codigoPedido);
             $this->devolverBilleteraSiCorresponde($pedido, 'sin_respuesta_vendedor');
+            $this->registrarAlertaAvanceComprador($pedido, 'sin_respuesta_vendedor');
             $this->moverSiguienteColaAPendiente((int)$pedido['codigo_usuario_vendedor']);
 
             $this->dblink->commit();
@@ -943,6 +1514,7 @@ class Pedido extends Conexion
             error_log('[EV][Pedido][marcarSolicitudSinRespuestaVencida] ' . $e->getMessage());
         }
     }
+
 
     private function obtenerSegundosRestantesRespuestaSolicitud(array $pedido): int
     {
@@ -1094,6 +1666,15 @@ class Pedido extends Conexion
             'puede_cancelar'                        => $puedeCancelar,
             'segundos_restantes'                    => $segundosRestantes,
             'segundos_para_cancelar_restantes'      => $segundosParaCancelarRestantes,
+            'metodo_pago'                           => (string)($pedido['metodo_pago'] ?? ''),
+            'penalidad_comprador_monto'             => (float)($pedido['penalidad_comprador_monto'] ?? 0),
+            'penalidad_comprador_aplicada'          => (int)($pedido['penalidad_comprador_aplicada'] ?? 0),
+            'comision_ev_monto'                     => (float)($pedido['comision_ev_monto'] ?? 0),
+            'comision_ev_aplicada'                  => (int)($pedido['comision_ev_aplicada'] ?? 0),
+            'comision_ev_pendiente'                 => (int)($pedido['comision_ev_pendiente'] ?? 0),
+            'fecha_punto_recojo'                    => $pedido['fecha_punto_recojo'] ?? null,
+            'fecha_limite_recojo'                   => $pedido['fecha_limite_recojo'] ?? null,
+            'segundos_recojo_restantes'             => $this->segundosRecojoRestantes($pedido),
             'finalizado'                            => in_array($estado, [
                 'cancelado_comprador',
                 'sin_respuesta_vendedor',
@@ -1118,6 +1699,7 @@ class Pedido extends Conexion
         $direccionEntrega       = trim((string)($data['direccion_entrega'] ?? ''));
         $mensajeComprador       = trim((string)($data['mensaje_comprador'] ?? ''));
         $aceptaCola             = (int)($data['acepta_cola'] ?? 0);
+        $metodoPago             = strtolower(trim((string)($data['metodo_pago'] ?? 'efectivo')));
 
         if ($codigoProducto <= 0 || $codigoUsuarioComprador <= 0) {
             return [
@@ -1179,9 +1761,14 @@ class Pedido extends Conexion
         }
 
         $costoUnitario  = (float)($producto['precio'] ?? 0);
-        $total          = round($costoUnitario * $cantidad, 2);
+        $subtotalProducto = round($costoUnitario * $cantidad, 2);
         $requierePrep   = (int)($producto['requiere_preparacion'] ?? 0);
         $codigoVendedor = (int)($producto['codigo_usuario_vendedor'] ?? 0);
+
+        // Regla EV 2.0: producto preparado exige billetera; no preparado queda en efectivo por defecto.
+        $metodoPago = ($requierePrep === 1) ? 'billetera' : 'efectivo';
+        $penalidadReservada = 0.00;
+        $total = $subtotalProducto;
 
         try {
             $this->dblink->beginTransaction();
@@ -1213,6 +1800,12 @@ class Pedido extends Conexion
                 }
             }
 
+            // Penalidad pendiente: solo se reserva y suma al siguiente pedido no preparado en efectivo.
+            if ($requierePrep === 0 && $metodoPago === 'efectivo') {
+                $penalidadReservada = $this->obtenerPenalidadPendienteComprador($codigoUsuarioComprador);
+                $total = round($subtotalProducto + $penalidadReservada, 2);
+            }
+
             $sql = "
                 INSERT INTO pedido
                 (
@@ -1221,16 +1814,22 @@ class Pedido extends Conexion
                     codigo_usuario_vendedor,
                     fase,
                     estado_actual,
+                    estado,
                     cantidad,
                     costo_unitario,
+                    precio_unitario,
                     total,
+                    monto_total,
                     tipo_entrega,
                     fecha_hora_programada,
+                    fecha_programada,
                     direccion_entrega,
                     mensaje_comprador,
                     posicion_cola,
                     motivo_estado,
                     requiere_preparacion,
+                    metodo_pago,
+                    penalidad_comprador_monto,
                     monto_descontado_billetera,
                     descuento_billetera_aplicado,
                     devolucion_billetera_aplicada,
@@ -1243,16 +1842,22 @@ class Pedido extends Conexion
                     :codigo_usuario_vendedor,
                     :fase,
                     :estado_actual,
+                    :estado,
                     :cantidad,
                     :costo_unitario,
+                    :precio_unitario,
                     :total,
+                    :monto_total,
                     :tipo_entrega,
                     :fecha_hora_programada,
+                    :fecha_programada,
                     :direccion_entrega,
                     :mensaje_comprador,
                     :posicion_cola,
                     :motivo_estado,
                     :requiere_preparacion,
+                    :metodo_pago,
+                    :penalidad_comprador_monto,
                     0.00,
                     0,
                     0,
@@ -1266,15 +1871,20 @@ class Pedido extends Conexion
             $st->bindValue(':codigo_usuario_vendedor', $codigoVendedor, PDO::PARAM_INT);
             $st->bindValue(':fase', $fase, PDO::PARAM_STR);
             $st->bindValue(':estado_actual', $estadoActual, PDO::PARAM_STR);
+            $st->bindValue(':estado', $estadoActual, PDO::PARAM_STR);
             $st->bindValue(':cantidad', $cantidad, PDO::PARAM_INT);
             $st->bindValue(':costo_unitario', $costoUnitario);
+            $st->bindValue(':precio_unitario', $costoUnitario);
             $st->bindValue(':total', $total);
+            $st->bindValue(':monto_total', $total);
             $st->bindValue(':tipo_entrega', $tipoEntrega, PDO::PARAM_STR);
 
             if ($fechaProgramadaMySql !== null) {
                 $st->bindValue(':fecha_hora_programada', $fechaProgramadaMySql, PDO::PARAM_STR);
+                $st->bindValue(':fecha_programada', $fechaProgramadaMySql, PDO::PARAM_STR);
             } else {
                 $st->bindValue(':fecha_hora_programada', null, PDO::PARAM_NULL);
+                $st->bindValue(':fecha_programada', null, PDO::PARAM_NULL);
             }
 
             $st->bindValue(':direccion_entrega', $direccionEntrega, PDO::PARAM_STR);
@@ -1288,6 +1898,8 @@ class Pedido extends Conexion
             $st->bindValue(':posicion_cola', $posicionCola, PDO::PARAM_INT);
             $st->bindValue(':motivo_estado', $motivoEstado, PDO::PARAM_STR);
             $st->bindValue(':requiere_preparacion', $requierePrep, PDO::PARAM_INT);
+            $st->bindValue(':metodo_pago', $metodoPago, PDO::PARAM_STR);
+            $st->bindValue(':penalidad_comprador_monto', $penalidadReservada);
 
             if ($fechaLimite !== null) {
                 $st->bindValue(':fecha_limite_respuesta', $fechaLimite, PDO::PARAM_STR);
@@ -1299,11 +1911,15 @@ class Pedido extends Conexion
 
             $codigoPedido = (int)$this->dblink->lastInsertId();
 
+            if ($penalidadReservada > 0) {
+                $this->reservarPenalidadesPendientesParaPedido($codigoUsuarioComprador, $codigoPedido);
+            }
+
             if ($requierePrep === 1) {
                 $debito = $this->debitarBilleteraPorSolicitudPreparada(
                     $codigoUsuarioComprador,
                     $codigoPedido,
-                    $total,
+                    $subtotalProducto,
                     (string)($producto['titulo'] ?? 'producto')
                 );
 
@@ -1315,7 +1931,7 @@ class Pedido extends Conexion
                         'error'           => 'SALDO_INSUFICIENTE_BILLETERA',
                         'mensaje'         => 'No tienes saldo suficiente en tu billetera para este producto con preparación.',
                         'saldo_actual'    => (float)($debito['saldo_actual'] ?? 0),
-                        'monto_requerido' => (float)($debito['monto_requerido'] ?? $total)
+                        'monto_requerido' => (float)($debito['monto_requerido'] ?? $subtotalProducto)
                     ];
                 }
             }
@@ -1349,7 +1965,9 @@ class Pedido extends Conexion
                     'motivo_estado'                 => $motivoEstado,
                     'posicion_cola'                 => $posicionCola,
                     'requiere_preparacion'          => $requierePrep,
-                    'monto_descontado_billetera'    => $requierePrep === 1 ? $total : 0,
+                    'metodo_pago'                   => $metodoPago,
+                    'penalidad_comprador_monto'     => $penalidadReservada,
+                    'monto_descontado_billetera'    => $requierePrep === 1 ? $subtotalProducto : 0,
                     'descuento_billetera_aplicado'  => $requierePrep === 1 ? 1 : 0,
                     'devolucion_billetera_aplicada' => 0,
                     'fecha_limite_respuesta'        => $fechaLimite,
@@ -1370,6 +1988,7 @@ class Pedido extends Conexion
             ];
         }
     }
+
 
     public function confirmarColaPorComprador(int $codigoPedido, int $codigoUsuarioComprador): array
     {
@@ -1485,82 +2104,141 @@ class Pedido extends Conexion
                 return [
                     'ok'      => false,
                     'error'   => 'PEDIDO_NO_ENCONTRADO',
-                    'mensaje' => 'No se encontró la solicitud.'
+                    'mensaje' => 'No se encontró la solicitud o pedido.'
                 ];
             }
 
             $estadoAnterior = (string)$pedido['estado_actual'];
+            $faseAnterior = (string)$pedido['fase'];
             $motivo = trim($motivo);
+            $esPreparado = $this->esProductoPreparadoPedido($pedido);
+            $esPedidoAceptado = $this->pedidoFueAceptado($pedido);
 
-            if (!in_array($estadoAnterior, ['pendiente_vendedor', 'cola_pendiente_confirmacion', 'cola_aceptada'], true)) {
+            // Decisión confirmada: producto preparado no se cancela por comprador.
+            if ($esPreparado) {
+                $this->dblink->rollBack();
+
+                return [
+                    'ok'      => false,
+                    'error'   => 'CANCELACION_NO_PERMITIDA_PRODUCTO_PREPARADO',
+                    'mensaje' => 'Los productos preparados no pueden cancelarse desde el comprador. Si no recoges el pedido dentro del tiempo indicado, no habrá devolución.',
+                    'data'    => $this->construirDataEstadoSolicitud($pedido)
+                ];
+            }
+
+            $penalidadNueva = 0.00;
+            $cancelable = false;
+            $motivoHistorial = 'cancelacion_solicitud';
+
+            if ($faseAnterior === 'solicitud' && in_array($estadoAnterior, ['pendiente_vendedor', 'cola_pendiente_confirmacion', 'cola_aceptada'], true)) {
+                if ($estadoAnterior === 'pendiente_vendedor') {
+                    $segundosParaCancelarRestantes = $this->obtenerSegundosParaCancelarSolicitud($pedido);
+
+                    if ($segundosParaCancelarRestantes > 0) {
+                        $this->dblink->rollBack();
+
+                        $min = str_pad((string)floor($segundosParaCancelarRestantes / 60), 2, '0', STR_PAD_LEFT);
+                        $sec = str_pad((string)($segundosParaCancelarRestantes % 60), 2, '0', STR_PAD_LEFT);
+
+                        return [
+                            'ok'      => false,
+                            'error'   => 'CANCELACION_AUN_NO_DISPONIBLE',
+                            'mensaje' => "Podrás cancelar esta solicitud cuando se cumplan 2 minutos de espera. Tiempo restante: {$min}:{$sec}.",
+                            'data'    => $this->construirDataEstadoSolicitud($pedido)
+                        ];
+                    }
+                }
+
+                $cancelable = true;
+                $motivoHistorial = 'cancelacion_solicitud';
+                $this->liberarPenalidadesReservadasPedido($codigoPedido);
+            }
+
+            if ($esPedidoAceptado && $faseAnterior === 'pedido') {
+                // Producto no preparado: sin penalidad solo en despachando.
+                if ($estadoAnterior === 'despachando') {
+                    $cancelable = true;
+                    $motivoHistorial = 'cancelacion_pedido_sin_penalidad';
+                } elseif (in_array($estadoAnterior, ['listo_para_entrega', 'en_camino', 'en_punto_entrega'], true)) {
+                    $cancelable = true;
+                    $penalidadNueva = self::PENALIDAD_CANCELACION_COMPRADOR;
+                    $motivoHistorial = 'cancelacion_pedido_con_penalidad';
+                }
+            }
+
+            if (!$cancelable) {
                 $this->dblink->rollBack();
 
                 return [
                     'ok'      => false,
                     'error'   => 'ESTADO_NO_CANCELABLE',
-                    'mensaje' => 'La solicitud ya no se puede cancelar.',
+                    'mensaje' => 'El pedido ya no se puede cancelar desde este estado.',
                     'data'    => $this->construirDataEstadoSolicitud($pedido)
                 ];
             }
 
-            if ($estadoAnterior === 'pendiente_vendedor') {
-                $segundosParaCancelarRestantes = $this->obtenerSegundosParaCancelarSolicitud($pedido);
-
-                if ($segundosParaCancelarRestantes > 0) {
-                    $this->dblink->rollBack();
-
-                    $min = str_pad((string)floor($segundosParaCancelarRestantes / 60), 2, '0', STR_PAD_LEFT);
-                    $sec = str_pad((string)($segundosParaCancelarRestantes % 60), 2, '0', STR_PAD_LEFT);
-
-                    return [
-                        'ok'      => false,
-                        'error'   => 'CANCELACION_AUN_NO_DISPONIBLE',
-                        'mensaje' => "Podrás cancelar esta solicitud cuando se cumplan 2 minutos de espera. Tiempo restante: {$min}:{$sec}.",
-                        'data'    => $this->construirDataEstadoSolicitud($pedido)
-                    ];
-                }
-            }
-
             if ($motivo === '') {
-                $motivo = in_array($estadoAnterior, ['cola_pendiente_confirmacion', 'cola_aceptada'], true)
-                    ? 'Ya no deseo continuar con el pedido.'
-                    : 'Solicitud cancelada por el comprador.';
+                $motivo = 'Pedido cancelado por el comprador.';
             }
 
-            $motivoEstado = in_array($estadoAnterior, ['cola_pendiente_confirmacion', 'cola_aceptada'], true)
-                ? 'El comprador decidió no continuar con la cola. Motivo: ' . $motivo
+            $motivoEstado = $penalidadNueva > 0
+                ? $motivo . ' Se aplicará una penalidad de S/ 1.00 en el siguiente pedido.'
                 : $motivo;
 
             $up = $this->dblink->prepare("
                 UPDATE pedido
                 SET
+                    fase = 'pedido',
                     estado_actual = 'cancelado_comprador',
+                    estado = 'cancelado_comprador',
                     motivo_estado = :motivo_estado,
+                    motivo_cancelacion = :motivo_cancelacion,
+                    cancelado_por = 'comprador',
+                    penalidad_comprador_aplicada = CASE WHEN :penalidad > 0 THEN 1 ELSE penalidad_comprador_aplicada END,
                     fecha_cancelacion = NOW(),
                     fecha_cierre = NOW(),
                     posicion_cola = 0,
-                    fecha_limite_respuesta = NULL
+                    fecha_limite_respuesta = NULL,
+                    oculto_comprador = 1,
+                    oculto_vendedor = 1
                 WHERE codigo_pedido = :codigo_pedido
             ");
             $up->bindValue(':motivo_estado', $motivoEstado, PDO::PARAM_STR);
+            $up->bindValue(':motivo_cancelacion', mb_substr($motivo, 0, 255, 'UTF-8'), PDO::PARAM_STR);
+            $up->bindValue(':penalidad', $penalidadNueva);
             $up->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
             $up->execute();
 
             $this->registrarHistorialEstado(
                 (int)$pedido['codigo_pedido'],
-                (string)$pedido['fase'],
+                $faseAnterior,
                 $estadoAnterior,
-                (string)$pedido['fase'],
+                'pedido',
                 'cancelado_comprador',
                 $codigoUsuarioComprador,
                 'comprador',
-                'cancelacion_solicitud',
-                $motivo
+                $motivoHistorial,
+                $motivoEstado
             );
 
-            $this->devolverBilleteraSiCorresponde($pedido, 'cancelado_comprador');
+            if ($penalidadNueva > 0) {
+                $this->registrarPenalidadCompradorPendiente(
+                    $codigoUsuarioComprador,
+                    $codigoPedido,
+                    'cancelacion_comprador_fuera_despacho',
+                    'Penalidad por cancelar o no recibir un pedido no preparado fuera del estado despachando.'
+                );
+            }
 
-            if ($estadoAnterior === 'pendiente_vendedor') {
+            $this->devolverBilleteraSiCorresponde($pedido, 'cancelado_comprador');
+            $this->registrarAlertaPedidoVendedor(
+                $pedido,
+                'cancelado_por_comprador',
+                'Pedido cancelado por comprador',
+                $motivoEstado
+            );
+
+            if ($estadoAnterior === 'pendiente_vendedor' || $esPedidoAceptado) {
                 $this->moverSiguienteColaAPendiente((int)$pedido['codigo_usuario_vendedor']);
             } else {
                 $this->recalcularColaVendedor((int)$pedido['codigo_usuario_vendedor']);
@@ -1570,9 +2248,13 @@ class Pedido extends Conexion
 
             $this->dblink->commit();
 
+            $data = $this->construirDataEstadoSolicitud($pedidoActualizado ?: $pedido);
+            $data['penalidad_generada'] = $penalidadNueva;
+            $data['mensaje_oculto'] = 'El pedido fue cancelado y ya no aparecerá en tus pedidos activos.';
+
             return [
                 'ok'   => true,
-                'data' => $this->construirDataEstadoSolicitud($pedidoActualizado ?: $pedido)
+                'data' => $data
             ];
         } catch (Throwable $e) {
             if ($this->dblink->inTransaction()) {
@@ -1588,6 +2270,7 @@ class Pedido extends Conexion
             ];
         }
     }
+
 
     // =========================================================
     // LISTADOS
@@ -1771,7 +2454,16 @@ class Pedido extends Conexion
             'devolucion_billetera_aplicada'  => (int)($r['devolucion_billetera_aplicada'] ?? 0),
             'monto_descontado_billetera'     => (string)($r['monto_descontado_billetera'] ?? '0.00'),
             'posicion_cola'                  => (int)($r['posicion_cola'] ?? 0),
-            'tiempo_restante_segundos'       => $tiempoRestante
+            'tiempo_restante_segundos'       => $tiempoRestante,
+            'segundos_recojo_restantes'      => $this->segundosRecojoRestantes($r),
+            'puede_cancelar_vendedor'        => $this->puedeVendedorCancelarPorNoRecojo($r) ? 1 : 0,
+            'metodo_pago'                    => (string)($r['metodo_pago'] ?? ''),
+            'penalidad_comprador_monto'      => (string)($r['penalidad_comprador_monto'] ?? '0.00'),
+            'comision_ev_monto'              => (string)($r['comision_ev_monto'] ?? '0.00'),
+            'comision_ev_aplicada'           => (int)($r['comision_ev_aplicada'] ?? 0),
+            'comision_ev_pendiente'          => (int)($r['comision_ev_pendiente'] ?? 0),
+            'fecha_punto_recojo'             => $r['fecha_punto_recojo'] ?? null,
+            'fecha_limite_recojo'            => $r['fecha_limite_recojo'] ?? null
         ];
     }
 
@@ -1927,6 +2619,7 @@ class Pedido extends Conexion
                 INNER JOIN producto pr ON pr.codigo_producto = p.codigo_producto
                 INNER JOIN usuario u ON u.codigo_usuario = p.codigo_usuario_comprador
                 WHERE p.codigo_usuario_vendedor = :codigo_usuario_vendedor
+                  AND COALESCE(p.oculto_vendedor, 0) = 0
                 ORDER BY
                     CASE
                         WHEN p.estado_actual = 'pendiente_vendedor' THEN 1
@@ -2030,11 +2723,15 @@ class Pedido extends Conexion
                 ? 'en_preparacion'
                 : 'despachando';
 
+            $this->aplicarComisionEVPorAceptacion($pedido);
+            $this->aplicarPenalidadesReservadasPedido($codigoPedido);
+
             $up = $this->dblink->prepare("
                 UPDATE pedido
                 SET
                     fase = 'pedido',
                     estado_actual = :estado_actual,
+                    estado = :estado_sync,
                     motivo_estado = 'Pedido aceptado por el vendedor.',
                     fecha_aceptacion = NOW(),
                     posicion_cola = 0,
@@ -2042,6 +2739,7 @@ class Pedido extends Conexion
                 WHERE codigo_pedido = :codigo_pedido
             ");
             $up->bindValue(':estado_actual', $siguienteEstado, PDO::PARAM_STR);
+            $up->bindValue(':estado_sync', $siguienteEstado, PDO::PARAM_STR);
             $up->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
             $up->execute();
 
@@ -2056,6 +2754,11 @@ class Pedido extends Conexion
                 'aceptacion_solicitud',
                 'El vendedor aceptó la solicitud.'
             );
+
+            $pedidoParaAlerta = $pedido;
+            $pedidoParaAlerta['estado_actual'] = $siguienteEstado;
+            $pedidoParaAlerta['fase'] = 'pedido';
+            $this->registrarAlertaAvanceComprador($pedidoParaAlerta, $siguienteEstado);
 
             $this->recalcularColaVendedor($codigoUsuarioVendedor);
 
@@ -2081,6 +2784,7 @@ class Pedido extends Conexion
             ];
         }
     }
+
 
     public function rechazarSolicitudPorVendedor(int $codigoPedido, int $codigoUsuarioVendedor, string $motivo): array
     {
@@ -2132,7 +2836,9 @@ class Pedido extends Conexion
                 SET
                     fase = 'pedido',
                     estado_actual = 'rechazado_vendedor',
+                    estado = 'rechazado_vendedor',
                     motivo_estado = :motivo_estado,
+                    motivo_rechazo = :motivo_rechazo,
                     fecha_rechazo = NOW(),
                     fecha_cierre = NOW(),
                     posicion_cola = 0,
@@ -2140,6 +2846,7 @@ class Pedido extends Conexion
                 WHERE codigo_pedido = :codigo_pedido
             ");
             $up->bindValue(':motivo_estado', $motivo, PDO::PARAM_STR);
+            $up->bindValue(':motivo_rechazo', mb_substr($motivo, 0, 255, 'UTF-8'), PDO::PARAM_STR);
             $up->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
             $up->execute();
 
@@ -2155,7 +2862,10 @@ class Pedido extends Conexion
                 $motivo
             );
 
+            $this->liberarPenalidadesReservadasPedido($codigoPedido);
             $this->devolverBilleteraSiCorresponde($pedido, 'rechazado_vendedor');
+            $pedido['motivo_estado'] = $motivo;
+            $this->registrarAlertaAvanceComprador($pedido, 'rechazado_vendedor');
 
             if ($estadoAnterior === 'pendiente_vendedor') {
                 $this->moverSiguienteColaAPendiente($codigoUsuarioVendedor);
@@ -2186,25 +2896,27 @@ class Pedido extends Conexion
         }
     }
 
+
     private function obtenerMapaTransicionesVendedor(bool $requierePreparacion): array
     {
         if ($requierePreparacion) {
             return [
-                'en_preparacion'     => ['listo_para_entrega', 'en_camino', 'cancelado_vendedor'],
-                'listo_para_entrega' => ['en_camino', 'en_punto_entrega', 'entregado_vendedor', 'cancelado_vendedor'],
-                'en_camino'          => ['en_punto_entrega', 'entregado_vendedor', 'cancelado_vendedor'],
+                'en_preparacion'     => ['listo_para_entrega'],
+                'listo_para_entrega' => ['en_camino', 'en_punto_entrega', 'entregado_vendedor'],
+                'en_camino'          => ['en_punto_entrega', 'entregado_vendedor'],
                 'en_punto_entrega'   => ['entregado_vendedor', 'cancelado_vendedor'],
                 'entregado_vendedor' => [],
             ];
         }
 
         return [
-            'despachando'        => ['en_camino', 'en_punto_entrega', 'entregado_vendedor', 'cancelado_vendedor'],
-            'en_camino'          => ['en_punto_entrega', 'entregado_vendedor', 'cancelado_vendedor'],
+            'despachando'        => ['en_camino', 'en_punto_entrega', 'entregado_vendedor'],
+            'en_camino'          => ['en_punto_entrega', 'entregado_vendedor'],
             'en_punto_entrega'   => ['entregado_vendedor', 'cancelado_vendedor'],
             'entregado_vendedor' => [],
         ];
     }
+
 
     private function motivoEstadoPorNuevoEstado(string $estado): string
     {
@@ -2213,7 +2925,7 @@ class Pedido extends Conexion
             'despachando'                  => 'El pedido está siendo despachado.',
             'listo_para_entrega'           => 'El pedido está listo para entrega.',
             'en_camino'                    => 'El pedido va en camino.',
-            'en_punto_entrega'             => 'El pedido llegó al punto de entrega.',
+            'en_punto_entrega'             => 'El pedido llegó al punto de recojo.',
             'entregado_vendedor'           => 'El vendedor marcó el pedido como entregado.',
             'cancelado_vendedor'           => 'El vendedor canceló el pedido.',
             'entrega_confirmada_comprador' => 'El comprador confirmó la entrega.',
@@ -2221,8 +2933,14 @@ class Pedido extends Conexion
         };
     }
 
-    public function actualizarEstadoPedidoPorVendedor(int $codigoPedido, int $codigoUsuarioVendedor, string $nuevoEstado): array
-    {
+
+    public function actualizarEstadoPedidoPorVendedor(
+        int $codigoPedido,
+        int $codigoUsuarioVendedor,
+        string $nuevoEstado,
+        string $motivoCancelacionClave = '',
+        string $motivoCancelacionDetalle = ''
+    ): array {
         try {
             $nuevoEstado = trim($nuevoEstado);
 
@@ -2275,18 +2993,72 @@ class Pedido extends Conexion
             }
 
             $cerrar = ($nuevoEstado === 'cancelado_vendedor') ? 1 : 0;
+            $motivoEstado = $this->motivoEstadoPorNuevoEstado($nuevoEstado);
+            $sinReembolso = 0;
+            $canceladoPor = null;
+            $motivoCancelacionSql = null;
+            $motivoCancelacionClaveSql = null;
+
+            if ($nuevoEstado === 'cancelado_vendedor') {
+                if (!$this->puedeVendedorCancelarPorNoRecojo($pedido)) {
+                    $this->dblink->rollBack();
+
+                    return [
+                        'ok'      => false,
+                        'error'   => 'RECOJO_AUN_NO_VENCIDO',
+                        'mensaje' => 'Solo puedes cancelar cuando hayan pasado los 6 minutos desde que el pedido llegó al punto de recojo.'
+                    ];
+                }
+
+                $motivoCancelacionClave = trim($motivoCancelacionClave);
+                if ($motivoCancelacionClave === '') {
+                    $this->dblink->rollBack();
+
+                    return [
+                        'ok'      => false,
+                        'error'   => 'MOTIVO_CANCELACION_REQUERIDO',
+                        'mensaje' => 'Debes seleccionar el motivo de cancelación.'
+                    ];
+                }
+
+                $motivoEstado = $this->motivoCancelacionVendedorTexto($motivoCancelacionClave, $motivoCancelacionDetalle);
+                $sinReembolso = $requierePreparacion ? 1 : 0;
+                $canceladoPor = 'vendedor';
+                $motivoCancelacionSql = mb_substr($motivoEstado, 0, 255, 'UTF-8');
+                $motivoCancelacionClaveSql = mb_substr($motivoCancelacionClave, 0, 80, 'UTF-8');
+            }
+
+            $fechaPuntoRecojoSql = ($nuevoEstado === 'en_punto_entrega') ? 'NOW()' : 'fecha_punto_recojo';
+            $fechaLimiteRecojoSql = ($nuevoEstado === 'en_punto_entrega')
+                ? "DATE_ADD(NOW(), INTERVAL " . self::SEGUNDOS_RECOJO . " SECOND)"
+                : 'fecha_limite_recojo';
 
             $up = $this->dblink->prepare("
                 UPDATE pedido
                 SET
                     estado_actual = :estado_actual,
+                    estado = :estado_sync,
                     motivo_estado = :motivo_estado,
-                    fecha_cierre = CASE WHEN :cerrar = 1 THEN NOW() ELSE fecha_cierre END
+                    fecha_punto_recojo = {$fechaPuntoRecojoSql},
+                    fecha_limite_recojo = {$fechaLimiteRecojoSql},
+                    fecha_cierre = CASE WHEN :cerrar = 1 THEN NOW() ELSE fecha_cierre END,
+                    cancelado_por = CASE WHEN :cancelado_por_is_null = 1 THEN cancelado_por ELSE :cancelado_por_value END,
+                    motivo_cancelacion = CASE WHEN :motivo_cancelacion_is_null = 1 THEN motivo_cancelacion ELSE :motivo_cancelacion_value END,
+                    motivo_cancelacion_clave = CASE WHEN :motivo_cancelacion_clave_is_null = 1 THEN motivo_cancelacion_clave ELSE :motivo_cancelacion_clave_value END,
+                    sin_reembolso = CASE WHEN :sin_reembolso = 1 THEN 1 ELSE sin_reembolso END
                 WHERE codigo_pedido = :codigo_pedido
             ");
             $up->bindValue(':estado_actual', $nuevoEstado, PDO::PARAM_STR);
-            $up->bindValue(':motivo_estado', $this->motivoEstadoPorNuevoEstado($nuevoEstado), PDO::PARAM_STR);
+            $up->bindValue(':estado_sync', $nuevoEstado, PDO::PARAM_STR);
+            $up->bindValue(':motivo_estado', $motivoEstado, PDO::PARAM_STR);
             $up->bindValue(':cerrar', $cerrar, PDO::PARAM_INT);
+            $up->bindValue(':cancelado_por_is_null', $canceladoPor === null ? 1 : 0, PDO::PARAM_INT);
+            $up->bindValue(':cancelado_por_value', $canceladoPor, $canceladoPor !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+            $up->bindValue(':motivo_cancelacion_is_null', $motivoCancelacionSql === null ? 1 : 0, PDO::PARAM_INT);
+            $up->bindValue(':motivo_cancelacion_value', $motivoCancelacionSql, $motivoCancelacionSql !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+            $up->bindValue(':motivo_cancelacion_clave_is_null', $motivoCancelacionClaveSql === null ? 1 : 0, PDO::PARAM_INT);
+            $up->bindValue(':motivo_cancelacion_clave_value', $motivoCancelacionClaveSql, $motivoCancelacionClaveSql !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+            $up->bindValue(':sin_reembolso', $sinReembolso, PDO::PARAM_INT);
             $up->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
             $up->execute();
 
@@ -2298,12 +3070,29 @@ class Pedido extends Conexion
                 $nuevoEstado,
                 $codigoUsuarioVendedor,
                 'vendedor',
-                'actualizacion_estado_pedido',
-                $this->motivoEstadoPorNuevoEstado($nuevoEstado)
+                $nuevoEstado === 'cancelado_vendedor' ? 'cancelacion_por_no_recojo' : 'actualizacion_estado_pedido',
+                $motivoEstado
             );
 
+            $pedidoParaAlerta = $pedido;
+            $pedidoParaAlerta['estado_actual'] = $nuevoEstado;
+            $pedidoParaAlerta['motivo_estado'] = $motivoEstado;
+            $this->registrarAlertaAvanceComprador($pedidoParaAlerta, $nuevoEstado);
+
             if ($nuevoEstado === 'cancelado_vendedor') {
-                $this->devolverBilleteraSiCorresponde($pedido, 'cancelado_vendedor');
+                if (!$requierePreparacion) {
+                    $this->registrarPenalidadCompradorPendiente(
+                        (int)$pedido['codigo_usuario_comprador'],
+                        $codigoPedido,
+                        'comprador_no_recoge',
+                        'Penalidad por no recoger o no recibir un pedido no preparado.'
+                    );
+                }
+
+                $this->devolverBilleteraSiCorresponde(
+                    array_merge($pedido, ['sin_reembolso' => $sinReembolso]),
+                    'cancelado_vendedor'
+                );
                 $this->moverSiguienteColaAPendiente($codigoUsuarioVendedor);
             }
 
@@ -2330,6 +3119,7 @@ class Pedido extends Conexion
         }
     }
 
+
     // =========================================================
     // COMPRADOR - MIS PEDIDOS
     // =========================================================
@@ -2349,6 +3139,7 @@ class Pedido extends Conexion
                 INNER JOIN producto pr ON pr.codigo_producto = p.codigo_producto
                 INNER JOIN usuario u ON u.codigo_usuario = p.codigo_usuario_vendedor
                 WHERE p.codigo_usuario_comprador = :codigo_usuario_comprador
+                  AND COALESCE(p.oculto_comprador, 0) = 0
                 ORDER BY p.codigo_pedido DESC
             ";
 
@@ -2408,6 +3199,10 @@ class Pedido extends Conexion
                     'finalizado'                       => (int)($estadoData['finalizado'] ?? 0),
                     'segundos_restantes'               => (int)($estadoData['segundos_restantes'] ?? 0),
                     'segundos_para_cancelar_restantes' => (int)($estadoData['segundos_para_cancelar_restantes'] ?? 0),
+                    'segundos_recojo_restantes'        => (int)($estadoData['segundos_recojo_restantes'] ?? 0),
+                    'metodo_pago'                      => (string)($row['metodo_pago'] ?? ''),
+                    'penalidad_comprador_monto'        => (string)($row['penalidad_comprador_monto'] ?? '0.00'),
+                    'comision_ev_monto'                => (string)($row['comision_ev_monto'] ?? '0.00'),
                 ];
 
                 if ($fase === 'solicitud' && in_array($estado, [

@@ -72,7 +72,7 @@ class apiPedidoController
 
     private function agregarUrlImagenAGrupos(array $data): array
     {
-        foreach (['pendientes', 'en_proceso', 'finalizados'] as $grupo) {
+        foreach (['pendientes', 'en_proceso', 'finalizados', 'rechazadas', 'sin_respuesta'] as $grupo) {
             if (!isset($data[$grupo]) || !is_array($data[$grupo])) {
                 continue;
             }
@@ -113,6 +113,7 @@ class apiPedidoController
             $direccionEntrega    = trim((string)($input['direccion_entrega'] ?? ''));
             $mensajeComprador    = trim((string)($input['mensaje_comprador'] ?? ''));
             $aceptaCola          = (int)($input['acepta_cola'] ?? 0);
+            $metodoPago           = trim((string)($input['metodo_pago'] ?? 'efectivo'));
 
             if ($codigoProducto <= 0) {
                 $this->json(400, [
@@ -148,7 +149,8 @@ class apiPedidoController
                 'fecha_hora_programada'    => $fechaHoraProgramada,
                 'direccion_entrega'        => $direccionEntrega,
                 'mensaje_comprador'        => $mensajeComprador,
-                'acepta_cola'              => $aceptaCola
+                'acepta_cola'              => $aceptaCola,
+                'metodo_pago'              => $metodoPago
             ]);
 
             if (!$resultado['ok']) {
@@ -378,7 +380,8 @@ class apiPedidoController
                 $status = match ($error) {
                     'PEDIDO_NO_ENCONTRADO' => 404,
                     'ESTADO_NO_CANCELABLE',
-                    'CANCELACION_AUN_NO_DISPONIBLE' => 409,
+                    'CANCELACION_AUN_NO_DISPONIBLE',
+                    'CANCELACION_NO_PERMITIDA_PRODUCTO_PREPARADO' => 409,
                     default => 500
                 };
 
@@ -887,6 +890,8 @@ class apiPedidoController
             }
 
             $nuevoEstado = trim((string)($input['nuevo_estado'] ?? $input['estado'] ?? ''));
+            $motivoCancelacionClave = trim((string)($input['motivo_cancelacion_clave'] ?? ''));
+            $motivoCancelacionDetalle = trim((string)($input['motivo_cancelacion_detalle'] ?? $input['motivo'] ?? ''));
 
             if ($nuevoEstado === '') {
                 $this->json(400, [
@@ -901,7 +906,9 @@ class apiPedidoController
             $resultado = $model->actualizarEstadoPedidoPorVendedor(
                 $codigoPedido,
                 $codigoUsuarioVendedor,
-                $nuevoEstado
+                $nuevoEstado,
+                $motivoCancelacionClave,
+                $motivoCancelacionDetalle
             );
 
             if (!$resultado['ok']) {
@@ -910,8 +917,11 @@ class apiPedidoController
 
                 $status = match ($error) {
                     'PEDIDO_NO_ENCONTRADO' => 404,
+                    'TRANSICION_INVALIDA',
                     'ESTADO_NO_ACTUALIZABLE',
-                    'TRANSICION_INVALIDA' => 409,
+                    'RECOJO_AUN_NO_VENCIDO',
+                    'MOTIVO_CANCELACION_REQUERIDO' => 409,
+                    'ESTADO_REQUERIDO' => 400,
                     default => 500
                 };
 
@@ -932,7 +942,7 @@ class apiPedidoController
 
             $this->json(200, [
                 'ok'      => true,
-                'mensaje' => 'Estado del pedido actualizado correctamente.',
+                'mensaje' => 'Estado actualizado correctamente.',
                 'data'    => $data
             ]);
             return;
@@ -941,7 +951,96 @@ class apiPedidoController
 
             $this->json(500, [
                 'ok'      => false,
-                'mensaje' => 'Ocurrió un error al actualizar el estado del pedido.'
+                'mensaje' => 'No se pudo actualizar el estado del pedido.'
+            ]);
+            return;
+        }
+    }
+
+
+    // =========================================================
+    // ALERTAS GLOBALES DE PEDIDOS
+    // =========================================================
+    public function listarAlertasPedido(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            $this->json(405, [
+                'ok'      => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuario = $this->obtenerUsuarioAuth();
+            $model = new Pedido();
+            $resultado = $model->listarAlertasPedidoUsuario($codigoUsuario);
+
+            if (!$resultado['ok']) {
+                $this->json(500, [
+                    'ok'      => false,
+                    'error'   => (string)($resultado['error'] ?? 'ERROR_ALERTAS_PEDIDO'),
+                    'mensaje' => (string)($resultado['mensaje'] ?? 'No se pudieron obtener las alertas de pedido.')
+                ]);
+                return;
+            }
+
+            $this->json(200, [
+                'ok'   => true,
+                'data' => $resultado['data'] ?? []
+            ]);
+            return;
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][listarAlertasPedido] ' . $e->getMessage());
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'No se pudieron obtener las alertas de pedido.'
+            ]);
+            return;
+        }
+    }
+
+    public function marcarAlertaPedidoLeida($codigoNotificacion): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(405, [
+                'ok'      => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuario = $this->obtenerUsuarioAuth();
+            $codigoNotificacion = (int)$codigoNotificacion;
+
+            if ($codigoNotificacion <= 0) {
+                $this->json(400, [
+                    'ok'      => false,
+                    'mensaje' => 'Código de notificación inválido.'
+                ]);
+                return;
+            }
+
+            $model = new Pedido();
+            $resultado = $model->marcarAlertaPedidoLeida($codigoUsuario, $codigoNotificacion);
+
+            if (!$resultado['ok']) {
+                $this->json(500, [
+                    'ok'      => false,
+                    'error'   => (string)($resultado['error'] ?? 'ERROR_MARCAR_ALERTA'),
+                    'mensaje' => (string)($resultado['mensaje'] ?? 'No se pudo marcar la alerta como leída.')
+                ]);
+                return;
+            }
+
+            $this->json(200, ['ok' => true]);
+            return;
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][marcarAlertaPedidoLeida] ' . $e->getMessage());
+            $this->json(500, [
+                'ok'      => false,
+                'mensaje' => 'No se pudo marcar la alerta como leída.'
             ]);
             return;
         }

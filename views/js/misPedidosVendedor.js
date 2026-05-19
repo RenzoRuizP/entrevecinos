@@ -97,7 +97,7 @@
       despachando: 'Despachando',
       listo_para_entrega: 'Listo para entrega',
       en_camino: 'En camino',
-      en_punto_entrega: 'En punto de entrega',
+      en_punto_entrega: 'En punto de recojo',
       entregado_vendedor: 'Entregado por vendedor',
       entrega_confirmada_comprador: 'Entrega confirmada',
       rechazado_vendedor: 'Rechazado por vendedor',
@@ -679,6 +679,14 @@
       }
     }
 
+    if (Number(item.puede_cancelar_vendedor || 0) === 1) {
+      acciones.push(`
+        <button type="button" class="btn ev-mpv-btn-danger-soft" data-action="estado" data-id="${id}" data-estado="cancelado_vendedor">
+          <i class="bi bi-x-octagon me-1"></i>Cancelar pedido
+        </button>
+      `);
+    }
+
     acciones.push(`
       <button type="button" class="btn ev-mpv-btn-outline" data-action="detalle" data-id="${id}">
         <i class="bi bi-eye me-1"></i>Ver detalle
@@ -686,6 +694,19 @@
     `);
 
     return acciones.join('');
+  }
+
+
+  function renderRecojoCountdown(item) {
+    const estado = String(item.estado_actual || '').trim();
+    if (estado !== 'en_punto_entrega') return '';
+
+    const restantes = Number(item.segundos_recojo_restantes || 0);
+    if (restantes > 0) {
+      return `<div class="ev-mpv-time-pill"><i class="bi bi-hourglass-split"></i>Tiempo de espera: ${escapeHtml(formatTiempoCorto(restantes))}</div>`;
+    }
+
+    return `<div class="ev-mpv-time-pill"><i class="bi bi-exclamation-circle"></i>Tiempo de recojo vencido</div>`;
   }
 
   function renderResumenEstado(item) {
@@ -725,6 +746,18 @@
           <div class="ev-mpv-state-text">
             El comprador todavía no confirma si desea mantenerse en la cola. Hasta entonces no pasa al turno de atención.
           </div>
+        </div>
+      `;
+    }
+
+    if (estado === 'en_punto_entrega') {
+      return `
+        <div class="ev-mpv-state-box ev-mpv-state-box-info">
+          <div class="ev-mpv-state-title">Pedido en punto de recojo</div>
+          <div class="ev-mpv-state-text">
+            Espera al comprador hasta 6 minutos. Si no recoge o no responde, podrás cancelar seleccionando un motivo.
+          </div>
+          ${renderRecojoCountdown(item)}
         </div>
       `;
     }
@@ -1304,14 +1337,87 @@
     };
   }
 
+
+  async function promptCancelacionVendedor(item) {
+    if (!window.Swal?.fire) return { isConfirmed: false, value: null };
+
+    const motivos = {
+      comprador_no_se_presento: 'El comprador no se presentó',
+      comprador_no_responde: 'El comprador no respondió',
+      comprador_rechazo_recepcion: 'El comprador rechazó recibir el pedido',
+      no_se_pudo_concretar: 'No se pudo concretar la entrega',
+      otro: 'Otro motivo'
+    };
+
+    return Swal.fire(swalBaseConfig({
+      title: 'Cancelar pedido',
+      html: htmlMessage(
+        'warning',
+        'Selecciona el motivo de cancelación',
+        'Esta acción cerrará el pedido y liberará tu turno de atención.',
+        htmlProductNote('Pedido', item?.titulo_publicacion || 'Pedido seleccionado')
+      ),
+      input: 'select',
+      inputOptions: motivos,
+      inputPlaceholder: 'Selecciona un motivo',
+      showCancelButton: true,
+      confirmButtonText: 'Continuar',
+      cancelButtonText: 'Volver',
+      preConfirm: (value) => {
+        const clave = String(value || '').trim();
+        if (!clave) {
+          Swal.showValidationMessage('Debes seleccionar un motivo.');
+          return false;
+        }
+        return { clave, detalle: '' };
+      }
+    })).then(async (r) => {
+      if (!r.isConfirmed || !r.value) return r;
+      if (r.value.clave !== 'otro') return r;
+
+      const detalle = await Swal.fire(swalBaseConfig({
+        title: 'Detalle del motivo',
+        html: htmlMessage(
+          'warning',
+          'Describe brevemente lo ocurrido',
+          'Este detalle quedará registrado en el historial del pedido.'
+        ),
+        input: 'textarea',
+        inputPlaceholder: 'Escribe el detalle...',
+        inputAttributes: { maxlength: '500' },
+        showCancelButton: true,
+        confirmButtonText: 'Cancelar pedido',
+        cancelButtonText: 'Volver',
+        preConfirm: (value) => {
+          const txt = String(value || '').trim();
+          if (!txt) {
+            Swal.showValidationMessage('Debes ingresar un detalle.');
+            return false;
+          }
+          return txt;
+        }
+      }));
+
+      if (!detalle.isConfirmed) return { isConfirmed: false, value: null };
+      return { isConfirmed: true, value: { clave: 'otro', detalle: detalle.value || '' } };
+    });
+  }
+
   async function cambiarEstado(id, estado) {
     if (accionEnCurso) return;
     const item = cachePedidos.get(Number(id || 0));
     if (!item) return;
 
     const meta = obtenerMetaCambioEstado(estado);
+    let motivoCancelacion = null;
 
-    const ok = await confirmAction({
+    if (String(estado || '').trim() === 'cancelado_vendedor') {
+      const motivo = await promptCancelacionVendedor(item);
+      if (!motivo.isConfirmed || !motivo.value) return;
+      motivoCancelacion = motivo.value;
+    }
+
+    const ok = String(estado || '').trim() === 'cancelado_vendedor' ? true : await confirmAction({
       title: meta.title,
       subtitle: meta.subtitle,
       text: meta.text,
@@ -1333,7 +1439,11 @@
           Accept: 'application/json',
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ nuevo_estado: estado })
+        body: JSON.stringify({
+          nuevo_estado: estado,
+          motivo_cancelacion_clave: motivoCancelacion?.clave || '',
+          motivo_cancelacion_detalle: motivoCancelacion?.detalle || ''
+        })
       });
 
       const json = await resp.json().catch(() => ({}));
