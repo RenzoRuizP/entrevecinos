@@ -1,6 +1,7 @@
+// views/js/menuArriba.js
 // ============================================================
-// 🎯 Script para el menú superior (navbar) - Entre Vecinos
-// Sidebar responsive + usuario + logout
+// Entre Vecinos - Menú superior
+// Sidebar responsive + usuario + logout centralizado
 // ============================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -75,9 +76,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ============================================================
-  // 🔹 Menú lateral responsive
-  // ============================================================
   if (btnToggleSidebar && sidebar) {
     sincronizarAccesibilidadSidebar(false);
 
@@ -98,7 +96,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Cerrar sidebar al navegar desde un submenu en móvil.
   if (sidebar) {
     sidebar.addEventListener("click", (e) => {
       const link = e.target.closest("a.submenu-link");
@@ -110,16 +107,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Si pasa de móvil a desktop, limpiar estado offcanvas.
   mediaMobile.addEventListener?.("change", (e) => {
     if (!e.matches) {
       cerrarSidebar();
     }
   });
 
-  // ============================================================
-  // 🔹 Botón "Mis datos" → cargar vista /mi-perfil con AJAX
-  // ============================================================
   if (btnPerfil) {
     btnPerfil.addEventListener("click", (e) => {
       e.preventDefault();
@@ -143,70 +136,130 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ============================================================
-  // 🔹 Botón de cerrar sesión
-  // ============================================================
+  async function confirmarCierreSesion() {
+    if (!window.Swal?.fire) {
+      return window.confirm("¿Deseas cerrar sesión?");
+    }
+
+    const result = await Swal.fire({
+      title: "¿Deseas cerrar sesión?",
+      text: "Tu disponibilidad para recibir pedidos se apagará automáticamente.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, salir",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#BF3604",
+      cancelButtonColor: "#6c757d",
+      allowOutsideClick: false,
+      allowEscapeKey: true
+    });
+
+    return !!result.isConfirmed;
+  }
+
+  function detenerProcesosEVAntesDeSalir() {
+    try {
+      if (window.EVPollingControl && typeof window.EVPollingControl.detenerPedidosVendedor === "function") {
+        window.EVPollingControl.detenerPedidosVendedor();
+      }
+    } catch (_) {}
+
+    try {
+      if (window.EVMarketplace && typeof window.EVMarketplace.stopPollingDisponibilidad === "function") {
+        window.EVMarketplace.stopPollingDisponibilidad();
+      }
+    } catch (_) {}
+
+    try {
+      if (window.EVRecibirPedidos && typeof window.EVRecibirPedidos.detenerPolling === "function") {
+        window.EVRecibirPedidos.detenerPolling();
+      }
+    } catch (_) {}
+  }
+
+  async function mostrarCierreCorrecto() {
+    if (!window.Swal?.fire) {
+      return;
+    }
+
+    await Swal.fire({
+      icon: "success",
+      title: "Sesión cerrada",
+      text: "Has cerrado sesión correctamente.",
+      timer: 1400,
+      showConfirmButton: false,
+      allowOutsideClick: false,
+      allowEscapeKey: false
+    });
+  }
+
+  async function mostrarErrorCierre(mensaje) {
+    if (!window.Swal?.fire) {
+      alert(mensaje || "No se pudo cerrar sesión.");
+      return;
+    }
+
+    await Swal.fire({
+      icon: "error",
+      title: "No se pudo cerrar sesión",
+      text: mensaje || "Ocurrió un problema al cerrar tu sesión.",
+      confirmButtonText: "Aceptar",
+      confirmButtonColor: "#DC2626"
+    });
+  }
+
   if (btnCerrarSesion) {
     btnCerrarSesion.addEventListener("click", async (e) => {
       e.preventDefault();
 
-      Swal.fire({
-        title: "¿Deseas cerrar sesión?",
-        text: "Tu sesión actual se cerrará.",
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonText: "Sí, salir",
-        cancelButtonText: "Cancelar",
-        confirmButtonColor: "#BF3604",
-        cancelButtonColor: "#6c757d"
-      }).then(async (result) => {
-        if (!result.isConfirmed) return;
+      const confirmado = await confirmarCierreSesion();
+      if (!confirmado) return;
 
-        try {
-          const response = await fetch(
-            `${baseUrl}/controllers/logoutController.php`,
-            {
-              method: "GET",
-              credentials: "include",
-              headers: {
-                "Accept": "application/json"
-              }
-            }
+      btnCerrarSesion.classList.add("disabled");
+      btnCerrarSesion.setAttribute("aria-disabled", "true");
+
+      detenerProcesosEVAntesDeSalir();
+
+      try {
+        const response = await fetch(`${baseUrl}/logout`, {
+          method: "POST",
+          credentials: "include",
+          cache: "no-store",
+          headers: {
+            "Accept": "application/json",
+            "X-Requested-With": "XMLHttpRequest"
+          }
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        const ok =
+          response.ok &&
+          (
+            data.ok === true ||
+            data.success === true ||
+            String(data.status || "").toLowerCase() === "success"
           );
 
-          const data = await response.json().catch(() => ({}));
-
-          if (data.success) {
-            Swal.fire({
-              icon: "success",
-              title: "Sesión cerrada",
-              text: "Has cerrado sesión correctamente.",
-              timer: 1500,
-              showConfirmButton: false
-            }).then(() => {
-              window.location.replace(`${baseUrl}/views/login.php`);
-            });
-          } else {
-            Swal.fire({
-              icon: "error",
-              title: "Error",
-              text: data.message || "No se pudo cerrar sesión."
-            });
-          }
-        } catch (error) {
-          Swal.fire({
-            icon: "error",
-            title: "Error del servidor",
-            text: "No se pudo conectar con el servidor."
-          });
+        if (!ok) {
+          await mostrarErrorCierre(data.message || data.mensaje || "No se pudo cerrar sesión.");
+          btnCerrarSesion.classList.remove("disabled");
+          btnCerrarSesion.removeAttribute("aria-disabled");
+          return;
         }
-      });
+
+        await mostrarCierreCorrecto();
+
+        const redirect = data.redirect || `${baseUrl}/login`;
+        window.location.replace(redirect);
+      } catch (error) {
+        await mostrarErrorCierre("No se pudo conectar con el servidor.");
+        btnCerrarSesion.classList.remove("disabled");
+        btnCerrarSesion.removeAttribute("aria-disabled");
+      }
     });
   }
 
-  // ============================================================
-  // 🔹 Cerrar dropdown del usuario al hacer clic fuera
-  // ============================================================
   document.addEventListener("click", (event) => {
     if (!userDropdown || !dropdownMenu) return;
 
@@ -220,9 +273,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // ============================================================
-  // 🔹 Ajustes responsivos del dropdown del usuario
-  // ============================================================
   function ajustarDropdownUsuario() {
     const menu = document.querySelector("#userDropdown + .dropdown-menu");
     if (!menu) return;

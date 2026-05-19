@@ -1,4 +1,5 @@
 <?php
+// views/menuArribaView.php
 require_once __DIR__ . '/../Config/config.php';
 
 $nombreUsuario = $nombreUsuario ?? 'Vecino';
@@ -96,12 +97,20 @@ $baseUrl = rtrim(BASE_URL, '/');
 <?php if ($rolUsuarioRaw === 'vecino'): ?>
 <script>
 (() => {
-  const BASE = <?= json_encode($baseUrl) ?>;
+  'use strict';
+
+  const BASE = <?= json_encode($baseUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
   const mount = document.getElementById('evDisponibilidadMount');
 
   if (!mount) return;
 
-  if (window.__EV_DISP_PEDIDOS_INIT__) return;
+  if (window.__EV_DISP_PEDIDOS_INIT__ === true) {
+    if (window.EVDisponibilidadPedidosTopbar && typeof window.EVDisponibilidadPedidosTopbar.refresh === 'function') {
+      window.EVDisponibilidadPedidosTopbar.refresh();
+    }
+    return;
+  }
+
   window.__EV_DISP_PEDIDOS_INIT__ = true;
 
   function textoEstado(activo) {
@@ -134,10 +143,88 @@ $baseUrl = rtrim(BASE_URL, '/');
     }
 
     if (input) {
-      input.checked = activo;
+      input.checked = !!activo;
       input.setAttribute('aria-label', estado);
       input.setAttribute('aria-checked', activo ? 'true' : 'false');
     }
+  }
+
+  async function notificar(tipo, titulo, texto) {
+    if (window.Swal?.fire) {
+      await Swal.fire({
+        icon: tipo,
+        title: titulo,
+        text: texto,
+        confirmButtonText: 'Aceptar',
+        confirmButtonColor: tipo === 'error' ? '#DC2626' : '#EA7C12',
+        allowOutsideClick: false
+      });
+      return;
+    }
+
+    alert(`${titulo}\n\n${texto}`);
+  }
+
+  async function manejarAuth(resp, data) {
+    if (resp.status === 401 || resp.status === 403) {
+      const redirect = data?.redirect || `${BASE}/login`;
+
+      await notificar(
+        'info',
+        'Sesión finalizada',
+        data?.mensaje || data?.message || 'Tu sesión ya no está activa. Vuelve a iniciar sesión.'
+      );
+
+      window.location.href = redirect;
+      return true;
+    }
+
+    if (resp.status === 409 && String(data?.error || '').trim() === 'CUENTA_OBSERVADA') {
+      const redirect = data?.redirect || `${BASE}/cuenta-observada`;
+
+      await notificar(
+        'warning',
+        'Cuenta observada',
+        data?.mensaje || 'Debes revisar el estado de tu cuenta.'
+      );
+
+      window.location.href = redirect;
+      return true;
+    }
+
+    return false;
+  }
+
+  function sincronizarModulosEV(disponible) {
+    try {
+      if (window.EVMarketplace && typeof window.EVMarketplace.refreshDisponibilidad === 'function') {
+        window.EVMarketplace.refreshDisponibilidad({ force: true });
+      }
+    } catch (_) {}
+
+    try {
+      if (window.EVRecibirPedidos && typeof window.EVRecibirPedidos.refresh === 'function') {
+        window.EVRecibirPedidos.refresh();
+      }
+    } catch (_) {}
+
+    try {
+      if (window.EVMisPedidosVendedor && typeof window.EVMisPedidosVendedor.refresh === 'function') {
+        window.EVMisPedidosVendedor.refresh();
+      }
+    } catch (_) {}
+
+    try {
+      if (window.EVPollingControl) {
+        if (typeof window.EVPollingControl.pauseBriefly === 'function') {
+          window.EVPollingControl.pauseBriefly();
+        }
+
+        if (disponible && typeof window.EVPollingControl.revisarPedidosVendedor === 'function') {
+          window.EVPollingControl.revisarPedidosVendedor({ silent: true, force: true });
+        }
+      }
+    } catch (_) {}
   }
 
   function renderControl(disponibilidad) {
@@ -183,44 +270,43 @@ $baseUrl = rtrim(BASE_URL, '/');
         const resp = await fetch(`${BASE}/api/usuario/disponibilidad-pedidos`, {
           method: 'POST',
           body: fd,
-          credentials: 'same-origin',
+          credentials: 'include',
+          cache: 'no-store',
           headers: {
-            'Accept': 'application/json'
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
           }
         });
 
         const data = await resp.json().catch(() => ({}));
 
+        if (await manejarAuth(resp, data)) {
+          return;
+        }
+
         if (!resp.ok || !data.ok) {
           aplicarEstadoVisual(control, switchLabel, sw, Number(anterior) === 1);
 
-          if (window.Swal?.fire) {
-            Swal.fire({
-              icon: 'warning',
-              title: 'No se pudo actualizar',
-              text: data.mensaje || 'Ocurrió un problema al cambiar tu disponibilidad.',
-              confirmButtonText: 'Aceptar',
-              confirmButtonColor: '#EA7C12'
-            });
-          }
+          await notificar(
+            'warning',
+            'No se pudo actualizar',
+            data.mensaje || 'Ocurrió un problema al cambiar tu disponibilidad.'
+          );
 
           return;
         }
 
         aplicarEstadoVisual(control, switchLabel, sw, nuevo === 1);
+        sincronizarModulosEV(nuevo === 1);
 
       } catch (e) {
         aplicarEstadoVisual(control, switchLabel, sw, Number(anterior) === 1);
 
-        if (window.Swal?.fire) {
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'No se pudo conectar con el servidor.',
-            confirmButtonText: 'Aceptar',
-            confirmButtonColor: '#EA7C12'
-          });
-        }
+        await notificar(
+          'error',
+          'Error',
+          'No se pudo conectar con el servidor.'
+        );
       } finally {
         control.classList.remove('is-updating');
         sw.disabled = false;
@@ -234,13 +320,19 @@ $baseUrl = rtrim(BASE_URL, '/');
     try {
       const resp = await fetch(`${BASE}/api/usuario/disponibilidad-pedidos`, {
         method: 'GET',
-        credentials: 'same-origin',
+        credentials: 'include',
+        cache: 'no-store',
         headers: {
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
         }
       });
 
       const data = await resp.json().catch(() => ({}));
+
+      if (await manejarAuth(resp, data)) {
+        return;
+      }
 
       if (!resp.ok || !data.ok) {
         mount.innerHTML = '';
@@ -260,6 +352,10 @@ $baseUrl = rtrim(BASE_URL, '/');
       mount.innerHTML = '';
     }
   }
+
+  window.EVDisponibilidadPedidosTopbar = {
+    refresh: cargarDisponibilidad
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', cargarDisponibilidad);

@@ -9,13 +9,6 @@
   const ROL = String(window.EV_ROL_USUARIO || '').trim().toLowerCase();
   const params = new URLSearchParams(window.location.search);
 
-  /*
-    Polling global EV:
-    - Mantiene avisos casi inmediatos de nuevas solicitudes al vendedor.
-    - Evita sobrecargar la UI cuando el usuario interactúa con el sidebar.
-    - Evita llamadas duplicadas/solapadas.
-    - Pausa cuando la pestaña está oculta.
-  */
   const PEDIDOS_POLLING_MS = 5000;
   const PEDIDOS_POLLING_IDLE_MS = 9000;
   const FETCH_TIMEOUT_MS = 6500;
@@ -29,6 +22,10 @@
   let ultimaInteraccionUi = 0;
   let ultimoPollAt = 0;
 
+  let evAudioCtx = null;
+  let evAudioListo = false;
+  let evAudioPendiente = false;
+
   function nowMs() {
     return Date.now();
   }
@@ -39,6 +36,15 @@
 
   function marcarInteraccionUi() {
     ultimaInteraccionUi = nowMs();
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 
   function getCurrentEvGoto() {
@@ -54,6 +60,99 @@
     const goto = getCurrentEvGoto();
     if (goto) return goto;
     return window.location.pathname || '';
+  }
+
+  function crearAudioContextEV() {
+    if (evAudioCtx) return evAudioCtx;
+
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null;
+
+    evAudioCtx = new AudioContextClass();
+    return evAudioCtx;
+  }
+
+  async function desbloquearAudioEV() {
+    try {
+      const ctx = crearAudioContextEV();
+      if (!ctx) return;
+
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+      }
+
+      evAudioListo = ctx.state === 'running';
+
+      if (evAudioListo && evAudioPendiente) {
+        evAudioPendiente = false;
+        reproducirSonidoNuevaSolicitudEV();
+      }
+    } catch (_) {
+      evAudioListo = false;
+    }
+  }
+
+  function bindDesbloqueoAudioEV() {
+    if (window.__EV_AUDIO_UNLOCK_BOUND__ === true) return;
+    window.__EV_AUDIO_UNLOCK_BOUND__ = true;
+
+    const eventos = ['pointerdown', 'click', 'keydown', 'touchstart'];
+
+    eventos.forEach((evento) => {
+      document.addEventListener(evento, () => {
+        desbloquearAudioEV();
+      }, {
+        passive: true
+      });
+    });
+  }
+
+  function reproducirSonidoNuevaSolicitudEV() {
+    try {
+      const ctx = crearAudioContextEV();
+
+      if (!ctx) {
+        return;
+      }
+
+      if (!evAudioListo || ctx.state !== 'running') {
+        evAudioPendiente = true;
+        return;
+      }
+
+      const now = ctx.currentTime;
+      const master = ctx.createGain();
+
+      master.gain.setValueAtTime(0.0001, now);
+      master.gain.exponentialRampToValueAtTime(0.055, now + 0.025);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.72);
+
+      master.connect(ctx.destination);
+
+      const notas = [
+        { f: 659.25, start: 0.00, dur: 0.22 },
+        { f: 783.99, start: 0.16, dur: 0.24 },
+        { f: 987.77, start: 0.34, dur: 0.30 }
+      ];
+
+      notas.forEach((nota) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(nota.f, now + nota.start);
+
+        gain.gain.setValueAtTime(0.0001, now + nota.start);
+        gain.gain.exponentialRampToValueAtTime(0.8, now + nota.start + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + nota.start + nota.dur);
+
+        osc.connect(gain);
+        gain.connect(master);
+
+        osc.start(now + nota.start);
+        osc.stop(now + nota.start + nota.dur + 0.04);
+      });
+    } catch (_) {}
   }
 
   function aplicarSweetAlertGlobalFix() {
@@ -257,7 +356,8 @@
       credentials: 'include',
       cache: 'no-store',
       headers: {
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
       }
     });
 
@@ -308,9 +408,12 @@
     guardarCacheAlertas();
     limpiarCacheAlertasAntigua();
 
+    reproducirSonidoNuevaSolicitudEV();
+
     const cantidad = Number(item.cantidad || 0);
     const total = Number(item.monto_total || item.total || 0);
     const titulo = tituloPedidoSeguro(item);
+    const comprador = String(item.nombre_vecino || item.nombre_comprador || 'Vecino');
 
     const r = await Swal.fire({
       icon: 'info',
@@ -318,16 +421,16 @@
       html: `
         <div style="text-align:left; max-width:420px; margin:0 auto;">
           <div style="margin-bottom:8px;">
-            <strong>Publicación:</strong> ${titulo}
+            <strong>Publicación:</strong> ${escapeHtml(titulo)}
           </div>
           <div style="margin-bottom:8px;">
-            <strong>Comprador:</strong> ${String(item.nombre_vecino || item.nombre_comprador || 'Vecino')}
+            <strong>Comprador:</strong> ${escapeHtml(comprador)}
           </div>
           <div style="margin-bottom:8px;">
-            <strong>Cantidad:</strong> ${cantidad}
+            <strong>Cantidad:</strong> ${escapeHtml(cantidad)}
           </div>
           <div>
-            <strong>Total:</strong> S/ ${total.toFixed(2)}
+            <strong>Total:</strong> S/ ${escapeHtml(total.toFixed(2))}
           </div>
         </div>
       `,
@@ -500,6 +603,7 @@
   async function initShell() {
     inyectarEstilosSweetAlertGlobales();
     aplicarSweetAlertGlobalFix();
+    bindDesbloqueoAudioEV();
     initOverlayScrollbars();
     exponerControlPolling();
 
@@ -520,6 +624,7 @@
     restaurarSolicitudActiva: restaurarSolicitudActivaGlobal,
     revisarNuevasSolicitudesVendedor: revisarNuevasSolicitudesVendedor,
     marcarInteraccionUi: marcarInteraccionUi,
-    pathActualShell: pathActualShell
+    pathActualShell: pathActualShell,
+    reproducirSonidoNuevaSolicitud: reproducirSonidoNuevaSolicitudEV
   };
 })();

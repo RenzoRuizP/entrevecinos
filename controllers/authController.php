@@ -1,7 +1,9 @@
 <?php
+// controllers/AuthController.php
 declare(strict_types=1);
 
 require_once __DIR__ . '/../models/SesionJWT.php';
+require_once __DIR__ . '/../models/DisponibilidadPedido.php';
 require_once __DIR__ . '/../Config/config.php';
 
 class AuthController
@@ -44,6 +46,93 @@ class AuthController
             'httponly' => true,
             'samesite' => $isHttps ? 'None' : 'Lax',
         ];
+    }
+
+    private function responderJson(int $statusCode, array $payload): void
+    {
+        http_response_code($statusCode);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    private function obtenerCodigoUsuarioAuthActual(): int
+    {
+        $auth = $GLOBALS['EV_AUTH'] ?? [];
+
+        if (is_array($auth)) {
+            $codigo = (int)($auth['codigo_usuario'] ?? 0);
+            if ($codigo > 0) {
+                return $codigo;
+            }
+        }
+
+        return 0;
+    }
+
+    private function extraerCodigoUsuarioDesdeResultado(array $resultado): int
+    {
+        $keysDirectas = [
+            'codigo_usuario',
+            'codigoUsuario',
+            'id_usuario',
+            'idUsuario',
+            'user_id',
+            'id'
+        ];
+
+        foreach ($keysDirectas as $key) {
+            if (isset($resultado[$key]) && (int)$resultado[$key] > 0) {
+                return (int)$resultado[$key];
+            }
+        }
+
+        $posiblesBloques = [
+            $resultado['usuario'] ?? null,
+            $resultado['user'] ?? null,
+            $resultado['data'] ?? null,
+        ];
+
+        foreach ($posiblesBloques as $bloque) {
+            if (!is_array($bloque)) {
+                continue;
+            }
+
+            foreach ($keysDirectas as $key) {
+                if (isset($bloque[$key]) && (int)$bloque[$key] > 0) {
+                    return (int)$bloque[$key];
+                }
+            }
+
+            if (isset($bloque['usuario']) && is_array($bloque['usuario'])) {
+                foreach ($keysDirectas as $key) {
+                    if (isset($bloque['usuario'][$key]) && (int)$bloque['usuario'][$key] > 0) {
+                        return (int)$bloque['usuario'][$key];
+                    }
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    private function desactivarDisponibilidadPedidos(int $codigoUsuario, string $origen): void
+    {
+        if ($codigoUsuario <= 0) {
+            return;
+        }
+
+        try {
+            $model = new DisponibilidadPedido();
+
+            if ($origen === 'login') {
+                $model->desconectarPorLogin($codigoUsuario);
+                return;
+            }
+
+            $model->desconectarPorLogout($codigoUsuario);
+        } catch (Throwable $e) {
+            error_log('[EV][AuthController][desactivarDisponibilidadPedidos][' . $origen . '] ' . $e->getMessage());
+        }
     }
 
     public function login(): void
@@ -92,6 +181,11 @@ class AuthController
                             'message' => 'No se pudo generar el token de sesión. Intenta nuevamente.',
                         ], JSON_UNESCAPED_UNICODE);
                         return;
+                    }
+
+                    $codigoUsuario = $this->extraerCodigoUsuarioDesdeResultado($resultado);
+                    if ($codigoUsuario > 0) {
+                        $this->desactivarDisponibilidadPedidos($codigoUsuario, 'login');
                     }
 
                     $expiraEn = (int)($_ENV['JWT_EXPIRATION_SECONDS'] ?? 3600);
@@ -154,28 +248,42 @@ class AuthController
             session_start();
         }
 
+        $codigoUsuario = $this->obtenerCodigoUsuarioAuthActual();
+        $this->desactivarDisponibilidadPedidos($codigoUsuario, 'logout');
+
         if (isset($_COOKIE['auth_token'])) {
             setcookie('auth_token', '', $this->cookieOptions(time() - 3600));
             unset($_COOKIE['auth_token']);
         }
 
-        session_destroy();
+        $_SESSION = [];
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_destroy();
+        }
+
+        $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 
         $isAjax = (
             isset($_SERVER['HTTP_X_REQUESTED_WITH']) &&
             strtolower((string)$_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest'
-        ) || (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST');
+        ) || $method === 'POST'
+          || str_contains(strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? '')), 'application/json');
+
+        $redirect = rtrim(BASE_URL, '/') . '/login';
 
         if ($isAjax) {
-            header('Content-Type: application/json; charset=utf-8');
-            echo json_encode([
-                'status'  => 'success',
-                'message' => 'Has cerrado sesión correctamente.',
-            ], JSON_UNESCAPED_UNICODE);
+            $this->responderJson(200, [
+                'ok'       => true,
+                'success'  => true,
+                'status'   => 'success',
+                'message'  => 'Has cerrado sesión correctamente.',
+                'redirect' => $redirect
+            ]);
             exit;
         }
 
-        header('Location: ' . rtrim(BASE_URL, '/') . '/');
+        header('Location: ' . $redirect);
         exit;
     }
 }
