@@ -7,6 +7,9 @@
 
   const BASE = (window.BASE_URL || '').replace(/\/+$/, '');
   const POLLING_MS = 6500;
+  const SUPPRESS_KEY = 'ev_pedidos_alertas_suprimidas_v1';
+  const SUPPRESS_TTL_MS = 2 * 60 * 1000;
+
   let timer = null;
   let mostrando = false;
   let cache = new Set();
@@ -18,6 +21,64 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  function readSuppressStore() {
+    try {
+      const now = Date.now();
+      const raw = sessionStorage.getItem(SUPPRESS_KEY);
+      const store = raw ? JSON.parse(raw) : {};
+
+      Object.keys(store || {}).forEach((key) => {
+        if ((now - Number(store[key] || 0)) > SUPPRESS_TTL_MS) {
+          delete store[key];
+        }
+      });
+
+      sessionStorage.setItem(SUPPRESS_KEY, JSON.stringify(store));
+      return store && typeof store === 'object' ? store : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function suprimirPedido(codigoPedido) {
+    const id = Number(codigoPedido || 0);
+    if (!id) return;
+
+    try {
+      const store = readSuppressStore();
+      store[String(id)] = Date.now();
+      sessionStorage.setItem(SUPPRESS_KEY, JSON.stringify(store));
+    } catch (_) {}
+  }
+
+  function extraerPedidoId(alerta) {
+    const payload = alerta?.payload || alerta?.payload_json || {};
+    let p = payload;
+
+    if (typeof p === 'string') {
+      try { p = JSON.parse(p); } catch (_) { p = {}; }
+    }
+
+    return Number(
+      p?.codigo_pedido ||
+      p?.id_pedido ||
+      p?.pedido_id ||
+      p?.pedido ||
+      p?.referencia_id ||
+      alerta?.codigo_pedido ||
+      alerta?.id_pedido ||
+      alerta?.referencia_id ||
+      0
+    );
+  }
+
+  function estaSuprimidaPorSeguimiento(alerta) {
+    const pedidoId = extraerPedidoId(alerta);
+    if (!pedidoId) return false;
+    const store = readSuppressStore();
+    return Boolean(store[String(pedidoId)]);
   }
 
   function currentRoute() {
@@ -71,6 +132,12 @@
     const id = Number(alerta.codigo_notificacion || 0);
     if (!id || cache.has(id)) return;
 
+    if (estaSuprimidaPorSeguimiento(alerta)) {
+      cache.add(id);
+      await marcarLeida(id);
+      return;
+    }
+
     cache.add(id);
     mostrando = true;
 
@@ -93,7 +160,16 @@
         confirmButtonColor: '#EA7C12',
         cancelButtonColor: '#6B7280',
         allowOutsideClick: false,
-        allowEscapeKey: true
+        allowEscapeKey: true,
+        customClass: {
+          container: 'ev-swal-container',
+          popup: 'ev-swal-popup',
+          title: 'ev-swal-title',
+          htmlContainer: 'ev-swal-html',
+          confirmButton: 'ev-swal-confirm',
+          cancelButton: 'ev-swal-cancel'
+        },
+        buttonsStyling: false
       });
 
       await marcarLeida(id);
@@ -127,5 +203,9 @@
     if (!document.hidden) revisarAlertas();
   });
 
-  window.EVPedidosAlertas = { revisar: revisarAlertas, iniciar };
+  window.EVPedidosAlertas = {
+    revisar: revisarAlertas,
+    iniciar,
+    suprimirPedido
+  };
 })();

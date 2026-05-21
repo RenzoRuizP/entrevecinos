@@ -11,36 +11,20 @@ if (!isset($rolUsuario)) {
 
 $rolUsuario = strtolower(trim((string)$rolUsuario));
 $baseUrl = rtrim(BASE_URL, '/');
-
 $evAppVer = defined('EV_APP_VER') ? (string)EV_APP_VER : '1.0.0';
 
-/**
- * Versionado real por archivo.
- * Evita que el navegador se quede con JS anterior en caché.
- */
 function ev_js_ver(string $relativePath): string
 {
   $relativePath = ltrim($relativePath, '/');
-
   $fullPath = __DIR__ . '/../' . $relativePath;
-
   $mtime = @filemtime($fullPath);
-
-  if ($mtime) {
-    return (string)$mtime;
-  }
-
-  return defined('EV_APP_VER') ? (string)EV_APP_VER : (string)time();
+  return $mtime ? (string)$mtime : (defined('EV_APP_VER') ? (string)EV_APP_VER : (string)time());
 }
 
-/**
- * Construye URL pública para JS local.
- */
 function ev_js_src(string $file): string
 {
   $baseUrl = rtrim(BASE_URL, '/');
   $file = ltrim($file, '/');
-
   return $baseUrl . '/views/' . $file . '?v=' . ev_js_ver($file);
 }
 ?>
@@ -54,6 +38,8 @@ function ev_js_src(string $file): string
   window.EV_BASE_URL = window.BASE_URL;
   window.EV_APP_VER = <?= json_encode($evAppVer, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 </script>
+
+<script src="<?= htmlspecialchars(ev_js_src('js/evSweetAlert.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 
 <script src="<?= htmlspecialchars(ev_js_src('js/menuIzquierda.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(ev_js_src('js/menuArriba.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
@@ -79,8 +65,8 @@ function ev_js_src(string $file): string
   <script src="<?= htmlspecialchars(ev_js_src('js/menuPrincipalContenido.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/publicacionDestacar.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/credenciales.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
-  <script src="<?= htmlspecialchars(ev_js_src('js/recibirPedidos.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
-  <script src="<?= htmlspecialchars(ev_js_src('js/pedidosEntrantes.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+
+  <!-- /recibir ya no se usa: no cargar recibirPedidos.js ni pedidosEntrantes.js -->
   <script src="<?= htmlspecialchars(ev_js_src('js/misPedidosComprador.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/misPedidosVendedor.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/menuPrincipalPedidosAlertas.js'), ENT_QUOTES, 'UTF-8') ?>"></script>

@@ -1,5 +1,5 @@
 <?php
-// views/AtenderRecargasView.php
+// views/atenderRecargasView.php
 require_once __DIR__ . '/../Config/config.php';
 ?>
 
@@ -172,31 +172,30 @@ require_once __DIR__ . '/../Config/config.php';
 
 <!-- Modal: Revisar recarga -->
 <div class="modal fade" id="modalRecarga" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
+  <div class="modal-dialog modal-dialog-centered modal-xl ev-modal-recarga-dialog">
     <div class="modal-content ev-modal">
       <div class="modal-header ev-modal-header">
         <h5 class="modal-title">
           <i class="bi bi-receipt-cutoff me-2"></i> Revisar solicitud de recarga
         </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
 
       <div class="modal-body ev-modal-body">
-        <div class="row g-4">
-          <div class="col-12 col-lg-6">
-          <div id="mReenviadaWrap" class="ev-alert-reenviada d-none">
-            <div class="ev-alert-reenviada-icon">
-              <i class="bi bi-arrow-repeat"></i>
-            </div>
-            <div class="ev-alert-reenviada-body">
-              <div class="ev-alert-reenviada-title">Solicitud reenviada</div>
-              <div class="ev-alert-reenviada-text">
-                Esta solicitud fue reenviada por el usuario luego de una observación anterior.
-              </div>
+        <div id="mReenviadaWrap" class="ev-alert-reenviada d-none">
+          <div class="ev-alert-reenviada-icon">
+            <i class="bi bi-arrow-repeat"></i>
+          </div>
+          <div class="ev-alert-reenviada-body">
+            <div class="ev-alert-reenviada-title">Solicitud reenviada</div>
+            <div class="ev-alert-reenviada-text">
+              Esta solicitud fue reenviada por el usuario luego de una observación anterior.
             </div>
           </div>
+        </div>
 
-          <div class="ev-kv">
+        <div class="ev-recarga-review-grid">
+          <section class="ev-recarga-review-info" aria-label="Datos de la recarga">
             <div class="ev-kv">
               <div class="ev-kv-item"><span>Usuario:</span> <strong id="mUsuario">—</strong></div>
               <div class="ev-kv-item"><span>DNI:</span> <strong id="mDni">—</strong></div>
@@ -207,14 +206,14 @@ require_once __DIR__ . '/../Config/config.php';
             </div>
 
             <div class="mt-3">
-              <label class="form-label">Comentario (obligatorio para Observada / Rechazada)</label>
+              <label class="form-label">Comentario <span class="text-muted">(obligatorio para Observada / Rechazada)</span></label>
               <textarea class="form-control ev-input" id="mComentario" rows="4"
                         placeholder="Ej. La imagen está borrosa / El ID operación no coincide / Falta monto..."></textarea>
               <div class="form-text">Este comentario se mostrará al usuario.</div>
             </div>
-          </div>
+          </section>
 
-          <div class="col-12 col-lg-6">
+          <section class="ev-recarga-review-proof" aria-label="Comprobante de recarga">
             <div class="ev-proof">
               <div class="ev-proof-title"><i class="bi bi-image me-2"></i> Comprobante</div>
               <div class="ev-proof-box">
@@ -225,8 +224,7 @@ require_once __DIR__ . '/../Config/config.php';
                 Verifica el pago en tu app (Yape/Plin) y confirma el ID de operación.
               </div>
             </div>
-          </div>
-
+          </section>
         </div>
       </div>
 
@@ -235,7 +233,7 @@ require_once __DIR__ . '/../Config/config.php';
           <i class="bi bi-x-circle me-1"></i> Cerrar
         </button>
 
-        <div class="ms-auto d-flex gap-2">
+        <div class="ev-recarga-footer-actions">
           <button type="button" class="btn ev-btn-soft" id="btnObservar">
             <i class="bi bi-exclamation-circle me-1"></i> Observar
           </button>

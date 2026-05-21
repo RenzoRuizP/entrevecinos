@@ -71,8 +71,7 @@
     cancelButtonVisible: false,
     modo: '',
     segundosRestantes: 0,
-    segundosParaCancelarRestantes: SEGUNDOS_CANCELACION_SOLICITUD,
-    requierePreparacion: false
+    segundosParaCancelarRestantes: SEGUNDOS_CANCELACION_SOLICITUD
   };
 
   function log()  { if (console && console.log)  console.log(LOG_PREFIX, ...arguments); }
@@ -313,6 +312,7 @@
   }
 
   function swalBaseConfig(opts = {}) {
+    ensureMarketplaceSwalCleanStyles();
     return Object.assign({
       buttonsStyling: false,
       allowOutsideClick: () => {
@@ -340,6 +340,115 @@
     if (window.Swal?.isVisible && window.Swal.isVisible()) {
       Swal.close();
     }
+  }
+
+
+  const EV_ALERTAS_SUPRIMIDAS_KEY = 'ev_pedidos_alertas_suprimidas_v1';
+  const EV_ALERTAS_SUPRIMIDAS_TTL_MS = 2 * 60 * 1000;
+
+  function suprimirAlertaGlobalPedido(codigoPedido) {
+    const id = Number(codigoPedido || 0);
+    if (!id) return;
+
+    try {
+      const now = Date.now();
+      const raw = sessionStorage.getItem(EV_ALERTAS_SUPRIMIDAS_KEY);
+      const store = raw ? JSON.parse(raw) : {};
+
+      Object.keys(store || {}).forEach((key) => {
+        if ((now - Number(store[key] || 0)) > EV_ALERTAS_SUPRIMIDAS_TTL_MS) {
+          delete store[key];
+        }
+      });
+
+      store[String(id)] = now;
+      sessionStorage.setItem(EV_ALERTAS_SUPRIMIDAS_KEY, JSON.stringify(store));
+    } catch (_) {}
+
+    try {
+      if (window.EVPedidosAlertas && typeof window.EVPedidosAlertas.suprimirPedido === 'function') {
+        window.EVPedidosAlertas.suprimirPedido(id);
+      }
+    } catch (_) {}
+  }
+
+  function ensureMarketplaceSwalCleanStyles() {
+    const ID = 'ev-mp-swal-clean-premium-style';
+    if (document.getElementById(ID)) return;
+
+    const style = document.createElement('style');
+    style.id = ID;
+    style.type = 'text/css';
+    style.textContent = `
+      .swal2-popup.ev-mp-swal-popup,
+      .swal2-popup.ev-mp-swal-popup-seguimiento,
+      .swal2-popup.ev-mp-toast-cola-popup{
+        background:#ffffff !important;
+        background-image:none !important;
+        border:1px solid rgba(229,231,235,.96) !important;
+        box-shadow:0 30px 72px rgba(15,23,42,.20), 0 10px 24px rgba(15,23,42,.08) !important;
+      }
+
+      .swal2-popup.ev-mp-swal-popup::before,
+      .swal2-popup.ev-mp-swal-popup-seguimiento::before{
+        height:5px !important;
+        background:linear-gradient(90deg,#0F592F 0%,#16A34A 58%,#EA7C12 100%) !important;
+      }
+
+      .ev-mp-swal-status-icon,
+      .ev-mp-swal-status-icon--success,
+      .ev-mp-swal-status-icon--info{
+        background:#ffffff !important;
+        background-image:none !important;
+        box-shadow:0 10px 26px rgba(15,23,42,.06), inset 0 0 0 1px rgba(255,255,255,.95) !important;
+      }
+
+      .ev-mp-swal-status-icon--success{
+        border-color:rgba(22,163,74,.24) !important;
+      }
+
+      .ev-mp-swal-status-icon--info{
+        border-color:rgba(56,189,248,.28) !important;
+      }
+
+      .ev-mp-swal-product-card{
+        background:#ffffff !important;
+        border:1px solid rgba(229,231,235,.96) !important;
+        box-shadow:0 8px 22px rgba(15,23,42,.045) !important;
+      }
+
+      .ev-mp-swal-note{
+        background:#ffffff !important;
+        background-image:none !important;
+        border:1px solid rgba(234,124,18,.20) !important;
+        box-shadow:0 10px 24px rgba(234,124,18,.06) !important;
+      }
+
+      .ev-mp-swal-loader{
+        border-color:rgba(22,163,74,.14) !important;
+        border-top-color:#0F592F !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function esperarModalOculto(modalEl) {
+    if (!modalEl || !modalEl.classList.contains('show')) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        try { modalEl.removeEventListener('hidden.bs.modal', finish); } catch (_) {}
+        resolve();
+      };
+
+      modalEl.addEventListener('hidden.bs.modal', finish, { once: true });
+      window.setTimeout(finish, 460);
+    });
   }
 
   function triggerSwalBounce() {
@@ -490,11 +599,11 @@
     if (!window.Swal?.fire) return;
 
     Swal.fire(swalBaseConfig({
-      title: 'Enviando solicitud...',
+      title: 'Registrando solicitud',
       html: `
         <div class="ev-mp-swal-loader" aria-hidden="true"></div>
         <div class="ev-mp-swal-soft-text">
-          Estamos registrando tu solicitud. Espera un momento.
+          Estamos validando la disponibilidad y registrando tu pedido. Espera un momento.
         </div>
       `,
       showConfirmButton: false,
@@ -1088,7 +1197,6 @@
     solicitudFlow.modo = '';
     solicitudFlow.segundosRestantes = 0;
     solicitudFlow.segundosParaCancelarRestantes = SEGUNDOS_CANCELACION_SOLICITUD;
-    solicitudFlow.requierePreparacion = false;
   }
 
   function formatDuracionSegundos(segundos) {
@@ -1394,7 +1502,7 @@
       ? `
         <div class="ev-mp-swal-note">
           Se reservó <strong>${formatPrecio(montoDescontado)}</strong> de tu billetera por tratarse de un producto con preparación.
-          Si el vendedor rechaza o no responde, se devolverá automáticamente. Si el vendedor acepta y luego no recoges el producto, no habrá devolución.
+          Si la solicitud no continúa, el saldo se devolverá automáticamente.
         </div>
       `
       : '';
@@ -1661,8 +1769,7 @@
       );
     }
 
-    const esPreparado = solicitudFlow.requierePreparacion === true;
-    const yaPuedeCancelar = !esPreparado && segundosParaCancelarRestantes <= 0;
+    const yaPuedeCancelar = segundosParaCancelarRestantes <= 0;
 
     solicitudFlow.segundosRestantes = segundosRestantes;
     solicitudFlow.segundosParaCancelarRestantes = segundosParaCancelarRestantes;
@@ -1779,6 +1886,7 @@
     const devolvio = Number(data?.devolucion_billetera_aplicada || 0) === 1;
     const tituloProducto = String(data?.titulo_producto || 'tu solicitud');
 
+    suprimirAlertaGlobalPedido(codigoPedidoFinal);
     limpiarQueueAckVisto(codigoPedidoFinal);
     limpiarSeguimientoSolicitud();
     swalCloseIfVisible();
@@ -1948,7 +2056,6 @@
     solicitudFlow.activo = true;
     solicitudFlow.modo = 'respuesta';
     solicitudFlow.cancelButtonVisible = false;
-    solicitudFlow.requierePreparacion = Number(data.requiere_preparacion || 0) === 1;
 
     const payloadSync = {};
 
@@ -2409,7 +2516,6 @@
       fd.append('tipo_entrega', tipoEntrega);
       fd.append('direccion_entrega', direccionEntrega);
       fd.append('mensaje_comprador', mensajeComprador);
-      fd.append('metodo_pago', requierePreparacion ? 'billetera' : 'efectivo');
       if (tipoEntrega === 'programada') {
         fd.append('fecha_hora_programada', fechaProgramada);
       }
@@ -2509,6 +2615,7 @@
           keyboard: false
         });
         modalSolicitud.hide();
+        await esperarModalOculto(modalSolicitudEl);
       }
 
       recalcularTotalSolicitud();
@@ -3341,6 +3448,7 @@
   }
 
   async function initMarketplace() {
+    ensureMarketplaceSwalCleanStyles();
     if (!capturarRefs()) {
       detenerPollingDisponibilidad();
       return;

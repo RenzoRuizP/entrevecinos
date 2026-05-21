@@ -314,6 +314,158 @@ function evObtenerConexionIndex(): ?PDO
     }
 }
 
+
+/**
+ * Apaga la disponibilidad del vendedor de forma centralizada.
+ * Se usa en logout, token expirado y estados de cuenta restringidos.
+ */
+function evApagarDisponibilidadPedidosUsuario(int $codigoUsuario, string $motivo = ''): void
+{
+    if ($codigoUsuario <= 0) {
+        return;
+    }
+
+    try {
+        $db = evObtenerConexionIndex();
+
+        if (!$db) {
+            return;
+        }
+
+        $sql = "
+            UPDATE usuario
+            SET disponibilidad_pedidos = 0
+            WHERE codigo_usuario = :id
+              AND disponibilidad_pedidos <> 0
+            LIMIT 1
+        ";
+
+        $st = $db->prepare($sql);
+        $st->execute([':id' => $codigoUsuario]);
+
+        if ($st->rowCount() > 0) {
+            error_log('[EV][AUTH][DISPONIBILIDAD_OFF] usuario=' . $codigoUsuario . ' motivo=' . $motivo);
+        }
+    } catch (Throwable $e) {
+        error_log('[EV][INDEX][evApagarDisponibilidadPedidosUsuario] ' . $e->getMessage());
+    }
+}
+
+function evJwtBase64UrlDecode(string $value): string|false
+{
+    $value = trim($value);
+    if ($value === '') {
+        return false;
+    }
+
+    $value = strtr($value, '-_', '+/');
+    $padding = strlen($value) % 4;
+
+    if ($padding > 0) {
+        $value .= str_repeat('=', 4 - $padding);
+    }
+
+    return base64_decode($value, true);
+}
+
+/**
+ * Lee el payload de un JWT expirado sin aceptar tokens falsificados:
+ * valida firma HS256 y solo ignora la fecha expirada.
+ */
+function evDataTokenFirmadoSinValidarExp(?string $token): ?array
+{
+    $token = trim((string)($token ?? ''));
+    if ($token === '') {
+        return null;
+    }
+
+    $secret = (string)($_ENV['JWT_SECRET_KEY'] ?? '');
+    if ($secret === '') {
+        return null;
+    }
+
+    $parts = explode('.', $token);
+    if (count($parts) !== 3) {
+        return null;
+    }
+
+    [$header64, $payload64, $signature64] = $parts;
+
+    $headerRaw = evJwtBase64UrlDecode($header64);
+    $payloadRaw = evJwtBase64UrlDecode($payload64);
+    $signatureRaw = evJwtBase64UrlDecode($signature64);
+
+    if ($headerRaw === false || $payloadRaw === false || $signatureRaw === false) {
+        return null;
+    }
+
+    $header = json_decode($headerRaw, true);
+    $payload = json_decode($payloadRaw, true);
+
+    if (!is_array($header) || !is_array($payload)) {
+        return null;
+    }
+
+    if (strtoupper((string)($header['alg'] ?? '')) !== 'HS256') {
+        return null;
+    }
+
+    $expected = hash_hmac('sha256', $header64 . '.' . $payload64, $secret, true);
+
+    if (!hash_equals($expected, $signatureRaw)) {
+        return null;
+    }
+
+    $data = $payload['data'] ?? null;
+    return is_array($data) ? $data : null;
+}
+
+function evCodigoUsuarioDesdeTokenFirmado(?string $token): int
+{
+    $data = evDataTokenFirmadoSinValidarExp($token);
+    return (int)($data['codigo_usuario'] ?? 0);
+}
+
+function evEliminarCookiesAuthIndex(): void
+{
+    try {
+        if (class_exists('SesionJWT') && method_exists('SesionJWT', 'eliminarToken')) {
+            SesionJWT::eliminarToken();
+        }
+    } catch (Throwable $e) {
+        error_log('[EV][INDEX][evEliminarCookiesAuthIndex][auth_token] ' . $e->getMessage());
+    }
+
+    // Compatibilidad con instalaciones antiguas que aún tenían jwt_token.
+    try {
+        $path = function_exists('evBaseUrl') ? evBasePathFromBaseUrl(evBaseUrl()) : '/';
+        $path = ($path === '/') ? '/' : rtrim($path, '/') . '/';
+
+        if (isset($_COOKIE['jwt_token'])) {
+            setcookie('jwt_token', '', [
+                'expires'  => time() - 3600,
+                'path'     => $path,
+                'secure'   => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+                'httponly' => true,
+                'samesite' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'None' : 'Lax',
+            ]);
+            unset($_COOKIE['jwt_token']);
+        }
+    } catch (Throwable $e) {
+        error_log('[EV][INDEX][evEliminarCookiesAuthIndex][jwt_token] ' . $e->getMessage());
+    }
+}
+
+function evApagarDisponibilidadPorTokenFirmado(?string $token, string $motivo): void
+{
+    $codigoUsuario = evCodigoUsuarioDesdeTokenFirmado($token);
+    if ($codigoUsuario > 0) {
+        evApagarDisponibilidadPedidosUsuario($codigoUsuario, $motivo);
+    }
+
+    evEliminarCookiesAuthIndex();
+}
+
 function evObtenerEstadoUsuario(int $codigoUsuario): ?int
 {
     try {
@@ -757,6 +909,12 @@ foreach ($routes as $r) {
                 ? 'token_expirado'
                 : 'token_invalido';
 
+            if ($motivo === 'token_expirado') {
+                evApagarDisponibilidadPorTokenFirmado($token, 'token_expirado');
+            } else {
+                evEliminarCookiesAuthIndex();
+            }
+
             if (esPeticionParcial() || $type === 'json' || str_starts_with($uri, '/api/')) {
                 evJsonResponse(401, [
                     'ok'       => false,
@@ -786,7 +944,14 @@ foreach ($routes as $r) {
         );
 
         if ($esVecino && $codigoUsuario > 0) {
+            if ($uri === '/logout') {
+                evApagarDisponibilidadPedidosUsuario($codigoUsuario, 'logout');
+            }
+
             if (evUsuarioEstaBloqueado($codigoUsuario)) {
+                evApagarDisponibilidadPedidosUsuario($codigoUsuario, 'cuenta_bloqueada');
+                evEliminarCookiesAuthIndex();
+
                 if (esPeticionParcial() || $type === 'json' || str_starts_with($uri, '/api/')) {
                     evJsonResponse(403, [
                         'ok'       => false,
@@ -801,6 +966,13 @@ foreach ($routes as $r) {
 
             $observado = evUsuarioEstaObservado($codigoUsuario);
             $enRevisionInicial = evUsuarioEstaEnRevisionInicial($codigoUsuario);
+
+            if ($observado || $enRevisionInicial) {
+                evApagarDisponibilidadPedidosUsuario(
+                    $codigoUsuario,
+                    $observado ? 'cuenta_observada' : 'cuenta_en_revision'
+                );
+            }
 
             if (($observado || $enRevisionInicial) && !evRutaPermitidaEnObservacion($uri)) {
                 $redirect = rtrim($baseUrl, '/') . '/cuenta-observada';

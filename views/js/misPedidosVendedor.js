@@ -97,7 +97,7 @@
       despachando: 'Despachando',
       listo_para_entrega: 'Listo para entrega',
       en_camino: 'En camino',
-      en_punto_entrega: 'En punto de recojo',
+      en_punto_entrega: 'En punto de entrega',
       entregado_vendedor: 'Entregado por vendedor',
       entrega_confirmada_comprador: 'Entrega confirmada',
       rechazado_vendedor: 'Rechazado por vendedor',
@@ -679,14 +679,6 @@
       }
     }
 
-    if (Number(item.puede_cancelar_vendedor || 0) === 1) {
-      acciones.push(`
-        <button type="button" class="btn ev-mpv-btn-danger-soft" data-action="estado" data-id="${id}" data-estado="cancelado_vendedor">
-          <i class="bi bi-x-octagon me-1"></i>Cancelar pedido
-        </button>
-      `);
-    }
-
     acciones.push(`
       <button type="button" class="btn ev-mpv-btn-outline" data-action="detalle" data-id="${id}">
         <i class="bi bi-eye me-1"></i>Ver detalle
@@ -694,19 +686,6 @@
     `);
 
     return acciones.join('');
-  }
-
-
-  function renderRecojoCountdown(item) {
-    const estado = String(item.estado_actual || '').trim();
-    if (estado !== 'en_punto_entrega') return '';
-
-    const restantes = Number(item.segundos_recojo_restantes || 0);
-    if (restantes > 0) {
-      return `<div class="ev-mpv-time-pill"><i class="bi bi-hourglass-split"></i>Tiempo de espera: ${escapeHtml(formatTiempoCorto(restantes))}</div>`;
-    }
-
-    return `<div class="ev-mpv-time-pill"><i class="bi bi-exclamation-circle"></i>Tiempo de recojo vencido</div>`;
   }
 
   function renderResumenEstado(item) {
@@ -746,18 +725,6 @@
           <div class="ev-mpv-state-text">
             El comprador todavía no confirma si desea mantenerse en la cola. Hasta entonces no pasa al turno de atención.
           </div>
-        </div>
-      `;
-    }
-
-    if (estado === 'en_punto_entrega') {
-      return `
-        <div class="ev-mpv-state-box ev-mpv-state-box-info">
-          <div class="ev-mpv-state-title">Pedido en punto de recojo</div>
-          <div class="ev-mpv-state-text">
-            Espera al comprador hasta 6 minutos. Si no recoge o no responde, podrás cancelar seleccionando un motivo.
-          </div>
-          ${renderRecojoCountdown(item)}
         </div>
       `;
     }
@@ -1337,87 +1304,14 @@
     };
   }
 
-
-  async function promptCancelacionVendedor(item) {
-    if (!window.Swal?.fire) return { isConfirmed: false, value: null };
-
-    const motivos = {
-      comprador_no_se_presento: 'El comprador no se presentó',
-      comprador_no_responde: 'El comprador no respondió',
-      comprador_rechazo_recepcion: 'El comprador rechazó recibir el pedido',
-      no_se_pudo_concretar: 'No se pudo concretar la entrega',
-      otro: 'Otro motivo'
-    };
-
-    return Swal.fire(swalBaseConfig({
-      title: 'Cancelar pedido',
-      html: htmlMessage(
-        'warning',
-        'Selecciona el motivo de cancelación',
-        'Esta acción cerrará el pedido y liberará tu turno de atención.',
-        htmlProductNote('Pedido', item?.titulo_publicacion || 'Pedido seleccionado')
-      ),
-      input: 'select',
-      inputOptions: motivos,
-      inputPlaceholder: 'Selecciona un motivo',
-      showCancelButton: true,
-      confirmButtonText: 'Continuar',
-      cancelButtonText: 'Volver',
-      preConfirm: (value) => {
-        const clave = String(value || '').trim();
-        if (!clave) {
-          Swal.showValidationMessage('Debes seleccionar un motivo.');
-          return false;
-        }
-        return { clave, detalle: '' };
-      }
-    })).then(async (r) => {
-      if (!r.isConfirmed || !r.value) return r;
-      if (r.value.clave !== 'otro') return r;
-
-      const detalle = await Swal.fire(swalBaseConfig({
-        title: 'Detalle del motivo',
-        html: htmlMessage(
-          'warning',
-          'Describe brevemente lo ocurrido',
-          'Este detalle quedará registrado en el historial del pedido.'
-        ),
-        input: 'textarea',
-        inputPlaceholder: 'Escribe el detalle...',
-        inputAttributes: { maxlength: '500' },
-        showCancelButton: true,
-        confirmButtonText: 'Cancelar pedido',
-        cancelButtonText: 'Volver',
-        preConfirm: (value) => {
-          const txt = String(value || '').trim();
-          if (!txt) {
-            Swal.showValidationMessage('Debes ingresar un detalle.');
-            return false;
-          }
-          return txt;
-        }
-      }));
-
-      if (!detalle.isConfirmed) return { isConfirmed: false, value: null };
-      return { isConfirmed: true, value: { clave: 'otro', detalle: detalle.value || '' } };
-    });
-  }
-
   async function cambiarEstado(id, estado) {
     if (accionEnCurso) return;
     const item = cachePedidos.get(Number(id || 0));
     if (!item) return;
 
     const meta = obtenerMetaCambioEstado(estado);
-    let motivoCancelacion = null;
 
-    if (String(estado || '').trim() === 'cancelado_vendedor') {
-      const motivo = await promptCancelacionVendedor(item);
-      if (!motivo.isConfirmed || !motivo.value) return;
-      motivoCancelacion = motivo.value;
-    }
-
-    const ok = String(estado || '').trim() === 'cancelado_vendedor' ? true : await confirmAction({
+    const ok = await confirmAction({
       title: meta.title,
       subtitle: meta.subtitle,
       text: meta.text,
@@ -1439,11 +1333,7 @@
           Accept: 'application/json',
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          nuevo_estado: estado,
-          motivo_cancelacion_clave: motivoCancelacion?.clave || '',
-          motivo_cancelacion_detalle: motivoCancelacion?.detalle || ''
-        })
+        body: JSON.stringify({ nuevo_estado: estado })
       });
 
       const json = await resp.json().catch(() => ({}));
@@ -1482,24 +1372,186 @@
     }
   }
 
+
+  function ensureDetallePremiumStyles() {
+    const ID = 'ev-mpv-detalle-premium-style';
+    if (document.getElementById(ID)) return;
+
+    const style = document.createElement('style');
+    style.id = ID;
+    style.type = 'text/css';
+    style.textContent = `
+      .ev-mpv-btn-danger-soft:hover,
+      .ev-mpv-btn-danger-soft:focus{
+        background:linear-gradient(135deg,#DC2626,#B91C1C) !important;
+        border-color:#DC2626 !important;
+        color:#ffffff !important;
+        box-shadow:0 14px 28px rgba(220,38,38,.20) !important;
+        transform:translateY(-1px) !important;
+      }
+
+      .swal2-popup.ev-mpv-swal-popup-premium{
+        background:#ffffff !important;
+        background-image:none !important;
+      }
+
+      .ev-mpv-modal-detail-v2{
+        text-align:left;
+        max-width:100%;
+      }
+
+      .ev-mpv-modal-hero{
+        display:grid;
+        grid-template-columns:minmax(180px, 220px) minmax(0, 1fr);
+        gap:16px;
+        align-items:stretch;
+        margin-bottom:14px;
+      }
+
+      .ev-mpv-modal-media-card{
+        border:1px solid rgba(229,231,235,.94);
+        border-radius:24px;
+        background:#ffffff;
+        box-shadow:0 12px 26px rgba(15,23,42,.06);
+        padding:10px;
+        display:flex;
+        flex-direction:column;
+        gap:10px;
+        min-width:0;
+      }
+
+      .ev-mpv-modal-detail-v2 .ev-mpv-modal-media{
+        width:100% !important;
+        height:172px !important;
+        border-radius:18px !important;
+        background:#F8FAFC !important;
+        box-shadow:none !important;
+      }
+
+      .ev-mpv-modal-detail-v2 .ev-mpv-modal-media img{
+        object-fit:contain !important;
+        padding:4px !important;
+      }
+
+      .ev-mpv-modal-mini-pills{
+        display:flex;
+        flex-wrap:wrap;
+        gap:6px;
+      }
+
+      .ev-mpv-modal-mini-pill{
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        min-height:30px;
+        padding:6px 9px;
+        border-radius:999px;
+        background:#F8FAFC;
+        border:1px solid #E5E7EB;
+        color:#334155;
+        font-size:12px;
+        font-weight:850;
+      }
+
+      .ev-mpv-modal-main-card{
+        border:1px solid rgba(229,231,235,.94);
+        border-radius:24px;
+        background:#ffffff;
+        box-shadow:0 12px 26px rgba(15,23,42,.05);
+        padding:14px;
+        min-width:0;
+      }
+
+      .ev-mpv-modal-detail-v2 .ev-mpv-modal-head{
+        margin-bottom:12px !important;
+      }
+
+      .ev-mpv-modal-detail-v2 .ev-mpv-modal-title{
+        font-size:1.18rem !important;
+        line-height:1.16 !important;
+      }
+
+      .ev-mpv-modal-detail-v2 .ev-mpv-modal-grid{
+        grid-template-columns:repeat(2, minmax(0,1fr)) !important;
+        gap:9px !important;
+      }
+
+      .ev-mpv-modal-detail-v2 .ev-mpv-modal-item{
+        background:#ffffff !important;
+        border-color:#E9EEF5 !important;
+        min-height:78px;
+      }
+
+      .ev-mpv-modal-detail-v2 .ev-mpv-modal-item span{
+        white-space:normal !important;
+        word-break:normal !important;
+      }
+
+      .ev-mpv-modal-detail-v2 .ev-mpv-modal-item strong{
+        white-space:normal !important;
+        word-break:normal !important;
+        overflow-wrap:break-word !important;
+        line-height:1.22 !important;
+      }
+
+      .ev-mpv-modal-detail-v2 .ev-mpv-modal-stack{
+        margin-top:14px !important;
+      }
+
+      .ev-mpv-modal-detail-v2 .ev-mpv-modal-stack,
+      .ev-mpv-modal-detail-v2 .ev-mpv-modal-note{
+        background:#ffffff !important;
+        background-image:none !important;
+      }
+
+      @media (max-width: 767.98px){
+        .ev-mpv-modal-hero{
+          grid-template-columns:1fr;
+        }
+
+        .ev-mpv-modal-detail-v2 .ev-mpv-modal-media{
+          height:210px !important;
+        }
+
+        .ev-mpv-modal-detail-v2 .ev-mpv-modal-grid{
+          grid-template-columns:repeat(2, minmax(0,1fr)) !important;
+        }
+      }
+
+      @media (max-width: 480px){
+        .ev-mpv-modal-detail-v2 .ev-mpv-modal-grid{
+          grid-template-columns:1fr !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   function buildDetalleHtml(item) {
     const imagen = normalizarUrlImagen(item.imagen_portada_url || item.imagen_portada);
     const badge = badgeEstado(item.estado_actual);
     const tieneProgramacion = String(item.tipo_entrega_raw || '').trim() === 'programada' && !!item.fecha_hora_programada;
+    const fechaBase = item.fecha_hora || item.created_at || null;
 
     return `
-      <div class="ev-mpv-modal-detail">
-        <div class="ev-mpv-modal-top">
-          <div class="ev-mpv-modal-media">
-            <img src="${escapeHtml(imagen)}" alt="${escapeHtml(item.titulo_publicacion || 'Pedido')}">
+      <div class="ev-mpv-modal-detail ev-mpv-modal-detail-v2">
+        <div class="ev-mpv-modal-hero">
+          <div class="ev-mpv-modal-media-card">
+            <div class="ev-mpv-modal-media">
+              <img src="${escapeHtml(imagen)}" alt="${escapeHtml(item.titulo_publicacion || 'Pedido')}">
+            </div>
+            <div class="ev-mpv-modal-mini-pills">
+              <span class="ev-mpv-modal-mini-pill"><i class="bi bi-box-seam"></i>Cant. ${escapeHtml(item.cantidad || 0)}</span>
+              <span class="ev-mpv-modal-mini-pill"><i class="bi bi-lightning-charge"></i>${escapeHtml(textoEntrega(item))}</span>
+            </div>
           </div>
 
-          <div class="ev-mpv-modal-main">
+          <div class="ev-mpv-modal-main-card">
             <div class="ev-mpv-modal-head">
               <div>
                 <div class="ev-mpv-modal-title">${escapeHtml(item.titulo_publicacion || 'Pedido')}</div>
                 <div class="ev-mpv-modal-subtitle">
-                  Pedido #${Number(item.codigo_pedido || 0)} · ${escapeHtml(formatFecha(item.fecha_hora || item.created_at || null))}
+                  Pedido #${Number(item.codigo_pedido || 0)} · ${escapeHtml(formatFecha(fechaBase))}
                 </div>
               </div>
               <span class="${badge.clase}">${escapeHtml(badge.texto)}</span>
@@ -1508,7 +1560,7 @@
             <div class="ev-mpv-modal-grid">
               <div class="ev-mpv-modal-item">
                 <span>Fecha</span>
-                <strong>${escapeHtml(formatFecha(item.fecha_hora || item.created_at || null))}</strong>
+                <strong>${escapeHtml(formatFecha(fechaBase))}</strong>
               </div>
               <div class="ev-mpv-modal-item">
                 <span>Total</span>
@@ -1578,7 +1630,7 @@
         <div class="ev-mpv-modal-section">
           <div class="ev-mpv-modal-note-title">Detalle operativo</div>
           <div class="ev-mpv-modal-note">
-            ${escapeHtml(item.motivo_estado || 'Estado actualizado del pedido.')}
+            ${escapeHtml(item.motivo_estado || 'Solicitud registrada por comprador.')}
           </div>
         </div>
       </div>
@@ -1586,14 +1638,23 @@
   }
 
   async function verDetalle(id) {
+    ensureDetallePremiumStyles();
     const item = cachePedidos.get(Number(id || 0));
     if (!window.Swal || !item) return;
 
     await Swal.fire(swalBaseConfig({
       title: 'Detalle del pedido',
       html: buildDetalleHtml(item),
-      width: 880,
-      confirmButtonText: 'Cerrar'
+      width: 860,
+      confirmButtonText: 'Cerrar',
+      customClass: {
+        container: 'ev-mpv-swal-container ev-swal-container',
+        popup: 'ev-mpv-swal-popup-premium ev-mpv-swal-popup-detail ev-swal-popup ev-swal-popup-detail',
+        title: 'ev-mpv-swal-title ev-swal-title',
+        htmlContainer: 'ev-mpv-swal-html ev-swal-html',
+        confirmButton: 'ev-mpv-swal-confirm ev-swal-confirm',
+        cancelButton: 'ev-mpv-swal-cancel ev-swal-cancel'
+      }
     }));
   }
 
@@ -1698,6 +1759,7 @@
     }
 
     ensureSwalStyles();
+    ensureDetallePremiumStyles();
 
     vistaActiva = true;
     bindEventosTabs();

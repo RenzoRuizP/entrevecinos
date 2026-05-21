@@ -308,6 +308,7 @@ class Producto extends Conexion
 
         return " {$aliasProducto}.visible = 2
                  AND {$aliasUsuario}.estado = 2
+                 AND {$aliasUsuario}.disponibilidad_pedidos = 1
                  AND {$aliasProducto}.estado_residencial_publicacion = 'activa' ";
     }
 

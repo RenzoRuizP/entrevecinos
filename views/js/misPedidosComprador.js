@@ -50,14 +50,6 @@
     });
   }
 
-
-  function formatTiempoCorto(segundos) {
-    const s = Math.max(0, Number(segundos || 0));
-    const min = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-  }
-
   function normalizarUrlImagen(url) {
     const raw = String(url || '').trim();
     return raw !== '' ? raw : PLACEHOLDER;
@@ -118,7 +110,7 @@
       despachando: 'Despachando',
       listo_para_entrega: 'Listo para entrega',
       en_camino: 'En camino',
-      en_punto_entrega: 'En punto de recojo',
+      en_punto_entrega: 'En punto de entrega',
       entregado_vendedor: 'Entregado por vendedor',
       entrega_confirmada_comprador: 'Entrega confirmada',
       rechazado_vendedor: 'Rechazado por vendedor',
@@ -348,19 +340,6 @@
       `;
     }
 
-    if (estado === 'en_punto_entrega') {
-      const restantes = Number(item.segundos_recojo_restantes || 0);
-      return `
-        <div class="ev-mpc-state-box ev-mpc-state-box-info">
-          <div class="ev-mpc-state-title">Pedido en punto de recojo</div>
-          <div class="ev-mpc-state-text">
-            El vendedor ya llegó al punto de recojo. Tienes 6 minutos para recibir tu pedido.
-            ${restantes > 0 ? ` Tiempo restante: ${formatTiempoCorto(restantes)}.` : ' El tiempo de recojo ya venció.'}
-          </div>
-        </div>
-      `;
-    }
-
     if (estado === 'entregado_vendedor') {
       return `
         <div class="ev-mpc-state-box ev-mpc-state-box-info">
@@ -460,19 +439,6 @@
     const tieneProgramacion = String(item.tipo_entrega_raw || '').trim() === 'programada' && !!item.fecha_hora_programada;
     const puedeCancelar = Number(item.puede_cancelar || 0) === 1;
     const puedeConfirmarCola = Number(item.puede_confirmar_cola || 0) === 1;
-
-    if (estado === 'en_punto_entrega') {
-      const restantes = Number(item.segundos_recojo_restantes || 0);
-      return `
-        <div class="ev-mpc-state-box ev-mpc-state-box-info">
-          <div class="ev-mpc-state-title">Pedido en punto de recojo</div>
-          <div class="ev-mpc-state-text">
-            El vendedor ya llegó al punto de recojo. Tienes 6 minutos para recibir tu pedido.
-            ${restantes > 0 ? ` Tiempo restante: ${formatTiempoCorto(restantes)}.` : ' El tiempo de recojo ya venció.'}
-          </div>
-        </div>
-      `;
-    }
 
     if (estado === 'entregado_vendedor') {
       acciones.push(`
@@ -840,31 +806,226 @@
     await Swal.fire({
       icon: 'success',
       title: 'Solicitud cancelada',
-      text: (Number(json?.data?.penalidad_generada || 0) > 0) ? 'Pedido cancelado. Se aplicará una penalidad de S/ 1.00 en tu siguiente pedido.' : (json?.mensaje || 'Tu solicitud fue cancelada correctamente.'),
+      text: json?.mensaje || 'Tu solicitud fue cancelada correctamente.',
       confirmButtonColor: '#EA7C12'
     });
 
     await cargarPedidos({ silent: true });
   }
 
+
+  function ensureCompradorPremiumStyles() {
+    const ID = 'ev-mpc-detalle-premium-style';
+    if (document.getElementById(ID)) return;
+
+    const style = document.createElement('style');
+    style.id = ID;
+    style.type = 'text/css';
+    style.textContent = `
+      .swal2-popup.ev-mpc-swal-popup,
+      .swal2-popup.ev-mpc-swal-popup-premium{
+        border-radius:28px !important;
+        padding:28px 24px 22px !important;
+        border:1px solid rgba(229,231,235,.96) !important;
+        background:#ffffff !important;
+        background-image:none !important;
+        box-shadow:0 30px 72px rgba(15,23,42,.20), 0 10px 24px rgba(15,23,42,.08) !important;
+        overflow:hidden !important;
+      }
+
+      .swal2-popup.ev-mpc-swal-popup::before,
+      .swal2-popup.ev-mpc-swal-popup-premium::before{
+        content:'';
+        position:absolute;
+        inset:0 0 auto 0;
+        height:5px;
+        background:linear-gradient(90deg,#0F592F 0%,#16A34A 58%,#EA7C12 100%);
+      }
+
+      .swal2-title.ev-mpc-swal-title{
+        color:#0F592F !important;
+        font-weight:900 !important;
+        letter-spacing:-.03em !important;
+        font-size:clamp(1.72rem,2.6vw,2.18rem) !important;
+        line-height:1.08 !important;
+        margin:0 0 8px 0 !important;
+      }
+
+      .swal2-html-container.ev-mpc-swal-html{
+        color:#6B7280 !important;
+        font-size:.98rem !important;
+        line-height:1.6 !important;
+        margin:0 !important;
+      }
+
+      .swal2-confirm.ev-mpc-swal-confirm{
+        background:linear-gradient(135deg,#EA7C12,#F59E0B) !important;
+        color:#fff !important;
+        border:0 !important;
+        border-radius:15px !important;
+        min-width:150px !important;
+        padding:13px 24px !important;
+        font-weight:900 !important;
+        box-shadow:0 14px 30px rgba(234,124,18,.30) !important;
+      }
+
+      .ev-mpc-modal-detail-v2{
+        text-align:left;
+        max-width:100%;
+      }
+
+      .ev-mpc-modal-hero{
+        display:grid;
+        grid-template-columns:minmax(180px, 220px) minmax(0, 1fr);
+        gap:16px;
+        align-items:stretch;
+        margin-bottom:14px;
+      }
+
+      .ev-mpc-modal-media-card{
+        border:1px solid rgba(229,231,235,.94);
+        border-radius:24px;
+        background:#ffffff;
+        box-shadow:0 12px 26px rgba(15,23,42,.06);
+        padding:10px;
+        display:flex;
+        flex-direction:column;
+        gap:10px;
+        min-width:0;
+      }
+
+      .ev-mpc-modal-detail-v2 .ev-mpc-modal-media{
+        width:100% !important;
+        height:172px !important;
+        border-radius:18px !important;
+        background:#F8FAFC !important;
+        box-shadow:none !important;
+      }
+
+      .ev-mpc-modal-detail-v2 .ev-mpc-modal-media img{
+        object-fit:contain !important;
+        padding:4px !important;
+      }
+
+      .ev-mpc-modal-mini-pills{
+        display:flex;
+        flex-wrap:wrap;
+        gap:6px;
+      }
+
+      .ev-mpc-modal-mini-pill{
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        min-height:30px;
+        padding:6px 9px;
+        border-radius:999px;
+        background:#F8FAFC;
+        border:1px solid #E5E7EB;
+        color:#334155;
+        font-size:12px;
+        font-weight:850;
+      }
+
+      .ev-mpc-modal-main-card{
+        border:1px solid rgba(229,231,235,.94);
+        border-radius:24px;
+        background:#ffffff;
+        box-shadow:0 12px 26px rgba(15,23,42,.05);
+        padding:14px;
+        min-width:0;
+      }
+
+      .ev-mpc-modal-detail-v2 .ev-mpc-modal-head{
+        margin-bottom:12px !important;
+      }
+
+      .ev-mpc-modal-detail-v2 .ev-mpc-modal-title{
+        font-size:1.18rem !important;
+        line-height:1.16 !important;
+      }
+
+      .ev-mpc-modal-detail-v2 .ev-mpc-modal-grid{
+        grid-template-columns:repeat(2, minmax(0,1fr)) !important;
+        gap:9px !important;
+      }
+
+      .ev-mpc-modal-detail-v2 .ev-mpc-modal-item{
+        background:#ffffff !important;
+        border-color:#E9EEF5 !important;
+        min-height:78px;
+      }
+
+      .ev-mpc-modal-detail-v2 .ev-mpc-modal-item span{
+        white-space:normal !important;
+        word-break:normal !important;
+      }
+
+      .ev-mpc-modal-detail-v2 .ev-mpc-modal-item strong{
+        white-space:normal !important;
+        word-break:normal !important;
+        overflow-wrap:break-word !important;
+        line-height:1.22 !important;
+      }
+
+      .ev-mpc-modal-detail-v2 .ev-mpc-modal-stack{
+        margin-top:14px !important;
+      }
+
+      .ev-mpc-modal-detail-v2 .ev-mpc-modal-stack,
+      .ev-mpc-modal-detail-v2 .ev-mpc-modal-note{
+        background:#ffffff !important;
+        background-image:none !important;
+      }
+
+      @media (max-width: 767.98px){
+        .ev-mpc-modal-hero{
+          grid-template-columns:1fr;
+        }
+
+        .ev-mpc-modal-detail-v2 .ev-mpc-modal-media{
+          height:210px !important;
+        }
+
+        .ev-mpc-modal-detail-v2 .ev-mpc-modal-grid{
+          grid-template-columns:repeat(2, minmax(0,1fr)) !important;
+        }
+      }
+
+      @media (max-width: 480px){
+        .ev-mpc-modal-detail-v2 .ev-mpc-modal-grid{
+          grid-template-columns:1fr !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   function buildDetalleHtml(item) {
     const imagen = normalizarUrlImagen(item.imagen_portada_url || item.imagen_portada);
     const badge = badgeEstado(item.estado_actual);
     const tieneProgramacion = String(item.tipo_entrega_raw || '').trim() === 'programada' && !!item.fecha_hora_programada;
+    const fechaBase = item.fecha_hora || item.created_at || null;
 
     return `
-      <div class="ev-mpc-modal-detail">
-        <div class="ev-mpc-modal-top">
-          <div class="ev-mpc-modal-media">
-            <img src="${escapeHtml(imagen)}" alt="${escapeHtml(item.titulo_publicacion || 'Pedido')}">
+      <div class="ev-mpc-modal-detail ev-mpc-modal-detail-v2">
+        <div class="ev-mpc-modal-hero">
+          <div class="ev-mpc-modal-media-card">
+            <div class="ev-mpc-modal-media">
+              <img src="${escapeHtml(imagen)}" alt="${escapeHtml(item.titulo_publicacion || 'Pedido')}">
+            </div>
+            <div class="ev-mpc-modal-mini-pills">
+              <span class="ev-mpc-modal-mini-pill"><i class="bi bi-box-seam"></i>Cant. ${escapeHtml(item.cantidad || 0)}</span>
+              <span class="ev-mpc-modal-mini-pill"><i class="bi bi-lightning-charge"></i>${escapeHtml(textoEntrega(item))}</span>
+            </div>
           </div>
 
-          <div class="ev-mpc-modal-main">
+          <div class="ev-mpc-modal-main-card">
             <div class="ev-mpc-modal-head">
               <div>
                 <div class="ev-mpc-modal-title">${escapeHtml(item.titulo_publicacion || 'Pedido')}</div>
                 <div class="ev-mpc-modal-subtitle">
-                  Pedido #${Number(item.codigo_pedido || 0)} · ${escapeHtml(formatFecha(item.fecha_hora || item.created_at || null))}
+                  Pedido #${Number(item.codigo_pedido || 0)} · ${escapeHtml(formatFecha(fechaBase))}
                 </div>
               </div>
               <span class="${badge.clase}">${escapeHtml(badge.texto)}</span>
@@ -873,7 +1034,7 @@
             <div class="ev-mpc-modal-grid">
               <div class="ev-mpc-modal-item">
                 <span>Fecha</span>
-                <strong>${escapeHtml(formatFecha(item.fecha_hora || item.created_at || null))}</strong>
+                <strong>${escapeHtml(formatFecha(fechaBase))}</strong>
               </div>
               <div class="ev-mpc-modal-item">
                 <span>Total</span>
@@ -951,6 +1112,7 @@
   }
 
   async function verDetalle(id) {
+    ensureCompradorPremiumStyles();
     const item = cachePedidos.get(Number(id || 0));
     if (!window.Swal || !item) return;
 
@@ -959,9 +1121,14 @@
       html: buildDetalleHtml(item),
       width: 880,
       confirmButtonText: 'Cerrar',
-      confirmButtonColor: '#EA7C12',
+      buttonsStyling: false,
       customClass: {
-        popup: 'ev-mpc-swal-popup'
+        container: 'ev-mpc-swal-container ev-swal-container',
+        popup: 'ev-mpc-swal-popup ev-mpc-swal-popup-premium ev-mpc-swal-popup-detail ev-swal-popup ev-swal-popup-detail',
+        title: 'ev-mpc-swal-title ev-swal-title',
+        htmlContainer: 'ev-mpc-swal-html ev-swal-html',
+        confirmButton: 'ev-mpc-swal-confirm ev-swal-confirm',
+        cancelButton: 'ev-mpc-swal-cancel ev-swal-cancel'
       }
     });
   }
@@ -1058,6 +1225,8 @@
       detenerPolling();
       return;
     }
+
+    ensureCompradorPremiumStyles();
 
     vistaActiva = true;
     bindTabs();
