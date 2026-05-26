@@ -630,6 +630,8 @@ safeRequire(__DIR__ . '/controllers/api/apiCuentaObservadaController.php');
 safeRequire(__DIR__ . '/controllers/api/usuarioDatosController.php');
 safeRequire(__DIR__ . '/controllers/api/apiBilleteraController.php');
 safeRequire(__DIR__ . '/controllers/api/apiPedidoController.php');
+safeRequire(__DIR__ . '/models/Calificacion.php');
+safeRequire(__DIR__ . '/controllers/api/apiCalificacionController.php');
 safeRequire(__DIR__ . '/controllers/api/apiSoporteRecargasController.php');
 safeRequire(__DIR__ . '/controllers/api/apiRecargaSaldoController.php');
 safeRequire(__DIR__ . '/controllers/api/apiProductoController.php');
@@ -821,6 +823,16 @@ $routes = [
     ['POST', '#^/api/pedidos/(\d+)/aceptar$#', [apiPedidoController::class, 'aceptarSolicitud'], 'json'],
     ['POST', '#^/api/pedidos/(\d+)/rechazar$#', [apiPedidoController::class, 'rechazarSolicitud'], 'json'],
     ['POST', '#^/api/pedidos/(\d+)/estado$#', [apiPedidoController::class, 'actualizarEstadoPedido'], 'json'],
+
+
+
+    // ---------------------------
+    // CALIFICACIONES - MVP EV
+    // ---------------------------
+    ['GET',  '#^/api/calificaciones/pendientes$#', [apiCalificacionController::class, 'listarPendientes'], 'json'],
+    ['GET',  '#^/api/calificaciones/pedido/(\d+)$#', [apiCalificacionController::class, 'obtenerPendientePedido'], 'json'],
+    ['POST', '#^/api/calificaciones/(\d+)/enviar$#', [apiCalificacionController::class, 'enviar'], 'json'],
+    ['POST', '#^/api/calificaciones/(\d+)/reportar$#', [apiCalificacionController::class, 'reportar'], 'json'],
 
     // ---------------------------
     // SOPORTE - RECARGAS

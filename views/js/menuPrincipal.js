@@ -22,6 +22,12 @@
   let ultimaInteraccionUi = 0;
   let ultimoPollAt = 0;
 
+  let alertasCompradorPollingTimer = null;
+  let alertasCompradorEnCurso = false;
+  let alertasCompradorMostradas = new Set();
+  let alertasCompradorEventosMostrados = new Set();
+  let ultimoPollAlertasCompradorAt = 0;
+
   let evAudioCtx = null;
   let evAudioListo = false;
   let evAudioPendiente = false;
@@ -229,27 +235,13 @@
       }
 
       @keyframes evSwalBouncePremium{
-        0%{
-          transform: translate3d(0,0,0) scale(1);
-        }
-        18%{
-          transform: translate3d(-10px,0,0) scale(1.008);
-        }
-        34%{
-          transform: translate3d(9px,0,0) scale(1.01);
-        }
-        50%{
-          transform: translate3d(-6px,0,0) scale(1.006);
-        }
-        66%{
-          transform: translate3d(5px,0,0) scale(1.003);
-        }
-        82%{
-          transform: translate3d(-2px,0,0) scale(1.001);
-        }
-        100%{
-          transform: translate3d(0,0,0) scale(1);
-        }
+        0%{ transform: translate3d(0,0,0) scale(1); }
+        18%{ transform: translate3d(-10px,0,0) scale(1.008); }
+        34%{ transform: translate3d(9px,0,0) scale(1.01); }
+        50%{ transform: translate3d(-6px,0,0) scale(1.006); }
+        66%{ transform: translate3d(5px,0,0) scale(1.003); }
+        82%{ transform: translate3d(-2px,0,0) scale(1.001); }
+        100%{ transform: translate3d(0,0,0) scale(1); }
       }
     `;
     document.head.appendChild(style);
@@ -332,6 +324,83 @@
     guardarCacheAlertas();
   }
 
+
+  function reclamarAlertaSolicitudCompartida(codigoPedido) {
+    const id = Number(codigoPedido || 0);
+    if (!id) return false;
+
+    const key = `ev_alerta_solicitud_pedido_${id}`;
+    const ahora = Date.now();
+
+    try {
+      const anterior = Number(sessionStorage.getItem(key) || 0);
+      if (anterior > 0 && (ahora - anterior) < 5 * 60 * 1000) {
+        return false;
+      }
+      sessionStorage.setItem(key, String(ahora));
+    } catch (_) {}
+
+    return true;
+  }
+
+  function obtenerCacheAlertasComprador() {
+    try {
+      const raw = sessionStorage.getItem('ev_pedidos_alertas_comprador_v3');
+      const arr = raw ? JSON.parse(raw) : [];
+
+      if (Array.isArray(arr)) {
+        alertasCompradorMostradas = new Set(
+          arr.map(v => Number(v || 0)).filter(Boolean)
+        );
+      }
+    } catch (_) {
+      alertasCompradorMostradas = new Set();
+    }
+
+    try {
+      const rawEventos = sessionStorage.getItem('ev_pedidos_alertas_comprador_eventos_v3');
+      const arrEventos = rawEventos ? JSON.parse(rawEventos) : [];
+
+      if (Array.isArray(arrEventos)) {
+        alertasCompradorEventosMostrados = new Set(
+          arrEventos.map(v => String(v || '').trim()).filter(Boolean)
+        );
+      }
+    } catch (_) {
+      alertasCompradorEventosMostrados = new Set();
+    }
+  }
+
+  function guardarCacheAlertasComprador() {
+    try {
+      sessionStorage.setItem(
+        'ev_pedidos_alertas_comprador_v3',
+        JSON.stringify(Array.from(alertasCompradorMostradas))
+      );
+    } catch (_) {}
+
+    try {
+      sessionStorage.setItem(
+        'ev_pedidos_alertas_comprador_eventos_v3',
+        JSON.stringify(Array.from(alertasCompradorEventosMostrados))
+      );
+    } catch (_) {}
+  }
+
+  function limpiarCacheAlertasCompradorAntigua() {
+    if (alertasCompradorMostradas.size > 100) {
+      const arr = Array.from(alertasCompradorMostradas).slice(-60);
+      alertasCompradorMostradas = new Set(arr);
+    }
+
+    if (alertasCompradorEventosMostrados.size > 100) {
+      const arrEventos = Array.from(alertasCompradorEventosMostrados).slice(-60);
+      alertasCompradorEventosMostrados = new Set(arrEventos);
+    }
+
+    guardarCacheAlertasComprador();
+  }
+
   async function fetchJsonConTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -380,12 +449,83 @@
     return json?.data || {};
   }
 
+  async function fetchAlertasPedidoComprador() {
+    const { resp, json } = await fetchJsonConTimeout(`${BASE}/api/pedidos/alertas`, {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
+
+    if (resp.status === 401) {
+      throw new Error('UNAUTHORIZED');
+    }
+
+    if (resp.status === 403 && json?.error === 'CUENTA_BLOQUEADA') {
+      throw new Error('CUENTA_BLOQUEADA');
+    }
+
+    if (resp.status === 409 && json?.error === 'CUENTA_OBSERVADA') {
+      throw new Error('CUENTA_OBSERVADA');
+    }
+
+    if (!resp.ok || json?.ok === false) {
+      throw new Error(json?.mensaje || 'No se pudieron consultar las alertas del comprador.');
+    }
+
+    return Array.isArray(json?.data) ? json.data : [];
+  }
+
+  async function fetchPedidosCompradorParaAlertas() {
+    const { resp, json } = await fetchJsonConTimeout(`${BASE}/api/pedidos/mis-comprador`, {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
+
+    if (resp.status === 401) {
+      throw new Error('UNAUTHORIZED');
+    }
+
+    if (resp.status === 403 && json?.error === 'CUENTA_BLOQUEADA') {
+      throw new Error('CUENTA_BLOQUEADA');
+    }
+
+    if (resp.status === 409 && json?.error === 'CUENTA_OBSERVADA') {
+      throw new Error('CUENTA_OBSERVADA');
+    }
+
+    if (!resp.ok || json?.ok === false) {
+      throw new Error(json?.mensaje || 'No se pudieron consultar los pedidos del comprador.');
+    }
+
+    return json?.data || {};
+  }
+
   function tituloPedidoSeguro(item) {
     return String(item?.titulo_publicacion || item?.titulo_producto || 'tu publicación').trim();
   }
 
   async function irAMisPedidosVendedor() {
     const ruta = '/mis-pedidos-vendedor';
+
+    if (window.EVNav && typeof window.EVNav.loadPage === 'function') {
+      await window.EVNav.loadPage(ruta, { pushState: true, replaceState: false });
+      return;
+    }
+
+    window.location.href = `${BASE}/MenuPrincipal?ev_goto=${encodeURIComponent(ruta)}`;
+  }
+
+  async function irAMisPedidosComprador() {
+    const ruta = '/mis-pedidos-comprador';
 
     if (window.EVNav && typeof window.EVNav.loadPage === 'function') {
       await window.EVNav.loadPage(ruta, { pushState: true, replaceState: false });
@@ -402,6 +542,7 @@
     if (!id) return;
 
     if (pedidosAlertados.has(id)) return;
+    if (!reclamarAlertaSolicitudCompartida(id)) return;
     if (window.__EV_AUTH_REDIRECTING__ === true) return;
 
     pedidosAlertados.add(id);
@@ -446,6 +587,320 @@
     if (r.isConfirmed) {
       await irAMisPedidosVendedor();
     }
+  }
+
+  function estadoAlertaComprador(alerta) {
+    const payload = alerta?.payload && typeof alerta.payload === 'object'
+      ? alerta.payload
+      : {};
+
+    const estadoPayload = String(payload.estado_actual || '').trim().toLowerCase();
+    if (estadoPayload) return estadoPayload;
+
+    const subcategoria = String(alerta?.subcategoria || '').trim().toLowerCase();
+    return subcategoria.replace(/^avance_estado_/, '');
+  }
+
+  function claveEventoAlertaComprador(alerta) {
+    const claveManual = String(alerta?._clave_evento || '').trim();
+    if (claveManual !== '') return claveManual;
+
+    const idPedido = Number(alerta?.referencia_id || alerta?.payload?.codigo_pedido || 0);
+    const estado = estadoAlertaComprador(alerta);
+
+    if (idPedido > 0 && estado) {
+      return `${idPedido}:${estado}`;
+    }
+
+    return `notificacion:${Number(alerta?.codigo_notificacion || 0)}`;
+  }
+
+  function esAlertaModalComprador(alerta) {
+    if (!alerta || typeof alerta !== 'object') return false;
+
+    const payload = alerta.payload && typeof alerta.payload === 'object'
+      ? alerta.payload
+      : {};
+
+    const rolDestino = String(payload.rol_destino || '').trim().toLowerCase();
+    const estado = estadoAlertaComprador(alerta);
+
+    return rolDestino === 'comprador' && [
+      'en_punto_entrega',
+      'entregado_vendedor',
+      'rechazado_vendedor',
+      'cancelado_vendedor',
+      'sin_respuesta_vendedor'
+    ].includes(estado);
+  }
+
+  function obtenerIconoSwalAlertaComprador(estado) {
+    if (['rechazado_vendedor', 'cancelado_vendedor', 'sin_respuesta_vendedor'].includes(estado)) {
+      return 'warning';
+    }
+
+    if (estado === 'entregado_vendedor') {
+      return 'success';
+    }
+
+    return 'info';
+  }
+
+  function obtenerTextoBotonAlertaComprador(estado) {
+    if (estado === 'entregado_vendedor') return 'Confirmar entrega';
+    if (estado === 'en_punto_entrega') return 'Ver pedido';
+    return 'Revisar pedido';
+  }
+
+  function construirAlertaPuntoEntregaDesdePedido(item) {
+    const codigoPedido = Number(item?.codigo_pedido || 0);
+    if (codigoPedido <= 0) return null;
+
+    const estado = String(item?.estado_actual || '').trim();
+    if (estado !== 'en_punto_entrega') return null;
+
+    const segundos = Number(item?.segundos_recojo_restantes || 0);
+    if (segundos <= 0) return null;
+
+    const tituloProducto = String(item?.titulo_publicacion || item?.titulo_producto || 'tu pedido').trim();
+
+    return {
+      _sintetica: true,
+      _clave_evento: `${codigoPedido}:en_punto_entrega`,
+      codigo_notificacion: 0,
+      subcategoria: 'avance_estado_en_punto_entrega',
+      referencia_id: codigoPedido,
+      titulo: 'Tu pedido llegó al punto de entrega',
+      mensaje: `Tu pedido de ${tituloProducto} ya está esperando recojo. Tienes hasta 6 minutos para recibirlo antes de que el vendedor pueda cancelar por no recepción.`,
+      fecha: '',
+      payload: {
+        codigo_pedido: codigoPedido,
+        estado_actual: 'en_punto_entrega',
+        rol_destino: 'comprador',
+        ruta: '/mis-pedidos-comprador',
+        titulo_producto: tituloProducto
+      }
+    };
+  }
+
+  function obtenerAlertasPuntoEntregaDesdePedidos(data) {
+    const grupos = [
+      ...(Array.isArray(data?.en_proceso) ? data.en_proceso : []),
+      ...(Array.isArray(data?.pendientes) ? data.pendientes : [])
+    ];
+
+    return grupos
+      .map(construirAlertaPuntoEntregaDesdePedido)
+      .filter(Boolean);
+  }
+
+  async function marcarAlertaPedidoLeida(codigoNotificacion) {
+    const id = Number(codigoNotificacion || 0);
+    if (!id) return;
+
+    try {
+      await fetchJsonConTimeout(`${BASE}/api/pedidos/alertas/${id}/leer`, {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+    } catch (e) {
+      console.warn('[EV][Shell][AlertasComprador] No se pudo marcar como leída:', e);
+    }
+  }
+
+  async function mostrarAlertaAvanceCompradorGlobal(alerta) {
+    if (!window.Swal?.fire || !alerta) return;
+
+    const id = Number(alerta.codigo_notificacion || 0);
+    if (!id && alerta._sintetica !== true) return;
+
+    const estado = estadoAlertaComprador(alerta);
+    const claveEvento = claveEventoAlertaComprador(alerta);
+
+    if ((id > 0 && alertasCompradorMostradas.has(id)) || alertasCompradorEventosMostrados.has(claveEvento)) {
+      if (id > 0) await marcarAlertaPedidoLeida(id);
+      return;
+    }
+
+    if (window.__EV_AUTH_REDIRECTING__ === true) return;
+
+    if (!esAlertaModalComprador(alerta)) return;
+
+    if (id > 0) alertasCompradorMostradas.add(id);
+    alertasCompradorEventosMostrados.add(claveEvento);
+    guardarCacheAlertasComprador();
+    limpiarCacheAlertasCompradorAntigua();
+
+    const marcarLeidaPromise = id > 0 ? marcarAlertaPedidoLeida(id) : Promise.resolve();
+    reproducirSonidoNuevaSolicitudEV();
+
+    const payload = alerta.payload && typeof alerta.payload === 'object' ? alerta.payload : {};
+    const producto = String(payload.titulo_producto || 'Pedido EV').trim();
+    const titulo = estado === 'en_punto_entrega'
+      ? 'Tu pedido llegó al punto de entrega'
+      : String(alerta.titulo || 'Estado actualizado').trim();
+    const mensaje = estado === 'en_punto_entrega'
+      ? `Tu pedido de ${producto} ya está esperando recojo. Tienes hasta 6 minutos para recibirlo antes de que el vendedor pueda cancelar por no recepción.`
+      : String(alerta.mensaje || 'Tu pedido cambió de estado.').trim();
+    const fecha = String(alerta.fecha || '').trim();
+    const icon = obtenerIconoSwalAlertaComprador(estado);
+    const confirmText = obtenerTextoBotonAlertaComprador(estado);
+
+    const r = await Swal.fire({
+      icon,
+      title: titulo,
+      html: `
+        <div style="text-align:left; max-width:440px; margin:0 auto;">
+          <div style="border:1px solid #E5E7EB;background:#FFFFFF;border-radius:18px;padding:14px 16px;box-shadow:0 10px 24px rgba(15,23,42,.06);margin-bottom:12px;">
+            <div style="color:#0F592F;font-size:.78rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Pedido</div>
+            <div style="color:#111827; font-weight:900; line-height:1.35;">${escapeHtml(producto)}</div>
+          </div>
+          <div style="color:#475569;font-size:.96rem;line-height:1.55;margin-bottom:${fecha ? '10px' : '0'};">${escapeHtml(mensaje)}</div>
+          ${fecha ? `<div style="color:#6B7280; font-size:.84rem; font-weight:700;">${escapeHtml(fecha)}</div>` : ''}
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: confirmText,
+      cancelButtonText: 'Entendido',
+      confirmButtonColor: '#EA7C12',
+      cancelButtonColor: '#6B7280',
+      allowOutsideClick: false,
+      allowEscapeKey: true
+    });
+
+    await marcarLeidaPromise;
+
+    if (r.isConfirmed) {
+      await irAMisPedidosComprador();
+    }
+  }
+
+  async function revisarAlertasPedidoComprador(opts = {}) {
+    const force = opts.force === true;
+
+    if (alertasCompradorEnCurso) return;
+    if (document.hidden && !force) return;
+    if (window.__EV_AUTH_REDIRECTING__ === true) return;
+    if (!force && estaPausadoPorUi()) return;
+
+    alertasCompradorEnCurso = true;
+    ultimoPollAlertasCompradorAt = nowMs();
+
+    try {
+      const alertas = await fetchAlertasPedidoComprador();
+
+      const candidatas = [];
+      const eventosVistosEnRespuesta = new Set();
+
+      for (const alerta of alertas) {
+        if (!esAlertaModalComprador(alerta)) continue;
+
+        const id = Number(alerta.codigo_notificacion || 0);
+        const claveEvento = claveEventoAlertaComprador(alerta);
+
+        if (id <= 0) continue;
+
+        if (
+          alertasCompradorMostradas.has(id) ||
+          alertasCompradorEventosMostrados.has(claveEvento) ||
+          eventosVistosEnRespuesta.has(claveEvento)
+        ) {
+          await marcarAlertaPedidoLeida(id);
+          continue;
+        }
+
+        eventosVistosEnRespuesta.add(claveEvento);
+        candidatas.push(alerta);
+      }
+
+      if (candidatas.length > 0) {
+        await mostrarAlertaAvanceCompradorGlobal(candidatas[0]);
+        return;
+      }
+
+      // Fallback EV: si por cualquier motivo la notificación app no fue creada o quedó leída,
+      // igual avisamos al comprador cuando exista un pedido activo en punto de entrega.
+      // Esto no modifica pedidos ni billetera; solo usa el listado vigente del comprador.
+      const pedidosComprador = await fetchPedidosCompradorParaAlertas();
+      const alertasSinteticas = obtenerAlertasPuntoEntregaDesdePedidos(pedidosComprador)
+        .filter((alerta) => !alertasCompradorEventosMostrados.has(claveEventoAlertaComprador(alerta)));
+
+      if (alertasSinteticas.length > 0) {
+        await mostrarAlertaAvanceCompradorGlobal(alertasSinteticas[0]);
+      }
+    } catch (e) {
+      const msg = String(e?.message || e);
+
+      if (msg === 'UNAUTHORIZED') {
+        console.warn('[EV][Shell][AlertasComprador] Sesión no válida.');
+        return;
+      }
+
+      if (msg === 'CUENTA_BLOQUEADA' || msg === 'CUENTA_OBSERVADA') {
+        console.warn('[EV][Shell][AlertasComprador] Estado de cuenta restringido:', msg);
+        return;
+      }
+
+      console.warn('[EV][Shell][AlertasComprador] No se pudieron revisar alertas:', e);
+    } finally {
+      alertasCompradorEnCurso = false;
+    }
+  }
+
+  function detenerPollingAlertasPedidoComprador() {
+    if (alertasCompradorPollingTimer) {
+      clearInterval(alertasCompradorPollingTimer);
+      alertasCompradorPollingTimer = null;
+    }
+  }
+
+  function iniciarPollingAlertasPedidoComprador() {
+    detenerPollingAlertasPedidoComprador();
+
+    alertasCompradorPollingTimer = window.setInterval(async () => {
+      if (document.hidden) return;
+      if (window.__EV_AUTH_REDIRECTING__ === true) return;
+
+      const intervaloMinimo = estaPausadoPorUi()
+        ? PEDIDOS_POLLING_IDLE_MS
+        : PEDIDOS_POLLING_MS;
+
+      if ((nowMs() - ultimoPollAlertasCompradorAt) < intervaloMinimo) return;
+
+      await revisarAlertasPedidoComprador({ force: false });
+    }, 1000);
+  }
+
+  function bindEventosAlertasPedidoComprador() {
+    if (window.__EV_SHELL_ALERTAS_COMPRADOR_BOUND__ === true) return;
+    window.__EV_SHELL_ALERTAS_COMPRADOR_BOUND__ = true;
+
+    document.addEventListener('visibilitychange', async () => {
+      if (document.hidden) return;
+      await revisarAlertasPedidoComprador({ force: true });
+    });
+
+    document.addEventListener('ev:content-loaded', async () => {
+      window.setTimeout(async () => {
+        await revisarAlertasPedidoComprador({ force: true });
+      }, 700);
+    });
+  }
+
+  async function initNotificacionesPedidosCompradorGlobal() {
+    obtenerCacheAlertasComprador();
+    bindEventosAlertasPedidoComprador();
+
+    await revisarAlertasPedidoComprador({
+      force: true
+    });
+
+    iniciarPollingAlertasPedidoComprador();
   }
 
   async function revisarNuevasSolicitudesVendedor(opts = {}) {
@@ -594,9 +1049,14 @@
   function exponerControlPolling() {
     window.EVPollingControl = Object.assign(window.EVPollingControl || {}, {
       pauseBriefly: marcarInteraccionUi,
+
       revisarPedidosVendedor: revisarNuevasSolicitudesVendedor,
       detenerPedidosVendedor: detenerPollingPedidosVendedor,
-      iniciarPedidosVendedor: iniciarPollingPedidosVendedor
+      iniciarPedidosVendedor: iniciarPollingPedidosVendedor,
+
+      revisarAlertasComprador: revisarAlertasPedidoComprador,
+      detenerAlertasComprador: detenerPollingAlertasPedidoComprador,
+      iniciarAlertasComprador: iniciarPollingAlertasPedidoComprador
     });
   }
 
@@ -611,6 +1071,7 @@
     await restaurarSolicitudActivaGlobal();
 
     if (ROL === 'vecino') {
+      await initNotificacionesPedidosCompradorGlobal();
       await initNotificacionesPedidosVendedorGlobal();
     }
   }
@@ -623,6 +1084,7 @@
     init: initShell,
     restaurarSolicitudActiva: restaurarSolicitudActivaGlobal,
     revisarNuevasSolicitudesVendedor: revisarNuevasSolicitudesVendedor,
+    revisarAlertasPedidoComprador: revisarAlertasPedidoComprador,
     marcarInteraccionUi: marcarInteraccionUi,
     pathActualShell: pathActualShell,
     reproducirSonidoNuevaSolicitud: reproducirSonidoNuevaSolicitudEV

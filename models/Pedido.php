@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../database/Conexion.php';
+require_once __DIR__ . '/Calificacion.php';
 
 class Pedido extends Conexion
 {
@@ -386,18 +387,37 @@ class Pedido extends Conexion
     {
         $codigoComprador = (int)($pedido['codigo_usuario_comprador'] ?? 0);
         $codigoPedido = (int)($pedido['codigo_pedido'] ?? 0);
-        if ($codigoComprador <= 0 || $codigoPedido <= 0) return;
+        $estadoNuevo = strtolower(trim($estadoNuevo));
+
+        if ($codigoComprador <= 0 || $codigoPedido <= 0 || $estadoNuevo === '') {
+            return;
+        }
 
         $titulo = $this->textoEstadoPedidoEV($estadoNuevo);
         $mensaje = $this->mensajeEstadoCompradorEV($estadoNuevo, $pedido);
 
+        /*
+        * EV:
+        * Antes se usaba siempre "avance_estado".
+        * Eso impedía crear una nueva notificación si el comprador aún tenía
+        * una notificación no leída del mismo pedido.
+        *
+        * Ahora cada estado tiene su propia subcategoría:
+        * avance_estado_en_camino
+        * avance_estado_en_punto_entrega
+        * avance_estado_entregado_vendedor
+        */
+        $subcategoria = 'avance_estado_' . preg_replace('/[^a-z0-9_]/', '_', $estadoNuevo);
+        $subcategoria = mb_substr($subcategoria, 0, 50, 'UTF-8');
+
         $this->registrarNotificacionPedido(
             $codigoComprador,
-            'avance_estado',
+            $subcategoria,
             $codigoPedido,
             $titulo,
             $mensaje,
             [
+                'subcategoria_base' => 'avance_estado',
                 'estado_actual' => $estadoNuevo,
                 'rol_destino' => 'comprador',
                 'ruta' => '/mis-pedidos-comprador',
@@ -459,6 +479,49 @@ class Pedido extends Conexion
             && $this->segundosRecojoRestantes($pedido) <= 0;
     }
 
+
+    private function asegurarVentanaRecojoSiFalta(array $pedido): array
+    {
+        $codigoPedido = (int)($pedido['codigo_pedido'] ?? 0);
+        $estado = (string)($pedido['estado_actual'] ?? '');
+        $limite = trim((string)($pedido['fecha_limite_recojo'] ?? ''));
+
+        if ($codigoPedido <= 0 || $estado !== 'en_punto_entrega' || $limite !== '') {
+            return $pedido;
+        }
+
+        try {
+            $sql = "
+                UPDATE pedido
+                SET
+                    fecha_punto_recojo = COALESCE(fecha_punto_recojo, NOW()),
+                    fecha_limite_recojo = DATE_ADD(COALESCE(fecha_punto_recojo, NOW()), INTERVAL " . self::SEGUNDOS_RECOJO . " SECOND)
+                WHERE codigo_pedido = :codigo_pedido
+                  AND estado_actual = 'en_punto_entrega'
+                  AND fecha_limite_recojo IS NULL
+            ";
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+            $st->execute();
+
+            $stSel = $this->dblink->prepare("SELECT fecha_punto_recojo, fecha_limite_recojo FROM pedido WHERE codigo_pedido = :codigo_pedido LIMIT 1");
+            $stSel->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+            $stSel->execute();
+            $row = $stSel->fetch(PDO::FETCH_ASSOC) ?: [];
+
+            if (!empty($row['fecha_punto_recojo'])) {
+                $pedido['fecha_punto_recojo'] = $row['fecha_punto_recojo'];
+            }
+            if (!empty($row['fecha_limite_recojo'])) {
+                $pedido['fecha_limite_recojo'] = $row['fecha_limite_recojo'];
+            }
+        } catch (Throwable $e) {
+            error_log('[EV][Pedido][asegurarVentanaRecojoSiFalta] ' . $e->getMessage());
+        }
+
+        return $pedido;
+    }
+
     private function motivoCancelacionVendedorTexto(string $clave, string $detalle = ''): string
     {
         $base = match ($clave) {
@@ -481,6 +544,52 @@ class Pedido extends Conexion
                 return ['ok' => false, 'error' => 'USUARIO_INVALIDO', 'mensaje' => 'Usuario inválido.'];
             }
 
+            // EV UX: si hay varias alertas pendientes del mismo pedido, solo se debe mostrar
+            // la más reciente. Las anteriores se marcan como leídas para evitar modales duplicados
+            // o alertas desfasadas, por ejemplo: en_punto_entrega seguido de entregado_vendedor.
+            $subcategoriasModal = [
+                'avance_estado_en_punto_entrega',
+                'avance_estado_entregado_vendedor',
+                'avance_estado_rechazado_vendedor',
+                'avance_estado_cancelado_vendedor',
+                'avance_estado_sin_respuesta_vendedor'
+            ];
+
+            $placeholders = implode(',', array_fill(0, count($subcategoriasModal), '?'));
+
+            $sqlLimpiarObsoletas = "
+                UPDATE notificacion n
+                INNER JOIN (
+                    SELECT referencia_id, MAX(codigo_notificacion) AS max_id
+                    FROM notificacion
+                    WHERE codigo_usuario = ?
+                      AND categoria = 'pedido'
+                      AND estado = 'no_leida'
+                      AND referencia_id IS NOT NULL
+                      AND subcategoria IN ({$placeholders})
+                    GROUP BY referencia_id
+                ) ult ON ult.referencia_id = n.referencia_id
+                SET n.estado = 'leida', n.read_at = NOW()
+                WHERE n.codigo_usuario = ?
+                  AND n.categoria = 'pedido'
+                  AND n.estado = 'no_leida'
+                  AND n.subcategoria IN ({$placeholders})
+                  AND n.codigo_notificacion < ult.max_id
+            ";
+
+            $paramsLimpiar = array_merge(
+                [$codigoUsuario],
+                $subcategoriasModal,
+                [$codigoUsuario],
+                $subcategoriasModal
+            );
+
+            $stLimpiar = $this->dblink->prepare($sqlLimpiarObsoletas);
+            foreach ($paramsLimpiar as $i => $value) {
+                $stLimpiar->bindValue($i + 1, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
+            $stLimpiar->execute();
+
             $sql = "
                 SELECT
                     codigo_notificacion,
@@ -491,14 +600,19 @@ class Pedido extends Conexion
                     payload_json,
                     DATE_FORMAT(created_at, '%d/%m/%Y %H:%i') AS fecha
                 FROM notificacion
-                WHERE codigo_usuario = :codigo_usuario
+                WHERE codigo_usuario = ?
                   AND categoria = 'pedido'
                   AND estado = 'no_leida'
-                ORDER BY codigo_notificacion ASC
+                  AND subcategoria IN ({$placeholders})
+                ORDER BY codigo_notificacion DESC
                 LIMIT 5
             ";
+
+            $params = array_merge([$codigoUsuario], $subcategoriasModal);
             $st = $this->dblink->prepare($sql);
-            $st->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+            foreach ($params as $i => $value) {
+                $st->bindValue($i + 1, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
             $st->execute();
             $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
@@ -2411,6 +2525,7 @@ class Pedido extends Conexion
 
     private function formatearPedidoVendedor(array $r): array
     {
+        $r = $this->asegurarVentanaRecojoSiFalta($r);
         $tiempoRestante = null;
 
         if (
@@ -3156,6 +3271,7 @@ class Pedido extends Conexion
             ];
 
             foreach ($rows as $row) {
+                $row = $this->asegurarVentanaRecojoSiFalta($row);
                 $estado = (string)($row['estado_actual'] ?? '');
                 $fase   = (string)($row['fase'] ?? '');
 
@@ -3275,7 +3391,10 @@ class Pedido extends Conexion
                 UPDATE pedido
                 SET
                     estado_actual = 'entrega_confirmada_comprador',
+                    estado = 'entrega_confirmada_comprador',
+                    entrega_confirmada_comprador = 1,
                     motivo_estado = 'El comprador confirmó la entrega del pedido.',
+                    fecha_confirmacion_entrega = NOW(),
                     fecha_cierre = NOW()
                 WHERE codigo_pedido = :codigo_pedido
             ");
@@ -3298,11 +3417,27 @@ class Pedido extends Conexion
 
             $this->dblink->commit();
 
+            $calificacionPendiente = null;
+
+            try {
+                $calificacionModel = new Calificacion();
+                $generadas = $calificacionModel->generarPendientesPorPedido($codigoPedido);
+
+                if (($generadas['ok'] ?? false) === true) {
+                    $calificacionPendiente = $generadas['data']['comprador'] ?? null;
+                }
+            } catch (Throwable $e) {
+                // La confirmación de entrega no debe fallar si el módulo de calificaciones
+                // tiene un problema operativo. Se registra el error y el pedido queda cerrado.
+                error_log('[EV][Pedido][confirmarEntregaPorComprador][calificacion] ' . $e->getMessage());
+            }
+
             return [
                 'ok'   => true,
                 'data' => [
                     'codigo_pedido' => $codigoPedido,
-                    'estado_actual' => 'entrega_confirmada_comprador'
+                    'estado_actual' => 'entrega_confirmada_comprador',
+                    'calificacion_pendiente' => $calificacionPendiente
                 ]
             ];
         } catch (Throwable $e) {

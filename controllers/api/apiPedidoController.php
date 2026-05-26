@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/Pedido.php';
+require_once __DIR__ . '/../../models/Calificacion.php';
 
 class apiPedidoController
 {
@@ -87,6 +88,18 @@ class apiPedidoController
         }
 
         return $data;
+    }
+
+    private function adjuntarCalificacionesPendientes(array $data, int $codigoUsuario): array
+    {
+        try {
+            $calificacion = new Calificacion();
+            return $calificacion->adjuntarPendientesADataPedidos($data, $codigoUsuario);
+        } catch (Throwable $e) {
+            // Si el módulo de calificaciones tuviera un problema, Mis pedidos debe seguir funcionando.
+            error_log('[EV][apiPedidoController][adjuntarCalificacionesPendientes] ' . $e->getMessage());
+            return $data;
+        }
     }
 
     // =========================================================
@@ -522,6 +535,7 @@ class apiPedidoController
 
             $data = is_array($resultado['data'] ?? null) ? $resultado['data'] : [];
             $data = $this->agregarUrlImagenAGrupos($data);
+            $data = $this->adjuntarCalificacionesPendientes($data, $codigoUsuarioComprador);
 
             $this->json(200, [
                 'ok'   => true,
@@ -701,6 +715,7 @@ class apiPedidoController
 
             $data = is_array($resultado['data'] ?? null) ? $resultado['data'] : [];
             $data = $this->agregarUrlImagenAGrupos($data);
+            $data = $this->adjuntarCalificacionesPendientes($data, $codigoUsuarioVendedor);
 
             $this->json(200, [
                 'ok'   => true,

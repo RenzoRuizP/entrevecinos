@@ -2,13 +2,13 @@
 (function () {
   'use strict';
 
-  if (window.__EV_MIS_PEDIDOS_VENDEDOR_V14__ === true) {
+  if (window.__EV_MIS_PEDIDOS_VENDEDOR_V16__ === true) {
     if (window.EVMisPedidosVendedor && typeof window.EVMisPedidosVendedor.init === 'function') {
       window.EVMisPedidosVendedor.init();
     }
     return;
   }
-  window.__EV_MIS_PEDIDOS_VENDEDOR_V14__ = true;
+  window.__EV_MIS_PEDIDOS_VENDEDOR_V16__ = true;
 
   const BASE = (window.BASE_URL || '').replace(/\/+$/, '');
   const POLLING_MS = 5000;
@@ -22,6 +22,8 @@
   let cachePedidos = new Map();
   let cargando = false;
   let accionEnCurso = false;
+  let recojoCountdownTimer = null;
+  let recojoRefreshProgramado = false;
 
   function escapeHtml(v) {
     return String(v ?? '')
@@ -127,13 +129,16 @@
       return { texto: estadoLegible(e), clase: 'ev-mpv-badge ev-mpv-badge-info' };
     }
 
+    if (e === 'entrega_confirmada_comprador') {
+      return { texto: estadoLegible(e), clase: 'ev-mpv-badge ev-mpv-badge-final' };
+    }
+
     if (
       e === 'en_preparacion' ||
       e === 'despachando' ||
       e === 'listo_para_entrega' ||
       e === 'en_camino' ||
-      e === 'en_punto_entrega' ||
-      e === 'entrega_confirmada_comprador'
+      e === 'en_punto_entrega'
     ) {
       return { texto: estadoLegible(e), clase: 'ev-mpv-badge ev-mpv-badge-proceso' };
     }
@@ -375,6 +380,37 @@
     document.head.appendChild(style);
   }
 
+
+  function ensureRecojoStyles() {
+    const ID = 'ev-mpv-recojo-countdown-style';
+    if (document.getElementById(ID)) return;
+
+    const css = `
+      .ev-mpv-recojo-box{margin-top:11px;border-radius:20px;padding:12px 13px;border:1px solid rgba(234,124,18,.22);background:linear-gradient(180deg,#FFF7ED 0%,#FFFDF9 100%);box-shadow:0 10px 22px rgba(234,124,18,.07);}
+      .ev-mpv-recojo-box.is-expired{border-color:#FECACA;background:linear-gradient(180deg,#FEF2F2 0%,#FFF7F7 100%);box-shadow:0 10px 22px rgba(220,38,38,.06);}
+      .ev-mpv-recojo-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:7px;}
+      .ev-mpv-recojo-title{display:flex;align-items:center;gap:8px;color:#0F592F;font-size:.90rem;font-weight:900;letter-spacing:-.01em;}
+      .ev-mpv-recojo-box.is-expired .ev-mpv-recojo-title{color:#991B1B;}
+      .ev-mpv-recojo-timer{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:7px 11px;background:#fff;border:1px solid #FDBA74;color:#9A3412;font-size:.83rem;font-weight:950;font-variant-numeric:tabular-nums;box-shadow:0 7px 14px rgba(15,23,42,.05);}
+      .ev-mpv-recojo-box.is-expired .ev-mpv-recojo-timer{border-color:#FCA5A5;color:#991B1B;}
+      .ev-mpv-recojo-text{color:#475569;font-size:.84rem;line-height:1.45;}
+      .ev-mpv-recojo-box.is-expired .ev-mpv-recojo-text{color:#7F1D1D;}
+      .ev-mpv-btn-cancel-recojo{border:1px solid #FECACA;background:linear-gradient(135deg,#DC2626,#B91C1C);color:#fff;box-shadow:0 12px 24px rgba(220,38,38,.18);border-radius:14px;padding:.74rem .98rem;font-weight:850;font-size:.89rem;transition:transform .16s ease,filter .16s ease,box-shadow .16s ease;}
+      .ev-mpv-btn-cancel-recojo:hover,.ev-mpv-btn-cancel-recojo:focus{transform:translateY(-1px);filter:brightness(1.02);color:#fff;box-shadow:0 14px 28px rgba(220,38,38,.24);}
+      .ev-mpv-recojo-motivos{display:grid;gap:9px;text-align:left;margin-top:12px;}
+      .ev-mpv-recojo-motivo{display:flex;align-items:flex-start;gap:9px;border:1px solid #E5E7EB;background:#fff;border-radius:15px;padding:10px 11px;color:#374151;font-weight:800;font-size:.88rem;}
+      .ev-mpv-recojo-motivo input{margin-top:3px;accent-color:#DC2626;}
+      .ev-mpv-recojo-textarea{width:100%;min-height:86px;margin-top:11px;border-radius:16px;border:1px solid #E5E7EB;background:#fff;padding:11px 12px;outline:none;resize:vertical;color:#111827;}
+      .ev-mpv-recojo-textarea:focus{border-color:#DC2626;box-shadow:0 0 0 4px rgba(220,38,38,.10);}
+    `;
+
+    const style = document.createElement('style');
+    style.id = ID;
+    style.type = 'text/css';
+    style.appendChild(document.createTextNode(css));
+    document.head.appendChild(style);
+  }
+
   function swalBaseConfig(opts = {}) {
     ensureSwalStyles();
 
@@ -457,6 +493,44 @@
       </div>
       ${note ? `<div class="ev-mpv-swal-note">${note}</div>` : ''}
     `;
+  }
+
+
+  function reclamarAlertaSolicitudCompartida(codigoPedido) {
+    const id = Number(codigoPedido || 0);
+    if (!id) return false;
+
+    const key = `ev_alerta_solicitud_pedido_${id}`;
+    const ahora = Date.now();
+
+    try {
+      const anterior = Number(sessionStorage.getItem(key) || 0);
+      if (anterior > 0 && (ahora - anterior) < 5 * 60 * 1000) {
+        return false;
+      }
+      sessionStorage.setItem(key, String(ahora));
+    } catch (_) {}
+
+    return true;
+  }
+
+  function segundosRecojoRestantesItem(item) {
+    if (!item || typeof item !== 'object') return 0;
+
+    const directo = Number(item.segundos_recojo_restantes);
+    if (Number.isFinite(directo) && directo > 0) {
+      return Math.max(0, Math.floor(directo));
+    }
+
+    const limiteRaw = String(item.fecha_limite_recojo || '').trim();
+    if (limiteRaw !== '') {
+      const d = new Date(limiteRaw.replace(' ', 'T'));
+      if (!Number.isNaN(d.getTime())) {
+        return Math.max(0, Math.ceil((d.getTime() - Date.now()) / 1000));
+      }
+    }
+
+    return 0;
   }
 
   async function notify(tipo, title, subtitle, text, extra = {}) {
@@ -663,20 +737,40 @@
         </button>
       `);
     } else {
-      const siguiente = getSiguienteAccion(item);
+      const puedeCancelarRecojo = estado === 'en_punto_entrega' && Number(item.puede_cancelar_vendedor || 0) === 1;
 
-      if (siguiente) {
+      if (puedeCancelarRecojo) {
         acciones.push(`
-          <button
-            type="button"
-            class="btn ${siguiente.variant === 'success' ? 'ev-mpv-btn-success' : 'ev-mpv-btn-action'}"
-            data-action="estado"
-            data-id="${id}"
-            data-estado="${escapeHtml(siguiente.estado)}">
-            <i class="bi ${escapeHtml(siguiente.icon)} me-1"></i>${escapeHtml(siguiente.label)}
+          <button type="button" class="btn ev-mpv-btn-cancel-recojo" data-action="cancelar-recojo" data-id="${id}">
+            <i class="bi bi-x-octagon me-1"></i>Cancelar por no recepción
           </button>
         `);
+      } else {
+        const siguiente = getSiguienteAccion(item);
+
+        if (siguiente) {
+          acciones.push(`
+            <button
+              type="button"
+              class="btn ${siguiente.variant === 'success' ? 'ev-mpv-btn-success' : 'ev-mpv-btn-action'}"
+              data-action="estado"
+              data-id="${id}"
+              data-estado="${escapeHtml(siguiente.estado)}">
+              <i class="bi ${escapeHtml(siguiente.icon)} me-1"></i>${escapeHtml(siguiente.label)}
+            </button>
+          `);
+        }
       }
+    }
+
+    const calificacionPendiente = obtenerCalificacionPendiente(item);
+
+    if (calificacionPendiente) {
+      acciones.push(`
+        <button type="button" class="btn ev-mpv-btn-rating" data-action="calificar" data-id="${id}">
+          <i class="bi bi-star-fill me-1"></i>Calificar comprador
+        </button>
+      `);
     }
 
     acciones.push(`
@@ -724,6 +818,38 @@
           <div class="ev-mpv-state-title">Cola pendiente de confirmación</div>
           <div class="ev-mpv-state-text">
             El comprador todavía no confirma si desea mantenerse en la cola. Hasta entonces no pasa al turno de atención.
+          </div>
+        </div>
+      `;
+    }
+
+    if (estado === 'en_punto_entrega') {
+      const segundos = segundosRecojoRestantesItem(item);
+      const puedeCancelar = Number(item.puede_cancelar_vendedor || 0) === 1;
+      const expirado = puedeCancelar || segundos <= 0;
+
+      return `
+        <div class="ev-mpv-recojo-box ${expirado ? 'is-expired' : ''}">
+          <div class="ev-mpv-recojo-head">
+            <div class="ev-mpv-recojo-title">
+              <i class="bi ${expirado ? 'bi-exclamation-triangle' : 'bi-hourglass-split'}"></i>
+              ${expirado ? 'Tiempo de recepción vencido' : 'Tiempo para recepción'}
+            </div>
+            <div
+              class="ev-mpv-recojo-timer"
+              data-recojo-countdown="1"
+              data-recojo-restantes="${escapeHtml(segundos)}"
+              data-recojo-expira-ms="${Date.now() + (segundos * 1000)}">
+              <i class="bi bi-clock-history"></i>
+              <span>${escapeHtml(formatTiempoCorto(segundos))}</span>
+            </div>
+          </div>
+          <div class="ev-mpv-recojo-text">
+            ${
+              expirado
+                ? 'Ya pasaron los 6 minutos desde que llegaste al punto de entrega. Si el comprador no recibió el pedido, puedes cancelarlo por no recepción.'
+                : 'El comprador tiene 6 minutos para recibir el pedido. Si lo recibe, marca la entrega. Si el tiempo vence y no se concreta, se habilitará la cancelación.'
+            }
           </div>
         </div>
       `;
@@ -974,6 +1100,272 @@
     return false;
   }
 
+  function obtenerCalificacionPendiente(item) {
+    const pendiente = item?.calificacion_pendiente || null;
+    if (!pendiente || Number(pendiente.codigo_calificacion || 0) <= 0) return null;
+    if (String(pendiente.estado || '').trim() !== 'pendiente') return null;
+    return pendiente;
+  }
+
+  function ensureCalificacionStyles() {
+    const ID = 'ev-calificacion-premium-style';
+    if (document.getElementById(ID)) return;
+
+    const style = document.createElement('style');
+    style.id = ID;
+    style.type = 'text/css';
+    style.textContent = `
+      .ev-rating-box{text-align:left;display:flex;flex-direction:column;gap:13px;color:#111827;}
+      .ev-rating-sub{color:#6B7280;font-size:.94rem;line-height:1.55;text-align:center;margin-top:-4px;max-width:460px;margin-left:auto;margin-right:auto;}
+      .ev-rating-target{border:1px solid rgba(229,231,235,.95);border-radius:20px;background:linear-gradient(180deg,#FFFFFF 0%,#FCFDFC 100%);padding:13px 15px;box-shadow:0 10px 22px rgba(15,23,42,.055);}
+      .ev-rating-target span{display:block;color:#6B7280;font-size:.73rem;font-weight:900;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;}
+      .ev-rating-target strong{display:block;color:#0F592F;font-size:1rem;font-weight:900;line-height:1.25;}
+      .ev-rating-stars{display:flex;justify-content:center;gap:8px;margin:2px 0 0;}
+      .ev-rating-star{width:44px;height:44px;border-radius:15px;border:1px solid #E5E7EB;background:#fff;color:#CBD5E1;font-size:1.5rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 8px 16px rgba(15,23,42,.05);transition:transform .15s ease,box-shadow .15s ease,color .15s ease,background .15s ease,border-color .15s ease;}
+      .ev-rating-star:hover,.ev-rating-star.is-active{color:#F59E0B;background:#FFF7ED;border-color:#FCD9BD;transform:translateY(-1px);box-shadow:0 14px 24px rgba(234,124,18,.14);}
+      .ev-rating-label{text-align:center;color:#0F592F;font-weight:900;font-size:.96rem;min-height:22px;margin-top:1px;}
+      .ev-rating-helper{text-align:center;color:#6B7280;font-size:.82rem;font-weight:750;line-height:1.35;margin-top:-7px;}
+      .ev-rating-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;min-height:42px;}
+      .ev-rating-chip{border:1px solid rgba(22,163,74,.18);background:#fff;color:#0F592F;border-radius:999px;padding:8px 11px;font-size:.82rem;font-weight:850;box-shadow:0 6px 14px rgba(15,23,42,.04);transition:transform .15s ease,box-shadow .15s ease,background .15s ease,border-color .15s ease,color .15s ease;}
+      .ev-rating-chip:hover{transform:translateY(-1px);box-shadow:0 10px 18px rgba(15,23,42,.07);}
+      .ev-rating-chip.is-active{background:#ECFDF3;border-color:#BBF7D0;color:#166534;}
+      .ev-rating-box.is-low .ev-rating-chip{border-color:#FECACA;color:#991B1B;}
+      .ev-rating-box.is-low .ev-rating-chip.is-active{background:#FEF2F2;border-color:#FCA5A5;color:#991B1B;}
+      .ev-rating-box.is-mid .ev-rating-chip{border-color:#FCD9BD;color:#9A3412;}
+      .ev-rating-box.is-mid .ev-rating-chip.is-active{background:#FFF7ED;border-color:#FDBA74;color:#9A3412;}
+      .ev-rating-chip-hint{width:100%;text-align:center;border:1px dashed #D1D5DB;border-radius:16px;background:#F9FAFB;color:#6B7280;font-size:.84rem;font-weight:750;padding:11px 12px;}
+      .ev-rating-comment{width:100%;min-height:92px;border-radius:17px;border:1px solid #E5E7EB;background:#fff;padding:12px 13px;color:#111827;outline:none;resize:vertical;line-height:1.45;}
+      .ev-rating-comment:focus{border-color:#EA7C12;box-shadow:0 0 0 4px rgba(234,124,18,.10);}
+      .ev-rating-warning{border:1px solid #FECACA;background:linear-gradient(180deg,#FEF2F2 0%,#FFF7F7 100%);color:#991B1B;border-radius:16px;padding:11px 12px;font-size:.86rem;line-height:1.45;}
+      .ev-rating-check{display:flex;align-items:flex-start;gap:9px;margin-top:8px;color:#7F1D1D;font-weight:850;}
+      .ev-rating-check input{margin-top:3px;accent-color:#DC2626;}
+      .ev-mpv-btn-rating{background:linear-gradient(135deg,#0F592F,#16A34A);border:none;color:#fff;box-shadow:0 12px 24px rgba(22,163,74,.20);border-radius:14px;padding:.74rem .98rem;font-weight:850;font-size:.89rem;transition:transform .16s ease,filter .16s ease;}
+      .ev-mpv-btn-rating:hover{transform:translateY(-1px);filter:brightness(1.02);color:#fff;}
+      @media(max-width:575.98px){.ev-rating-stars{gap:6px}.ev-rating-star{width:39px;height:39px;border-radius:13px;font-size:1.35rem}.ev-rating-chips{justify-content:flex-start}.ev-rating-chip{font-size:.80rem}}
+    `;
+    document.head.appendChild(style);
+  }
+
+
+  function etiquetasPorPuntajeRol(rolCalificado, puntaje) {
+    const rol = String(rolCalificado || '').trim();
+    const score = Number(puntaje || 0);
+
+    const vendedor = {
+      1: ['Muy mala experiencia', 'No cumplió lo acordado', 'Producto diferente', 'Trato inadecuado', 'No recomiendo'],
+      2: ['Demoró demasiado', 'Producto no conforme', 'Mala comunicación', 'No fue claro', 'No recomiendo'],
+      3: ['Regular', 'Demoró un poco', 'Comunicación mejorable', 'Producto aceptable', 'Faltó coordinación'],
+      4: ['Buena experiencia', 'Producto conforme', 'Comunicación clara', 'Atención correcta', 'Volvería a comprar'],
+      5: ['Buena atención', 'Entrega rápida', 'Producto conforme', 'Comunicación clara', 'Lo recomiendo']
+    };
+
+    const comprador = {
+      1: ['Muy mala experiencia', 'No respetó lo acordado', 'Trato inadecuado', 'No respondió', 'No recomiendo'],
+      2: ['Impuntual', 'Mala comunicación', 'No coordinó bien', 'No fue claro', 'No recomiendo'],
+      3: ['Regular', 'Demoró en responder', 'Coordinación mejorable', 'Trato aceptable', 'Faltó puntualidad'],
+      4: ['Buena experiencia', 'Confirmación correcta', 'Comunicación clara', 'Trato respetuoso', 'Volvería a venderle'],
+      5: ['Confirmación sin problemas', 'Puntual', 'Comunicación clara', 'Trato respetuoso', 'Lo recomiendo']
+    };
+
+    const fuente = rol === 'comprador' ? comprador : vendedor;
+    return fuente[score] || [];
+  }
+
+  function textoPuntaje(puntaje) {
+    const mapa = {
+      1: 'Muy mala experiencia',
+      2: 'Mala experiencia',
+      3: 'Experiencia regular',
+      4: 'Buena experiencia',
+      5: 'Excelente experiencia'
+    };
+    return mapa[Number(puntaje || 0)] || 'Selecciona una calificación';
+  }
+
+  function ayudaPuntaje(puntaje) {
+    const mapa = {
+      1: 'Selecciona el motivo principal. Puedes reportarlo a soporte.',
+      2: 'Cuéntanos qué falló para mejorar la experiencia.',
+      3: 'Marca lo que mejor describa esta experiencia.',
+      4: 'Selecciona lo que salió bien.',
+      5: 'Marca los puntos fuertes de esta experiencia.'
+    };
+    return mapa[Number(puntaje || 0)] || 'Primero selecciona una cantidad de estrellas.';
+  }
+
+  function placeholderComentario(rolCalificado, puntaje) {
+    const score = Number(puntaje || 0);
+    const rol = String(rolCalificado || '').trim();
+
+    if (score <= 0) {
+      return 'Comentario opcional.';
+    }
+
+    if (score <= 2) {
+      return rol === 'comprador'
+        ? 'Comentario opcional. Ejemplo: No respetó lo coordinado o no respondió a tiempo.'
+        : 'Comentario opcional. Ejemplo: El producto no era conforme o faltó comunicación.';
+    }
+
+    if (score === 3) {
+      return 'Comentario opcional. Ejemplo: Fue una experiencia regular, pero puede mejorar.';
+    }
+
+    return rol === 'comprador'
+      ? 'Comentario opcional. Ejemplo: Coordinó bien y tuvo trato respetuoso.'
+      : 'Comentario opcional. Ejemplo: Buena atención y producto conforme.';
+  }
+
+  function nivelPuntaje(puntaje) {
+    const score = Number(puntaje || 0);
+    if (score <= 0) return 'empty';
+    if (score <= 2) return 'low';
+    if (score === 3) return 'mid';
+    return 'high';
+  }
+
+  function renderEtiquetasRating(popup, rolCalificado, puntaje) {
+    const chipsBox = popup.querySelector('#evRatingChips');
+    const helper = popup.querySelector('#evRatingHelper');
+    const comment = popup.querySelector('#evRatingComment');
+    const box = popup.querySelector('.ev-rating-box');
+
+    if (helper) helper.textContent = ayudaPuntaje(puntaje);
+    if (comment) comment.placeholder = placeholderComentario(rolCalificado, puntaje);
+
+    if (box) {
+      box.classList.remove('is-empty', 'is-low', 'is-mid', 'is-high');
+      box.classList.add(`is-${nivelPuntaje(puntaje)}`);
+    }
+
+    if (!chipsBox) return;
+
+    const etiquetas = etiquetasPorPuntajeRol(rolCalificado, puntaje);
+    if (!etiquetas.length) {
+      chipsBox.innerHTML = '<div class="ev-rating-chip-hint">Selecciona estrellas para ver opciones rápidas.</div>';
+      return;
+    }
+
+    chipsBox.innerHTML = etiquetas
+      .map(e => `<button type="button" class="ev-rating-chip" data-etiqueta="${escapeHtml(e)}">${escapeHtml(e)}</button>`)
+      .join('');
+
+    chipsBox.querySelectorAll('.ev-rating-chip').forEach((btn) => {
+      btn.addEventListener('click', () => btn.classList.toggle('is-active'));
+    });
+  }
+
+  async function abrirModalCalificacion(item, calificacionManual = null) {
+    if (!window.Swal?.fire) return;
+
+    const calificacion = calificacionManual || obtenerCalificacionPendiente(item);
+    const codigoCalificacion = Number(calificacion?.codigo_calificacion || 0);
+    if (!codigoCalificacion) return;
+
+    ensureCalificacionStyles();
+
+    const rolCalificado = String(calificacion.rol_calificado || 'comprador').trim();
+    const nombreCalificado = String(calificacion.nombre_calificado || item?.nombre_comprador || item?.nombre_vecino || 'Vecino').trim();
+    const tituloPedido = String(calificacion.titulo_publicacion || item?.titulo_publicacion || item?.titulo_producto || 'Pedido EV').trim();
+    const titulo = rolCalificado === 'comprador' ? 'Califica al comprador' : 'Califica al vendedor';
+    const subtitulo = rolCalificado === 'comprador'
+      ? 'Tu opinión ayuda a mantener una comunidad seria y respetuosa.'
+      : 'Tu opinión ayuda a que otros vecinos compren con más confianza.';
+    const html = `
+      <div class="ev-rating-box">
+        <div class="ev-rating-sub">${escapeHtml(subtitulo)}</div>
+        <div class="ev-rating-target">
+          <span>Pedido</span>
+          <strong>${escapeHtml(tituloPedido)}</strong>
+          <span style="margin-top:8px">Vecino a calificar</span>
+          <strong>${escapeHtml(nombreCalificado)}</strong>
+        </div>
+        <div class="ev-rating-stars" role="group" aria-label="Calificación de 1 a 5 estrellas">
+          ${[1,2,3,4,5].map(n => `<button type="button" class="ev-rating-star" data-rating="${n}" aria-label="${n} estrellas">★</button>`).join('')}
+        </div>
+        <div class="ev-rating-label" id="evRatingLabel">Selecciona una calificación</div>
+        <div class="ev-rating-helper" id="evRatingHelper">Primero selecciona una cantidad de estrellas.</div>
+        <div class="ev-rating-chips" id="evRatingChips">
+          <div class="ev-rating-chip-hint">Selecciona estrellas para ver opciones rápidas.</div>
+        </div>
+        <textarea id="evRatingComment" class="ev-rating-comment" maxlength="800" placeholder="Comentario opcional."></textarea>
+        <div id="evRatingLow" class="ev-rating-warning d-none">
+          Calificaste con una experiencia baja. Puedes marcar esta experiencia para que soporte la revise.
+          <label class="ev-rating-check"><input type="checkbox" id="evRatingReport"> Reportar esta experiencia a soporte</label>
+        </div>
+      </div>
+    `;
+
+    const result = await Swal.fire(swalBaseConfig({
+      title: titulo,
+      html,
+      width: 620,
+      showCancelButton: true,
+      confirmButtonText: 'Enviar calificación',
+      cancelButtonText: 'Ahora no',
+      didOpen: () => {
+        window.__evRatingValue = 0;
+        const popup = Swal.getPopup();
+        const label = popup.querySelector('#evRatingLabel');
+        const lowBox = popup.querySelector('#evRatingLow');
+
+        renderEtiquetasRating(popup, rolCalificado, 0);
+
+        popup.querySelectorAll('.ev-rating-star').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const value = Number(btn.dataset.rating || 0);
+            window.__evRatingValue = value;
+
+            popup.querySelectorAll('.ev-rating-star').forEach((star) => {
+              star.classList.toggle('is-active', Number(star.dataset.rating || 0) <= value);
+            });
+
+            if (label) label.textContent = textoPuntaje(value);
+            if (lowBox) lowBox.classList.toggle('d-none', value > 2 || value <= 0);
+            renderEtiquetasRating(popup, rolCalificado, value);
+          });
+        });
+      },
+      preConfirm: () => {
+        const popup = Swal.getPopup();
+        const puntaje = Number(window.__evRatingValue || 0);
+        if (puntaje < 1 || puntaje > 5) {
+          Swal.showValidationMessage('Selecciona una calificación del 1 al 5.');
+          return false;
+        }
+
+        const etiquetasSeleccionadas = Array.from(popup.querySelectorAll('.ev-rating-chip.is-active')).map((btn) => btn.dataset.etiqueta || '').filter(Boolean);
+        const comentario = String(popup.querySelector('#evRatingComment')?.value || '').trim();
+        const reportar = popup.querySelector('#evRatingReport')?.checked === true;
+
+        return { puntaje, etiquetas: etiquetasSeleccionadas, comentario, reportar_soporte: reportar ? 1 : 0 };
+      }
+    }));
+
+    if (!result.isConfirmed || !result.value) return;
+
+    const resp = await fetch(`${BASE}/api/calificaciones/${codigoCalificacion}/enviar`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(result.value)
+    });
+
+    const json = await resp.json().catch(() => ({}));
+    if (await handleAuthFromResponse(resp, json)) return;
+
+    if (!resp.ok || json?.ok === false) {
+      await notify('error', 'No se pudo calificar', 'La calificación no fue registrada', json?.mensaje || 'No se pudo registrar la calificación.');
+      return;
+    }
+
+    await notify('success', 'Calificación enviada', 'Gracias por tu opinión', json?.mensaje || 'Gracias por ayudar a construir confianza en Entre Vecinos.');
+    await cargarPedidos({ silent: true });
+  }
+
   async function fetchPedidos() {
     const resp = await fetch(`${BASE}/api/pedidos/mis`, {
       method: 'GET',
@@ -1039,6 +1431,7 @@
 
     const id = Number(item.codigo_pedido || 0);
     if (!id || alertasMostradas.has(id)) return;
+    if (!reclamarAlertaSolicitudCompartida(id)) return;
 
     alertasMostradas.add(id);
 
@@ -1103,6 +1496,7 @@
       pintarGrupo(sinRespuesta, refs.listaSinRespuesta, refs.emptySinRespuesta);
 
       showTab(refs, tabActiva);
+      iniciarCountdownRecojo();
 
       const snapshotNuevo = new Set(
         pendientesAtendibles.map((x) => Number(x.codigo_pedido || 0)).filter(Boolean)
@@ -1302,6 +1696,112 @@
       text: '¿Deseas continuar con este cambio?',
       confirmText: 'Sí, continuar'
     };
+  }
+
+  async function promptCancelacionNoRecojo(item) {
+    if (!window.Swal?.fire) {
+      const ok = window.confirm('¿Cancelar el pedido porque no se concretó la recepción?');
+      return ok
+        ? { isConfirmed: true, value: { motivo_cancelacion_clave: 'comprador_no_se_presento', motivo_cancelacion_detalle: '' } }
+        : { isConfirmed: false };
+    }
+
+    const motivos = [
+      { value: 'comprador_no_se_presento', label: 'El comprador no se presentó' },
+      { value: 'comprador_no_responde', label: 'El comprador no responde' },
+      { value: 'comprador_rechazo_recepcion', label: 'El comprador rechazó recibir el pedido' },
+      { value: 'no_se_pudo_concretar', label: 'No se pudo concretar la entrega' },
+      { value: 'otro', label: 'Otro motivo' }
+    ];
+
+    const html = `
+      ${htmlMessage(
+        'warning',
+        'Cancelar por no recepción',
+        'Usa esta opción solo si el tiempo de recepción venció y no se pudo concretar la entrega.',
+        htmlProductNote(
+          'Pedido',
+          item?.titulo_publicacion || 'Pedido seleccionado',
+          '<strong>Importante:</strong> esta acción cerrará el pedido y quedará registrada en el historial EV.'
+        )
+      )}
+      <div class="ev-mpv-recojo-motivos">
+        ${motivos.map((m, idx) => `
+          <label class="ev-mpv-recojo-motivo">
+            <input type="radio" name="evMotivoRecojo" value="${escapeHtml(m.value)}" ${idx === 0 ? 'checked' : ''}>
+            <span>${escapeHtml(m.label)}</span>
+          </label>
+        `).join('')}
+      </div>
+      <textarea id="evMotivoRecojoDetalle" class="ev-mpv-recojo-textarea" maxlength="400" placeholder="Detalle opcional. Ejemplo: Esperé en el punto acordado, pero el comprador no llegó."></textarea>
+    `;
+
+    return Swal.fire(swalBaseConfig({
+      title: 'Cancelar pedido',
+      html,
+      width: 620,
+      showCancelButton: true,
+      confirmButtonText: 'Sí, cancelar pedido',
+      cancelButtonText: 'Volver',
+      preConfirm: () => {
+        const popup = Swal.getPopup();
+        const selected = popup.querySelector('input[name="evMotivoRecojo"]:checked');
+        const detalle = String(popup.querySelector('#evMotivoRecojoDetalle')?.value || '').trim();
+
+        if (!selected || !selected.value) {
+          Swal.showValidationMessage('Selecciona el motivo de cancelación.');
+          return false;
+        }
+
+        return {
+          motivo_cancelacion_clave: selected.value,
+          motivo_cancelacion_detalle: detalle
+        };
+      }
+    }));
+  }
+
+  async function cancelarPorNoRecojo(id) {
+    if (accionEnCurso) return;
+    const item = cachePedidos.get(Number(id || 0));
+    if (!item) return;
+
+    const r = await promptCancelacionNoRecojo(item);
+    if (!r.isConfirmed || !r.value) return;
+
+    accionEnCurso = true;
+
+    try {
+      const resp = await fetch(`${BASE}/api/pedidos/${id}/estado`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nuevo_estado: 'cancelado_vendedor',
+          motivo_cancelacion_clave: r.value.motivo_cancelacion_clave,
+          motivo_cancelacion_detalle: r.value.motivo_cancelacion_detalle
+        })
+      });
+
+      const json = await resp.json().catch(() => ({}));
+      if (await handleAuthFromResponse(resp, json)) return;
+
+      if (!resp.ok || json?.ok === false) {
+        await notify('warning', 'No se pudo cancelar', 'El pedido mantiene su estado actual', json?.mensaje || 'No se pudo cancelar el pedido.', {
+          htmlExtra: htmlProductNote('Pedido', item.titulo_publicacion || `Pedido #${id}`)
+        });
+        return;
+      }
+
+      await notify('success', 'Pedido cancelado', 'La cancelación fue registrada', json?.mensaje || 'El pedido fue cancelado por no concretarse la recepción.', {
+        htmlExtra: htmlProductNote('Pedido', item.titulo_publicacion || `Pedido #${id}`)
+      });
+
+      tabActiva = 'finalizados';
+      await cargarPedidos({ silent: true });
+    } finally {
+      accionEnCurso = false;
+    }
   }
 
   async function cambiarEstado(id, estado) {
@@ -1658,6 +2158,50 @@
     }));
   }
 
+  function detenerCountdownRecojo() {
+    if (recojoCountdownTimer) {
+      clearInterval(recojoCountdownTimer);
+      recojoCountdownTimer = null;
+    }
+  }
+
+  function actualizarCountdownRecojo() {
+    const nodes = Array.from(document.querySelectorAll('[data-recojo-countdown="1"]'));
+
+    if (!nodes.length) {
+      detenerCountdownRecojo();
+      return;
+    }
+
+    let debeRefrescar = false;
+
+    nodes.forEach((node) => {
+      const expiraMs = Number(node.dataset.recojoExpiraMs || 0);
+      const span = node.querySelector('span');
+      const restante = expiraMs > 0 ? Math.max(0, Math.ceil((expiraMs - Date.now()) / 1000)) : 0;
+
+      if (span) span.textContent = formatTiempoCorto(restante);
+      if (restante <= 0) debeRefrescar = true;
+    });
+
+    if (debeRefrescar && !recojoRefreshProgramado) {
+      recojoRefreshProgramado = true;
+      window.setTimeout(async () => {
+        recojoRefreshProgramado = false;
+        if (vistaActiva && document.querySelector('.ev-mpv-page')) {
+          await cargarPedidos({ silent: true });
+        }
+      }, 750);
+    }
+  }
+
+  function iniciarCountdownRecojo() {
+    detenerCountdownRecojo();
+    if (!document.querySelector('[data-recojo-countdown="1"]')) return;
+    actualizarCountdownRecojo();
+    recojoCountdownTimer = window.setInterval(actualizarCountdownRecojo, 1000);
+  }
+
   function detenerPolling() {
     if (pollingTimer) {
       clearInterval(pollingTimer);
@@ -1726,6 +2270,16 @@
       return;
     }
 
+    if (action === 'cancelar-recojo') {
+      await cancelarPorNoRecojo(id);
+      return;
+    }
+
+    if (action === 'calificar') {
+      await abrirModalCalificacion(cachePedidos.get(id));
+      return;
+    }
+
     if (action === 'detalle') {
       await verDetalle(id);
     }
@@ -1746,6 +2300,7 @@
     } else {
       vistaActiva = false;
       detenerPolling();
+      detenerCountdownRecojo();
     }
   });
 
@@ -1755,10 +2310,12 @@
     if (!refs.root) {
       vistaActiva = false;
       detenerPolling();
+      detenerCountdownRecojo();
       return;
     }
 
     ensureSwalStyles();
+    ensureRecojoStyles();
     ensureDetallePremiumStyles();
 
     vistaActiva = true;
