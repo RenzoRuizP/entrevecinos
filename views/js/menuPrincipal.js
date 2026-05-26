@@ -713,6 +713,381 @@
     }
   }
 
+
+  function ensureCalificacionShellStyles() {
+    const ID = 'ev-shell-calificacion-premium-style';
+    if (document.getElementById(ID)) return;
+
+    const style = document.createElement('style');
+    style.id = ID;
+    style.type = 'text/css';
+    style.textContent = `
+      .ev-shell-rating-box{text-align:left;display:flex;flex-direction:column;gap:13px;color:#111827;}
+      .ev-shell-rating-sub{color:#6B7280;font-size:.94rem;line-height:1.55;text-align:center;margin-top:-4px;max-width:460px;margin-left:auto;margin-right:auto;}
+      .ev-shell-rating-target{border:1px solid rgba(229,231,235,.95);border-radius:20px;background:linear-gradient(180deg,#FFFFFF 0%,#FCFDFC 100%);padding:13px 15px;box-shadow:0 10px 22px rgba(15,23,42,.055);}
+      .ev-shell-rating-target span{display:block;color:#6B7280;font-size:.73rem;font-weight:900;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;}
+      .ev-shell-rating-target strong{display:block;color:#0F592F;font-size:1rem;font-weight:900;line-height:1.25;}
+      .ev-shell-rating-stars{display:flex;justify-content:center;gap:8px;margin:2px 0 0;}
+      .ev-shell-rating-star{width:44px;height:44px;border-radius:15px;border:1px solid #E5E7EB;background:#fff;color:#CBD5E1;font-size:1.5rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 8px 16px rgba(15,23,42,.05);transition:transform .15s ease,box-shadow .15s ease,color .15s ease,background .15s ease,border-color .15s ease;}
+      .ev-shell-rating-star:hover,.ev-shell-rating-star.is-active{color:#F59E0B;background:#FFF7ED;border-color:#FCD9BD;transform:translateY(-1px);box-shadow:0 14px 24px rgba(234,124,18,.14);}
+      .ev-shell-rating-label{text-align:center;color:#0F592F;font-weight:900;font-size:.96rem;min-height:22px;margin-top:1px;}
+      .ev-shell-rating-helper{text-align:center;color:#6B7280;font-size:.82rem;font-weight:750;line-height:1.35;margin-top:-7px;}
+      .ev-shell-rating-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;min-height:42px;}
+      .ev-shell-rating-chip{border:1px solid rgba(22,163,74,.18);background:#fff;color:#0F592F;border-radius:999px;padding:8px 11px;font-size:.82rem;font-weight:850;box-shadow:0 6px 14px rgba(15,23,42,.04);transition:transform .15s ease,box-shadow .15s ease,background .15s ease,border-color .15s ease,color .15s ease;}
+      .ev-shell-rating-chip:hover{transform:translateY(-1px);box-shadow:0 10px 18px rgba(15,23,42,.07);}
+      .ev-shell-rating-chip.is-active{background:#ECFDF3;border-color:#BBF7D0;color:#166534;}
+      .ev-shell-rating-box.is-low .ev-shell-rating-chip{border-color:#FECACA;color:#991B1B;}
+      .ev-shell-rating-box.is-low .ev-shell-rating-chip.is-active{background:#FEF2F2;border-color:#FCA5A5;color:#991B1B;}
+      .ev-shell-rating-box.is-mid .ev-shell-rating-chip{border-color:#FCD9BD;color:#9A3412;}
+      .ev-shell-rating-box.is-mid .ev-shell-rating-chip.is-active{background:#FFF7ED;border-color:#FDBA74;color:#9A3412;}
+      .ev-shell-rating-chip-hint{width:100%;text-align:center;border:1px dashed #D1D5DB;border-radius:16px;background:#F9FAFB;color:#6B7280;font-size:.84rem;font-weight:750;padding:11px 12px;}
+      .ev-shell-rating-comment{width:100%;min-height:92px;border-radius:17px;border:1px solid #E5E7EB;background:#fff;padding:12px 13px;color:#111827;outline:none;resize:vertical;line-height:1.45;}
+      .ev-shell-rating-comment:focus{border-color:#EA7C12;box-shadow:0 0 0 4px rgba(234,124,18,.10);}
+      .ev-shell-rating-warning{border:1px solid #FECACA;background:linear-gradient(180deg,#FEF2F2 0%,#FFF7F7 100%);color:#991B1B;border-radius:16px;padding:11px 12px;font-size:.86rem;line-height:1.45;}
+      .ev-shell-rating-check{display:flex;align-items:flex-start;gap:9px;margin-top:8px;color:#7F1D1D;font-weight:850;}
+      .ev-shell-rating-check input{margin-top:3px;accent-color:#DC2626;}
+      @media(max-width:575.98px){.ev-shell-rating-stars{gap:6px}.ev-shell-rating-star{width:39px;height:39px;border-radius:13px;font-size:1.35rem}.ev-shell-rating-chips{justify-content:flex-start}.ev-shell-rating-chip{font-size:.80rem}}
+    `;
+    document.head.appendChild(style);
+  }
+
+  function etiquetasPorPuntajeRolShell(rolCalificado, puntaje) {
+    const rol = String(rolCalificado || '').trim();
+    const score = Number(puntaje || 0);
+
+    const vendedor = {
+      1: ['Muy mala experiencia', 'No cumplió lo acordado', 'Producto diferente', 'Trato inadecuado', 'No recomiendo'],
+      2: ['Demoró demasiado', 'Producto no conforme', 'Mala comunicación', 'No fue claro', 'No recomiendo'],
+      3: ['Regular', 'Demoró un poco', 'Comunicación mejorable', 'Producto aceptable', 'Faltó coordinación'],
+      4: ['Buena experiencia', 'Producto conforme', 'Comunicación clara', 'Atención correcta', 'Volvería a comprar'],
+      5: ['Buena atención', 'Entrega rápida', 'Producto conforme', 'Comunicación clara', 'Lo recomiendo']
+    };
+
+    const comprador = {
+      1: ['Muy mala experiencia', 'No respetó lo acordado', 'Trato inadecuado', 'No respondió', 'No recomiendo'],
+      2: ['Impuntual', 'Mala comunicación', 'No coordinó bien', 'No fue claro', 'No recomiendo'],
+      3: ['Regular', 'Demoró en responder', 'Coordinación mejorable', 'Trato aceptable', 'Faltó puntualidad'],
+      4: ['Buena experiencia', 'Confirmación correcta', 'Comunicación clara', 'Trato respetuoso', 'Volvería a venderle'],
+      5: ['Confirmación sin problemas', 'Puntual', 'Comunicación clara', 'Trato respetuoso', 'Lo recomiendo']
+    };
+
+    const fuente = rol === 'comprador' ? comprador : vendedor;
+    return fuente[score] || [];
+  }
+
+  function textoPuntajeShell(puntaje) {
+    const mapa = {
+      1: 'Muy mala experiencia',
+      2: 'Mala experiencia',
+      3: 'Experiencia regular',
+      4: 'Buena experiencia',
+      5: 'Excelente experiencia'
+    };
+    return mapa[Number(puntaje || 0)] || 'Selecciona una calificación';
+  }
+
+  function ayudaPuntajeShell(puntaje) {
+    const mapa = {
+      1: 'Selecciona el motivo principal. Puedes reportarlo a soporte.',
+      2: 'Cuéntanos qué falló para mejorar la experiencia.',
+      3: 'Marca lo que mejor describa esta experiencia.',
+      4: 'Selecciona lo que salió bien.',
+      5: 'Marca los puntos fuertes de esta experiencia.'
+    };
+    return mapa[Number(puntaje || 0)] || 'Primero selecciona una cantidad de estrellas.';
+  }
+
+  function placeholderComentarioShell(rolCalificado, puntaje) {
+    const score = Number(puntaje || 0);
+    const rol = String(rolCalificado || '').trim();
+
+    if (score <= 0) return 'Comentario opcional.';
+
+    if (score <= 2) {
+      return rol === 'comprador'
+        ? 'Comentario opcional. Ejemplo: No respetó lo coordinado o no respondió a tiempo.'
+        : 'Comentario opcional. Ejemplo: El producto no era conforme o faltó comunicación.';
+    }
+
+    if (score === 3) {
+      return 'Comentario opcional. Ejemplo: Fue una experiencia regular, pero puede mejorar.';
+    }
+
+    return rol === 'comprador'
+      ? 'Comentario opcional. Ejemplo: Coordinó bien y tuvo trato respetuoso.'
+      : 'Comentario opcional. Ejemplo: Buena atención y producto conforme.';
+  }
+
+  function nivelPuntajeShell(puntaje) {
+    const score = Number(puntaje || 0);
+    if (score <= 0) return 'empty';
+    if (score <= 2) return 'low';
+    if (score === 3) return 'mid';
+    return 'high';
+  }
+
+  function renderEtiquetasRatingShell(popup, rolCalificado, puntaje) {
+    const chipsBox = popup.querySelector('#evShellRatingChips');
+    const helper = popup.querySelector('#evShellRatingHelper');
+    const comment = popup.querySelector('#evShellRatingComment');
+    const box = popup.querySelector('.ev-shell-rating-box');
+
+    if (helper) helper.textContent = ayudaPuntajeShell(puntaje);
+    if (comment) comment.placeholder = placeholderComentarioShell(rolCalificado, puntaje);
+
+    if (box) {
+      box.classList.remove('is-empty', 'is-low', 'is-mid', 'is-high');
+      box.classList.add(`is-${nivelPuntajeShell(puntaje)}`);
+    }
+
+    if (!chipsBox) return;
+
+    const etiquetas = etiquetasPorPuntajeRolShell(rolCalificado, puntaje);
+    if (!etiquetas.length) {
+      chipsBox.innerHTML = '<div class="ev-shell-rating-chip-hint">Selecciona estrellas para ver opciones rápidas.</div>';
+      return;
+    }
+
+    chipsBox.innerHTML = etiquetas
+      .map((e) => `<button type="button" class="ev-shell-rating-chip" data-etiqueta="${escapeHtml(e)}">${escapeHtml(e)}</button>`)
+      .join('');
+
+    chipsBox.querySelectorAll('.ev-shell-rating-chip').forEach((btn) => {
+      btn.addEventListener('click', () => btn.classList.toggle('is-active'));
+    });
+  }
+
+  async function obtenerCalificacionPendientePedidoShell(codigoPedido) {
+    const id = Number(codigoPedido || 0);
+    if (!id) return null;
+
+    try {
+      const { resp, json } = await fetchJsonConTimeout(`${BASE}/api/calificaciones/pedido/${encodeURIComponent(id)}`, {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+
+      if (!resp.ok || json?.ok === false) return null;
+
+      const pendiente = json?.data || null;
+      if (!pendiente || Number(pendiente.codigo_calificacion || 0) <= 0) return null;
+      if (String(pendiente.estado || '').trim() !== 'pendiente') return null;
+
+      return pendiente;
+    } catch (e) {
+      console.warn('[EV][Shell][Calificacion] No se pudo obtener la calificación pendiente:', e);
+      return null;
+    }
+  }
+
+  async function abrirModalCalificacionShell(calificacionManual, fallback = {}) {
+    if (!window.Swal?.fire) return;
+
+    const calificacion = calificacionManual || null;
+    const codigoCalificacion = Number(calificacion?.codigo_calificacion || 0);
+    if (!codigoCalificacion) return;
+
+    ensureCalificacionShellStyles();
+
+    const rolCalificado = String(calificacion.rol_calificado || 'vendedor').trim();
+    const nombreCalificado = String(calificacion.nombre_calificado || fallback.nombre_calificado || 'Vecino').trim();
+    const tituloPedido = String(calificacion.titulo_publicacion || fallback.titulo_publicacion || fallback.titulo_producto || 'Pedido EV').trim();
+    const titulo = rolCalificado === 'vendedor' ? 'Califica al vendedor' : 'Califica al comprador';
+    const subtitulo = rolCalificado === 'vendedor'
+      ? 'Tu opinión ayuda a que otros vecinos compren con más confianza.'
+      : 'Tu opinión ayuda a mantener una comunidad seria y respetuosa.';
+
+    const html = `
+      <div class="ev-shell-rating-box">
+        <div class="ev-shell-rating-sub">${escapeHtml(subtitulo)}</div>
+        <div class="ev-shell-rating-target">
+          <span>Pedido</span>
+          <strong>${escapeHtml(tituloPedido)}</strong>
+          <span style="margin-top:8px">Vecino a calificar</span>
+          <strong>${escapeHtml(nombreCalificado)}</strong>
+        </div>
+        <div class="ev-shell-rating-stars" role="group" aria-label="Calificación de 1 a 5 estrellas">
+          ${[1,2,3,4,5].map(n => `<button type="button" class="ev-shell-rating-star" data-rating="${n}" aria-label="${n} estrellas">★</button>`).join('')}
+        </div>
+        <div class="ev-shell-rating-label" id="evShellRatingLabel">Selecciona una calificación</div>
+        <div class="ev-shell-rating-helper" id="evShellRatingHelper">Primero selecciona una cantidad de estrellas.</div>
+        <div class="ev-shell-rating-chips" id="evShellRatingChips">
+          <div class="ev-shell-rating-chip-hint">Selecciona estrellas para ver opciones rápidas.</div>
+        </div>
+        <textarea id="evShellRatingComment" class="ev-shell-rating-comment" maxlength="800" placeholder="Comentario opcional."></textarea>
+        <div id="evShellRatingLow" class="ev-shell-rating-warning d-none">
+          Calificaste con una experiencia baja. Puedes marcar esta experiencia para que soporte la revise.
+          <label class="ev-shell-rating-check"><input type="checkbox" id="evShellRatingReport"> Reportar esta experiencia a soporte</label>
+        </div>
+      </div>
+    `;
+
+    const result = await Swal.fire({
+      title: titulo,
+      html,
+      width: 620,
+      showCancelButton: true,
+      confirmButtonText: 'Enviar calificación',
+      cancelButtonText: 'Ahora no',
+      confirmButtonColor: '#EA7C12',
+      cancelButtonColor: '#6B7280',
+      allowOutsideClick: false,
+      allowEscapeKey: true,
+      didOpen: () => {
+        window.__evShellRatingValue = 0;
+        const popup = Swal.getPopup();
+        const label = popup.querySelector('#evShellRatingLabel');
+        const lowBox = popup.querySelector('#evShellRatingLow');
+
+        renderEtiquetasRatingShell(popup, rolCalificado, 0);
+
+        popup.querySelectorAll('.ev-shell-rating-star').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const value = Number(btn.dataset.rating || 0);
+            window.__evShellRatingValue = value;
+
+            popup.querySelectorAll('.ev-shell-rating-star').forEach((star) => {
+              star.classList.toggle('is-active', Number(star.dataset.rating || 0) <= value);
+            });
+
+            if (label) label.textContent = textoPuntajeShell(value);
+            if (lowBox) lowBox.classList.toggle('d-none', value > 2 || value <= 0);
+            renderEtiquetasRatingShell(popup, rolCalificado, value);
+          });
+        });
+      },
+      preConfirm: () => {
+        const popup = Swal.getPopup();
+        const puntaje = Number(window.__evShellRatingValue || 0);
+        if (puntaje < 1 || puntaje > 5) {
+          Swal.showValidationMessage('Selecciona una calificación del 1 al 5.');
+          return false;
+        }
+
+        const etiquetasSeleccionadas = Array.from(popup.querySelectorAll('.ev-shell-rating-chip.is-active'))
+          .map((btn) => btn.dataset.etiqueta || '')
+          .filter(Boolean);
+        const comentario = String(popup.querySelector('#evShellRatingComment')?.value || '').trim();
+        const reportar = popup.querySelector('#evShellRatingReport')?.checked === true;
+
+        return { puntaje, etiquetas: etiquetasSeleccionadas, comentario, reportar_soporte: reportar ? 1 : 0 };
+      }
+    });
+
+    if (!result.isConfirmed || !result.value) return;
+
+    try {
+      const { resp, json } = await fetchJsonConTimeout(`${BASE}/api/calificaciones/${codigoCalificacion}/enviar`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(result.value)
+      });
+
+      if (!resp.ok || json?.ok === false) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'No se pudo calificar',
+          text: json?.mensaje || 'No se pudo registrar la calificación.',
+          confirmButtonColor: '#EA7C12'
+        });
+        return;
+      }
+
+      await Swal.fire({
+        icon: 'success',
+        title: 'Calificación enviada',
+        text: json?.mensaje || 'Gracias por ayudar a construir confianza en Entre Vecinos.',
+        confirmButtonColor: '#EA7C12'
+      });
+    } catch (e) {
+      console.warn('[EV][Shell][Calificacion] No se pudo enviar la calificación:', e);
+      await Swal.fire({
+        icon: 'error',
+        title: 'No se pudo calificar',
+        text: 'No se pudo registrar la calificación en este momento.',
+        confirmButtonColor: '#EA7C12'
+      });
+    }
+  }
+
+  async function refrescarMisPedidosCompradorSiDisponible() {
+    try {
+      if (window.EVMisPedidosComprador && typeof window.EVMisPedidosComprador.refresh === 'function') {
+        await window.EVMisPedidosComprador.refresh();
+      }
+    } catch (_) {}
+  }
+
+  async function confirmarEntregaDesdeAlertaComprador(codigoPedido, fallback = {}) {
+    const id = Number(codigoPedido || 0);
+    if (!id || !window.Swal?.fire) return;
+
+    try {
+      const { resp, json } = await fetchJsonConTimeout(`${BASE}/api/pedidos/${encodeURIComponent(id)}/confirmar-entrega`, {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({})
+      });
+
+      if (!resp.ok || json?.ok === false) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'No se pudo confirmar',
+          text: json?.mensaje || 'No se pudo confirmar la entrega.',
+          confirmButtonColor: '#EA7C12'
+        });
+        await refrescarMisPedidosCompradorSiDisponible();
+        return;
+      }
+
+      await Swal.fire({
+        icon: 'success',
+        title: 'Entrega confirmada',
+        text: json?.mensaje || 'La entrega fue confirmada correctamente.',
+        confirmButtonColor: '#EA7C12'
+      });
+
+      let pendiente = json?.data?.calificacion_pendiente || null;
+      if (!pendiente || Number(pendiente.codigo_calificacion || 0) <= 0) {
+        pendiente = await obtenerCalificacionPendientePedidoShell(id);
+      }
+
+      if (pendiente && Number(pendiente.codigo_calificacion || 0) > 0) {
+        await abrirModalCalificacionShell(pendiente, {
+          codigo_pedido: id,
+          titulo_publicacion: pendiente.titulo_publicacion || fallback.titulo_publicacion || fallback.titulo_producto || 'Pedido EV',
+          nombre_calificado: pendiente.nombre_calificado || fallback.nombre_calificado || 'Vecino'
+        });
+      }
+
+      await refrescarMisPedidosCompradorSiDisponible();
+    } catch (e) {
+      console.warn('[EV][Shell][ConfirmarEntrega] No se pudo confirmar la entrega:', e);
+      await Swal.fire({
+        icon: 'error',
+        title: 'No se pudo confirmar',
+        text: 'No se pudo confirmar la entrega en este momento.',
+        confirmButtonColor: '#EA7C12'
+      });
+    }
+  }
+
   async function mostrarAlertaAvanceCompradorGlobal(alerta) {
     if (!window.Swal?.fire || !alerta) return;
 
@@ -776,6 +1151,16 @@
     await marcarLeidaPromise;
 
     if (r.isConfirmed) {
+      const codigoPedido = Number(payload.codigo_pedido || alerta.referencia_id || 0);
+
+      if (estado === 'entregado_vendedor') {
+        await confirmarEntregaDesdeAlertaComprador(codigoPedido, {
+          titulo_publicacion: producto,
+          titulo_producto: producto
+        });
+        return;
+      }
+
       await irAMisPedidosComprador();
     }
   }

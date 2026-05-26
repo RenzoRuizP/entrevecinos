@@ -831,6 +831,7 @@ $routes = [
     // ---------------------------
     ['GET',  '#^/api/calificaciones/pendientes$#', [apiCalificacionController::class, 'listarPendientes'], 'json'],
     ['GET',  '#^/api/calificaciones/pedido/(\d+)$#', [apiCalificacionController::class, 'obtenerPendientePedido'], 'json'],
+    ['GET',  '#^/api/calificaciones/reputacion-vendedores$#', [apiCalificacionController::class, 'reputacionVendedores'], 'json'],
     ['POST', '#^/api/calificaciones/(\d+)/enviar$#', [apiCalificacionController::class, 'enviar'], 'json'],
     ['POST', '#^/api/calificaciones/(\d+)/reportar$#', [apiCalificacionController::class, 'reportar'], 'json'],
 

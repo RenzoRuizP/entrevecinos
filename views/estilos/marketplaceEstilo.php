@@ -337,9 +337,9 @@
 
 .ev-mp-card{
   width:250px;
-  height:430px;
-  min-height:430px;
-  max-height:430px;
+  height:472px;
+  min-height:472px;
+  max-height:472px;
   border-radius:var(--ev-radius-lg);
   overflow:hidden;
   border:1px solid var(--ev-gris-borde);
@@ -396,11 +396,11 @@
 
 .ev-mp-card-media{
   position:relative;
-  flex:0 0 170px;
+  flex:0 0 166px;
   width:100%;
-  height:170px;
-  min-height:170px;
-  max-height:170px;
+  height:166px;
+  min-height:166px;
+  max-height:166px;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -1505,9 +1505,9 @@
 
 .ev-mp-card{
   width:280px !important;
-  height:440px !important;
-  min-height:440px !important;
-  max-height:440px !important;
+  height:486px !important;
+  min-height:486px !important;
+  max-height:486px !important;
   border-radius:22px !important;
   border-color:rgba(15,89,47,.10) !important;
   box-shadow:0 14px 34px rgba(15,23,42,.09) !important;
@@ -1530,10 +1530,10 @@
 }
 
 .ev-mp-card-media{
-  height:188px !important;
-  min-height:188px !important;
-  max-height:188px !important;
-  flex-basis:188px !important;
+  height:184px !important;
+  min-height:184px !important;
+  max-height:184px !important;
+  flex-basis:184px !important;
   background:
     linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%) !important;
 }
@@ -1664,9 +1664,9 @@
 
   .ev-mp-card{
     width:100% !important;
-    height:444px !important;
-    min-height:444px !important;
-    max-height:444px !important;
+    height:492px !important;
+    min-height:492px !important;
+    max-height:492px !important;
   }
 }
 
@@ -1758,7 +1758,7 @@
   .ev-mp-card{
     width:100% !important;
     height:auto !important;
-    min-height:438px !important;
+    min-height:466px !important;
     max-height:none !important;
   }
 
@@ -2128,7 +2128,7 @@
 
   .ev-mp-skeleton-card{
     width:238px !important;
-    height:430px !important;
+    height:470px !important;
   }
 }
 
@@ -2889,6 +2889,61 @@ body.modal-open .ev-mp-card{
 
 #mp_modal_detalle .ev-mp-modal-footer{
   background:#fff !important;
+}
+
+
+/* ============================================================
+   EV - Reputación del vendedor en Marketplace
+   Chip discreto, no invasivo y compatible con cards actuales
+============================================================ */
+.ev-mp-seller-rating{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  width:max-content;
+  max-width:100%;
+  flex:0 0 auto;
+  min-height:26px;
+  margin:2px 0 5px;
+  padding:5px 9px;
+  border-radius:999px;
+  border:1px solid rgba(234,124,18,.18);
+  background:linear-gradient(90deg, rgba(255,247,237,.96), rgba(255,255,255,.98));
+  color:#7C3E08;
+  font-size:.76rem;
+  font-weight:900;
+  line-height:1.1;
+  box-shadow:0 7px 14px rgba(15,23,42,.045);
+  white-space:nowrap;
+}
+
+.ev-mp-seller-rating i{
+  color:#F59E0B;
+  font-size:.80rem;
+  line-height:1;
+}
+
+.ev-mp-seller-rating.is-new{
+  border-color:rgba(22,163,74,.18);
+  background:linear-gradient(90deg, rgba(236,253,243,.96), rgba(255,255,255,.98));
+  color:#166534;
+}
+
+.ev-mp-seller-rating.is-new i{
+  color:#16A34A;
+}
+
+.ev-mp-seller-rating-detail{
+  margin:7px 0 10px;
+  padding:7px 11px;
+  font-size:.82rem;
+}
+
+@media (max-width:575.98px){
+  .ev-mp-seller-rating{
+    font-size:.74rem;
+    padding:5px 8px;
+  }
 }
 
 </style>

@@ -264,6 +264,37 @@
     return pendiente;
   }
 
+  async function obtenerCalificacionPendientePedido(codigoPedido) {
+    const id = Number(codigoPedido || 0);
+    if (!id) return null;
+
+    try {
+      const resp = await fetch(`${BASE}/api/calificaciones/pedido/${encodeURIComponent(id)}`, {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+
+      const json = await resp.json().catch(() => ({}));
+      if (await manejarRespuestaSeguridad(resp, json)) return null;
+
+      if (!resp.ok || json?.ok === false) return null;
+
+      const pendiente = json?.data || null;
+      if (!pendiente || Number(pendiente.codigo_calificacion || 0) <= 0) return null;
+      if (String(pendiente.estado || '').trim() !== 'pendiente') return null;
+
+      return pendiente;
+    } catch (e) {
+      console.warn('[MIS_PEDIDOS_COMPRADOR][CALIFICACION_PENDIENTE]', e);
+      return null;
+    }
+  }
+
   function ensureCalificacionStyles() {
     const ID = 'ev-calificacion-premium-style';
     if (document.getElementById(ID)) return;
@@ -296,8 +327,8 @@
       .ev-rating-warning{border:1px solid #FECACA;background:linear-gradient(180deg,#FEF2F2 0%,#FFF7F7 100%);color:#991B1B;border-radius:16px;padding:11px 12px;font-size:.86rem;line-height:1.45;}
       .ev-rating-check{display:flex;align-items:flex-start;gap:9px;margin-top:8px;color:#7F1D1D;font-weight:850;}
       .ev-rating-check input{margin-top:3px;accent-color:#DC2626;}
-      ..ev-mpc-btn-rating{background:linear-gradient(135deg,#0F592F,#16A34A);border:none;color:#fff;box-shadow:0 12px 24px rgba(22,163,74,.20);border-radius:14px;padding:.74rem .98rem;font-weight:850;font-size:.89rem;transition:transform .16s ease,filter .16s ease;}
-      ..ev-mpc-btn-rating:hover{transform:translateY(-1px);filter:brightness(1.02);color:#fff;}
+      .ev-mpc-btn-rating{background:linear-gradient(135deg,#0F592F,#16A34A);border:none;color:#fff;box-shadow:0 12px 24px rgba(22,163,74,.20);border-radius:14px;padding:.74rem .98rem;font-weight:850;font-size:.89rem;transition:transform .16s ease,filter .16s ease;}
+      .ev-mpc-btn-rating:hover{transform:translateY(-1px);filter:brightness(1.02);color:#fff;}
       @media(max-width:575.98px){.ev-rating-stars{gap:6px}.ev-rating-star{width:39px;height:39px;border-radius:13px;font-size:1.35rem}.ev-rating-chips{justify-content:flex-start}.ev-rating-chip{font-size:.80rem}}
     `;
     document.head.appendChild(style);
@@ -1071,13 +1102,19 @@
       confirmButtonColor: '#EA7C12'
     });
 
-    const pendiente = json?.data?.calificacion_pendiente || null;
+    let pendiente = json?.data?.calificacion_pendiente || null;
+
+    if (!pendiente || Number(pendiente.codigo_calificacion || 0) <= 0) {
+      pendiente = await obtenerCalificacionPendientePedido(codigoPedido);
+    }
+
     if (pendiente && Number(pendiente.codigo_calificacion || 0) > 0) {
       const item = cachePedidos.get(Number(codigoPedido || 0)) || {
         codigo_pedido: codigoPedido,
         titulo_publicacion: pendiente.titulo_publicacion || 'Pedido EV',
         nombre_vendedor: pendiente.nombre_calificado || 'Vecino'
       };
+
       await abrirModalCalificacion(item, pendiente);
     }
 

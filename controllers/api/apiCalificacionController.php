@@ -35,42 +35,30 @@ final class apiCalificacionController
     private function leerInput(): array
     {
         $input = $_POST;
-
-        if (!empty($input)) {
-            return is_array($input) ? $input : [];
-        }
+        if (!empty($input)) return is_array($input) ? $input : [];
 
         $raw = file_get_contents('php://input');
-
-        if (!is_string($raw) || trim($raw) === '') {
-            return [];
-        }
+        if (!is_string($raw) || trim($raw) === '') return [];
 
         $json = json_decode($raw, true);
-
         return is_array($json) ? $json : [];
     }
 
     public function listarPendientes(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-            $this->json(405, [
-                'ok' => false,
-                'mensaje' => 'Método no permitido.'
-            ]);
+            $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido.']);
             return;
         }
 
         try {
             $codigoUsuario = $this->obtenerUsuarioAuth();
-
             $model = new Calificacion();
             $resultado = $model->listarPendientesUsuario($codigoUsuario);
 
             $this->json($resultado['ok'] ? 200 : 500, $resultado);
         } catch (Throwable $e) {
             error_log('[EV][apiCalificacionController][listarPendientes] ' . $e->getMessage());
-
             $this->json(500, [
                 'ok' => false,
                 'error' => 'ERROR_LISTAR_CALIFICACIONES',
@@ -82,10 +70,7 @@ final class apiCalificacionController
     public function obtenerPendientePedido($codigoPedido): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-            $this->json(405, [
-                'ok' => false,
-                'mensaje' => 'Método no permitido.'
-            ]);
+            $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido.']);
             return;
         }
 
@@ -94,11 +79,7 @@ final class apiCalificacionController
             $codigoPedido = (int)$codigoPedido;
 
             if ($codigoPedido <= 0) {
-                $this->json(400, [
-                    'ok' => false,
-                    'error' => 'PEDIDO_INVALIDO',
-                    'mensaje' => 'Pedido inválido.'
-                ]);
+                $this->json(400, ['ok' => false, 'error' => 'PEDIDO_INVALIDO', 'mensaje' => 'Pedido inválido.']);
                 return;
             }
 
@@ -111,7 +92,6 @@ final class apiCalificacionController
             ]);
         } catch (Throwable $e) {
             error_log('[EV][apiCalificacionController][obtenerPendientePedido] ' . $e->getMessage());
-
             $this->json(500, [
                 'ok' => false,
                 'error' => 'ERROR_OBTENER_CALIFICACION',
@@ -123,10 +103,7 @@ final class apiCalificacionController
     public function enviar($codigoCalificacion): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->json(405, [
-                'ok' => false,
-                'mensaje' => 'Método no permitido.'
-            ]);
+            $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido.']);
             return;
         }
 
@@ -145,16 +122,11 @@ final class apiCalificacionController
             }
 
             if ($codigoCalificacion <= 0) {
-                $this->json(400, [
-                    'ok' => false,
-                    'error' => 'CALIFICACION_INVALIDA',
-                    'mensaje' => 'Calificación inválida.'
-                ]);
+                $this->json(400, ['ok' => false, 'error' => 'CALIFICACION_INVALIDA', 'mensaje' => 'Calificación inválida.']);
                 return;
             }
 
             $model = new Calificacion();
-
             $resultado = $model->enviarCalificacion(
                 $codigoCalificacion,
                 $codigoUsuario,
@@ -166,17 +138,10 @@ final class apiCalificacionController
 
             if (!$resultado['ok']) {
                 $error = (string)($resultado['error'] ?? 'ERROR_ENVIAR_CALIFICACION');
-
                 $status = match ($error) {
-                    'PARAMETROS_INVALIDOS',
-                    'PUNTAJE_INVALIDO',
-                    'CALIFICACION_INVALIDA' => 400,
-
+                    'PARAMETROS_INVALIDOS', 'PUNTAJE_INVALIDO', 'CALIFICACION_INVALIDA' => 400,
                     'CALIFICACION_NO_ENCONTRADA' => 404,
-
-                    'CALIFICACION_NO_DISPONIBLE',
-                    'CALIFICACION_VENCIDA' => 409,
-
+                    'CALIFICACION_NO_DISPONIBLE', 'CALIFICACION_VENCIDA' => 409,
                     default => 500,
                 };
 
@@ -187,7 +152,6 @@ final class apiCalificacionController
             $this->json(200, $resultado);
         } catch (Throwable $e) {
             error_log('[EV][apiCalificacionController][enviar] ' . $e->getMessage());
-
             $this->json(500, [
                 'ok' => false,
                 'error' => 'ERROR_ENVIAR_CALIFICACION',
@@ -196,9 +160,9 @@ final class apiCalificacionController
         }
     }
 
-    public function reportar($codigoCalificacion): void
+    public function reputacionVendedores(): void
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
             $this->json(405, [
                 'ok' => false,
                 'mensaje' => 'Método no permitido.'
@@ -206,25 +170,51 @@ final class apiCalificacionController
             return;
         }
 
-        $codigoCalificacion = (int)$codigoCalificacion;
+        try {
+            $this->obtenerUsuarioAuth();
 
-        if ($codigoCalificacion <= 0) {
-            $this->json(400, [
+            $idsRaw = trim((string)($_GET['ids'] ?? ''));
+            $ids = [];
+
+            if ($idsRaw !== '') {
+                foreach (explode(',', $idsRaw) as $value) {
+                    $id = (int)trim($value);
+                    if ($id > 0) {
+                        $ids[$id] = $id;
+                    }
+                }
+            }
+
+            $ids = array_values($ids);
+
+            if (count($ids) > 80) {
+                $ids = array_slice($ids, 0, 80);
+            }
+
+            $model = new Calificacion();
+            $resultado = $model->obtenerResumenVendedores($ids);
+
+            $this->json($resultado['ok'] ? 200 : 500, $resultado);
+        } catch (Throwable $e) {
+            error_log('[EV][apiCalificacionController][reputacionVendedores] ' . $e->getMessage());
+
+            $this->json(500, [
                 'ok' => false,
-                'error' => 'CALIFICACION_INVALIDA',
-                'mensaje' => 'Calificación inválida.'
+                'error' => 'ERROR_REPUTACION_VENDEDORES',
+                'mensaje' => 'No se pudo obtener la reputación de los vendedores.'
             ]);
+        }
+    }
+
+    public function reportar($codigoCalificacion): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido.']);
             return;
         }
 
-        /*
-         * MVP EV:
-         * El reporte se registra desde enviar() cuando:
-         * - puntaje <= 2
-         * - reportar_soporte = 1
-         *
-         * Este endpoint queda reservado para una segunda etapa sin romper rutas futuras.
-         */
+        // El reporte ya se registra desde enviar() cuando puntaje <= 2 y reportar_soporte = 1.
+        // Este endpoint queda reservado para una segunda etapa sin romper rutas futuras.
         $this->json(501, [
             'ok' => false,
             'error' => 'ENDPOINT_RESERVADO',

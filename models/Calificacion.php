@@ -10,6 +10,32 @@ final class Calificacion extends Conexion
     private const DIAS_PLAZO_CALIFICACION = 7;
 
     private const ETIQUETAS_VENDEDOR = [
+        // 1 estrella
+        'Muy mala experiencia',
+        'No cumplió lo acordado',
+        'Producto diferente',
+        'Trato inadecuado',
+        'No recomiendo',
+
+        // 2 estrellas
+        'Demoró demasiado',
+        'Producto no conforme',
+        'Mala comunicación',
+        'No fue claro',
+
+        // 3 estrellas
+        'Regular',
+        'Demoró un poco',
+        'Comunicación mejorable',
+        'Producto aceptable',
+        'Faltó coordinación',
+
+        // 4 estrellas
+        'Buena experiencia',
+        'Atención correcta',
+        'Volvería a comprar',
+
+        // 5 estrellas
         'Buena atención',
         'Entrega rápida',
         'Producto conforme',
@@ -18,6 +44,32 @@ final class Calificacion extends Conexion
     ];
 
     private const ETIQUETAS_COMPRADOR = [
+        // 1 estrella
+        'Muy mala experiencia',
+        'No respetó lo acordado',
+        'Trato inadecuado',
+        'No respondió',
+        'No recomiendo',
+
+        // 2 estrellas
+        'Impuntual',
+        'Mala comunicación',
+        'No coordinó bien',
+        'No fue claro',
+
+        // 3 estrellas
+        'Regular',
+        'Demoró en responder',
+        'Coordinación mejorable',
+        'Trato aceptable',
+        'Faltó puntualidad',
+
+        // 4 estrellas
+        'Buena experiencia',
+        'Confirmación correcta',
+        'Volvería a venderle',
+
+        // 5 estrellas
         'Confirmación sin problemas',
         'Puntual',
         'Comunicación clara',
@@ -537,6 +589,87 @@ final class Calificacion extends Conexion
         $st->execute();
     }
 
+    private function formatearResumenVendedor(int $codigoUsuarioVendedor, int $total, float $promedio): array
+    {
+        $promedio = round($promedio, 2);
+        $esNuevo = $total < 5;
+
+        return [
+            'codigo_usuario_vendedor' => $codigoUsuarioVendedor,
+            'total_calificaciones' => $total,
+            'promedio' => $promedio,
+            'promedio_texto' => $total > 0 ? number_format($promedio, 1, '.', '') : null,
+            'es_nuevo' => $esNuevo ? 1 : 0,
+            'texto' => $esNuevo ? 'Nuevo vendedor' : number_format($promedio, 1, '.', '') . ' · ' . $total . ' ventas',
+        ];
+    }
+
+    /**
+     * Resumen de reputación para varios vendedores.
+     * Regla EV MVP:
+     * - 0 a 4 calificaciones enviadas: Nuevo vendedor.
+     * - 5 o más calificaciones enviadas: promedio visible + cantidad.
+     */
+    public function obtenerResumenVendedores(array $codigosUsuariosVendedores): array
+    {
+        try {
+            $ids = array_values(array_unique(array_filter(array_map('intval', $codigosUsuariosVendedores), static fn($id) => $id > 0)));
+
+            if (!$ids) {
+                return ['ok' => true, 'data' => []];
+            }
+
+            $placeholders = [];
+            $params = [];
+            foreach ($ids as $i => $id) {
+                $key = ':u' . $i;
+                $placeholders[] = $key;
+                $params[$key] = $id;
+            }
+
+            $sql = "
+                SELECT
+                    codigo_usuario_calificado AS codigo_usuario_vendedor,
+                    COUNT(*) AS total,
+                    COALESCE(ROUND(AVG(puntaje), 2), 0) AS promedio
+                FROM calificacion
+                WHERE rol_calificado = 'vendedor'
+                  AND estado = 'enviada'
+                  AND puntaje IS NOT NULL
+                  AND codigo_usuario_calificado IN (" . implode(',', $placeholders) . ")
+                GROUP BY codigo_usuario_calificado
+            ";
+
+            $st = $this->dblink->prepare($sql);
+            foreach ($params as $key => $value) {
+                $st->bindValue($key, $value, PDO::PARAM_INT);
+            }
+            $st->execute();
+
+            $map = [];
+            foreach ($ids as $id) {
+                $map[$id] = $this->formatearResumenVendedor($id, 0, 0.00);
+            }
+
+            $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            foreach ($rows as $row) {
+                $id = (int)($row['codigo_usuario_vendedor'] ?? 0);
+                if ($id <= 0) continue;
+
+                $map[$id] = $this->formatearResumenVendedor(
+                    $id,
+                    (int)($row['total'] ?? 0),
+                    (float)($row['promedio'] ?? 0)
+                );
+            }
+
+            return ['ok' => true, 'data' => $map];
+        } catch (Throwable $e) {
+            error_log('[EV][Calificacion][obtenerResumenVendedores] ' . $e->getMessage());
+            return ['ok' => false, 'error' => 'ERROR_RESUMEN_VENDEDORES', 'mensaje' => 'No se pudo obtener la reputación de los vendedores.'];
+        }
+    }
+
     public function obtenerResumenVendedor(int $codigoUsuarioVendedor): array
     {
         try {
@@ -544,37 +677,21 @@ final class Calificacion extends Conexion
                 return ['ok' => false, 'error' => 'VENDEDOR_INVALIDO', 'mensaje' => 'Vendedor inválido.'];
             }
 
-            $sql = "
-                SELECT
-                    COUNT(*) AS total,
-                    COALESCE(ROUND(AVG(puntaje), 2), 0) AS promedio
-                FROM calificacion
-                WHERE codigo_usuario_calificado = :codigo_usuario
-                  AND rol_calificado = 'vendedor'
-                  AND estado = 'enviada'
-                  AND puntaje IS NOT NULL
-            ";
+            $resultado = $this->obtenerResumenVendedores([$codigoUsuarioVendedor]);
+            if (!$resultado['ok']) {
+                return $resultado;
+            }
 
-            $st = $this->dblink->prepare($sql);
-            $st->bindValue(':codigo_usuario', $codigoUsuarioVendedor, PDO::PARAM_INT);
-            $st->execute();
-
-            $row = $st->fetch(PDO::FETCH_ASSOC) ?: [];
-            $total = (int)($row['total'] ?? 0);
-            $promedio = round((float)($row['promedio'] ?? 0), 2);
+            $data = $resultado['data'][$codigoUsuarioVendedor] ?? $this->formatearResumenVendedor($codigoUsuarioVendedor, 0, 0.00);
 
             return [
                 'ok' => true,
-                'data' => [
-                    'codigo_usuario_vendedor' => $codigoUsuarioVendedor,
-                    'total_calificaciones' => $total,
-                    'promedio' => $promedio,
-                    'texto' => $total >= 5 ? number_format($promedio, 1) . ' · ' . $total . ' ventas' : 'Nuevo vendedor'
-                ]
+                'data' => $data,
             ];
         } catch (Throwable $e) {
             error_log('[EV][Calificacion][obtenerResumenVendedor] ' . $e->getMessage());
             return ['ok' => false, 'error' => 'ERROR_RESUMEN_VENDEDOR', 'mensaje' => 'No se pudo obtener el resumen del vendedor.'];
         }
     }
+
 }

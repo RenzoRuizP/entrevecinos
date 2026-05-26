@@ -74,6 +74,9 @@
     segundosParaCancelarRestantes: SEGUNDOS_CANCELACION_SOLICITUD
   };
 
+
+  let reputacionVendedoresCache = new Map();
+
   function log()  { if (console && console.log)  console.log(LOG_PREFIX, ...arguments); }
   function warn() { if (console && console.warn) console.warn(LOG_PREFIX, ...arguments); }
   function err()  { if (console && console.error) console.error(LOG_PREFIX, ...arguments); }
@@ -135,6 +138,129 @@
     const n = Number(valor || 0);
     if (!isFinite(n)) return 'S/ 0.00';
     return 'S/ ' + n.toFixed(2);
+  }
+
+
+  function normalizarReputacionVendedor(raw = {}) {
+    const o = raw && typeof raw === 'object' ? raw : {};
+
+    const total = Number(
+      o.reputacion_vendedor_total ??
+      o.total_calificaciones_vendedor ??
+      o.total_calificaciones ??
+      o.calificaciones_vendedor_total ??
+      0
+    ) || 0;
+
+    const promedio = Number(
+      o.reputacion_vendedor_promedio ??
+      o.promedio_calificacion_vendedor ??
+      o.promedio_vendedor ??
+      o.promedio ??
+      0
+    ) || 0;
+
+    const textoBackend = String(
+      o.reputacion_vendedor_texto ??
+      o.reputacion_texto ??
+      ''
+    ).trim();
+
+    const esNuevoBackend = o.reputacion_vendedor_es_nuevo ?? o.es_nuevo_vendedor ?? null;
+    const esNuevo = esNuevoBackend !== null && esNuevoBackend !== undefined
+      ? Number(esNuevoBackend || 0) === 1
+      : total < 5;
+
+    return {
+      total,
+      promedio,
+      promedioTexto: total > 0 ? promedio.toFixed(1) : '',
+      esNuevo,
+      texto: textoBackend || (esNuevo ? 'Nuevo vendedor' : `${promedio.toFixed(1)} · ${total} ventas`)
+    };
+  }
+
+  function aplicarReputacionAItem(item, reputacion = null) {
+    if (!item || typeof item !== 'object') return item;
+
+    const rep = reputacion || normalizarReputacionVendedor(item);
+
+    return {
+      ...item,
+      __reputacion_vendedor_total: Number(rep.total || 0),
+      __reputacion_vendedor_promedio: Number(rep.promedio || 0),
+      __reputacion_vendedor_promedio_texto: String(rep.promedioTexto || ''),
+      __reputacion_vendedor_es_nuevo: rep.esNuevo ? 1 : 0,
+      __reputacion_vendedor_texto: String(rep.texto || 'Nuevo vendedor')
+    };
+  }
+
+  function reputacionVendedorHtml(item, opts = {}) {
+    const rep = normalizarReputacionVendedor({
+      reputacion_vendedor_total: item?.__reputacion_vendedor_total,
+      reputacion_vendedor_promedio: item?.__reputacion_vendedor_promedio,
+      reputacion_vendedor_texto: item?.__reputacion_vendedor_texto,
+      reputacion_vendedor_es_nuevo: item?.__reputacion_vendedor_es_nuevo
+    });
+
+    const modifier = opts.detalle ? ' ev-mp-seller-rating-detail' : '';
+    const title = rep.esNuevo
+      ? 'Este vendedor aún está construyendo reputación en EV.'
+      : `Calificación del vendedor: ${rep.promedioTexto} sobre 5, basada en ${rep.total} ventas calificadas.`;
+
+    return `
+      <div class="ev-mp-seller-rating${modifier} ${rep.esNuevo ? 'is-new' : 'is-rated'}" title="${escapeHtml(title)}">
+        <i class="bi bi-star-fill" aria-hidden="true"></i>
+        <span>${escapeHtml(rep.texto)}</span>
+      </div>
+    `;
+  }
+
+  async function fetchReputacionVendedores(ids = []) {
+    const unique = Array.from(new Set(ids.map(v => Number(v || 0)).filter(Boolean)));
+    const faltantes = unique.filter(id => !reputacionVendedoresCache.has(id));
+
+    if (!faltantes.length) return reputacionVendedoresCache;
+
+    try {
+      const url = `${BASE}/api/calificaciones/reputacion-vendedores?ids=${encodeURIComponent(faltantes.join(','))}`;
+      const { resp, json } = await fetchJsonRobusto(url, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+        cache: 'no-store'
+      });
+
+      if (!resp.ok || !json || json.ok === false) {
+        faltantes.forEach((id) => reputacionVendedoresCache.set(id, normalizarReputacionVendedor({})));
+        return reputacionVendedoresCache;
+      }
+
+      const data = json.data && typeof json.data === 'object' ? json.data : {};
+
+      faltantes.forEach((id) => {
+        const repRaw = data[id] || data[String(id)] || {};
+        reputacionVendedoresCache.set(id, normalizarReputacionVendedor(repRaw));
+      });
+    } catch (e) {
+      warn('No se pudo cargar reputación de vendedores:', e);
+      faltantes.forEach((id) => reputacionVendedoresCache.set(id, normalizarReputacionVendedor({})));
+    }
+
+    return reputacionVendedoresCache;
+  }
+
+  async function enriquecerPublicacionesConReputacion(items = []) {
+    const lista = Array.isArray(items) ? items : [];
+    const ids = lista.map(item => Number(item.__codigo_usuario_vendedor || 0)).filter(Boolean);
+
+    await fetchReputacionVendedores(ids);
+
+    return lista.map((item) => {
+      const id = Number(item.__codigo_usuario_vendedor || 0);
+      const rep = id > 0 ? reputacionVendedoresCache.get(id) : null;
+      return aplicarReputacionAItem(item, rep);
+    });
   }
 
   function escapeHtml(str) {
@@ -275,6 +401,15 @@
 
     const es_potenciado = o.es_potenciado ?? o.potenciado ?? o.destacado ?? 0;
     const vendedorDisponible = Number(o.vendedor_disponible ?? o.disponibilidad_pedidos_vendedor ?? 0) === 1 ? 1 : 0;
+    const codigoUsuarioVendedor = Number(
+      o.codigo_usuario_vendedor ??
+      o.codigo_usuario ??
+      o.codigo_vendedor ??
+      o.codigo_usuario_publicador ??
+      0
+    ) || 0;
+
+    const reputacionInicial = normalizarReputacionVendedor(o);
 
     const imagen_portada =
       o.imagen_portada_url ??
@@ -307,7 +442,13 @@
       __es_potenciado: es_potenciado,
       __imagen_portada: imagen_portada,
       __orden_reciente: orden_reciente,
-      __vendedor_disponible: vendedorDisponible
+      __vendedor_disponible: vendedorDisponible,
+      __codigo_usuario_vendedor: codigoUsuarioVendedor,
+      __reputacion_vendedor_total: Number(reputacionInicial.total || 0),
+      __reputacion_vendedor_promedio: Number(reputacionInicial.promedio || 0),
+      __reputacion_vendedor_promedio_texto: String(reputacionInicial.promedioTexto || ''),
+      __reputacion_vendedor_es_nuevo: reputacionInicial.esNuevo ? 1 : 0,
+      __reputacion_vendedor_texto: String(reputacionInicial.texto || 'Nuevo vendedor')
     };
   }
 
@@ -863,9 +1004,9 @@
 #mp_grid_servicios .ev-mp-card,
 #mp_grid_productos .ev-mp-card{
   width:280px !important;
-  height:440px !important;
-  min-height:440px !important;
-  max-height:440px !important;
+  height:486px !important;
+  min-height:486px !important;
+  max-height:486px !important;
   display:flex !important;
   flex-direction:column !important;
   overflow:hidden !important;
@@ -882,10 +1023,10 @@
 
 #mp_grid_servicios .ev-mp-card-media,
 #mp_grid_productos .ev-mp-card-media{
-  height:188px !important;
-  min-height:188px !important;
-  max-height:188px !important;
-  flex:0 0 188px !important;
+  height:184px !important;
+  min-height:184px !important;
+  max-height:184px !important;
+  flex:0 0 184px !important;
   display:flex !important;
   align-items:center !important;
   justify-content:center !important;
@@ -908,7 +1049,7 @@
   min-height:0 !important;
   display:flex !important;
   flex-direction:column !important;
-  padding:14px 15px !important;
+  padding:13px 15px 14px !important;
 }
 
 #mp_grid_servicios .ev-mp-card-title,
@@ -924,8 +1065,16 @@
 
 #mp_grid_servicios .ev-mp-card-price,
 #mp_grid_productos .ev-mp-card-price{
-  min-height:22px !important;
+  min-height:23px !important;
   line-height:1.25 !important;
+}
+
+#mp_grid_servicios .ev-mp-seller-rating,
+#mp_grid_productos .ev-mp-seller-rating{
+  flex:0 0 auto !important;
+  min-height:26px !important;
+  margin:2px 0 5px !important;
+  max-width:100% !important;
 }
 
 #mp_grid_servicios .ev-mp-card-desc,
@@ -977,9 +1126,9 @@
   #mp_grid_servicios .ev-mp-card,
   #mp_grid_productos .ev-mp-card{
     width:100% !important;
-    height:444px !important;
-    min-height:444px !important;
-    max-height:444px !important;
+    height:492px !important;
+    min-height:492px !important;
+    max-height:492px !important;
   }
 }
 
@@ -993,7 +1142,7 @@
   #mp_grid_productos .ev-mp-card{
     width:100% !important;
     height:auto !important;
-    min-height:438px !important;
+    min-height:466px !important;
     max-height:none !important;
   }
 
@@ -2200,7 +2349,12 @@
       if (!detalle) return;
 
       const { producto, imagenes } = detalle;
-      const pub = normalizarItem(producto);
+      const pubBase = normalizarItem(producto);
+      const vendedorIdDetalle = Number(pubBase.__codigo_usuario_vendedor || 0);
+      if (vendedorIdDetalle > 0) {
+        await fetchReputacionVendedores([vendedorIdDetalle]);
+      }
+      const pub = aplicarReputacionAItem(pubBase, vendedorIdDetalle > 0 ? reputacionVendedoresCache.get(vendedorIdDetalle) : null);
 
       window.EV_MP_DETALLE_ACTUAL = {
         ...producto,
@@ -2218,6 +2372,10 @@
 
       catEl.textContent  = pub.__categoria_nombre || '—';
       tipoEl.textContent = pub.__tipo_publicacion_label || tipoPublicacionLabelFromKey(pub.__tipo_publicacion);
+
+      const oldRatingEl = modalEl.querySelector('.ev-mp-seller-rating-detail');
+      if (oldRatingEl) oldRatingEl.remove();
+      tituloTxtEl.insertAdjacentHTML('afterend', reputacionVendedorHtml(pub, { detalle: true }));
 
       const imgs = (Array.isArray(imagenes) ? imagenes : []).map((x) => {
         if (!x) return null;
@@ -2803,6 +2961,7 @@
 
         <div class="ev-mp-card-body">
           <h5 class="ev-mp-card-title">${titulo}</h5>
+          ${reputacionVendedorHtml(p)}
           <p class="ev-mp-card-price">${precio}</p>
           <p class="ev-mp-card-desc">${desc}</p>
 
@@ -3263,6 +3422,7 @@
 
       const rawList = normalizarListaDesdeAPI(json);
       publicaciones = Array.isArray(rawList) ? rawList.map(normalizarItem) : [];
+      publicaciones = await enriquecerPublicacionesConReputacion(publicaciones);
 
       if (refs.selectCategoriaProductos && refs.selectCategoriaProductos.options.length <= 1) {
         cargarCategoriasDesdePublicacionesFallback();

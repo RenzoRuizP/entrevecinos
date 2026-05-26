@@ -2,13 +2,13 @@
 (function () {
   'use strict';
 
-  if (window.__EV_MIS_PEDIDOS_VENDEDOR_V16__ === true) {
+  if (window.__EV_MIS_PEDIDOS_VENDEDOR_V17__ === true) {
     if (window.EVMisPedidosVendedor && typeof window.EVMisPedidosVendedor.init === 'function') {
       window.EVMisPedidosVendedor.init();
     }
     return;
   }
-  window.__EV_MIS_PEDIDOS_VENDEDOR_V16__ = true;
+  window.__EV_MIS_PEDIDOS_VENDEDOR_V17__ = true;
 
   const BASE = (window.BASE_URL || '').replace(/\/+$/, '');
   const POLLING_MS = 5000;
@@ -24,6 +24,7 @@
   let accionEnCurso = false;
   let recojoCountdownTimer = null;
   let recojoRefreshProgramado = false;
+  let calificacionAutoTimer = null;
 
   function escapeHtml(v) {
     return String(v ?? '')
@@ -1366,6 +1367,80 @@
     await cargarPedidos({ silent: true });
   }
 
+
+  function calificacionAutoKey(pendiente) {
+    const id = Number(pendiente?.codigo_calificacion || 0);
+    return id > 0 ? `ev_mpv_calificacion_auto_${id}` : '';
+  }
+
+  function calificacionAutoYaMostrada(pendiente) {
+    const key = calificacionAutoKey(pendiente);
+    if (!key) return true;
+
+    try {
+      return sessionStorage.getItem(key) === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function marcarCalificacionAutoMostrada(pendiente) {
+    const key = calificacionAutoKey(pendiente);
+    if (!key) return;
+
+    try {
+      sessionStorage.setItem(key, '1');
+    } catch (_) {}
+  }
+
+  function obtenerCandidatoCalificacionComprador(finalizadas) {
+    const lista = Array.isArray(finalizadas) ? finalizadas : [];
+
+    return lista.find((item) => {
+      const pendiente = obtenerCalificacionPendiente(item);
+      if (!pendiente) return false;
+
+      const rolCalificado = String(pendiente.rol_calificado || '').trim();
+      if (rolCalificado !== 'comprador') return false;
+
+      return !calificacionAutoYaMostrada(pendiente);
+    }) || null;
+  }
+
+  function intentarMostrarCalificacionCompradorPendiente(finalizadas) {
+    if (calificacionAutoTimer) return;
+    if (!vistaActiva || !document.querySelector('.ev-mpv-page')) return;
+    if (accionEnCurso) return;
+
+    if (window.Swal?.isVisible && window.Swal.isVisible()) {
+      return;
+    }
+
+    const candidato = obtenerCandidatoCalificacionComprador(finalizadas);
+    if (!candidato) return;
+
+    calificacionAutoTimer = window.setTimeout(async () => {
+      calificacionAutoTimer = null;
+
+      if (!vistaActiva || !document.querySelector('.ev-mpv-page')) return;
+      if (accionEnCurso) return;
+      if (window.Swal?.isVisible && window.Swal.isVisible()) return;
+
+      const itemActual = cachePedidos.get(Number(candidato.codigo_pedido || 0)) || candidato;
+      const pendiente = obtenerCalificacionPendiente(itemActual);
+
+      if (!pendiente) return;
+      if (String(pendiente.rol_calificado || '').trim() !== 'comprador') return;
+      if (calificacionAutoYaMostrada(pendiente)) return;
+
+      marcarCalificacionAutoMostrada(pendiente);
+      tabActiva = 'finalizados';
+      showTab(getRefs(), 'finalizados');
+
+      await abrirModalCalificacion(itemActual, pendiente);
+    }, 650);
+  }
+
   async function fetchPedidos() {
     const resp = await fetch(`${BASE}/api/pedidos/mis`, {
       method: 'GET',
@@ -1494,6 +1569,8 @@
       pintarGrupo(finalizadas, refs.listaFinalizados, refs.emptyFinalizados);
       pintarGrupo(rechazadas, refs.listaRechazadas, refs.emptyRechazadas);
       pintarGrupo(sinRespuesta, refs.listaSinRespuesta, refs.emptySinRespuesta);
+
+      intentarMostrarCalificacionCompradorPendiente(finalizadas);
 
       showTab(refs, tabActiva);
       iniciarCountdownRecojo();
