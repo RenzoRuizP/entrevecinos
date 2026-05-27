@@ -18,49 +18,69 @@
 
   --ev-gris-050: #F9FAFB;
   --ev-gris-100: #F3F4F6;
+  --ev-gris-200: #E5E7EB;
+  --ev-gris-300: #D1D5DB;
   --ev-gris-500: #6B7280;
   --ev-gris-600: #4B5563;
+  --ev-gris-900: #111827;
+
+  --ev-borde-suave: rgba(226, 232, 240, 0.95);
+  --ev-sombra-card:
+    0 34px 72px rgba(15, 23, 42, 0.14),
+    0 14px 32px rgba(15, 23, 42, 0.08),
+    0 2px 8px rgba(15, 23, 42, 0.04);
 }
 
 /* ===================================================
-   FONDO / LAYOUT LOGIN
+   BASE / FONDO LOGIN
+   Fondo neutro premium, sin halo verde
 =================================================== */
+html,
+body {
+  min-height: 100%;
+  background: #F8FAFC;
+}
+
 body.login-body {
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   padding: 24px;
   display: flex;
   justify-content: center;
   align-items: center;
   font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #111827;
-  background-color: var(--ev-gris-100);
-  background-image: radial-gradient(circle at 50% 20%, rgba(22,163,74,0.10), transparent 60%);
+  color: var(--ev-gris-900);
+  background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
 }
 
+/* ===================================================
+   CONTENEDOR PRINCIPAL
+=================================================== */
 .login-shell {
-  width: 100%;
-  max-width: 980px;
-  min-height: 520px;
-  background: #ffffff;
+  width: min(94vw, 1080px);
+  max-width: 1080px;
+  min-height: 560px;
+  background: #FFFFFF;
   border-radius: 28px;
   overflow: hidden;
   display: flex;
   position: relative;
-  box-shadow:
-    0 28px 50px rgba(0,0,0,0.12),
-    0 4px 12px rgba(0,0,0,0.06);
+  border: 1px solid var(--ev-borde-suave);
+  box-shadow: var(--ev-sombra-card);
 }
 
 /* ===================================================
    HERO IZQUIERDO
 =================================================== */
 .login-hero {
-  flex: 1.1;
+  flex: 1.15;
   position: relative;
   overflow: hidden;
-  padding: 48px 40px;
+  padding: 52px 44px;
   color: #F9FAFB;
+  display: flex;
+  align-items: center;
   background:
     radial-gradient(circle at 75% 30%, rgba(255,255,255,0.08), transparent 60%),
     radial-gradient(circle at 20% 80%, rgba(0,0,0,0.08), transparent 70%),
@@ -79,11 +99,11 @@ body.login-body {
 .login-hero-content {
   position: relative;
   z-index: 2;
-  max-width: 420px;
+  max-width: 430px;
 }
 
 .login-hero-title {
-  font-size: 2.1rem;
+  font-size: 2.15rem;
   font-weight: 700;
   margin-bottom: 14px;
   letter-spacing: 0.01em;
@@ -92,28 +112,28 @@ body.login-body {
 
 .login-hero-title span {
   display: block;
-  color: #fefce8;
+  color: #FEFCE8;
 }
 
-.login-hero-text{
-  font-size: 0.98rem;
+.login-hero-text {
+  font-size: 0.99rem;
   color: #E5E7EB;
   margin-bottom: 14px;
   line-height: 1.6;
   text-shadow: 0 1px 2px rgba(0,0,0,0.20);
-  max-width: 40ch;
+  max-width: 42ch;
 }
 
-.login-hero-list{
+.login-hero-list {
   margin-top: 10px;
   padding-left: 0;
   list-style: none;
   display: grid;
   gap: 12px;
-  margin-bottom: 22px;
+  margin-bottom: 24px;
 }
 
-.login-hero-list li{
+.login-hero-list li {
   display: grid;
   grid-template-columns: 26px 1fr;
   column-gap: 12px;
@@ -124,7 +144,7 @@ body.login-body {
   font-size: 0.95rem;
 }
 
-.login-hero-list li i{
+.login-hero-list li i {
   font-size: 1.1rem;
   line-height: 1;
   opacity: .95;
@@ -132,11 +152,11 @@ body.login-body {
   color: #FEF3C7;
 }
 
-.login-hero-list li strong{
+.login-hero-list li strong {
   font-weight: 700;
 }
 
-.badge-pill{
+.badge-pill {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -144,7 +164,7 @@ body.login-body {
   border-radius: 999px;
   border: 1px solid rgba(255,255,255,.28);
   background: rgba(255,255,255,.10);
-  color: #fff;
+  color: #FFFFFF;
   backdrop-filter: blur(6px);
   user-select: none;
   cursor: default;
@@ -152,48 +172,65 @@ body.login-body {
   transition: transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
 }
 
-.badge-pill:hover{
+.badge-pill:hover {
   transform: translateY(-1px);
   background: rgba(255,255,255,.12);
   border-color: rgba(255,255,255,.34);
   box-shadow: 0 14px 28px rgba(15,23,42,0.22);
 }
 
-.badge-pill:focus-visible{
+.badge-pill:focus-visible {
   outline: 3px solid rgba(187,247,208,.55);
   outline-offset: 3px;
 }
 
 /* ===================================================
    PANEL DERECHO LOGIN
+   Blanco puro con separación visual interna
 =================================================== */
 .login-panel {
-  flex: 0.9;
-  background: #ffffff;
+  flex: 0.95;
+  position: relative;
+  background: #FFFFFF;
   display: flex;
   flex-direction: column;
-  padding: 32px 40px 28px;
+  padding: 34px 44px 30px;
+  box-shadow: inset 1px 0 0 rgba(226, 232, 240, 0.9);
 }
 
 .login-panel-header {
   margin-bottom: 16px;
   position: relative;
+  z-index: 1;
 }
 
 .login-panel-header::before {
-  content: "";
-  position: absolute;
-  width: 120px;
-  height: 120px;
-  top: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: radial-gradient(circle, rgba(22,163,74,0.10), transparent 70%);
-  z-index: -1;
+  content: none;
+}
+
+.login-brand-mark {
+  width: 78px;
+  height: 78px;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22px;
+  background: #FFFFFF;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow:
+    0 10px 24px rgba(15,23,42,0.08),
+    0 2px 8px rgba(15,23,42,0.04);
+  transform: translateZ(0);
 }
 
 .login-logo {
-  max-height: 120px;
+  width: 58px;
+  height: 58px;
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 7px rgba(15,23,42,0.08));
+  transform: translateZ(0);
 }
 
 .login-panel-title {
@@ -207,6 +244,7 @@ body.login-body {
   font-size: 0.88rem;
   color: var(--ev-gris-500);
   margin-bottom: 0;
+  line-height: 1.45;
 }
 
 .login-panel-body {
@@ -218,17 +256,20 @@ body.login-body {
   padding-bottom: 12px;
 }
 
-/* Inputs login */
+/* ===================================================
+   FORMULARIO LOGIN
+=================================================== */
 .login-form .input-icon {
   position: absolute;
   top: 50%;
   left: 12px;
   transform: translateY(-50%);
-  color: #9ca3af;
+  color: #9CA3AF;
   font-size: 1rem;
 }
 
 .login-form input.form-control {
+  min-height: 42px;
   padding-left: 38px;
   border-radius: 10px;
   border: 1px solid var(--ev-verde-claro);
@@ -238,7 +279,7 @@ body.login-body {
 }
 
 .login-form input.form-control::placeholder {
-  color: #79808c;
+  color: #79808C;
   font-size: 0.93rem;
 }
 
@@ -248,71 +289,118 @@ body.login-body {
   outline: none;
 }
 
-.login-form .mb-3 { margin-bottom: 1.15rem !important; }
-.login-form .mb-2 { margin-bottom: 1.05rem !important; }
+.login-form .mb-3 {
+  margin-bottom: 1.15rem !important;
+}
 
-.login-remember-row .form-check-input { border-radius: 4px; }
+.login-form .mb-2 {
+  margin-bottom: 1.05rem !important;
+}
+
+.login-remember-row {
+  margin-top: 2px;
+  margin-bottom: 1.15rem !important;
+  padding-top: 2px;
+}
+
+.login-remember-row .form-check-input {
+  border-radius: 4px;
+}
+
 .login-remember-row .form-check-input:checked {
   background-color: var(--ev-verde);
   border-color: var(--ev-verde);
 }
 
+.login-remember-row .form-check-label {
+  font-size: 0.9rem;
+  color: #111827;
+}
+
 .login-link-forgot {
   font-size: 0.88rem;
+  font-weight: 500;
   color: var(--ev-verde-oscuro);
   text-decoration: none;
 }
+
 .login-link-forgot:hover {
   color: var(--ev-verde);
   text-decoration: underline;
 }
 
-/* Botón naranja EV (login + CTA recuperar) */
+/* Botón naranja EV */
 .btn-login {
+  min-height: 44px;
   background: linear-gradient(135deg, var(--ev-naranja), #F59E0B);
   border: none;
-  color: #ffffff;
+  color: #FFFFFF;
   border-radius: 12px;
   font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
   box-shadow: 0 12px 26px rgba(234,124,18,0.35);
   transition: all 0.2s ease;
 }
+
 .btn-login:hover {
   background: linear-gradient(135deg, var(--ev-naranja-oscuro), #EA580C);
-  color: #ffffff;
+  color: #FFFFFF;
   transform: translateY(-1px);
   box-shadow: 0 14px 32px rgba(234,124,18,0.48);
 }
+
 .btn-login:active {
   transform: translateY(0);
   box-shadow: 0 6px 16px rgba(234,124,18,0.30);
 }
 
-.login-actions { margin-top: 12px; }
-.login-actions-text { font-size: 0.9rem; color: var(--ev-gris-600); }
+.login-actions {
+  margin-top: 16px;
+}
+
+.login-actions-text {
+  margin-bottom: 10px !important;
+  font-size: 0.88rem;
+  color: var(--ev-gris-600);
+}
 
 .btn-outline-register {
+  min-height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 20px;
+  padding: 8px 22px;
   border-radius: 999px;
   border: 1.5px solid var(--ev-verde);
-  background-color: rgba(255,255,255,0.6);
+  background-color: #FFFFFF;
   color: var(--ev-verde-oscuro);
   font-size: 0.9rem;
   font-weight: 500;
   transition: all 0.18s ease;
-  backdrop-filter: blur(6px);
+  box-shadow: 0 8px 18px rgba(15, 89, 47, 0.06);
 }
+
 .btn-outline-register:hover {
+  transform: translateY(-1px);
   background-color: #ECFDF5;
   color: var(--ev-verde);
+  box-shadow: 0 10px 22px rgba(15, 89, 47, 0.10);
+}
+
+.btn-outline-register:active {
+  transform: translateY(0);
+  box-shadow: 0 5px 12px rgba(15, 89, 47, 0.08);
+}
+
+.login-panel-footer {
+  margin-top: 10px !important;
 }
 
 .login-panel-footer small {
   font-size: 0.78rem;
-  color: #9ca3af;
+  color: #9CA3AF;
+  letter-spacing: 0.01em;
 }
 
 /* ===================================================
@@ -320,15 +408,18 @@ body.login-body {
 =================================================== */
 .spinner-overlay {
   position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background: rgba(255,255,255,0.82);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255,255,255,0.86);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 9999;
   display: none;
 }
+
 .spinner {
   border: 4px solid #D1FAE5;
   border-top: 4px solid var(--ev-verde-oscuro);
@@ -337,10 +428,13 @@ body.login-body {
   height: 40px;
   animation: spin 0.8s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 
 /* ===================================================
-   MODALES EV (base)
+   MODALES EV BASE
 =================================================== */
 .modal.show .modal-dialog {
   padding-top: 3rem;
@@ -373,11 +467,13 @@ body.login-body {
   letter-spacing: 0.01em;
 }
 
-.modal-header .btn-close { filter: invert(1); }
+.modal-header .btn-close {
+  filter: invert(1);
+}
 
 .modal-body {
   padding: 1.8rem 2rem 1.4rem;
-  background: #ffffff;
+  background: #FFFFFF;
   box-shadow: inset 0 1px 0 rgba(0,0,0,0.06);
 }
 
@@ -385,10 +481,10 @@ body.login-body {
   border-top: 1px solid #E5E7EB;
   border-radius: 0 0 18px 18px;
   padding: 0.75rem 2rem;
-  background: #ffffff;
+  background: #FFFFFF;
 }
 
-/* Wizard pasos (base) */
+/* Wizard pasos */
 .modal .progress {
   height: 32px !important;
   border-radius: 999px;
@@ -407,9 +503,9 @@ body.login-body {
 }
 
 .modal .progress-bar.bg-success {
-  background: linear-gradient(135deg, #0F592F 0%, #16A34A 100%);
+  background: linear-gradient(135deg, #0F592F 0%, #16A34A 100%) !important;
   font-weight: 700;
-  color: #ffffff;
+  color: #FFFFFF;
   letter-spacing: 0.03em;
 }
 
@@ -447,7 +543,9 @@ body.login-body {
   background: #FFFFFF;
 }
 
-.modal-content .form-control::placeholder { color: #A3A3A3; }
+.modal-content .form-control::placeholder {
+  color: #A3A3A3;
+}
 
 .modal-content .form-control:focus,
 .modal-content .form-select:focus {
@@ -456,35 +554,36 @@ body.login-body {
   outline: none;
 }
 
-.modal-content .row.g-3 { row-gap: 1.4rem; }
+.modal-content .row.g-3 {
+  row-gap: 1.4rem;
+}
 
-/* File input (evita look “crudo”) */
-.modal-content input[type="file"].form-control{
+.modal-content input[type="file"].form-control {
   height: auto;
   padding: 10px 12px;
 }
 
-/* Botones footer (base) */
+/* Botones footer */
 .modal-footer .btn {
   border-radius: 999px;
   font-size: 0.9rem;
 }
 
-/* Botón secundario */
 .modal-footer .btn-outline-secondary {
   border-color: #D1D5DB;
   color: #4B5563;
   background-color: #FFFFFF;
 }
+
 .modal-footer .btn-outline-secondary:hover {
   background-color: #F3F4F6;
   color: #111827;
 }
 
 /* ===================================================
-   CTA compacta para modales (Recuperar cuenta)
+   CTA compacta para modales
 =================================================== */
-.modal-footer .btn-login.btn-modal-cta{
+.modal-footer .btn-login.btn-modal-cta {
   height: 38px;
   padding: 0 16px;
   border-radius: 999px;
@@ -496,7 +595,8 @@ body.login-body {
   line-height: 1;
   box-shadow: 0 10px 22px rgba(234,124,18,0.22);
 }
-.modal-footer .btn-login.btn-modal-cta i{
+
+.modal-footer .btn-login.btn-modal-cta i {
   font-size: 0.95rem;
   line-height: 1;
   display: inline-block;
@@ -504,27 +604,40 @@ body.login-body {
 }
 
 /* ===================================================
-   PASO 2 (Residencia) - base
+   PASO 2 RESIDENCIA
 =================================================== */
-#formStep2 h6 { font-size: 1.15rem; }
-#formStep2 h6 i { font-size: 1.25rem; margin-right: 4px; }
-#formStep2 .row.g-3 { column-gap: 1rem; }
-#formStep2 .form-select { height: 46px; line-height: 46px; padding-top: 0; padding-bottom: 0; }
+#formStep2 h6 {
+  font-size: 1.15rem;
+}
+
+#formStep2 h6 i {
+  font-size: 1.25rem;
+  margin-right: 4px;
+}
+
+#formStep2 .row.g-3 {
+  column-gap: 1rem;
+}
+
+#formStep2 .form-select {
+  height: 46px;
+  line-height: 46px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
 
 /* ===================================================
-   MODAL "CREAR MI USUARIO" (armonización + CTA naranja)
-   - Card interno en pasos
-   - Wizard premium
-   - Botones Siguiente/Registrar en naranja EV (como "Llamar ahora")
+   MODAL CREAR MI USUARIO
 =================================================== */
-#crear_usuario .modal-dialog{ max-width: 980px; }
+#crear_usuario .modal-dialog {
+  max-width: 980px;
+}
 
-#crear_usuario .modal-body{
+#crear_usuario .modal-body {
   background: linear-gradient(180deg, #FFFFFF 0%, #FAFBFC 100%);
 }
 
-/* Wizard más premium */
-#crear_usuario .progress{
+#crear_usuario .progress {
   height: 34px !important;
   background: rgba(15, 89, 47, 0.06);
   box-shadow:
@@ -532,8 +645,7 @@ body.login-body {
     0 10px 22px rgba(15,23,42,0.06);
 }
 
-/* Card interno por step (inputs agrupados) */
-#crear_usuario .step .row.g-3{
+#crear_usuario .step .row.g-3 {
   background: #FFFFFF;
   border: 1px solid rgba(229,231,235,0.95);
   border-radius: 16px;
@@ -543,41 +655,41 @@ body.login-body {
     0 2px 8px rgba(15,23,42,0.04);
 }
 
-/* Footer con aire */
-#crear_usuario .modal-footer{
+#crear_usuario .modal-footer {
   padding-left: 18px;
   padding-right: 18px;
 }
 
-/* Anterior más “pro” */
-#crear_usuario #btnAnterior{
+#crear_usuario #btnAnterior {
   padding: 10px 18px;
   border-radius: 999px;
   border: 1px solid rgba(209,213,219,0.95);
   box-shadow: 0 10px 22px rgba(15,23,42,0.05);
 }
-#crear_usuario #btnAnterior:disabled{
+
+#crear_usuario #btnAnterior:disabled {
   opacity: .55;
   box-shadow: none;
 }
 
-/* CTA naranja EV: Siguiente / Registrar */
 #crear_usuario #btnSiguiente,
-#crear_usuario #btnRegistrar{
+#crear_usuario #btnRegistrar {
   background: linear-gradient(135deg, var(--ev-naranja), #F59E0B) !important;
   border: none !important;
-  color: #ffffff !important;
+  color: #FFFFFF !important;
   box-shadow: 0 12px 26px rgba(234,124,18,0.35) !important;
   padding: 10px 22px;
 }
+
 #crear_usuario #btnSiguiente:hover,
-#crear_usuario #btnRegistrar:hover{
+#crear_usuario #btnRegistrar:hover {
   background: linear-gradient(135deg, var(--ev-naranja-oscuro), #EA580C) !important;
   transform: translateY(-1px);
   box-shadow: 0 14px 32px rgba(234,124,18,0.48) !important;
 }
+
 #crear_usuario #btnSiguiente:active,
-#crear_usuario #btnRegistrar:active{
+#crear_usuario #btnRegistrar:active {
   transform: translateY(0);
   box-shadow: 0 6px 16px rgba(234,124,18,0.30) !important;
 }
@@ -585,48 +697,113 @@ body.login-body {
 /* ===================================================
    RESPONSIVO
 =================================================== */
-@media (max-width: 992px){
-  .login-hero-text{ max-width: 52ch; }
-  .login-hero-list{ gap: 10px; }
-  .login-hero-list li{ grid-template-columns: 24px 1fr; }
-  .login-hero-list li i{ font-size: 1.05rem; }
+@media (max-width: 992px) {
+  .login-hero-text {
+    max-width: 52ch;
+  }
+
+  .login-hero-list {
+    gap: 10px;
+  }
+
+  .login-hero-list li {
+    grid-template-columns: 24px 1fr;
+  }
+
+  .login-hero-list li i {
+    font-size: 1.05rem;
+  }
 }
 
 @media (max-width: 768px) {
-  body.login-body { padding: 16px; background-image: none; }
-
-  .login-shell {
-    flex-direction: column;
-    max-width: 480px;
-    min-height: 0;
+  body.login-body {
+    padding: 16px;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
   }
 
-  .login-hero { padding: 32px 24px 24px; }
-  .login-panel { padding: 24px 22px 20px; }
+  .login-shell {
+    width: 100%;
+    max-width: 480px;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .login-hero {
+    padding: 32px 24px 24px;
+    align-items: flex-start;
+  }
+
+  .login-panel {
+    padding: 24px 22px 20px;
+    box-shadow: inset 0 1px 0 rgba(226, 232, 240, 0.9);
+  }
 }
 
 @media (max-width: 576px) {
-  .login-hero { padding: 26px 20px 18px; }
-  .login-hero-title { font-size: 1.7rem; }
-  .login-panel-title { font-size: 1.25rem; }
-  .login-shell { border-radius: 20px; }
+  .login-hero {
+    padding: 26px 20px 18px;
+  }
 
-  .modal-body { padding-left: 1.25rem; padding-right: 1.25rem; }
+  .login-hero-title {
+    font-size: 1.7rem;
+  }
 
-  .modal .progress { height: 30px !important; }
-  .modal .progress-bar { font-size: 0.6rem; letter-spacing: 0.01em; padding: 0 2px; }
+  .login-panel-title {
+    font-size: 1.25rem;
+  }
 
-  #step1 { width: 40% !important; }
-  #step2 { width: 30% !important; }
-  #step3 { width: 30% !important; }
+  .login-shell {
+    border-radius: 20px;
+  }
 
-  .modal-footer .btn-login.btn-modal-cta{
+  .login-brand-mark {
+    width: 74px;
+    height: 74px;
+    border-radius: 20px;
+    margin-bottom: 8px;
+  }
+
+  .login-logo {
+    width: 54px;
+    height: 54px;
+  }
+
+  .modal-body {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+
+  .modal .progress {
+    height: 30px !important;
+  }
+
+  .modal .progress-bar {
+    font-size: 0.6rem;
+    letter-spacing: 0.01em;
+    padding: 0 2px;
+  }
+
+  #step1 {
+    width: 40% !important;
+  }
+
+  #step2 {
+    width: 30% !important;
+  }
+
+  #step3 {
+    width: 30% !important;
+  }
+
+  .modal-footer .btn-login.btn-modal-cta {
     height: 36px;
     padding: 0 14px;
     font-size: 0.88rem;
     line-height: 1;
   }
 
-  #crear_usuario .step .row.g-3{ padding: 14px 12px; }
+  #crear_usuario .step .row.g-3 {
+    padding: 14px 12px;
+  }
 }
 </style>

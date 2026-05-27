@@ -61,7 +61,12 @@
   position: relative;
   z-index: 2;
   min-width:0;
-  gap:.35rem;
+  width:100%;
+  display:flex;
+  align-items:center;
+  gap:.45rem;
+  padding-left:0;
+  padding-right:0;
 }
 
 #btnToggleSidebar,
@@ -91,9 +96,80 @@
   box-shadow: 0 0 0 .18rem rgba(187,247,208,.45);
 }
 
-.app-header .navbar-brand{
-  font-weight: 700;
-  letter-spacing: .2px;
+/* ============================================================
+   MARCA SUPERIOR EV
+============================================================ */
+.ev-topbar-brand{
+  height:40px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:10px;
+  min-width:0;
+  flex:0 0 auto;
+  padding:0 8px 0 0;
+  border-radius:999px;
+  color:#fff;
+  text-decoration:none;
+  line-height:1;
+  transition:
+    background .18s ease,
+    transform .18s ease,
+    opacity .18s ease;
+}
+
+.ev-topbar-brand:hover{
+  color:#fff;
+  text-decoration:none;
+  background:rgba(255,255,255,.08);
+}
+
+.ev-topbar-brand:active{
+  transform:translateY(.5px);
+}
+
+.ev-topbar-brand:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 .18rem rgba(187,247,208,.45);
+}
+
+.ev-topbar-brand-logo{
+  width:32px;
+  height:32px;
+  min-width:32px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(circle at 30% 18%, rgba(255,255,255,1) 0%, rgba(255,255,255,.98) 48%, rgba(243,244,246,.96) 100%);
+  box-shadow:
+    0 3px 8px rgba(15,23,42,.14),
+    inset 0 1px 0 rgba(255,255,255,.95);
+  overflow:hidden;
+}
+
+.ev-topbar-brand-logo img{
+  width:24px;
+  height:24px;
+  max-width:24px;
+  max-height:24px;
+  display:block;
+  object-fit:contain;
+  transform:translateY(.2px);
+}
+
+.ev-topbar-brand-text{
+  display:inline-flex;
+  align-items:center;
+  color:#fff;
+  font-size:1rem;
+  font-weight:750;
+  line-height:1;
+  letter-spacing:.1px;
+  white-space:nowrap;
+  text-shadow:0 1px 2px rgba(0,0,0,.16);
+  transform:translateY(.2px);
 }
 
 /* =========================
@@ -106,6 +182,7 @@
   gap:.75rem;
   margin-left:auto;
   margin-right:1rem;
+  min-width:0;
 }
 
 .ev-disp-wrap{
@@ -430,19 +507,27 @@
     font-size:1.35rem !important;
   }
 
-  .app-header .container-fluid > span.d-inline-flex.align-items-center.justify-content-center.rounded-circle.bg-white{
-    width:34px !important;
-    height:34px !important;
-    min-width:34px !important;
-    margin-right:.35rem !important;
+  .ev-topbar-brand{
+    height:38px;
+    gap:8px;
+    padding-right:4px;
   }
 
-  .app-header .container-fluid > span.d-inline-flex.align-items-center.justify-content-center.rounded-circle.bg-white img{
-    max-height:34px !important;
+  .ev-topbar-brand-logo{
+    width:30px;
+    height:30px;
+    min-width:30px;
   }
 
-  .app-header .navbar-brand{
-    display:none !important;
+  .ev-topbar-brand-logo img{
+    width:22px;
+    height:22px;
+    max-width:22px;
+    max-height:22px;
+  }
+
+  .ev-topbar-brand-text{
+    display:none;
   }
 
   .user-menu span{

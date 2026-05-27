@@ -629,6 +629,8 @@ safeRequire(__DIR__ . '/controllers/api/apiCuentaObservadaController.php');
 
 safeRequire(__DIR__ . '/controllers/api/usuarioDatosController.php');
 safeRequire(__DIR__ . '/controllers/api/apiBilleteraController.php');
+safeRequire(__DIR__ . '/models/Dashboard.php');
+safeRequire(__DIR__ . '/controllers/api/apiDashboardController.php');
 safeRequire(__DIR__ . '/controllers/api/apiPedidoController.php');
 safeRequire(__DIR__ . '/models/Calificacion.php');
 safeRequire(__DIR__ . '/controllers/api/apiCalificacionController.php');
@@ -773,6 +775,11 @@ $routes = [
 
     ['GET',  '#^/api/usuario/disponibilidad-pedidos$#', [apiDisponibilidadPedidosController::class, 'obtenerEstado'], 'json'],
     ['POST', '#^/api/usuario/disponibilidad-pedidos$#', [apiDisponibilidadPedidosController::class, 'actualizarEstado'], 'json'],
+
+    // ---------------------------
+    // DASHBOARD VECINO
+    // ---------------------------
+    ['GET',  '#^/api/dashboard/vecino$#', [apiDashboardController::class, 'vecino'], 'json'],
     
 
     // ---------------------------

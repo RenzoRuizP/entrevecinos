@@ -4,6 +4,35 @@ require_once __DIR__ . '/../Config/config.php';
 $menus = $menusParaMenuIzquierda ?? [];
 $iconEntreVecinos = rtrim(BASE_URL, '/') . "/resources/images/logo/icon_logo.png";
 
+$usuarioSidebar = isset($usuario) && is_array($usuario) ? $usuario : [];
+
+$tipoConjuntoSidebar = strtolower(trim((string)(
+    $usuarioSidebar['conjunto_tipo']
+    ?? $usuarioSidebar['tipo_conjunto']
+    ?? ''
+)));
+
+$nombreComunidadSidebar = trim((string)(
+    $usuarioSidebar['conjunto_nombre']
+    ?? $usuarioSidebar['nombre_conjunto']
+    ?? $usuarioSidebar['condominio_nombre']
+    ?? $usuarioSidebar['nombre_condominio']
+    ?? $usuarioSidebar['urbanizacion_nombre']
+    ?? $usuarioSidebar['nombre_urbanizacion']
+    ?? $usuarioSidebar['condominio']
+    ?? $usuarioSidebar['urbanizacion']
+    ?? ''
+));
+
+if ($nombreComunidadSidebar === '') {
+    $nombreComunidadSidebar = 'Tu comunidad';
+}
+
+$labelComunidadSidebar = ($tipoConjuntoSidebar === 'urbanizacion') ? 'Urbanización' : 'Condominio';
+$hrefInicioSidebar = rtrim(BASE_URL, '/') . '/MenuPrincipal';
+$hrefMiPerfilSidebar = rtrim(BASE_URL, '/') . '/mi-perfil';
+$hrefLogoutSidebar = rtrim(BASE_URL, '/') . '/logout';
+
 function ev_normalizar_ruta_menu(string $rutaRaw): array {
     $rutaRaw = trim($rutaRaw);
 
@@ -12,6 +41,10 @@ function ev_normalizar_ruta_menu(string $rutaRaw): array {
     }
 
     $rutaRaw = explode('?', $rutaRaw, 2)[0];
+
+    if ($rutaRaw === '') {
+        return ['dataVista' => '#', 'href' => '#'];
+    }
 
     if ($rutaRaw[0] !== '/') {
         $rutaRaw = '/' . $rutaRaw;
@@ -29,8 +62,14 @@ function ev_normalizar_ruta_menu(string $rutaRaw): array {
     }
 
     $rutaRaw = preg_replace('#/+#', '/', $rutaRaw);
+    $rutaRaw = rtrim($rutaRaw, '/');
+
+    if ($rutaRaw === '') {
+        $rutaRaw = '/';
+    }
+
     $dataVista = $rutaRaw;
-    $href      = rtrim(BASE_URL, '/') . $dataVista;
+    $href = rtrim(BASE_URL, '/') . $dataVista;
 
     return ['dataVista' => $dataVista, 'href' => $href];
 }
@@ -39,7 +78,7 @@ function ev_obtener_ruta_activa_menu(): string {
     $evGoto = trim((string)($_GET['ev_goto'] ?? ''));
 
     if ($evGoto !== '') {
-        return ev_normalizar_ruta_menu($evGoto)['dataVista'];
+        return ev_normalizar_ruta_menu(rawurldecode($evGoto))['dataVista'];
     }
 
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/MenuPrincipal', PHP_URL_PATH);
@@ -90,26 +129,25 @@ $rutaActivaMenu = ev_obtener_ruta_activa_menu();
 
 <aside id="sidebar" class="app-sidebar shadow">
   <div class="sidebar-brand d-flex align-items-center justify-content-center p-3">
-    <a href="<?= rtrim(BASE_URL, '/') . '/MenuPrincipal' ?>"
-       class="d-flex align-items-center text-decoration-none"
+    <a href="<?= htmlspecialchars($hrefInicioSidebar, ENT_QUOTES, 'UTF-8') ?>"
+       class="ev-sidebar-brand-link text-decoration-none"
        aria-label="Ir al inicio de Entre Vecinos">
-      <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-white shadow-sm me-2"
-            style="width: 50px; height: 50px;">
+      <span class="ev-sidebar-brand-logo">
         <img src="<?= htmlspecialchars($iconEntreVecinos, ENT_QUOTES, 'UTF-8') ?>"
              alt="Logo Entre Vecinos"
-             class="img-fluid"
-             style="max-height: 50px;">
+             class="img-fluid">
       </span>
+      <span class="ev-sidebar-brand-text">Entre Vecinos</span>
     </a>
   </div>
 
-  <div class="sidebar-wrapper overflow-hidden">
+  <div class="sidebar-wrapper">
     <nav class="mt-2" aria-label="Menú principal">
       <ul class="nav flex-column" id="navigation">
         <?php foreach ($menus as $menu):
           $codigoMenu = (int)($menu['codigo_menu'] ?? 0);
           $nombreMenu = (string)($menu['nombre'] ?? '');
-          $iconoMenu  = (string)($menu['icono'] ?? '');
+          $iconoMenu  = (string)($menu['icono'] ?? 'bi bi-grid');
           $submenus   = is_array($menu['submenus'] ?? null) ? $menu['submenus'] : [];
 
           $submenusProcesados = [];
@@ -131,24 +169,32 @@ $rutaActivaMenu = ev_obtener_ruta_activa_menu();
               ];
           }
         ?>
-          <li class="nav-item mb-1">
-            <a href="#menu<?= $codigoMenu ?>"
-               class="nav-link menu-parent-link d-flex align-items-center px-3 py-2 fw-semibold <?= $menuActivo ? 'active-parent' : '' ?>"
-               data-bs-toggle="collapse"
-               data-menu-id="<?= $codigoMenu ?>"
-               aria-expanded="<?= $menuActivo ? 'true' : 'false' ?>"
-               aria-controls="menu<?= $codigoMenu ?>">
-              <i class="nav-icon <?= htmlspecialchars($iconoMenu, ENT_QUOTES, 'UTF-8') ?> me-2"></i>
-              <span><?= strtoupper(htmlspecialchars($nombreMenu, ENT_QUOTES, 'UTF-8')) ?></span>
-              <?php if (!empty($submenusProcesados)): ?>
+          <li class="nav-item ev-menu-item mb-1">
+            <?php if (!empty($submenusProcesados)): ?>
+              <button type="button"
+                      class="nav-link menu-parent-link ev-menu-parent d-flex align-items-center px-3 py-2 fw-semibold <?= $menuActivo ? 'active-parent is-open' : '' ?>"
+                      data-menu-id="<?= $codigoMenu ?>"
+                      data-menu-target="menu<?= $codigoMenu ?>"
+                      aria-expanded="<?= $menuActivo ? 'true' : 'false' ?>"
+                      aria-controls="menu<?= $codigoMenu ?>">
+                <i class="nav-icon <?= htmlspecialchars($iconoMenu, ENT_QUOTES, 'UTF-8') ?> me-2"></i>
+                <span><?= strtoupper(htmlspecialchars($nombreMenu, ENT_QUOTES, 'UTF-8')) ?></span>
                 <i class="bi bi-chevron-down ms-auto small"></i>
-              <?php endif; ?>
-            </a>
+              </button>
+            <?php else: ?>
+              <button type="button"
+                      class="nav-link menu-parent-link ev-menu-parent d-flex align-items-center px-3 py-2 fw-semibold"
+                      disabled>
+                <i class="nav-icon <?= htmlspecialchars($iconoMenu, ENT_QUOTES, 'UTF-8') ?> me-2"></i>
+                <span><?= strtoupper(htmlspecialchars($nombreMenu, ENT_QUOTES, 'UTF-8')) ?></span>
+              </button>
+            <?php endif; ?>
 
             <?php if (!empty($submenusProcesados)): ?>
-              <ul class="nav nav-treeview collapse ms-3 <?= $menuActivo ? 'show' : '' ?>"
+              <ul class="nav nav-treeview ev-menu-group ms-3 <?= $menuActivo ? 'is-open' : '' ?>"
                   id="menu<?= $codigoMenu ?>"
-                  data-menu-group="<?= $codigoMenu ?>">
+                  data-menu-group="<?= $codigoMenu ?>"
+                  aria-hidden="<?= $menuActivo ? 'false' : 'true' ?>">
                 <?php foreach ($submenusProcesados as $item):
                   $submenu = $item['data'];
                   $r = $item['ruta'];
@@ -171,5 +217,34 @@ $rutaActivaMenu = ev_obtener_ruta_activa_menu();
         <?php endforeach; ?>
       </ul>
     </nav>
+  </div>
+
+  <div id="evSidebarHomeExtras" class="ev-sidebar-footer" aria-label="Accesos secundarios">
+    <button type="button" class="ev-sidebar-footer-link" id="btnEvAyudaSidebar">
+      <i class="bi bi-question-circle"></i>
+      <span>Ayuda</span>
+    </button>
+
+    <button type="button"
+            class="ev-sidebar-footer-link ev-sidebar-footer-link-logout"
+            onclick="window.location.href='<?= htmlspecialchars($hrefLogoutSidebar, ENT_QUOTES, 'UTF-8') ?>'">
+      <i class="bi bi-box-arrow-right"></i>
+      <span>Cerrar sesión</span>
+    </button>
+
+    <article class="ev-sidebar-community-card" aria-label="Comunidad actual">
+      <div class="ev-sidebar-community-icon" aria-hidden="true">
+        <i class="bi bi-buildings"></i>
+      </div>
+      <div class="ev-sidebar-community-label">Tu comunidad</div>
+      <div class="ev-sidebar-community-name" id="evSidebarCommunityName">
+        <?= htmlspecialchars($nombreComunidadSidebar, ENT_QUOTES, 'UTF-8') ?>
+      </div>
+      <a href="<?= htmlspecialchars($hrefMiPerfilSidebar, ENT_QUOTES, 'UTF-8') ?>"
+         data-vista="/mi-perfil"
+         class="ev-sidebar-community-btn">
+        Cambiar comunidad
+      </a>
+    </article>
   </div>
 </aside>

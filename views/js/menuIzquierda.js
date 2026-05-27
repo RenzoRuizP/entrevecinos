@@ -1,16 +1,10 @@
 // views/js/menuIzquierda.js
 // Navegación AJAX única y centralizada del sidebar EV
-// SOLUCIÓN RAÍZ:
-// - Usa data-vista / data-ruta / href
-// - Evita doble navegación con menuPrincipal.js
-// - Mantiene shell /MenuPrincipal?ev_goto=...
-// - Nunca permite /MenuPrincipal dentro de ev_goto
-// - Maneja 401 / 403 / cuenta bloqueada / cuenta observada
-// - Mantiene overlay, watchdog, scripts dinámicos y popstate
-// - Inicializa módulos EV después de inyectar parciales
-// - Mantiene activo el menu item seleccionado
-// - Abre el grupo padre del item activo
-// - Cierra los demás grupos para una navegación más limpia
+// Versión validada:
+// - Mantiene navegación AJAX, ev_goto, popstate y carga de módulos.
+// - Reemplaza Bootstrap Collapse SOLO para el acordeón del sidebar.
+// - Conserva footer Ayuda / Cerrar sesión / Comunidad.
+// - Evita duplicados visuales generados por versiones anteriores.
 
 document.addEventListener('DOMContentLoaded', () => {
   'use strict';
@@ -40,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!sidebar) return;
 
     sidebar.classList.remove('open', 'active');
+    document.body.classList.remove('ev-sidebar-open');
 
     if (backdrop) {
       backdrop.classList.remove('show', 'active');
@@ -135,23 +130,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function killLegacyLoaders() {
     const selectors = [
-      '#spinner-overlay',
-      '#loading-overlay',
-      '#loader-overlay',
-      '#global-loader',
-      '#ev-loading',
-      '.spinner-overlay',
-      '.loading-overlay',
-      '.loader-overlay',
-      '.global-loader',
-      '.preloader',
-      '#preloader',
-      '.page-loader',
-      '#page-loader',
-      '.overlay-loading',
-      '#overlay-loading',
-      '.ajax-loading',
-      '#ajax-loading'
+      '#spinner-overlay', '#loading-overlay', '#loader-overlay', '#global-loader', '#ev-loading',
+      '.spinner-overlay', '.loading-overlay', '.loader-overlay', '.global-loader', '.preloader',
+      '#preloader', '.page-loader', '#page-loader', '.overlay-loading', '#overlay-loading',
+      '.ajax-loading', '#ajax-loading'
     ];
 
     selectors.forEach((sel) => {
@@ -257,15 +239,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (basePath && basePath !== '/' && path.startsWith(basePath + '/')) {
       path = path.slice(basePath.length);
-
-      if (!path.startsWith('/')) {
-        path = '/' + path;
-      }
+      if (!path.startsWith('/')) path = '/' + path;
     }
 
     path = path.replace(/\/{2,}/g, '/');
+    path = path.split('?')[0];
+    path = path.replace(/\/+$/, '') || '/';
 
-    return path || '/';
+    return path;
   }
 
   function resolvePathFromAnchor(a) {
@@ -312,44 +293,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function goToShellHome(options = {}) {
-    const forceReload = options.forceReload === true;
-
-    setActiveSidebarByPath('/MenuPrincipal');
-    closeSidebarMobile();
-
-    try {
-      hideEvOverlay(true);
-      killLegacyLoaders();
-    } catch (_) {}
-
-    const currentPath = normalizeInternalPath(window.location.pathname);
-    const alreadyCleanHome = isShellHomePath(currentPath) && !currentUrlHasEvGoto();
-
-    if (alreadyCleanHome) {
-      if (forceReload) {
-        window.location.reload();
-      }
-      return;
-    }
-
-    window.location.assign(SHELL_URL);
-  }
-
   function getCurrentSidebarPath() {
     try {
       const qs = new URLSearchParams(window.location.search);
       const goto = qs.get('ev_goto');
 
-      if (goto) {
-        return normalizeInternalPath(goto);
-      }
+      if (goto) return normalizeInternalPath(goto);
 
       const path = normalizeInternalPath(window.location.pathname);
 
-      if (path === '/' || path === '/login') {
-        return '/MenuPrincipal';
-      }
+      if (path === '/' || path === '/login') return '/MenuPrincipal';
 
       return path;
     } catch (_) {
@@ -357,64 +310,63 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function closeOtherMenuGroups(activeGroup) {
-    if (!sidebar) return;
+  /* ============================================================
+     ACORDEÓN EV PERSONALIZADO
+     No usa Bootstrap Collapse, por eso no se siente pesado.
+  ============================================================ */
 
-    const groups = sidebar.querySelectorAll('.nav-treeview.collapse');
+  function cssEscape(value) {
+    const txt = String(value || '');
+    if (window.CSS && typeof window.CSS.escape === 'function') {
+      return window.CSS.escape(txt);
+    }
+    return txt.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+  }
 
-    groups.forEach((group) => {
-      if (activeGroup && group === activeGroup) return;
+  function getGroupByParent(parent) {
+    if (!sidebar || !parent) return null;
+    const id = parent.getAttribute('data-menu-target') || parent.getAttribute('aria-controls') || '';
+    if (!id) return null;
+    return sidebar.querySelector(`#${cssEscape(id)}`);
+  }
 
-      const parent = sidebar.querySelector(`.menu-parent-link[aria-controls="${group.id}"]`);
+  function getParentByGroup(group) {
+    if (!sidebar || !group || !group.id) return null;
+    return sidebar.querySelector(`.menu-parent-link[aria-controls="${cssEscape(group.id)}"], .menu-parent-link[data-menu-target="${cssEscape(group.id)}"]`);
+  }
 
-      if (parent) {
-        parent.classList.remove('active-parent');
-        parent.setAttribute('aria-expanded', 'false');
-      }
+  function setGroupOpen(group, open) {
+    if (!group) return;
 
-      try {
-        if (window.bootstrap?.Collapse) {
-          const instance = window.bootstrap.Collapse.getOrCreateInstance(group, {
-            toggle: false
-          });
-          instance.hide();
-        } else {
-          group.classList.remove('show');
-        }
-      } catch (_) {
-        group.classList.remove('show');
-      }
-    });
+    const parent = getParentByGroup(group);
+
+    group.classList.toggle('is-open', open);
+    group.setAttribute('aria-hidden', open ? 'false' : 'true');
+
+    if (parent) {
+      parent.classList.toggle('is-open', open);
+      parent.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+  }
+
+  function toggleMenuParent(parent) {
+    const group = getGroupByParent(parent);
+    if (!group) return;
+
+    const willOpen = !group.classList.contains('is-open');
+    setGroupOpen(group, willOpen);
   }
 
   function openMenuGroupForLink(link) {
     if (!sidebar || !link) return;
 
-    const group = link.closest('.nav-treeview.collapse');
-
-    closeOtherMenuGroups(group);
-
+    const group = link.closest('.ev-menu-group, .nav-treeview');
     if (!group) return;
 
-    const parent = sidebar.querySelector(`.menu-parent-link[aria-controls="${group.id}"]`);
+    setGroupOpen(group, true);
 
-    if (parent) {
-      parent.classList.add('active-parent');
-      parent.setAttribute('aria-expanded', 'true');
-    }
-
-    try {
-      if (window.bootstrap?.Collapse) {
-        const instance = window.bootstrap.Collapse.getOrCreateInstance(group, {
-          toggle: false
-        });
-        instance.show();
-      } else {
-        group.classList.add('show');
-      }
-    } catch (_) {
-      group.classList.add('show');
-    }
+    const parent = getParentByGroup(group);
+    if (parent) parent.classList.add('active-parent');
   }
 
   function clearSidebarActiveState() {
@@ -440,7 +392,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     for (const link of links) {
       const linkPath = resolvePathFromAnchor(link);
-
       if (samePath(linkPath, cleanPath)) {
         activeLink = link;
         break;
@@ -449,7 +400,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!activeLink) {
       clearSidebarActiveState();
-      closeOtherMenuGroups(null);
       return;
     }
 
@@ -461,6 +411,28 @@ document.addEventListener('DOMContentLoaded', () => {
     openMenuGroupForLink(activeLink);
   }
 
+  function goToShellHome(options = {}) {
+    const forceReload = options.forceReload === true;
+
+    setActiveSidebarByPath('/MenuPrincipal');
+    closeSidebarMobile();
+
+    try {
+      hideEvOverlay(true);
+      killLegacyLoaders();
+    } catch (_) {}
+
+    const currentPath = normalizeInternalPath(window.location.pathname);
+    const alreadyCleanHome = isShellHomePath(currentPath) && !currentUrlHasEvGoto();
+
+    if (alreadyCleanHome) {
+      if (forceReload) window.location.reload();
+      return;
+    }
+
+    window.location.assign(SHELL_URL);
+  }
+
   function buildModuleUrl(path) {
     const clean = normalizeInternalPath(path);
     return `${BASE}${clean}`;
@@ -469,9 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function buildShellUrl(path) {
     const clean = normalizeInternalPath(path);
 
-    if (isShellHomePath(clean)) {
-      return SHELL_URL;
-    }
+    if (isShellHomePath(clean)) return SHELL_URL;
 
     return `${SHELL_URL}?ev_goto=${encodeURIComponent(clean)}`;
   }
@@ -495,7 +465,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function runInline(code) {
     if (!code) return;
-
     try {
       new Function(code)();
     } catch (e) {
@@ -509,9 +478,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const abs = new URL(src, window.location.origin).href;
 
-      if (LOADED.has(abs)) {
-        return resolve(true);
-      }
+      if (LOADED.has(abs)) return resolve(true);
 
       const s = document.createElement('script');
       s.src = abs;
@@ -526,10 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try { s.onload = null; s.onerror = null; } catch (_) {}
         try { if (s.parentNode) s.parentNode.removeChild(s); } catch (_) {}
 
-        if (ok) {
-          LOADED.add(abs);
-        }
-
+        if (ok) LOADED.add(abs);
         resolve(ok);
       };
 
@@ -561,7 +525,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function processScripts(root, signal) {
     const scripts = Array.from(root.querySelectorAll('script'));
-
     if (!scripts.length) return;
 
     scripts.forEach(s => s.parentNode && s.parentNode.removeChild(s));
@@ -672,12 +635,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (ct.includes('application/json')) {
         let payload = null;
-
-        try {
-          payload = text ? JSON.parse(text) : null;
-        } catch (_) {
-          payload = null;
-        }
+        try { payload = text ? JSON.parse(text) : null; } catch (_) { payload = null; }
 
         if (res.status === 403 && payload && payload.error === 'CUENTA_BLOQUEADA') {
           await alertAndRedirectBlocked(payload);
@@ -691,7 +649,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (payload && payload.error === 'CUENTA_OBSERVADA' && payload.redirect) {
           if (window.__EV_AUTH_REDIRECTING__ === true) return;
-
           window.__EV_AUTH_REDIRECTING__ = true;
           window.location.href = payload.redirect;
           return;
@@ -712,13 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!res.ok) {
         if (res.status === 403) {
           let payload403 = null;
-
-          try {
-            payload403 = text ? JSON.parse(text) : null;
-          } catch (_) {
-            payload403 = null;
-          }
-
+          try { payload403 = text ? JSON.parse(text) : null; } catch (_) { payload403 = null; }
           if (payload403 && payload403.error === 'CUENTA_BLOQUEADA') {
             await alertAndRedirectBlocked(payload403);
             return;
@@ -727,13 +678,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (res.status === 401) {
           let payload401 = null;
-
-          try {
-            payload401 = text ? JSON.parse(text) : null;
-          } catch (_) {
-            payload401 = null;
-          }
-
+          try { payload401 = text ? JSON.parse(text) : null; } catch (_) { payload401 = null; }
           await alertAndRedirectUnauthorized(payload401);
           return;
         }
@@ -755,7 +700,6 @@ document.addEventListener('DOMContentLoaded', () => {
       main.innerHTML = text;
 
       await processScripts(main, signal);
-
       initLoadedModules(cleanPath);
 
       document.dispatchEvent(new CustomEvent('ev:content-loaded', {
@@ -800,16 +744,37 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('click', (e) => {
     if (window.__EV_AUTH_REDIRECTING__ === true) return;
 
-    const a = e.target.closest('a');
+    const parent = e.target.closest('#sidebar .menu-parent-link');
+    if (parent) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleMenuParent(parent);
+      return;
+    }
 
+    const ayuda = e.target.closest('#btnEvAyudaSidebar');
+    if (ayuda) {
+      e.preventDefault();
+      if (window.Swal?.fire) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Ayuda EV',
+          text: 'La vista de ayuda y reglas de uso se implementará en una próxima fase.',
+          confirmButtonColor: '#EA7C12'
+        });
+      } else {
+        alert('La vista de ayuda y reglas de uso se implementará en una próxima fase.');
+      }
+      return;
+    }
+
+    const a = e.target.closest('a');
     if (!a) return;
 
     const inSidebar = a.closest('#sidebar') || a.closest('.main-sidebar') || a.closest('.ev-sidebar');
-
     if (!inSidebar) return;
 
     const path = resolvePathFromAnchor(a);
-
     if (!path) return;
 
     e.preventDefault();
@@ -851,6 +816,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Inicializa estado activo y abre el grupo del item activo.
   setActiveSidebarByPath(getCurrentSidebarPath());
 
   try {

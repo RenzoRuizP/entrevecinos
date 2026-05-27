@@ -6,9 +6,11 @@ $nombreUsuario = $nombreUsuario ?? 'Vecino';
 $rolUsuario    = $rolUsuario ?? 'vecino';
 $rolUsuarioRaw = $rolUsuarioRaw ?? strtolower(trim((string)$rolUsuario));
 
-$fotoUsuario = rtrim(BASE_URL, '/') . "/views/fotos/00000000.png";
-$iconEntreVecinos = rtrim(BASE_URL, '/') . "/resources/images/logo/icon_logo.png";
 $baseUrl = rtrim(BASE_URL, '/');
+
+$fotoUsuario = $baseUrl . "/views/fotos/00000000.png";
+$iconEntreVecinos = $baseUrl . "/resources/images/logo/logo_ev_transparente_corregido_recortado.png";
+$homeUrl = $baseUrl . "/MenuPrincipal";
 ?>
 
 <nav class="app-header navbar navbar-expand-lg navbar-dark shadow-sm px-3">
@@ -18,15 +20,18 @@ $baseUrl = rtrim(BASE_URL, '/');
       <i class="bi bi-list text-white fs-3"></i>
     </button>
 
-    <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-white shadow-sm me-2"
-          style="width: 38px; height: 38px;">
-      <img src="<?= htmlspecialchars($iconEntreVecinos, ENT_QUOTES, 'UTF-8') ?>"
-           alt="Logo Entre Vecinos"
-           class="img-fluid"
-           style="max-height: 40px;">
-    </span>
+    <a href="<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>"
+       class="ev-topbar-brand"
+       aria-label="Ir al panel principal de Entre Vecinos">
 
-    <span class="navbar-brand mb-0 h5 text-white d-none d-md-inline">Entre Vecinos</span>
+      <span class="ev-topbar-brand-logo" aria-hidden="true">
+        <img
+          src="<?= htmlspecialchars($iconEntreVecinos, ENT_QUOTES, 'UTF-8') ?>"
+          alt="">
+      </span>
+
+      <span class="ev-topbar-brand-text">Entre Vecinos</span>
+    </a>
 
     <div class="ev-topbar-tools">
       <?php if ($rolUsuarioRaw === 'vecino'): ?>
@@ -73,7 +78,7 @@ $baseUrl = rtrim(BASE_URL, '/');
 
           <li class="bg-white">
             <div class="d-flex justify-content-between px-3 py-3">
-              <a href="<?= rtrim(BASE_URL, '/') ?>/mi-perfil"
+              <a href="<?= $baseUrl ?>/mi-perfil"
                  id="btnPerfil"
                  class="btn btn-outline-success btn-sm submenu-link">
                 <i class="bi bi-person-circle me-1"></i> Mis datos

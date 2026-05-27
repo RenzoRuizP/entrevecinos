@@ -1,14 +1,14 @@
 <?php
-require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
+require_once __DIR__ . '/../Config/config.php';
 ?>
 
 <!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Entre Vecinos | Si lo tengo, vecina</title>
+  <title>Entre Vecinos | Entre vecinos, todo es más fácil</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="title" content="Entre Vecinos | Si lo tengo, vecina" />
+  <meta name="title" content="Entre Vecinos | Entre vecinos, todo es más fácil" />
 
   <!-- Bootstrap JS + Popper -->
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
@@ -33,6 +33,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 
   <!-- Contenedor principal -->
   <div class="login-shell">
+
     <!-- HERO IZQUIERDO -->
     <section class="login-hero">
       <div class="login-hero-content">
@@ -42,22 +43,41 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
         </h1>
 
         <p class="login-hero-text">
-          El <strong>marketplace de tu condominio</strong> para comprar y vender entre vecinos,
-          de forma simple y segura.
+          Compra, vende y ofrece servicios dentro de tu comunidad,
+          de forma simple, cercana y segura.
         </p>
 
         <ul class="login-hero-list" aria-label="Beneficios de Entre Vecinos">
-          <li><i class="bi bi-building-check" aria-hidden="true"></i><strong>Solo con vecinos de tu condominio</strong></li>
-          <li><i class="bi bi-shield-check" aria-hidden="true"></i><strong>Identidad verificada entre vecinos</strong></li>
-          <li><i class="bi bi-bag-check" aria-hidden="true"></i><strong>Compra y vende fácilmente, sin complicaciones</strong></li>
-          <li><i class="bi bi-truck" aria-hidden="true"></i><strong>Pedidos entregados en tu domicilio</strong></li>
-          <li><i class="bi bi-people" aria-hidden="true"></i><strong>Conecta con tus vecinos</strong></li>
+          <li>
+            <i class="bi bi-building-check" aria-hidden="true"></i>
+            <strong>Solo vecinos verificados de tu comunidad</strong>
+          </li>
+
+          <li>
+            <i class="bi bi-shield-check" aria-hidden="true"></i>
+            <strong>Compra con más confianza entre vecinos</strong>
+          </li>
+
+          <li>
+            <i class="bi bi-bag-check" aria-hidden="true"></i>
+            <strong>Publica tus productos o servicios en pocos pasos</strong>
+          </li>
+
+          <li>
+            <i class="bi bi-truck" aria-hidden="true"></i>
+            <strong>Coordina entregas y servicios en tu comunidad</strong>
+          </li>
+
+          <li>
+            <i class="bi bi-people" aria-hidden="true"></i>
+            <strong>Conecta con vecinos que viven cerca de ti</strong>
+          </li>
         </ul>
 
         <div class="login-hero-badge">
           <span class="badge-pill" role="note" tabindex="0" aria-label="Lema de Entre Vecinos">
             <i class="bi bi-heart-fill" aria-hidden="true"></i>
-            Si lo tengo, vecina
+            Entre vecinos, todo es más fácil
           </span>
         </div>
       </div>
@@ -66,33 +86,52 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
     <!-- PANEL DERECHO LOGIN -->
     <section class="login-panel">
       <header class="login-panel-header text-center">
-        <img
-          src="<?= BASE_URL ?>resources/images/logo/logo8.png"
-          alt="Logo Entre Vecinos"
-          class="img-fluid login-logo">
+        <div class="login-brand-mark">
+          <img
+            src="<?= BASE_URL ?>resources/images/logo/logo_ev_transparente_corregido_recortado.png"
+            alt="Entre Vecinos"
+            class="login-logo">
+        </div>
+
         <h2 class="login-panel-title">Inicia sesión</h2>
+
         <p class="login-panel-subtitle">
-          Accede con tu correo y contraseña para empezar a conectarte con tus vecinos.
+          Ingresa para comprar, vender y conectar con vecinos de tu comunidad.
         </p>
       </header>
 
       <div class="login-panel-body">
         <form id="formLogin" class="login-form">
           <div class="mb-3 position-relative">
-            <i class="bi bi-envelope-fill input-icon"></i>
-            <input id="email" name="email" type="email" class="form-control" placeholder="Correo electrónico" autocomplete="email" required />
+            <i class="bi bi-envelope-fill input-icon" aria-hidden="true"></i>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              class="form-control"
+              placeholder="Correo electrónico"
+              autocomplete="email"
+              required />
           </div>
 
           <div class="mb-3 position-relative">
-            <i class="bi bi-lock-fill input-icon"></i>
-            <input id="clave" name="clave" type="password" class="form-control" placeholder="Contraseña" autocomplete="current-password" required />
+            <i class="bi bi-lock-fill input-icon" aria-hidden="true"></i>
+            <input
+              id="clave"
+              name="clave"
+              type="password"
+              class="form-control"
+              placeholder="Contraseña"
+              autocomplete="current-password"
+              required />
           </div>
 
-          <div class="d-flex justify-content-between align-items-center mb-2 login-remember-row">
+          <div class="d-flex justify-content-between align-items-center login-remember-row">
             <div class="form-check mb-0">
               <input class="form-check-input" type="checkbox" id="recordarme">
               <label class="form-check-label" for="recordarme">Recordarme</label>
             </div>
+
             <a href="#" data-bs-toggle="modal" data-bs-target="#recuperar_cuenta" class="login-link-forgot">
               ¿Olvidaste tu contraseña?
             </a>
@@ -100,7 +139,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 
           <div class="d-grid mb-2">
             <button type="submit" class="btn btn-login btn-lg fw-semibold">
-              <i class="bi bi-box-arrow-in-right me-1"></i>
+              <i class="bi bi-box-arrow-in-right me-1" aria-hidden="true"></i>
               Iniciar sesión
             </button>
           </div>
@@ -108,6 +147,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 
         <div class="text-center mt-3 login-actions">
           <p class="login-actions-text mb-2">¿Aún no tienes cuenta?</p>
+
           <button type="button" class="btn btn-outline-register" data-bs-toggle="modal" data-bs-target="#crear_usuario">
             Crear una cuenta nueva
           </button>
@@ -127,24 +167,44 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content shadow border-0 rounded-3">
         <div class="modal-header bg-success text-white">
-          <h5 class="modal-title"><i class="bi bi-life-preserver me-2"></i> Recuperar cuenta</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          <h5 class="modal-title">
+            <i class="bi bi-life-preserver me-2" aria-hidden="true"></i>
+            Recuperar cuenta
+          </h5>
+
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
+
         <div class="modal-body text-center p-4">
-          <p class="mb-3 text-muted">Si tienes problemas para acceder a tu cuenta, contáctanos:</p>
+          <p class="mb-3 text-muted">
+            Si no puedes ingresar a tu cuenta, comunícate con soporte. Te ayudaremos a recuperar tu acceso.
+          </p>
+
           <div class="p-3 border rounded bg-light">
-            <p class="fw-bold mb-1 text-dark">Soporte técnico</p>
-            <p class="mb-1">Lunes a Viernes: <strong>8:00 AM – 8:00 PM</strong></p>
-            <p class="fs-5 text-success mb-0"><i class="bi bi-whatsapp me-1"></i> 956 969 182</p>
-            <p class="fs-5 text-success mb-0"><i class="bi bi-telephone-fill me-1"></i> 956 969 182</p>
+            <p class="fw-bold mb-1 text-dark">Soporte Entre Vecinos</p>
+            <p class="mb-1">Atención de Lunes a Viernes: <strong>8:00 AM – 8:00 PM</strong></p>
+
+            <p class="fs-5 text-success mb-0">
+              <i class="bi bi-whatsapp me-1" aria-hidden="true"></i>
+              956 969 182
+            </p>
+
+            <p class="fs-5 text-success mb-0">
+              <i class="bi bi-telephone-fill me-1" aria-hidden="true"></i>
+              956 969 182
+            </p>
           </div>
         </div>
+
         <div class="modal-footer justify-content-between">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-            <i class="bi bi-x-circle me-1"></i> Cerrar
+            <i class="bi bi-x-circle me-1" aria-hidden="true"></i>
+            Cerrar
           </button>
+
           <a href="tel:+51956969182" class="btn btn-login btn-modal-cta fw-semibold">
-            <i class="bi bi-telephone me-1"></i> Llamar ahora
+            <i class="bi bi-telephone me-1" aria-hidden="true"></i>
+            Llamar ahora
           </a>
         </div>
       </div>
@@ -156,8 +216,12 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content shadow-lg border-0 rounded-3">
         <div class="modal-header bg-success text-white">
-          <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i> Crear mi usuario</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          <h5 class="modal-title">
+            <i class="bi bi-person-plus me-2" aria-hidden="true"></i>
+            Crear mi usuario
+          </h5>
+
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
 
         <form id="formCrearUsuario">
@@ -171,16 +235,22 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 
             <!-- Paso 1 -->
             <div class="step" id="formStep1">
-              <h6 class="fw-bold text-success mb-3"><i class="bi bi-person-circle"></i> Datos personales</h6>
+              <h6 class="fw-bold text-success mb-3">
+                <i class="bi bi-person-circle" aria-hidden="true"></i>
+                Datos personales
+              </h6>
+
               <div class="row g-3 mb-4">
                 <div class="col-md-6">
                   <label for="nombre" class="form-label">Nombre completo</label>
                   <input type="text" class="form-control" id="nombre" name="nombre" required>
                 </div>
+
                 <div class="col-md-6">
                   <label for="documento" class="form-label">Documento de identidad</label>
                   <input type="text" class="form-control" id="documento" name="documento" required>
                 </div>
+
                 <div class="col-md-6">
                   <label for="telefono" class="form-label">Teléfono</label>
                   <input type="tel" class="form-control" id="telefono" name="telefono" required>
@@ -190,7 +260,10 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 
             <!-- Paso 2 -->
             <div class="step d-none" id="formStep2">
-              <h6 class="fw-bold text-success mb-3"><i class="bi bi-building"></i> Residencia</h6>
+              <h6 class="fw-bold text-success mb-3">
+                <i class="bi bi-building" aria-hidden="true"></i>
+                Residencia
+              </h6>
 
               <div class="row g-3 mb-4">
 
@@ -241,7 +314,7 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
                   </select>
                 </div>
 
-                <!-- Dirección + Comprobante (aparecen juntos) -->
+                <!-- Dirección + Comprobante -->
                 <div class="col-12 d-none" id="wrapDireccion">
                   <label for="direccion" class="form-label">Dirección</label>
                   <input type="text" class="form-control" id="direccion" name="direccion" placeholder="Dirección automática" disabled>
@@ -253,13 +326,14 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
                   <label for="comprobante_domicilio" class="form-label">
                     Comprobante de domicilio (recibo de servicio)
                   </label>
+
                   <input
                     type="file"
                     class="form-control"
                     id="comprobante_domicilio"
                     name="comprobante_domicilio"
-                    accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
-                  >
+                    accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf">
+
                   <div class="form-text">
                     Formatos: JPG, PNG o PDF. Tamaño máximo: 2 MB.
                   </div>
@@ -270,17 +344,23 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 
             <!-- Paso 3 -->
             <div class="step d-none" id="formStep3">
-              <h6 class="fw-bold text-success mb-3"><i class="bi bi-key-fill"></i> Datos de la cuenta</h6>
+              <h6 class="fw-bold text-success mb-3">
+                <i class="bi bi-key-fill" aria-hidden="true"></i>
+                Datos de la cuenta
+              </h6>
+
               <div class="row g-3 mb-4">
                 <div class="col-md-6">
                   <label for="rEmail" class="form-label">Correo electrónico</label>
                   <input type="email" class="form-control" id="rEmail" name="rEmail" required>
                 </div>
+
                 <div class="col-md-6">
                   <label for="rClave" class="form-label">Contraseña</label>
                   <input type="password" class="form-control" id="rClave" name="rClave" required>
                   <div class="form-text">Mínimo 8 caracteres, con mayúscula, número y símbolo.</div>
                 </div>
+
                 <div class="col-md-6">
                   <label for="confirmar_clave" class="form-label">Confirmar contraseña</label>
                   <input type="password" class="form-control" id="confirmar_clave" name="confirmar_clave" required>
@@ -292,13 +372,18 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
 
           <div class="modal-footer justify-content-between">
             <button type="button" class="btn btn-outline-secondary" id="btnAnterior" disabled>
-              <i class="bi bi-arrow-left me-1"></i> Anterior
+              <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>
+              Anterior
             </button>
+
             <button type="button" class="btn btn-success" id="btnSiguiente">
-              Siguiente <i class="bi bi-arrow-right ms-1"></i>
+              Siguiente
+              <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i>
             </button>
+
             <button type="submit" class="btn btn-success d-none" id="btnRegistrar">
-              <i class="bi bi-check-circle me-1"></i> Registrar
+              <i class="bi bi-check-circle me-1" aria-hidden="true"></i>
+              Registrar
             </button>
           </div>
         </form>
@@ -307,19 +392,14 @@ require_once __DIR__ . '/../Config/config.php'; // cargamos BASE_URL
   </div>
 
   <!-- Scripts de la vista -->
-  <script>window.BASE_URL = '<?= BASE_URL ?>';</script>
+  <script>
+    window.BASE_URL = '<?= BASE_URL ?>';
+  </script>
 
   <script src="<?= BASE_URL ?>views/js/vistaRegistrarUser.js"></script>
-
-  <!-- ✅ NUEVO: Ubigeo -->
   <script src="<?= BASE_URL ?>views/js/combo_ubigeo.js"></script>
-
-  <!-- ✅ Actualizado: conjunto residencial (filtrado por distrito + dirección auto) -->
   <script src="<?= BASE_URL ?>views/js/combo_conjunto_residencial.js"></script>
-
-  <!-- Registro -->
   <script src="<?= BASE_URL ?>views/js/registrarUser.js"></script>
-
   <script src="<?= BASE_URL ?>views/js/iniciarSesion.js"></script>
 
   <script>
