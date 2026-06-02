@@ -18,13 +18,17 @@ function ev_js_ver(string $relativePath): string
   $relativePath = ltrim($relativePath, '/');
   $fullPath = __DIR__ . '/../' . $relativePath;
   $mtime = @filemtime($fullPath);
-  return $mtime ? (string)$mtime : (defined('EV_APP_VER') ? (string)EV_APP_VER : (string)time());
+
+  return $mtime
+    ? (string)$mtime
+    : (defined('EV_APP_VER') ? (string)EV_APP_VER : (string)time());
 }
 
 function ev_js_src(string $file): string
 {
   $baseUrl = rtrim(BASE_URL, '/');
   $file = ltrim($file, '/');
+
   return $baseUrl . '/views/' . $file . '?v=' . ev_js_ver($file);
 }
 ?>
@@ -39,22 +43,33 @@ function ev_js_src(string $file): string
   window.EV_APP_VER = <?= json_encode($evAppVer, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 </script>
 
+<!-- Scripts globales del shell: se cargan para todos los perfiles -->
 <script src="<?= htmlspecialchars(ev_js_src('js/evSweetAlert.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
-
 <script src="<?= htmlspecialchars(ev_js_src('js/menuIzquierda.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(ev_js_src('js/menuArriba.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(ev_js_src('js/menuPrincipal.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
-<script src="<?= htmlspecialchars(ev_js_src('js/notificacionesResidencia.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 
 <?php if ($rolUsuario === 'soporte' || $rolUsuario === 'admin'): ?>
 
+  <!-- Operación y supervisión EV -->
   <script src="<?= htmlspecialchars(ev_js_src('js/soporteDashboard.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/atenderCuentasUsuario.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/atenderRecargas.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/atenderPublicacion.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 
+<?php elseif ($rolUsuario === 'administrador_comunidad'): ?>
+
+  <!--
+    Perfil institucional:
+    No carga marketplace, billetera ni pedidos.
+    Los scripts funcionales de Comunidad se incorporarán con sus vistas
+    en el Bloque 3, cuando se habilite el CRUD de publicaciones.
+  -->
+
 <?php else: ?>
 
+  <!-- Vecino comprador / vendedor -->
+  <script src="<?= htmlspecialchars(ev_js_src('js/notificacionesResidencia.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/combo_condominio.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/datosPersonales.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/producto.js'), ENT_QUOTES, 'UTF-8') ?>"></script>

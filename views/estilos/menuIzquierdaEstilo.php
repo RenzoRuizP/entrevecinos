@@ -1,6 +1,6 @@
 <style>
 /* ============================================================
-   ENTRE VECINOS - SIDEBAR ULTRA FINO V2
+   ENTRE VECINOS - SIDEBAR ULTRA FINO V3
    Desktop preservado + drawer móvil sincronizado con topbar
 ============================================================ */
 :root{
@@ -167,17 +167,58 @@
 @media (min-width:992px){ #sidebar-backdrop{ display:none; } }
 @media (max-width:991.98px){
   :root{ --ev-topbar-h:52px; }
+
   #sidebar.app-sidebar{
-    top:var(--ev-topbar-h); height:calc(100vh - var(--ev-topbar-h)); width:min(82vw,286px);
-    z-index:1040; transform:translateX(-106%); border-bottom-right-radius:24px;
-    box-shadow:18px 0 42px rgba(15,23,42,.26),4px 0 12px rgba(15,23,42,.12);
+    top:var(--ev-topbar-h);
+    height:calc(100vh - var(--ev-topbar-h));
+    width:min(82vw,286px);
+    z-index:1040;
+    transform:translateX(-106%);
+    border-bottom-right-radius:24px;
+    box-shadow:
+      18px 0 42px rgba(15,23,42,.26),
+      4px 0 12px rgba(15,23,42,.12);
   }
-  #sidebar.active,#sidebar.open,body.ev-sidebar-open #sidebar.app-sidebar{ transform:translateX(0); }
-  #sidebar.app-sidebar .sidebar-brand{ display:none !important; height:0 !important; padding:0 !important; margin:0 !important; overflow:hidden !important; }
-  .sidebar-wrapper{ padding:.78rem .42rem .12rem; }
-  .app-sidebar .nav-link,.app-sidebar button.nav-link{ min-height:44px; margin:.20rem .45rem; }
-  .ev-sidebar-footer{ margin:10px 12px 18px; padding-top:14px; }
-  body.ev-sidebar-open{ overflow:hidden; touch-action:none; }
-  body{ overscroll-behavior:contain; }
+
+  #sidebar.active,
+  #sidebar.open,
+  body.ev-sidebar-open #sidebar.app-sidebar{
+    transform:translateX(0);
+  }
+
+  #sidebar.app-sidebar .sidebar-brand{
+    display:none !important;
+    height:0 !important;
+    padding:0 !important;
+    margin:0 !important;
+    overflow:hidden !important;
+  }
+
+  /* Navegación arriba; utilidades y comunidad al pie cuando hay altura. */
+  .sidebar-wrapper{
+    flex:0 0 auto;
+    padding:.78rem .42rem .12rem;
+  }
+
+  .app-sidebar .nav-link,
+  .app-sidebar button.nav-link{
+    min-height:44px;
+    margin:.20rem .45rem;
+  }
+
+  .ev-sidebar-footer{
+    flex:0 0 auto;
+    margin:auto 12px 18px;
+    padding-top:14px;
+  }
+
+  body.ev-sidebar-open{
+    overflow:hidden;
+    touch-action:none;
+  }
+
+  body{
+    overscroll-behavior:contain;
+  }
 }
 </style>

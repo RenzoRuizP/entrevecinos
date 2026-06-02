@@ -2,9 +2,17 @@
 require_once __DIR__ . '/../Config/config.php';
 
 $menus = $menusParaMenuIzquierda ?? [];
-$iconEntreVecinos = rtrim(BASE_URL, '/') . "/resources/images/logo/icon_logo.png";
+$iconEntreVecinos = rtrim(BASE_URL, '/') . '/resources/images/logo/icon_logo.png';
 
 $usuarioSidebar = isset($usuario) && is_array($usuario) ? $usuario : [];
+
+$rolSidebarRaw = strtolower(trim((string)(
+    $usuarioSidebar['rol']
+    ?? $usuarioSidebar['nombre_rol']
+    ?? 'vecino'
+)));
+
+$esAdministradorComunidadSidebar = ($rolSidebarRaw === 'administrador_comunidad');
 
 $tipoConjuntoSidebar = strtolower(trim((string)(
     $usuarioSidebar['conjunto_tipo']
@@ -34,16 +42,20 @@ if ($nombreComunidadSidebar === '') {
 
 $labelComunidadSidebar = match ($tipoConjuntoSidebar) {
     'urbanizacion' => 'Urbanización',
-    'condominio' => 'Condominio',
-    default => 'Comunidad',
+    'condominio'   => 'Condominio',
+    default        => 'Comunidad',
 };
 
 $iconoComunidadSidebar = match ($tipoConjuntoSidebar) {
     'urbanizacion' => 'bi bi-houses',
-    'condominio' => 'bi bi-buildings',
-    default => 'bi bi-house-heart',
+    'condominio'   => 'bi bi-buildings',
+    default        => 'bi bi-house-heart',
 };
 
+/*
+ * Normaliza el nombre visible de la comunidad.
+ * Si el token ya trae "Urbanización Villa Flores", no duplica el prefijo.
+ */
 if ($nombreComunidadSidebar !== 'Tu comunidad' && $tipoConjuntoSidebar !== '') {
     $nombreLower = mb_strtolower($nombreComunidadSidebar, 'UTF-8');
     $labelLower = mb_strtolower($labelComunidadSidebar, 'UTF-8');
@@ -55,9 +67,25 @@ if ($nombreComunidadSidebar !== 'Tu comunidad' && $tipoConjuntoSidebar !== '') {
 
 $tipoSidebarData = $tipoConjuntoSidebar !== '' ? $tipoConjuntoSidebar : 'generico';
 
-$hrefInicioSidebar = rtrim(BASE_URL, '/') . '/MenuPrincipal';
+$rutaInicioDataSidebar = $esAdministradorComunidadSidebar
+    ? '/comunidad/gestionar'
+    : '/MenuPrincipal';
+
+/*
+ * Fallback correcto si JavaScript no intercepta la navegación:
+ * - Administrador de comunidad vuelve al shell abriendo Gestión.
+ * - Los demás roles vuelven al Inicio normal.
+ */
+$hrefInicioSidebar = $esAdministradorComunidadSidebar
+    ? rtrim(BASE_URL, '/') . '/MenuPrincipal?ev_goto=' . rawurlencode('/comunidad/gestionar')
+    : rtrim(BASE_URL, '/') . '/MenuPrincipal';
+
 $hrefMiPerfilSidebar = rtrim(BASE_URL, '/') . '/mi-perfil';
 $hrefLogoutSidebar = rtrim(BASE_URL, '/') . '/logout';
+
+$textoTarjetaComunidadSidebar = $esAdministradorComunidadSidebar
+    ? 'Comunidad asignada'
+    : 'Tu comunidad';
 
 function ev_normalizar_ruta_menu(string $rutaRaw): array
 {
@@ -101,7 +129,7 @@ function ev_normalizar_ruta_menu(string $rutaRaw): array
 
     return [
         'dataVista' => $dataVista,
-        'href' => $href
+        'href' => $href,
     ];
 }
 
@@ -150,8 +178,8 @@ function ev_menu_rutas_equivalentes(string $rutaItem, string $rutaActiva): bool
     }
 
     return (
-        ($rutaItem === '/MenuPrincipal' && ($rutaActiva === '/' || $rutaActiva === '/MenuPrincipal')) ||
-        ($rutaActiva === '/MenuPrincipal' && ($rutaItem === '/' || $rutaItem === '/MenuPrincipal'))
+        ($rutaItem === '/MenuPrincipal' && ($rutaActiva === '/' || $rutaActiva === '/MenuPrincipal'))
+        || ($rutaActiva === '/MenuPrincipal' && ($rutaItem === '/' || $rutaItem === '/MenuPrincipal'))
     );
 }
 
@@ -164,6 +192,7 @@ $rutaActivaMenu = ev_obtener_ruta_activa_menu();
 
   <div class="sidebar-brand d-flex align-items-center justify-content-center p-3">
     <a href="<?= htmlspecialchars($hrefInicioSidebar, ENT_QUOTES, 'UTF-8') ?>"
+       data-vista="<?= htmlspecialchars($rutaInicioDataSidebar, ENT_QUOTES, 'UTF-8') ?>"
        class="ev-sidebar-brand-link text-decoration-none"
        aria-label="Ir al inicio de Entre Vecinos">
 
@@ -293,7 +322,7 @@ $rutaActivaMenu = ev_obtener_ruta_activa_menu();
     <article
       class="ev-sidebar-community-card"
       data-community-type="<?= htmlspecialchars($tipoSidebarData, ENT_QUOTES, 'UTF-8') ?>"
-      aria-label="Comunidad actual"
+      aria-label="<?= htmlspecialchars($textoTarjetaComunidadSidebar, ENT_QUOTES, 'UTF-8') ?>"
     >
       <div class="ev-sidebar-community-icon" aria-hidden="true">
         <i
@@ -302,17 +331,21 @@ $rutaActivaMenu = ev_obtener_ruta_activa_menu();
         ></i>
       </div>
 
-      <div class="ev-sidebar-community-label">Tu comunidad</div>
+      <div class="ev-sidebar-community-label">
+        <?= htmlspecialchars($textoTarjetaComunidadSidebar, ENT_QUOTES, 'UTF-8') ?>
+      </div>
 
       <div class="ev-sidebar-community-name" id="evSidebarCommunityName">
         <?= htmlspecialchars($nombreComunidadSidebar, ENT_QUOTES, 'UTF-8') ?>
       </div>
 
-      <a href="<?= htmlspecialchars($hrefMiPerfilSidebar, ENT_QUOTES, 'UTF-8') ?>"
-         data-vista="/mi-perfil"
-         class="ev-sidebar-community-btn">
-        Cambiar comunidad
-      </a>
+      <?php if (!$esAdministradorComunidadSidebar): ?>
+        <a href="<?= htmlspecialchars($hrefMiPerfilSidebar, ENT_QUOTES, 'UTF-8') ?>"
+           data-vista="/mi-perfil"
+           class="ev-sidebar-community-btn">
+          Cambiar comunidad
+        </a>
+      <?php endif; ?>
     </article>
   </div>
 </aside>

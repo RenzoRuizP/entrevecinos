@@ -1,6 +1,6 @@
 <style>
 /* ============================================================
-   ENTRE VECINOS - TOPBAR PREMIUM V3
+   ENTRE VECINOS - TOPBAR PREMIUM V4
    Desktop preservado + densidad móvil optimizada
 ============================================================ */
 :root{
@@ -201,53 +201,215 @@
 @keyframes evFadeUp{ from{opacity:0; transform:translateY(12px)} to{opacity:1; transform:translateY(0)} }
 
 /* ============================================================
+   BACKDROP PERFIL MÓVIL
+   Se crea desde menuArriba.js; no requiere modificar la vista.
+============================================================ */
+.ev-user-menu-backdrop{
+  display:none;
+}
+
+/* ============================================================
    MÓVIL / TABLET
+   Header interno limpio: navegación + disponibilidad + usuario.
 ============================================================ */
 @media (max-width:991.98px){
   :root{ --ev-topbar-h:52px; }
+
   .app-header.navbar{
     height:var(--ev-topbar-h);
     padding:.34rem .62rem;
     box-shadow:0 7px 18px rgba(15,23,42,.09);
   }
-  .app-header.navbar > .container-fluid{ gap:.28rem; }
+
+  .app-header.navbar > .container-fluid{
+    gap:.28rem;
+  }
+
   #btnToggleSidebar{
-    width:40px; height:40px; display:inline-flex; align-items:center; justify-content:center;
-    margin-right:.14rem !important; padding:0;
-    border-radius:12px; background:rgba(255,255,255,.07) !important;
+    width:40px;
+    height:40px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    margin-right:0 !important;
+    padding:0;
+    border-radius:12px;
+    background:rgba(255,255,255,.07) !important;
   }
-  #btnToggleSidebar i{ font-size:1.22rem !important; }
-  .ev-topbar-brand{ height:36px; gap:7px; padding-right:3px; }
-  .ev-topbar-brand-logo{ width:29px; height:29px; min-width:29px; }
-  .ev-topbar-brand-logo img{ width:21px; height:21px; max-width:21px; max-height:21px; }
-  .ev-topbar-brand-text{ display:none; }
-  .user-menu span{ display:none !important; }
-  .ev-topbar-tools{ margin-left:auto; margin-right:.38rem; gap:.4rem; }
-  .ev-disp-control,.ev-disp-control-skeleton{ width:56px; height:30px; padding:4px; }
-  .ev-switch{ width:46px; height:22px; flex:0 0 46px; }
-  .ev-switch-slider::before{ width:16px; height:16px; }
-  .ev-switch-slider::after{ left:6px; top:5px; width:8px; height:3px; }
-  .ev-switch.is-on .ev-switch-slider::before,.ev-switch input:checked + .ev-switch-slider::before{ transform:translateX(24px); }
-  .ev-switch.is-on .ev-switch-slider::after,.ev-switch input:checked + .ev-switch-slider::after{ transform:translateX(24px); }
+
+  #btnToggleSidebar.is-open{
+    background:rgba(255,255,255,.15) !important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.11);
+  }
+
+  #btnToggleSidebar i{
+    width:20px;
+    display:inline-flex;
+    justify-content:center;
+    font-size:1.22rem !important;
+    line-height:1;
+  }
+
+  #btnToggleSidebar.is-open i{
+    font-size:1.08rem !important;
+  }
+
+  /* En la aplicación autenticada móvil, Inicio vive en el drawer. */
+  .ev-topbar-brand{
+    display:none !important;
+  }
+
+  .ev-topbar-tools{
+    margin-left:auto;
+    margin-right:.38rem;
+    gap:.4rem;
+  }
+
+  .ev-disp-control,
+  .ev-disp-control-skeleton{
+    width:56px;
+    height:30px;
+    padding:4px;
+    background:linear-gradient(180deg,rgba(255,255,255,.095),rgba(255,255,255,.045));
+    border-color:rgba(255,255,255,.15);
+    box-shadow:
+      0 2px 7px rgba(15,23,42,.08),
+      inset 0 1px 0 rgba(255,255,255,.13);
+    backdrop-filter:blur(5px);
+    -webkit-backdrop-filter:blur(5px);
+  }
+
+  .ev-disp-control:hover{
+    transform:none;
+    background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.055));
+    border-color:rgba(255,255,255,.19);
+    box-shadow:
+      0 3px 8px rgba(15,23,42,.09),
+      inset 0 1px 0 rgba(255,255,255,.15);
+  }
+
+  .ev-switch{
+    width:46px;
+    height:22px;
+    flex:0 0 46px;
+  }
+
+  .ev-switch-slider::before{
+    width:16px;
+    height:16px;
+  }
+
+  .ev-switch-slider::after{
+    left:6px;
+    top:5px;
+    width:8px;
+    height:3px;
+  }
+
+  .ev-switch.is-on .ev-switch-slider,
+  .ev-switch input:checked + .ev-switch-slider{
+    box-shadow:
+      inset 0 2px 4px rgba(15,89,47,.18),
+      inset 0 -1px 2px rgba(255,255,255,.13),
+      0 1px 4px rgba(52,214,111,.10);
+  }
+
+  .ev-switch.is-on .ev-switch-slider::before,
+  .ev-switch input:checked + .ev-switch-slider::before{
+    transform:translateX(24px);
+  }
+
+  .ev-switch.is-on .ev-switch-slider::after,
+  .ev-switch input:checked + .ev-switch-slider::after{
+    transform:translateX(24px);
+  }
+
+  .user-menu span{
+    display:none !important;
+  }
+
   .user-menu .nav-link{
-    width:36px; height:36px; padding:0; justify-content:center; border-radius:999px;
-    background:rgba(255,255,255,.07);
+    width:36px;
+    height:36px;
+    padding:0;
+    justify-content:center;
+    border-radius:999px;
+    background:rgba(255,255,255,.06);
   }
-  .user-menu .dropdown-toggle::after{ display:none !important; }
+
+  .user-menu .dropdown-toggle::after{
+    display:none !important;
+  }
+
   .user-menu .nav-link img{
-    width:30px !important; height:30px !important; margin:0 !important;
-    border:2px solid rgba(255,255,255,.95); box-shadow:0 3px 9px rgba(15,23,42,.16);
+    width:30px !important;
+    height:30px !important;
+    margin:0 !important;
+    border:2px solid rgba(255,255,255,.95);
+    box-shadow:0 3px 9px rgba(15,23,42,.16);
   }
+
   .user-menu .dropdown-menu{
     position:fixed !important;
-    top:calc(var(--ev-topbar-h) + 10px) !important;
+    top:calc(var(--ev-topbar-h) + 4px) !important;
     left:50% !important;
+    margin-top:0 !important;
     transform:translateX(-50%) !important;
     width:min(92vw,360px) !important;
     min-width:0 !important;
     border-radius:18px !important;
     z-index:2000 !important;
+    box-shadow:
+      0 24px 54px rgba(15,23,42,.21),
+      0 8px 18px rgba(15,23,42,.10);
   }
-  .user-menu .btn{ flex:1; margin:0 .25rem; }
+
+  .user-menu .dropdown-menu.show{
+    animation:evUserMenuMobileIn .18s ease;
+  }
+
+  .user-menu .btn{
+    flex:1;
+    margin:0 .25rem;
+  }
+
+  .ev-user-menu-backdrop{
+    display:block;
+    position:fixed;
+    top:var(--ev-topbar-h);
+    left:0;
+    right:0;
+    bottom:0;
+    z-index:1045;
+    background:rgba(15,23,42,.32);
+    backdrop-filter:blur(2px);
+    -webkit-backdrop-filter:blur(2px);
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transition:opacity .18s ease,visibility .18s ease;
+  }
+
+  .ev-user-menu-backdrop.is-visible{
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+  }
+
+  body.ev-user-menu-open{
+    overflow:hidden;
+    touch-action:none;
+  }
+}
+
+@keyframes evUserMenuMobileIn{
+  from{
+    opacity:0;
+    transform:translateX(-50%) translateY(8px);
+  }
+  to{
+    opacity:1;
+    transform:translateX(-50%) translateY(0);
+  }
 }
 </style>

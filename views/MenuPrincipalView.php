@@ -87,7 +87,7 @@ function ev_ver($pathAbs) {
   <?php include_once __DIR__ . '/estilos/menuPrincipalEstilo.php'; ?>
   <?php include_once __DIR__ . '/estilos/menuArribaEstilo.php'; ?>
 
-  <?php if ($rolUsuarioRaw === 'soporte'): ?>
+  <?php if (in_array($rolUsuarioRaw, ['soporte', 'admin'], true)): ?>
     <?php include_once __DIR__ . '/estilos/soporteDashboardEstilo.php'; ?>
   <?php endif; ?>
 
@@ -113,13 +113,18 @@ function ev_ver($pathAbs) {
       font-family: Poppins, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     }
     .ev-shell-loading .ev-spin{
-      width: 28px; height: 28px;
+      width: 28px;
+      height: 28px;
       border-radius: 50%;
       border: 4px solid rgba(22,163,74,0.18);
       border-top-color: rgba(15,89,47,0.95);
       animation: evShellSpin .8s linear infinite;
     }
-    @keyframes evShellSpin { to { transform: rotate(360deg); } }
+    @keyframes evShellSpin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
 
     :root{
       --ev-verde-oscuro:#0F592F;
@@ -226,7 +231,9 @@ function ev_ver($pathAbs) {
     }
 
     @keyframes evMpSpin{
-      to{ transform: rotate(360deg); }
+      to{
+        transform: rotate(360deg);
+      }
     }
 
     .ev-mp-swal-status-icon{
@@ -433,9 +440,25 @@ function ev_ver($pathAbs) {
         <?php else: ?>
 
           <?php
-            if ($rolUsuarioRaw === 'soporte') {
+            if (in_array($rolUsuarioRaw, ['soporte', 'admin'], true)) {
+              /*
+               * Admin del sistema y Soporte operan sobre un entorno administrativo.
+               * Admin deja de cargar el dashboard comercial del vecino.
+               * Posteriormente podrá construirse un dashboard exclusivo del superadministrador.
+               */
               include __DIR__ . '/soporteDashboardView.php';
+
+            } elseif ($rolUsuarioRaw === 'administrador_comunidad') {
+              /*
+               * La cuenta institucional de la comunidad inicia directamente
+               * en la gestión de comunicados, noticias y eventos.
+               */
+              include __DIR__ . '/comunidadGestionView.php';
+
             } else {
+              /*
+               * El rol vecino mantiene intacto su dashboard comprador/vendedor.
+               */
               include __DIR__ . '/menuPrincipalContenido.php';
             }
           ?>
