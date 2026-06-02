@@ -1,7 +1,11 @@
 <style>
 /* =========================================
-   ENTRE VECINOS - LAYOUT + HOME DASHBOARD V2
-   Refinamiento: hero blanco + hover EV + resumen limpio
+   ENTRE VECINOS - LAYOUT + HOME DASHBOARD V3
+   Cierre premium:
+   - Hero contextual por comunidad
+   - Comunidad próximamente coherente
+   - Estados semánticos de actividad
+   - Responsive validado para desktop/tablet/móvil
 ========================================= */
 
 :root{
@@ -23,6 +27,7 @@
   --ev-gris-150:#EEF2F7;
   --ev-gris-200:#E5E7EB;
   --ev-gris-300:#D1D5DB;
+  --ev-gris-400:#9CA3AF;
   --ev-gris-500:#6B7280;
   --ev-gris-700:#374151;
 
@@ -59,7 +64,7 @@ body{
   min-width:0;
 }
 
-@media (max-width: 991.98px){
+@media (max-width:991.98px){
   .main-container{
     margin-left:0;
     padding-top:var(--ev-topbar-h);
@@ -68,7 +73,7 @@ body{
 }
 
 /* ================================
-   HOME DASHBOARD V2
+   HOME DASHBOARD
 ================================ */
 .ev-home-dashboard-v2{
   width:100%;
@@ -88,8 +93,12 @@ body{
   box-shadow:var(--ev-shadow);
 }
 
+/* ================================
+   HERO PRINCIPAL
+================================ */
 .ev-home-hero{
   position:relative;
+  isolation:isolate;
   min-height:142px;
   border-radius:var(--ev-radius-lg);
   padding:24px 26px;
@@ -98,9 +107,27 @@ body{
   align-items:center;
   justify-content:space-between;
   gap:20px;
+  transition:background .22s ease;
+}
+
+.ev-home-hero--generico{
   background:
     radial-gradient(circle at 86% 24%, rgba(22,163,74,.115), transparent 35%),
     linear-gradient(135deg, #FFFFFF 0%, #FFFFFF 54%, #F7FEFA 100%);
+}
+
+.ev-home-hero--urbanizacion{
+  background:
+    radial-gradient(circle at 88% 22%, rgba(22,163,74,.14), transparent 34%),
+    radial-gradient(circle at 68% 82%, rgba(234,124,18,.045), transparent 28%),
+    linear-gradient(135deg, #FFFFFF 0%, #FFFFFF 53%, #F5FDF8 100%);
+}
+
+.ev-home-hero--condominio{
+  background:
+    radial-gradient(circle at 88% 22%, rgba(37,99,235,.055), transparent 30%),
+    radial-gradient(circle at 78% 75%, rgba(22,163,74,.10), transparent 34%),
+    linear-gradient(135deg, #FFFFFF 0%, #FFFFFF 54%, #F7FBF9 100%);
 }
 
 .ev-home-hero::before{
@@ -117,7 +144,7 @@ body{
 
 .ev-home-hero-copy{
   position:relative;
-  z-index:1;
+  z-index:2;
   max-width:640px;
 }
 
@@ -162,7 +189,7 @@ body{
   width:min(42vw, 560px);
   height:142px;
   pointer-events:none;
-  opacity:.96;
+  opacity:.97;
   overflow:hidden;
 }
 
@@ -187,8 +214,16 @@ body{
     36px 0 0 -3px rgba(255,255,255,.75);
 }
 
-.ev-hero-cloud-1{ left:70px; transform:scale(.88); }
-.ev-hero-cloud-2{ right:70px; top:30px; transform:scale(.74); }
+.ev-hero-cloud-1{
+  left:70px;
+  transform:scale(.88);
+}
+
+.ev-hero-cloud-2{
+  right:70px;
+  top:30px;
+  transform:scale(.74);
+}
 
 .ev-hero-ground{
   position:absolute;
@@ -221,29 +256,91 @@ body{
   background:#8B5E34;
 }
 
-.ev-hero-tree-1{ left:118px; }
-.ev-hero-tree-2{ right:132px; height:50px; }
+.ev-hero-tree-1{
+  left:118px;
+}
 
+.ev-hero-tree-2{
+  right:132px;
+  height:50px;
+}
+
+/* Edificios */
 .ev-hero-building{
   position:absolute;
   bottom:18px;
-  border-radius:6px 6px 2px 2px;
-  background:linear-gradient(180deg, rgba(148,163,184,.22), rgba(148,163,184,.12));
+  border-radius:7px 7px 2px 2px;
+  background:linear-gradient(180deg, rgba(148,163,184,.23), rgba(148,163,184,.12));
+  box-shadow:0 10px 18px rgba(15,23,42,.04);
 }
 
 .ev-hero-building::before{
   content:"";
   position:absolute;
   inset:12px 10px auto 10px;
-  height:58px;
+  height:64px;
   background:
-    linear-gradient(90deg, rgba(255,255,255,.72) 0 8px, transparent 8px 18px) 0 0/24px 18px,
-    linear-gradient(90deg, rgba(255,255,255,.48) 0 8px, transparent 8px 18px) 0 22px/24px 18px;
+    linear-gradient(90deg, rgba(255,255,255,.74) 0 8px, transparent 8px 18px) 0 0/24px 18px,
+    linear-gradient(90deg, rgba(255,255,255,.50) 0 8px, transparent 8px 18px) 0 22px/24px 18px,
+    linear-gradient(90deg, rgba(255,255,255,.58) 0 8px, transparent 8px 18px) 0 44px/24px 18px;
 }
 
-.ev-hero-building-1{ width:76px; height:92px; right:184px; }
-.ev-hero-building-2{ width:62px; height:74px; right:112px; opacity:.62; }
+.ev-hero-building-1{
+  width:76px;
+  height:92px;
+  right:184px;
+}
 
+.ev-hero-building-2{
+  width:62px;
+  height:74px;
+  right:112px;
+  opacity:.72;
+}
+
+.ev-hero-building-3{
+  display:none;
+  width:68px;
+  height:106px;
+  right:272px;
+  opacity:.8;
+}
+
+.ev-hero-common-area{
+  display:none;
+  position:absolute;
+  right:34px;
+  bottom:18px;
+  width:62px;
+  height:26px;
+  border-radius:14px 14px 4px 4px;
+  border:1px solid rgba(15,89,47,.14);
+  background:linear-gradient(180deg, rgba(255,255,255,.94), rgba(236,253,245,.82));
+}
+
+.ev-hero-common-area::before{
+  content:"";
+  position:absolute;
+  left:11px;
+  right:11px;
+  top:-9px;
+  height:12px;
+  border-radius:999px 999px 3px 3px;
+  background:linear-gradient(135deg, rgba(15,89,47,.72), rgba(22,163,74,.62));
+}
+
+.ev-hero-common-area::after{
+  content:"";
+  position:absolute;
+  left:26px;
+  bottom:0;
+  width:11px;
+  height:15px;
+  border-radius:4px 4px 0 0;
+  background:rgba(15,89,47,.20);
+}
+
+/* Casas */
 .ev-hero-house{
   position:absolute;
   bottom:16px;
@@ -291,26 +388,150 @@ body{
   background:rgba(15,89,47,.24);
 }
 
-.ev-hero-house-1{ left:34px; transform:scale(.92); }
-.ev-hero-house-2{ left:150px; bottom:18px; transform:scale(1.02); }
-.ev-hero-house-3{ right:28px; transform:scale(.86); }
+.ev-hero-house-1{
+  left:34px;
+  transform:scale(.92);
+}
 
-/* El contexto de comunidad ya vive en el sidebar. Esta clase se conserva
-   solo como blindaje por si queda cache antiguo en navegador. */
+.ev-hero-house-2{
+  left:150px;
+  bottom:18px;
+  transform:scale(1.02);
+}
+
+.ev-hero-house-3{
+  right:28px;
+  transform:scale(.86);
+}
+
+/* Acceso controlado para urbanización */
+.ev-hero-access{
+  display:none;
+  position:absolute;
+  right:25px;
+  bottom:16px;
+  width:78px;
+  height:50px;
+  border-radius:8px 8px 3px 3px;
+  border:1px solid rgba(15,89,47,.16);
+  background:linear-gradient(180deg, #FFFDF8, #EDF8EF);
+  box-shadow:0 10px 18px rgba(15,23,42,.07);
+}
+
+.ev-hero-access-roof{
+  position:absolute;
+  left:-5px;
+  right:-5px;
+  top:-12px;
+  height:15px;
+  border-radius:8px 8px 3px 3px;
+  background:linear-gradient(135deg, #0F592F, #16A34A);
+}
+
+.ev-hero-access-door{
+  position:absolute;
+  left:13px;
+  bottom:0;
+  width:15px;
+  height:26px;
+  border-radius:5px 5px 0 0;
+  background:rgba(15,89,47,.24);
+}
+
+.ev-hero-access-barrier{
+  position:absolute;
+  left:-34px;
+  bottom:15px;
+  width:40px;
+  height:4px;
+  border-radius:999px;
+  transform:rotate(-8deg);
+  transform-origin:right center;
+  background:linear-gradient(90deg, var(--ev-naranja), #F59E0B);
+  box-shadow:0 0 0 1px rgba(234,124,18,.12);
+}
+
+/* Variante urbanización */
+.ev-home-hero--urbanizacion .ev-hero-building,
+.ev-home-hero--urbanizacion .ev-hero-common-area{
+  display:none;
+}
+
+.ev-home-hero--urbanizacion .ev-hero-access{
+  display:block;
+}
+
+.ev-home-hero--urbanizacion .ev-hero-house-1{
+  left:22px;
+  transform:scale(.88);
+}
+
+.ev-home-hero--urbanizacion .ev-hero-house-2{
+  left:135px;
+  transform:scale(.96);
+}
+
+.ev-home-hero--urbanizacion .ev-hero-house-3{
+  left:252px;
+  right:auto;
+  transform:scale(.88);
+}
+
+.ev-home-hero--urbanizacion .ev-hero-tree-1{
+  left:116px;
+}
+
+.ev-home-hero--urbanizacion .ev-hero-tree-2{
+  right:112px;
+}
+
+/* Variante condominio */
+.ev-home-hero--condominio .ev-hero-house,
+.ev-home-hero--condominio .ev-hero-access{
+  display:none;
+}
+
+.ev-home-hero--condominio .ev-hero-building-1{
+  right:156px;
+  height:98px;
+  width:80px;
+}
+
+.ev-home-hero--condominio .ev-hero-building-2{
+  right:72px;
+  height:84px;
+  width:68px;
+  opacity:.82;
+}
+
+.ev-home-hero--condominio .ev-hero-building-3{
+  display:block;
+}
+
+.ev-home-hero--condominio .ev-hero-common-area{
+  display:block;
+}
+
+.ev-home-hero--condominio .ev-hero-tree-1{
+  left:auto;
+  right:246px;
+  height:44px;
+}
+
+.ev-home-hero--condominio .ev-hero-tree-2{
+  right:18px;
+  height:42px;
+}
+
+/* Contexto de comunidad vive en sidebar */
 .ev-home-hero-community,
 #evHomeCommunityHero{
   display:none !important;
 }
 
-.ev-home-summary-body span{
-  display:block;
-  color:var(--ev-gris-500);
-  font-size:.77rem;
-  font-weight:850;
-  line-height:1.2;
-}
-
-/* Summary cards */
+/* ================================
+   SUMMARY CARDS
+================================ */
 .ev-home-summary-grid{
   display:grid;
   grid-template-columns:repeat(4, minmax(180px, 1fr));
@@ -397,6 +618,14 @@ body{
   flex:1 1 auto;
 }
 
+.ev-home-summary-body span{
+  display:block;
+  color:var(--ev-gris-500);
+  font-size:.77rem;
+  font-weight:850;
+  line-height:1.2;
+}
+
 .ev-home-summary-body strong{
   display:block;
   margin:7px 0 4px;
@@ -407,8 +636,13 @@ body{
   letter-spacing:-.035em;
 }
 
-.ev-home-summary-orange .ev-home-summary-body strong{ color:var(--ev-naranja); }
-.ev-home-summary-purple .ev-home-summary-body strong{ color:var(--ev-morado); }
+.ev-home-summary-orange .ev-home-summary-body strong{
+  color:var(--ev-naranja);
+}
+
+.ev-home-summary-purple .ev-home-summary-body strong{
+  color:var(--ev-morado);
+}
 
 .ev-home-summary-body small{
   display:block;
@@ -434,8 +668,13 @@ body{
   transition:gap .16s ease, color .16s ease, transform .16s ease;
 }
 
-.ev-home-summary-orange .ev-home-link-btn{ color:var(--ev-naranja-oscuro); }
-.ev-home-summary-purple .ev-home-link-btn{ color:var(--ev-morado); }
+.ev-home-summary-orange .ev-home-link-btn{
+  color:var(--ev-naranja-oscuro);
+}
+
+.ev-home-summary-purple .ev-home-link-btn{
+  color:var(--ev-morado);
+}
 
 .ev-home-link-btn:hover,
 .ev-home-panel-action:hover,
@@ -445,7 +684,9 @@ body{
   transform:translateY(-1px);
 }
 
-/* Main grid */
+/* ================================
+   MAIN GRID
+================================ */
 .ev-home-main-grid{
   display:grid;
   grid-template-columns:minmax(0, 1.05fr) minmax(360px, .95fr);
@@ -498,7 +739,27 @@ body{
   white-space:nowrap;
 }
 
-/* Activity */
+.ev-home-panel-action--pending{
+  gap:7px;
+  padding:7px 12px;
+  border:1px solid rgba(148,163,184,.22);
+  border-radius:999px;
+  background:var(--ev-gris-050);
+  color:var(--ev-gris-500);
+  font-size:.76rem;
+}
+
+.ev-home-panel-action--pending:hover{
+  gap:7px;
+  color:var(--ev-naranja-oscuro);
+  background:#FFF7ED;
+  border-color:rgba(234,124,18,.22);
+  transform:none;
+}
+
+/* ================================
+   ACTIVITY
+================================ */
 .ev-home-activity-list{
   border:1px solid rgba(229,231,235,.86);
   border-radius:18px;
@@ -530,11 +791,29 @@ body{
   box-shadow:0 8px 16px rgba(15,23,42,.08);
 }
 
-.ev-home-activity-icon.is-verde{ background:linear-gradient(135deg,#16A34A,#0F8E48); }
-.ev-home-activity-icon.is-naranja{ background:linear-gradient(135deg,#EA7C12,#F59E0B); }
-.ev-home-activity-icon.is-morado{ background:linear-gradient(135deg,#9333EA,#A855F7); }
-.ev-home-activity-icon.is-azul{ background:linear-gradient(135deg,#2563EB,#38BDF8); }
-.ev-home-activity-icon.is-rojo{ background:linear-gradient(135deg,#DC2626,#EF4444); }
+.ev-home-activity-icon.is-verde{
+  background:linear-gradient(135deg,#16A34A,#0F8E48);
+}
+
+.ev-home-activity-icon.is-naranja{
+  background:linear-gradient(135deg,#EA7C12,#F59E0B);
+}
+
+.ev-home-activity-icon.is-morado{
+  background:linear-gradient(135deg,#9333EA,#A855F7);
+}
+
+.ev-home-activity-icon.is-azul{
+  background:linear-gradient(135deg,#2563EB,#38BDF8);
+}
+
+.ev-home-activity-icon.is-rojo{
+  background:linear-gradient(135deg,#DC2626,#EF4444);
+}
+
+.ev-home-activity-icon.is-gris{
+  background:linear-gradient(135deg,#9CA3AF,#6B7280);
+}
 
 .ev-home-activity-copy{
   min-width:0;
@@ -563,7 +842,9 @@ body{
   white-space:nowrap;
 }
 
-/* Actions */
+/* ================================
+   ACTIONS
+================================ */
 .ev-home-actions-grid{
   display:grid;
   grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -658,7 +939,82 @@ body{
   transform:translate(3px,-50%);
 }
 
-/* Community */
+/* Acción próxima fase */
+.ev-home-action-card--pending{
+  border-style:dashed;
+  border-color:rgba(148,163,184,.38);
+  background:linear-gradient(180deg, #FCFDFC 0%, #F9FAFB 100%);
+  box-shadow:none;
+}
+
+.ev-home-action-card--pending > span{
+  color:var(--ev-gris-500);
+  background:var(--ev-gris-100);
+  border-color:rgba(148,163,184,.24);
+}
+
+.ev-home-action-heading{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:6px;
+  min-width:0;
+}
+
+.ev-home-action-heading strong{
+  display:inline-block;
+}
+
+.ev-home-action-heading em{
+  display:inline-flex;
+  align-items:center;
+  border-radius:999px;
+  padding:3px 7px;
+  font-style:normal;
+  font-size:.62rem;
+  line-height:1;
+  font-weight:900;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  color:#92400E;
+  background:#FFF7ED;
+  border:1px solid rgba(234,124,18,.18);
+}
+
+.ev-home-action-card--pending .ev-home-action-chevron{
+  color:var(--ev-gris-400);
+}
+
+.ev-home-action-card--pending:hover,
+.ev-home-action-card--pending:focus-visible{
+  transform:none;
+  border-color:rgba(234,124,18,.28);
+  box-shadow:0 12px 26px rgba(15,23,42,.05);
+  background:linear-gradient(180deg, #FFFFFF 0%, #FFFDF9 100%);
+}
+
+.ev-home-action-card--pending:hover > span,
+.ev-home-action-card--pending:focus-visible > span{
+  transform:none;
+  color:var(--ev-naranja-oscuro);
+  background:#FFF7ED;
+  border-color:rgba(234,124,18,.18);
+}
+
+.ev-home-action-card--pending:hover strong,
+.ev-home-action-card--pending:focus-visible strong{
+  color:#182033;
+}
+
+.ev-home-action-card--pending:hover .ev-home-action-chevron,
+.ev-home-action-card--pending:focus-visible .ev-home-action-chevron{
+  color:var(--ev-naranja);
+  transform:translateY(-50%);
+}
+
+/* ================================
+   COMMUNITY
+================================ */
 .ev-home-community-panel,
 .ev-home-publications-panel{
   margin-top:14px;
@@ -712,7 +1068,9 @@ body{
   line-height:1.42;
 }
 
-/* Publications */
+/* ================================
+   PUBLICATIONS
+================================ */
 .ev-home-publications-grid{
   display:grid;
   grid-template-columns:repeat(5, minmax(160px, 1fr));
@@ -831,7 +1189,9 @@ body{
   background:linear-gradient(135deg,var(--ev-naranja),#F59E0B);
 }
 
-/* Skeleton + error */
+/* ================================
+   SKELETON + ERROR
+================================ */
 .ev-home-skeleton-line,
 .ev-home-skeleton-card{
   border-radius:16px;
@@ -850,8 +1210,12 @@ body{
 }
 
 @keyframes evHomeSkeleton{
-  0%{ background-position:200% 0; }
-  100%{ background-position:-200% 0; }
+  0%{
+    background-position:200% 0;
+  }
+  100%{
+    background-position:-200% 0;
+  }
 }
 
 .ev-home-error{
@@ -865,15 +1229,15 @@ body{
 }
 
 /* ================================
-   Responsive
+   RESPONSIVE
 ================================ */
-@media (max-width: 1399.98px){
+@media (max-width:1399.98px){
   .ev-home-publications-grid{
     grid-template-columns:repeat(4, minmax(160px, 1fr));
   }
 }
 
-@media (max-width: 1199.98px){
+@media (max-width:1199.98px){
   .ev-home-summary-grid{
     grid-template-columns:repeat(2, minmax(220px, 1fr));
   }
@@ -893,9 +1257,27 @@ body{
   .ev-home-hero-art{
     width:360px;
   }
+
+  .ev-home-hero--urbanizacion .ev-hero-house-3{
+    display:none;
+  }
+
+  .ev-home-hero--urbanizacion .ev-hero-house-1{
+    left:18px;
+  }
+
+  .ev-home-hero--urbanizacion .ev-hero-house-2{
+    left:124px;
+  }
+
+  .ev-home-hero--condominio .ev-hero-building-3{
+    right:224px;
+    transform:scale(.88);
+    transform-origin:bottom right;
+  }
 }
 
-@media (max-width: 991.98px){
+@media (max-width:991.98px){
   .ev-home-dashboard-v2{
     padding:14px 12px 24px;
   }
@@ -917,11 +1299,11 @@ body{
     width:min(100%, 440px);
     right:auto;
     left:0;
-    opacity:.68;
+    opacity:.72;
   }
 }
 
-@media (max-width: 767.98px){
+@media (max-width:767.98px){
   .ev-home-summary-grid{
     grid-template-columns:1fr;
   }
@@ -949,7 +1331,7 @@ body{
   }
 }
 
-@media (max-width: 575.98px){
+@media (max-width:575.98px){
   .ev-home-dashboard-v2{
     padding:10px 10px 22px;
   }
@@ -959,15 +1341,15 @@ body{
     border-radius:18px;
   }
 
+  .ev-home-hero{
+    min-height:0;
+  }
+
   .ev-home-hero h1{
     font-size:1.52rem;
   }
 
   .ev-home-hero-side{
-    min-height:0;
-  }
-
-  .ev-home-hero-art{
     display:none;
   }
 
@@ -985,12 +1367,26 @@ body{
     font-size:1.72rem;
   }
 
+  .ev-home-panel-head{
+    align-items:flex-start;
+  }
+
+  .ev-home-panel-action--pending{
+    padding:6px 10px;
+  }
+
   .ev-home-publications-grid{
     grid-template-columns:1fr;
   }
 
   .ev-home-publication-img{
     height:170px;
+  }
+
+  .ev-home-community-empty,
+  .ev-home-empty-state{
+    align-items:flex-start;
+    padding:14px;
   }
 }
 </style>

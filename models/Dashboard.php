@@ -104,12 +104,18 @@ final class Dashboard extends Conexion
                 ur.codigo_urbanizacion,
                 ur.direccion,
                 CASE
-                    WHEN ur.tipo_conjunto = 'urbanizacion' THEN COALESCE(u.nombre_urbanizacion, 'Urbanización')
-                    ELSE COALESCE(c.nombre_condominio, 'Condominio')
+                    WHEN LOWER(TRIM(ur.tipo_conjunto)) = 'urbanizacion'
+                        THEN COALESCE(u.nombre_urbanizacion, 'Urbanización')
+                    WHEN LOWER(TRIM(ur.tipo_conjunto)) = 'condominio'
+                        THEN COALESCE(c.nombre_condominio, 'Condominio')
+                    ELSE 'Tu comunidad'
                 END AS conjunto_nombre,
                 CASE
-                    WHEN ur.tipo_conjunto = 'urbanizacion' THEN COALESCE(u.direccion_urbanizacion, ur.direccion)
-                    ELSE COALESCE(c.direccion_condominio, ur.direccion)
+                    WHEN LOWER(TRIM(ur.tipo_conjunto)) = 'urbanizacion'
+                        THEN COALESCE(u.direccion_urbanizacion, ur.direccion)
+                    WHEN LOWER(TRIM(ur.tipo_conjunto)) = 'condominio'
+                        THEN COALESCE(c.direccion_condominio, ur.direccion)
+                    ELSE ur.direccion
                 END AS conjunto_direccion
             FROM usuario_residencia ur
             LEFT JOIN condominio c
@@ -127,19 +133,22 @@ final class Dashboard extends Conexion
             $st->execute();
 
             $row = $st->fetch(PDO::FETCH_ASSOC);
+
             if (!$row) {
-                return [
-                    'codigo_usuario_residencia' => 0,
-                    'tipo_conjunto' => '',
-                    'codigo_condominio' => 0,
-                    'codigo_urbanizacion' => 0,
-                    'conjunto_nombre' => 'Tu comunidad',
-                    'conjunto_label' => 'Comunidad actual',
-                    'direccion' => '',
-                ];
+                return $this->residenciaVacia();
             }
 
-            $tipo = (string)($row['tipo_conjunto'] ?? '');
+            $tipo = strtolower(trim((string)($row['tipo_conjunto'] ?? '')));
+
+            if (!in_array($tipo, ['urbanizacion', 'condominio'], true)) {
+                $tipo = '';
+            }
+
+            $label = match ($tipo) {
+                'urbanizacion' => 'Urbanización actual',
+                'condominio' => 'Condominio actual',
+                default => 'Comunidad actual',
+            };
 
             return [
                 'codigo_usuario_residencia' => (int)($row['codigo_usuario_residencia'] ?? 0),
@@ -147,22 +156,27 @@ final class Dashboard extends Conexion
                 'codigo_condominio' => (int)($row['codigo_condominio'] ?? 0),
                 'codigo_urbanizacion' => (int)($row['codigo_urbanizacion'] ?? 0),
                 'conjunto_nombre' => (string)($row['conjunto_nombre'] ?? 'Tu comunidad'),
-                'conjunto_label' => $tipo === 'urbanizacion' ? 'Urbanización actual' : 'Condominio actual',
+                'conjunto_label' => $label,
                 'direccion' => (string)($row['conjunto_direccion'] ?? $row['direccion'] ?? ''),
             ];
         } catch (Throwable $e) {
             error_log('[EV][Dashboard][obtenerResidenciaActual] ' . $e->getMessage());
 
-            return [
-                'codigo_usuario_residencia' => 0,
-                'tipo_conjunto' => '',
-                'codigo_condominio' => 0,
-                'codigo_urbanizacion' => 0,
-                'conjunto_nombre' => 'Tu comunidad',
-                'conjunto_label' => 'Comunidad actual',
-                'direccion' => '',
-            ];
+            return $this->residenciaVacia();
         }
+    }
+
+    private function residenciaVacia(): array
+    {
+        return [
+            'codigo_usuario_residencia' => 0,
+            'tipo_conjunto' => '',
+            'codigo_condominio' => 0,
+            'codigo_urbanizacion' => 0,
+            'conjunto_nombre' => 'Tu comunidad',
+            'conjunto_label' => 'Comunidad actual',
+            'direccion' => '',
+        ];
     }
 
     private function obtenerResumen(int $codigoUsuario): array
@@ -220,6 +234,7 @@ final class Dashboard extends Conexion
                   AND estado = 'pendiente'
                   AND fecha_limite < NOW()
             ";
+
             $up = $this->dblink->prepare($sql);
             $up->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
             $up->execute();
@@ -256,6 +271,7 @@ final class Dashboard extends Conexion
         $st->execute();
 
         $saldo = $st->fetchColumn();
+
         return round((float)($saldo !== false ? $saldo : 0), 2);
     }
 
@@ -297,8 +313,8 @@ final class Dashboard extends Conexion
             $out = [];
 
             foreach ($rows as $row) {
-                $categoria = strtolower((string)($row['categoria'] ?? ''));
-                $subcategoria = strtolower((string)($row['subcategoria'] ?? ''));
+                $categoria = strtolower(trim((string)($row['categoria'] ?? '')));
+                $subcategoria = strtolower(trim((string)($row['subcategoria'] ?? '')));
 
                 $out[] = [
                     'tipo' => $categoria !== '' ? $categoria : 'notificacion',
@@ -317,6 +333,7 @@ final class Dashboard extends Conexion
             return $out;
         } catch (Throwable $e) {
             error_log('[EV][Dashboard][obtenerActividadNotificaciones] ' . $e->getMessage());
+
             return [];
         }
     }
@@ -350,7 +367,7 @@ final class Dashboard extends Conexion
 
             foreach ($rows as $row) {
                 $esComprador = (int)($row['codigo_usuario_comprador'] ?? 0) === $codigoUsuario;
-                $estado = (string)($row['estado_pedido'] ?? '');
+                $estado = strtolower(trim((string)($row['estado_pedido'] ?? '')));
                 $titulo = (string)($row['titulo_publicacion'] ?? 'Pedido');
 
                 $out[] = [
@@ -362,21 +379,22 @@ final class Dashboard extends Conexion
                     'estado' => $estado,
                     'fecha' => (string)($row['fecha'] ?? ''),
                     'tiempo' => $this->tiempoRelativo((string)($row['fecha'] ?? '')),
-                    'icono' => $esComprador ? 'bi-bag-check' : 'bi-cart-check',
-                    'color' => $esComprador ? 'verde' : 'naranja',
+                    'icono' => $this->iconoActividadPedido($estado, $esComprador),
+                    'color' => $this->colorActividadPedido($estado),
                 ];
             }
 
             return $out;
         } catch (Throwable $e) {
             error_log('[EV][Dashboard][obtenerActividadPedidos] ' . $e->getMessage());
+
             return [];
         }
     }
 
     private function obtenerPublicacionesRecientes(int $codigoUsuario, array $residencia): array
     {
-        $tipoConjunto = (string)($residencia['tipo_conjunto'] ?? '');
+        $tipoConjunto = strtolower(trim((string)($residencia['tipo_conjunto'] ?? '')));
         $codigoCondominio = (int)($residencia['codigo_condominio'] ?? 0);
         $codigoUrbanizacion = (int)($residencia['codigo_urbanizacion'] ?? 0);
 
@@ -396,7 +414,9 @@ final class Dashboard extends Conexion
             ? "p.tipo_conjunto_publicacion = 'urbanizacion' AND p.codigo_urbanizacion_publicacion = :codigo_conjunto"
             : "p.tipo_conjunto_publicacion = 'condominio' AND p.codigo_condominio_publicacion = :codigo_conjunto";
 
-        $codigoConjunto = $tipoConjunto === 'urbanizacion' ? $codigoUrbanizacion : $codigoCondominio;
+        $codigoConjunto = $tipoConjunto === 'urbanizacion'
+            ? $codigoUrbanizacion
+            : $codigoCondominio;
 
         $sql = "
             SELECT
@@ -466,13 +486,16 @@ final class Dashboard extends Conexion
                     'nombre_vendedor' => (string)($row['nombre_vendedor'] ?? 'Vecino'),
                     'reputacion_promedio' => $promedio,
                     'reputacion_total' => $total,
-                    'reputacion_texto' => $total >= 5 ? number_format($promedio, 1) . ' (' . $total . ')' : 'Nuevo vendedor',
+                    'reputacion_texto' => $total >= 5
+                        ? number_format($promedio, 1) . ' (' . $total . ')'
+                        : 'Nuevo vendedor',
                 ];
             }
 
             return $out;
         } catch (Throwable $e) {
             error_log('[EV][Dashboard][obtenerPublicacionesRecientes] ' . $e->getMessage());
+
             return [];
         }
     }
@@ -495,7 +518,10 @@ final class Dashboard extends Conexion
     private function tituloActividadPedido(string $estado, bool $esComprador): string
     {
         return match ($estado) {
-            'pendiente_vendedor' => $esComprador ? 'Solicitud enviada' : 'Nueva solicitud recibida',
+            'pendiente_vendedor' => $esComprador
+                ? 'Solicitud enviada'
+                : 'Nueva solicitud recibida',
+
             'cola_aceptada' => 'Solicitud en cola',
             'en_preparacion' => 'Pedido en preparación',
             'listo_para_entrega' => 'Pedido listo para entrega',
@@ -504,15 +530,114 @@ final class Dashboard extends Conexion
             'en_punto_entrega' => 'Pedido en punto de entrega',
             'entregado_vendedor' => 'Pedido entregado por vendedor',
             'entrega_confirmada_comprador' => 'Pedido finalizado',
-            'rechazado_vendedor' => 'Solicitud rechazada',
-            'sin_respuesta_vendedor' => 'Solicitud sin respuesta',
-            'cancelado_comprador', 'cancelado_vendedor', 'cancelado_sistema', 'cancelado_soporte' => 'Pedido cancelado',
+
+            'rechazado_vendedor' => $esComprador
+                ? 'Solicitud rechazada por vendedor'
+                : 'Solicitud rechazada',
+
+            'sin_respuesta_vendedor' => $esComprador
+                ? 'Solicitud sin respuesta del vendedor'
+                : 'Solicitud vencida sin respuesta',
+
+            'cancelado_comprador' => $esComprador
+                ? 'Cancelaste el pedido'
+                : 'Pedido cancelado por comprador',
+
+            'cancelado_vendedor' => $esComprador
+                ? 'Pedido cancelado por vendedor'
+                : 'Cancelaste el pedido',
+
+            'cancelado_sistema' => 'Pedido cancelado automáticamente',
+            'cancelado_soporte' => 'Pedido cancelado por soporte',
+            'cancelado' => 'Pedido cancelado',
+
             default => 'Movimiento de pedido',
+        };
+    }
+
+    private function iconoActividadPedido(string $estado, bool $esComprador): string
+    {
+        return match ($estado) {
+            'pendiente_vendedor' => $esComprador ? 'bi-send-check' : 'bi-cart-plus',
+            'cola_aceptada' => 'bi-hourglass-split',
+            'en_preparacion' => 'bi-box-seam',
+            'listo_para_entrega' => 'bi-bag-check',
+            'despachando', 'en_camino' => 'bi-truck',
+            'en_punto_entrega' => 'bi-geo-alt',
+            'entregado_vendedor', 'entrega_confirmada_comprador' => 'bi-check-circle',
+            'rechazado_vendedor' => 'bi-x-octagon',
+            'sin_respuesta_vendedor' => 'bi-clock-history',
+            'cancelado_comprador',
+            'cancelado_vendedor',
+            'cancelado_sistema',
+            'cancelado_soporte',
+            'cancelado' => 'bi-x-circle',
+            default => $esComprador ? 'bi-bag-check' : 'bi-cart-check',
+        };
+    }
+
+    private function colorActividadPedido(string $estado): string
+    {
+        return match ($estado) {
+            'pendiente_vendedor',
+            'cola_aceptada',
+            'sin_respuesta_vendedor' => 'naranja',
+
+            'en_preparacion',
+            'listo_para_entrega',
+            'despachando',
+            'en_camino',
+            'en_punto_entrega' => 'azul',
+
+            'entregado_vendedor',
+            'entrega_confirmada_comprador' => 'verde',
+
+            'rechazado_vendedor' => 'rojo',
+
+            'cancelado_comprador',
+            'cancelado_vendedor',
+            'cancelado_sistema',
+            'cancelado_soporte',
+            'cancelado' => 'gris',
+
+            default => 'verde',
         };
     }
 
     private function iconoActividad(string $categoria, string $subcategoria): string
     {
+        $clave = strtolower(trim($categoria . ' ' . $subcategoria));
+
+        if (str_contains($clave, 'cancelado') || str_contains($clave, 'cancelacion')) {
+            return 'bi-x-circle';
+        }
+
+        if (str_contains($clave, 'rechazado') || str_contains($clave, 'rechazo')) {
+            return 'bi-x-octagon';
+        }
+
+        if (str_contains($clave, 'sin_respuesta')) {
+            return 'bi-clock-history';
+        }
+
+        if (
+            str_contains($clave, 'entrega_confirmada') ||
+            str_contains($clave, 'entregado')
+        ) {
+            return 'bi-check-circle';
+        }
+
+        if (
+            str_contains($clave, 'en_camino') ||
+            str_contains($clave, 'despachando')
+        ) {
+            return 'bi-truck';
+        }
+
+        if (str_contains($clave, 'en_punto_entrega')) {
+            return 'bi-geo-alt';
+        }
+
         if ($categoria === 'pedido') {
             return 'bi-bag-check';
         }
@@ -534,6 +659,37 @@ final class Dashboard extends Conexion
 
     private function colorActividad(string $categoria, string $subcategoria): string
     {
+        $clave = strtolower(trim($categoria . ' ' . $subcategoria));
+
+        if (str_contains($clave, 'cancelado') || str_contains($clave, 'cancelacion')) {
+            return 'gris';
+        }
+
+        if (str_contains($clave, 'rechazado') || str_contains($clave, 'rechazo')) {
+            return 'rojo';
+        }
+
+        if (str_contains($clave, 'sin_respuesta')) {
+            return 'naranja';
+        }
+
+        if (
+            str_contains($clave, 'entrega_confirmada') ||
+            str_contains($clave, 'entregado')
+        ) {
+            return 'verde';
+        }
+
+        if (
+            str_contains($clave, 'en_preparacion') ||
+            str_contains($clave, 'listo_para_entrega') ||
+            str_contains($clave, 'despachando') ||
+            str_contains($clave, 'en_camino') ||
+            str_contains($clave, 'en_punto_entrega')
+        ) {
+            return 'azul';
+        }
+
         if ($categoria === 'calificacion') {
             return 'morado';
         }
@@ -564,16 +720,19 @@ final class Dashboard extends Conexion
         }
 
         $min = (int)floor($diff / 60);
+
         if ($min < 60) {
             return 'Hace ' . $min . ' min';
         }
 
         $horas = (int)floor($min / 60);
+
         if ($horas < 24) {
             return 'Hace ' . $horas . ' h';
         }
 
         $dias = (int)floor($horas / 24);
+
         if ($dias < 30) {
             return 'Hace ' . $dias . ' día' . ($dias === 1 ? '' : 's');
         }

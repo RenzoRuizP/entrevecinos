@@ -8,38 +8,78 @@ if (!defined('BASE_URL')) {
 
 $baseUrl = rtrim(BASE_URL, '/');
 
-$nombreUsuarioSafe = 'Vecino(a)';
-if (isset($nombreUsuario) && trim((string)$nombreUsuario) !== '') {
-  // En MenuPrincipalView.php ya llega escapado.
-  $nombreUsuarioSafe = (string)$nombreUsuario;
-} elseif (isset($usuario) && is_array($usuario) && trim((string)($usuario['nombre'] ?? '')) !== '') {
-  $nombreUsuarioSafe = htmlspecialchars((string)$usuario['nombre'], ENT_QUOTES, 'UTF-8');
+/**
+ * El dashboard usa solamente el primer nombre en el hero.
+ * El nombre completo continúa disponible en topbar, perfil y demás vistas.
+ */
+$nombreCompletoRaw = 'Vecino(a)';
+
+if (isset($usuario) && is_array($usuario) && trim((string)($usuario['nombre'] ?? '')) !== '') {
+  $nombreCompletoRaw = trim((string)$usuario['nombre']);
+} elseif (isset($nombreUsuario) && trim((string)$nombreUsuario) !== '') {
+  $nombreCompletoRaw = trim(html_entity_decode((string)$nombreUsuario, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
 }
+
+$partesNombre = preg_split('/\s+/u', $nombreCompletoRaw) ?: [];
+$nombreSaludoRaw = trim((string)($partesNombre[0] ?? 'Vecino(a)'));
+
+if ($nombreSaludoRaw === '') {
+  $nombreSaludoRaw = 'Vecino(a)';
+}
+
+$nombreSaludoSafe = htmlspecialchars($nombreSaludoRaw, ENT_QUOTES, 'UTF-8');
 ?>
 
 <div class="container-fluid ev-home-dashboard ev-home-dashboard-v2 fade-in" id="evHomeDashboardV2">
 
   <!-- HERO -->
-  <section class="ev-home-hero" aria-label="Resumen principal de Entre Vecinos">
+  <section
+    class="ev-home-hero ev-home-hero--generico"
+    id="evHomeHero"
+    data-community-type="generico"
+    aria-label="Resumen principal de Entre Vecinos"
+  >
     <div class="ev-home-hero-copy">
       <div class="ev-home-kicker">Panel principal</div>
-      <h1>Hola, <?= $nombreUsuarioSafe ?> <span aria-hidden="true">👋</span></h1>
+
+      <h1>
+        Hola, <span id="evDashSaludoNombre"><?= $nombreSaludoSafe ?></span>
+        <span aria-hidden="true">👋</span>
+      </h1>
+
       <p>
-        Este es tu resumen en Entre Vecinos. Revisa tus compras, ventas, calificaciones y novedades de tu comunidad.
+        Este es tu resumen en Entre Vecinos. Revisa tus compras, ventas,
+        calificaciones y novedades de tu comunidad.
       </p>
     </div>
 
     <div class="ev-home-hero-side" aria-hidden="true">
       <div class="ev-home-hero-art">
+
         <span class="ev-hero-cloud ev-hero-cloud-1"></span>
         <span class="ev-hero-cloud ev-hero-cloud-2"></span>
+
         <span class="ev-hero-tree ev-hero-tree-1"></span>
         <span class="ev-hero-tree ev-hero-tree-2"></span>
+
+        <!-- Variante condominio / genérica -->
         <span class="ev-hero-building ev-hero-building-1"></span>
         <span class="ev-hero-building ev-hero-building-2"></span>
+        <span class="ev-hero-building ev-hero-building-3"></span>
+        <span class="ev-hero-common-area"></span>
+
+        <!-- Variante urbanización / genérica -->
         <span class="ev-hero-house ev-hero-house-1"><i></i></span>
         <span class="ev-hero-house ev-hero-house-2"><i></i></span>
         <span class="ev-hero-house ev-hero-house-3"><i></i></span>
+
+        <!-- Solo urbanización -->
+        <span class="ev-hero-access">
+          <i class="ev-hero-access-roof"></i>
+          <i class="ev-hero-access-door"></i>
+          <i class="ev-hero-access-barrier"></i>
+        </span>
+
         <span class="ev-hero-ground"></span>
       </div>
     </div>
@@ -47,12 +87,17 @@ if (isset($nombreUsuario) && trim((string)$nombreUsuario) !== '') {
 
   <!-- RESUMEN -->
   <section class="ev-home-summary-grid" aria-label="Resumen operativo">
+
     <article class="ev-home-summary-card ev-home-summary-green">
-      <div class="ev-home-summary-icon"><i class="bi bi-bag-check"></i></div>
+      <div class="ev-home-summary-icon">
+        <i class="bi bi-bag-check"></i>
+      </div>
+
       <div class="ev-home-summary-body">
         <span>Compras activas</span>
         <strong id="evDashComprasActivas">0</strong>
         <small id="evDashComprasTexto">Pedidos en proceso</small>
+
         <button type="button" class="ev-home-link-btn" data-ev-route="/mis-pedidos-comprador">
           Ver mis compras <i class="bi bi-chevron-right"></i>
         </button>
@@ -60,11 +105,15 @@ if (isset($nombreUsuario) && trim((string)$nombreUsuario) !== '') {
     </article>
 
     <article class="ev-home-summary-card ev-home-summary-orange">
-      <div class="ev-home-summary-icon"><i class="bi bi-box-seam"></i></div>
+      <div class="ev-home-summary-icon">
+        <i class="bi bi-box-seam"></i>
+      </div>
+
       <div class="ev-home-summary-body">
         <span>Ventas pendientes</span>
         <strong id="evDashVentasPendientes">0</strong>
         <small id="evDashVentasTexto">Pedidos por atender</small>
+
         <button type="button" class="ev-home-link-btn" data-ev-route="/mis-pedidos-vendedor">
           Ver mis ventas <i class="bi bi-chevron-right"></i>
         </button>
@@ -72,11 +121,15 @@ if (isset($nombreUsuario) && trim((string)$nombreUsuario) !== '') {
     </article>
 
     <article class="ev-home-summary-card ev-home-summary-purple">
-      <div class="ev-home-summary-icon"><i class="bi bi-star"></i></div>
+      <div class="ev-home-summary-icon">
+        <i class="bi bi-star"></i>
+      </div>
+
       <div class="ev-home-summary-body">
         <span>Calificaciones pendientes</span>
         <strong id="evDashCalificacionesPendientes">0</strong>
         <small id="evDashCalificacionesTexto">Opiniones por registrar</small>
+
         <button type="button" class="ev-home-link-btn" data-ev-route="/mis-pedidos-comprador">
           Calificar ahora <i class="bi bi-chevron-right"></i>
         </button>
@@ -84,11 +137,15 @@ if (isset($nombreUsuario) && trim((string)$nombreUsuario) !== '') {
     </article>
 
     <article class="ev-home-summary-card ev-home-summary-wallet">
-      <div class="ev-home-summary-icon"><i class="bi bi-wallet2"></i></div>
+      <div class="ev-home-summary-icon">
+        <i class="bi bi-wallet2"></i>
+      </div>
+
       <div class="ev-home-summary-body">
         <span>Saldo en EV</span>
         <strong id="evDashSaldoBilletera">S/ 0.00</strong>
         <small>Disponible en tu billetera</small>
+
         <button type="button" class="ev-home-link-btn" data-ev-route="/billetera">
           Ver billetera <i class="bi bi-chevron-right"></i>
         </button>
@@ -105,6 +162,7 @@ if (isset($nombreUsuario) && trim((string)$nombreUsuario) !== '') {
           <i class="bi bi-clock-history"></i>
           <h2>Actividad reciente</h2>
         </div>
+
         <button type="button" class="ev-home-panel-action" data-ev-route="/notificaciones-residencia">
           Ver todas <i class="bi bi-chevron-right"></i>
         </button>
@@ -127,6 +185,7 @@ if (isset($nombreUsuario) && trim((string)$nombreUsuario) !== '') {
       </header>
 
       <div class="ev-home-actions-grid">
+
         <button type="button" class="ev-home-action-card" data-ev-route="/marketplace">
           <span><i class="bi bi-cart3"></i></span>
           <strong>Ir al Marketplace</strong>
@@ -162,12 +221,23 @@ if (isset($nombreUsuario) && trim((string)$nombreUsuario) !== '') {
           <i class="bi bi-chevron-right ev-home-action-chevron"></i>
         </button>
 
-        <button type="button" class="ev-home-action-card" data-ev-action="comunidad-proximamente">
+        <button
+          type="button"
+          class="ev-home-action-card ev-home-action-card--pending"
+          data-ev-action="comunidad-proximamente"
+          aria-label="Comunidad, módulo disponible próximamente"
+        >
           <span><i class="bi bi-people"></i></span>
-          <strong>Comunidad</strong>
-          <small>Noticias y eventos</small>
-          <i class="bi bi-chevron-right ev-home-action-chevron"></i>
+
+          <div class="ev-home-action-heading">
+            <strong>Comunidad</strong>
+            <em>Próximamente</em>
+          </div>
+
+          <small>Comunicados, eventos y noticias</small>
+          <i class="bi bi-info-circle ev-home-action-chevron"></i>
         </button>
+
       </div>
     </article>
   </section>
@@ -179,17 +249,30 @@ if (isset($nombreUsuario) && trim((string)$nombreUsuario) !== '') {
         <i class="bi bi-megaphone"></i>
         <h2>Novedades de tu comunidad</h2>
       </div>
-      <button type="button" class="ev-home-panel-action" data-ev-action="comunidad-proximamente">
-        Ver más <i class="bi bi-chevron-right"></i>
+
+      <button
+        type="button"
+        class="ev-home-panel-action ev-home-panel-action--pending"
+        data-ev-action="comunidad-proximamente"
+        aria-label="Módulo Comunidad disponible próximamente"
+      >
+        <i class="bi bi-hourglass-split"></i>
+        Próximamente
       </button>
     </header>
 
     <div id="evDashComunidadLista" class="ev-home-community-strip">
       <article class="ev-home-community-empty">
-        <div class="ev-home-empty-icon"><i class="bi bi-newspaper"></i></div>
+        <div class="ev-home-empty-icon">
+          <i class="bi bi-newspaper"></i>
+        </div>
+
         <div>
           <strong>Módulo Comunidad en preparación</strong>
-          <p>En la siguiente fase aquí verás comunicados, eventos y noticias de tu condominio o urbanización.</p>
+          <p>
+            En la siguiente fase aquí verás comunicados, eventos y noticias
+            de tu condominio o urbanización.
+          </p>
         </div>
       </article>
     </div>
@@ -202,6 +285,7 @@ if (isset($nombreUsuario) && trim((string)$nombreUsuario) !== '') {
         <i class="bi bi-tags"></i>
         <h2>Publicaciones recientes</h2>
       </div>
+
       <button type="button" class="ev-home-panel-action" data-ev-route="/marketplace">
         Ver todas <i class="bi bi-chevron-right"></i>
       </button>

@@ -1,6 +1,10 @@
 // views/js/menuPrincipalContenido.js
 // Dashboard principal del vecino - Entre Vecinos
-// Versión validada: no duplica ni pisa el footer del sidebar.
+// Versión final premium:
+// - Hero dinámico por tipo de comunidad.
+// - Sidebar sincronizado con residencia real.
+// - Comunidad comunicada como próxima fase.
+// - Renderizado seguro de métricas, actividad y publicaciones.
 (function () {
   'use strict';
 
@@ -28,6 +32,7 @@
 
   function money(value) {
     const n = Number(value || 0);
+
     return `S/ ${n.toLocaleString('es-PE', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
@@ -41,8 +46,45 @@
 
   function truncar(value, max = 92) {
     const txt = String(value || '').replace(/\s+/g, ' ').trim();
-    if (txt.length <= max) return txt;
+
+    if (txt.length <= max) {
+      return txt;
+    }
+
     return `${txt.slice(0, max - 3).trim()}...`;
+  }
+
+  function normalizarTextoSeguro(value, fallback = '') {
+    const txt = String(value ?? '').replace(/\s+/g, ' ').trim();
+    return txt || fallback;
+  }
+
+  function primerNombre(value, fallback = 'Vecino(a)') {
+    const nombre = normalizarTextoSeguro(value, fallback);
+    const partes = nombre.split(/\s+/).filter(Boolean);
+    return partes[0] || fallback;
+  }
+
+  function tipoComunidadSeguro(value) {
+    const tipo = String(value || '').trim().toLowerCase();
+
+    if (tipo === 'urbanizacion' || tipo === 'condominio') {
+      return tipo;
+    }
+
+    return 'generico';
+  }
+
+  function iconoComunidad(tipo) {
+    if (tipo === 'urbanizacion') {
+      return 'bi bi-houses';
+    }
+
+    if (tipo === 'condominio') {
+      return 'bi bi-buildings';
+    }
+
+    return 'bi bi-house-heart';
   }
 
   async function fetchJson(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
@@ -71,15 +113,22 @@
 
   async function navegar(route) {
     const ruta = String(route || '').trim();
-    if (!ruta) return;
+
+    if (!ruta) {
+      return;
+    }
 
     if (window.EVNav && typeof window.EVNav.loadPage === 'function') {
-      await window.EVNav.loadPage(ruta, { pushState: true, replaceState: false });
+      await window.EVNav.loadPage(ruta, {
+        pushState: true,
+        replaceState: false
+      });
       return;
     }
 
     const link = Array.from(document.querySelectorAll('.submenu-link[data-vista]'))
       .find((el) => String(el.getAttribute('data-vista') || '').trim() === ruta);
+
     if (link) {
       link.click();
       return;
@@ -92,19 +141,23 @@
     if (window.Swal?.fire) {
       await Swal.fire({
         icon: 'info',
-        title: 'Comunidad estará en la siguiente fase',
-        text: 'Aquí se mostrarán comunicados, eventos y noticias de tu condominio o urbanización.',
+        title: 'Comunidad estará disponible próximamente',
+        text: 'En la siguiente fase aquí encontrarás comunicados, eventos y noticias de tu condominio o urbanización.',
+        confirmButtonText: 'Entendido',
         confirmButtonColor: '#EA7C12'
       });
       return;
     }
 
-    alert('Comunidad estará en la siguiente fase.');
+    alert('Comunidad estará disponible próximamente.');
   }
 
   function bindNavegacion(root) {
     qsa('[data-ev-route]', root).forEach((btn) => {
-      if (btn.dataset.evBound === '1') return;
+      if (btn.dataset.evBound === '1') {
+        return;
+      }
+
       btn.dataset.evBound = '1';
 
       btn.addEventListener('click', async (e) => {
@@ -114,7 +167,10 @@
     });
 
     qsa('[data-ev-action="comunidad-proximamente"]', root).forEach((btn) => {
-      if (btn.dataset.evBound === '1') return;
+      if (btn.dataset.evBound === '1') {
+        return;
+      }
+
       btn.dataset.evBound = '1';
 
       btn.addEventListener('click', async (e) => {
@@ -124,18 +180,26 @@
     });
   }
 
-  function normalizarTextoSeguro(value, fallback = '') {
-    const txt = String(value ?? '').replace(/\s+/g, ' ').trim();
-    return txt || fallback;
-  }
-
   function construirNombreComunidadSidebar(label, nombre) {
-    const labelBase = normalizarTextoSeguro(label, 'Comunidad').replace(/\s+actual$/i, '').trim();
+    const labelBase = normalizarTextoSeguro(label, 'Comunidad')
+      .replace(/\s+actual$/i, '')
+      .trim();
+
     const nombreBase = normalizarTextoSeguro(nombre, '');
 
-    if (!nombreBase) return '';
+    if (!nombreBase) {
+      return '';
+    }
 
-    if (!labelBase || labelBase.toLowerCase() === 'tu comunidad') {
+    if (nombreBase.toLocaleLowerCase('es-PE') === 'tu comunidad') {
+      return 'Tu comunidad';
+    }
+
+    if (
+      !labelBase ||
+      labelBase.toLocaleLowerCase('es-PE') === 'comunidad' ||
+      labelBase.toLocaleLowerCase('es-PE') === 'tu comunidad'
+    ) {
       return nombreBase;
     }
 
@@ -151,9 +215,15 @@
 
   function removerDuplicadosSidebar() {
     const sidebar = document.getElementById('sidebar');
-    if (!sidebar) return;
 
-    const footers = Array.from(sidebar.querySelectorAll('.ev-sidebar-footer, .ev-sidebar-home-extras'));
+    if (!sidebar) {
+      return;
+    }
+
+    const footers = Array.from(
+      sidebar.querySelectorAll('.ev-sidebar-footer, .ev-sidebar-home-extras')
+    );
+
     const principal = document.getElementById('evSidebarHomeExtras') || footers[0] || null;
 
     footers.forEach((el) => {
@@ -163,7 +233,10 @@
     });
 
     const cards = Array.from(sidebar.querySelectorAll('.ev-sidebar-community-card'));
-    const cardPrincipal = principal ? principal.querySelector('.ev-sidebar-community-card') : cards[0] || null;
+    const cardPrincipal = principal
+      ? principal.querySelector('.ev-sidebar-community-card')
+      : cards[0] || null;
+
     cards.forEach((card) => {
       if (cardPrincipal && card !== cardPrincipal) {
         card.remove();
@@ -172,14 +245,20 @@
   }
 
   function asegurarEventosFooterSidebar(extra) {
-    if (!extra || extra.dataset.evSidebarFooterBound === '1') return;
+    if (!extra || extra.dataset.evSidebarFooterBound === '1') {
+      return;
+    }
+
     extra.dataset.evSidebarFooterBound = '1';
 
     const btnAyuda = extra.querySelector('#btnEvAyudaSidebar, [data-ev-extra-route="/ayuda"]');
+
     if (btnAyuda && btnAyuda.dataset.evBound !== '1') {
       btnAyuda.dataset.evBound = '1';
+
       btnAyuda.addEventListener('click', async (e) => {
         e.preventDefault();
+
         if (window.Swal?.fire) {
           await Swal.fire({
             icon: 'info',
@@ -189,68 +268,154 @@
           });
           return;
         }
+
         alert('La vista de ayuda y reglas de uso se implementará en una próxima fase.');
       });
     }
   }
 
+  function actualizarTipoSidebar(extra, residencia = {}) {
+    if (!extra) {
+      return;
+    }
+
+    const tipo = tipoComunidadSeguro(residencia.tipo_conjunto);
+    const card = extra.querySelector('.ev-sidebar-community-card');
+    const icon = extra.querySelector('#evSidebarCommunityIcon, .ev-sidebar-community-icon i');
+
+    if (card) {
+      card.dataset.communityType = tipo;
+    }
+
+    if (icon) {
+      icon.className = iconoComunidad(tipo);
+    }
+  }
+
   function inyectarSidebarExtras(data = {}) {
     const sidebar = document.getElementById('sidebar');
-    if (!sidebar) return;
+
+    if (!sidebar) {
+      return;
+    }
 
     removerDuplicadosSidebar();
 
-    let extra = document.getElementById('evSidebarHomeExtras') || sidebar.querySelector('.ev-sidebar-footer');
+    let extra = document.getElementById('evSidebarHomeExtras') ||
+      sidebar.querySelector('.ev-sidebar-footer');
 
-    // Fallback defensivo: solo se usa si la vista antigua no trae footer.
+    /*
+     * Fallback defensivo: solo opera si una versión antigua del sidebar
+     * todavía no trae el footer definitivo.
+     */
     if (!extra) {
       extra = document.createElement('div');
       extra.id = 'evSidebarHomeExtras';
       extra.className = 'ev-sidebar-footer';
       extra.setAttribute('aria-label', 'Accesos secundarios');
+
       extra.innerHTML = `
         <button type="button" class="ev-sidebar-footer-link" id="btnEvAyudaSidebar">
           <i class="bi bi-question-circle"></i>
           <span>Ayuda</span>
         </button>
 
-        <button type="button" class="ev-sidebar-footer-link ev-sidebar-footer-link-logout" onclick="window.location.href='${BASE}/logout'">
+        <button type="button"
+                class="ev-sidebar-footer-link ev-sidebar-footer-link-logout"
+                onclick="window.location.href='${BASE}/logout'">
           <i class="bi bi-box-arrow-right"></i>
           <span>Cerrar sesión</span>
         </button>
 
-        <article class="ev-sidebar-community-card" aria-label="Comunidad actual">
+        <article class="ev-sidebar-community-card"
+                 data-community-type="generico"
+                 aria-label="Comunidad actual">
           <div class="ev-sidebar-community-icon" aria-hidden="true">
-            <i class="bi bi-buildings"></i>
+            <i class="bi bi-house-heart" id="evSidebarCommunityIcon"></i>
           </div>
+
           <div class="ev-sidebar-community-label">Tu comunidad</div>
-          <div class="ev-sidebar-community-name" id="evSidebarCommunityName">Tu comunidad</div>
-          <a href="${BASE}/mi-perfil" data-vista="/mi-perfil" class="ev-sidebar-community-btn">Cambiar comunidad</a>
+
+          <div class="ev-sidebar-community-name" id="evSidebarCommunityName">
+            Tu comunidad
+          </div>
+
+          <a href="${BASE}/mi-perfil"
+             data-vista="/mi-perfil"
+             class="ev-sidebar-community-btn">
+            Cambiar comunidad
+          </a>
         </article>
       `;
+
       sidebar.appendChild(extra);
     }
 
     asegurarEventosFooterSidebar(extra);
 
     const residencia = data.residencia || null;
-    if (!residencia || typeof residencia !== 'object') return;
 
-    const label = normalizarTextoSeguro(residencia.conjunto_label, 'Tu comunidad');
+    if (!residencia || typeof residencia !== 'object') {
+      return;
+    }
+
+    actualizarTipoSidebar(extra, residencia);
+
+    const label = normalizarTextoSeguro(residencia.conjunto_label, 'Comunidad actual');
     const nombre = normalizarTextoSeguro(residencia.conjunto_nombre, '');
     const nombreFinal = construirNombreComunidadSidebar(label, nombre);
 
-    // Importante: no pisar el nombre renderizado por PHP con textos genéricos
-    // cuando aún no llegó la data del endpoint.
     if (nombreFinal) {
-      const communityName = extra.querySelector('#evSidebarCommunityName, .ev-sidebar-community-name');
-      if (communityName) communityName.textContent = nombreFinal;
+      const communityName = extra.querySelector(
+        '#evSidebarCommunityName, .ev-sidebar-community-name'
+      );
+
+      if (communityName) {
+        communityName.textContent = nombreFinal;
+      }
+    }
+  }
+
+  function aplicarHeroPorComunidad(root, residencia = {}) {
+    const hero = qs('#evHomeHero', root) || qs('.ev-home-hero', root);
+
+    if (!hero) {
+      return;
+    }
+
+    const tipo = tipoComunidadSeguro(residencia.tipo_conjunto);
+
+    hero.classList.remove(
+      'ev-home-hero--urbanizacion',
+      'ev-home-hero--condominio',
+      'ev-home-hero--generico'
+    );
+
+    hero.classList.add(`ev-home-hero--${tipo}`);
+    hero.dataset.communityType = tipo;
+  }
+
+  function actualizarSaludo(root, usuario = {}) {
+    const saludo = qs('#evDashSaludoNombre', root);
+
+    if (!saludo) {
+      return;
+    }
+
+    const nombre = primerNombre(usuario.nombre || '', '');
+
+    if (nombre) {
+      saludo.textContent = nombre;
     }
   }
 
   function colorClass(color) {
     const value = String(color || '').trim().toLowerCase();
-    if (['verde', 'naranja', 'morado', 'azul', 'rojo'].includes(value)) return value;
+
+    if (['verde', 'naranja', 'morado', 'azul', 'rojo', 'gris'].includes(value)) {
+      return value;
+    }
+
     return 'verde';
   }
 
@@ -260,7 +425,10 @@
     if (!lista.length) {
       return `
         <div class="ev-home-empty-state">
-          <div class="ev-home-empty-icon"><i class="bi bi-clock-history"></i></div>
+          <div class="ev-home-empty-icon">
+            <i class="bi bi-clock-history"></i>
+          </div>
+
           <div>
             <strong>Aún no hay actividad reciente</strong>
             <p>Cuando compres, vendas o recibas notificaciones, aparecerán aquí.</p>
@@ -281,10 +449,12 @@
           <div class="ev-home-activity-icon is-${color}">
             <i class="bi ${escapeHtml(icono)}"></i>
           </div>
+
           <div class="ev-home-activity-copy">
             <strong>${escapeHtml(titulo)}</strong>
             <p>${escapeHtml(truncar(detalle, 110))}</p>
           </div>
+
           <time>${escapeHtml(tiempo)}</time>
         </article>
       `;
@@ -293,9 +463,24 @@
 
   function imageUrl(value) {
     const path = String(value || '').trim();
-    if (!path) return `${BASE}/resources/images/no-image-ev.png`;
-    if (/^https?:\/\//i.test(path)) return path;
-    if (path.startsWith('/')) return `${BASE}${path}`;
+
+    if (!path) {
+      return `${BASE}/resources/images/no-image-ev.png`;
+    }
+
+    if (/^https?:\/\//i.test(path)) {
+      return path;
+    }
+
+    /*
+     * El API ya puede retornar rutas absolutas respecto al host,
+     * por ejemplo /entrevecinos/resources/...
+     * No deben volver a concatenarse con BASE.
+     */
+    if (path.startsWith('/')) {
+      return path;
+    }
+
     return `${BASE}/${path}`;
   }
 
@@ -305,11 +490,17 @@
     if (!lista.length) {
       return `
         <article class="ev-home-empty-state ev-home-publications-empty">
-          <div class="ev-home-empty-icon"><i class="bi bi-shop-window"></i></div>
+          <div class="ev-home-empty-icon">
+            <i class="bi bi-shop-window"></i>
+          </div>
+
           <div>
             <strong>Aún no hay publicaciones recientes disponibles</strong>
             <p>Explora el Marketplace o revisa más tarde cuando tus vecinos publiquen productos o servicios.</p>
-            <button type="button" class="ev-home-mini-action" data-ev-route="/marketplace">Ir al Marketplace</button>
+
+            <button type="button" class="ev-home-mini-action" data-ev-route="/marketplace">
+              Ir al Marketplace
+            </button>
           </div>
         </article>
       `;
@@ -317,23 +508,42 @@
 
     return lista.map((p) => {
       const img = imageUrl(p.imagen_portada_url || p.imagen_portada);
-      const tipo = String(p.tipo_publicacion || 'producto').toLowerCase() === 'servicio' ? 'Servicio' : 'Producto';
-      const precioLabel = tipo === 'Servicio' ? `Desde ${money(p.precio)}` : money(p.precio);
+      const tipo = String(p.tipo_publicacion || 'producto').toLowerCase() === 'servicio'
+        ? 'Servicio'
+        : 'Producto';
+
+      const precioLabel = tipo === 'Servicio'
+        ? `Desde ${money(p.precio)}`
+        : money(p.precio);
+
       const reputacion = p.reputacion_texto || 'Nuevo vendedor';
 
       return `
         <article class="ev-home-publication-card">
           <div class="ev-home-publication-img">
-            <img src="${escapeHtml(img)}" alt="${escapeHtml(p.titulo || 'Publicación')}" loading="lazy">
+            <img
+              src="${escapeHtml(img)}"
+              alt="${escapeHtml(p.titulo || 'Publicación')}"
+              loading="lazy"
+            >
             <span>${escapeHtml(tipo)}</span>
           </div>
+
           <div class="ev-home-publication-body">
             <h3>${escapeHtml(truncar(p.titulo || 'Publicación', 54))}</h3>
             <strong>${escapeHtml(precioLabel)}</strong>
             <p>${escapeHtml(truncar(p.descripcion || '', 70))}</p>
+
             <div class="ev-home-publication-foot">
-              <span><i class="bi bi-person-circle"></i> ${escapeHtml(truncar(p.nombre_vendedor || 'Vecino', 22))}</span>
-              <small><i class="bi bi-star-fill"></i> ${escapeHtml(reputacion)}</small>
+              <span>
+                <i class="bi bi-person-circle"></i>
+                ${escapeHtml(truncar(p.nombre_vendedor || 'Vecino', 22))}
+              </span>
+
+              <small>
+                <i class="bi bi-star-fill"></i>
+                ${escapeHtml(reputacion)}
+              </small>
             </div>
           </div>
         </article>
@@ -342,11 +552,12 @@
   }
 
   function pintarDashboard(root, data) {
+    const usuario = data.usuario || {};
     const residencia = data.residencia || {};
     const resumen = data.resumen || {};
 
-    // La comunidad ya no se muestra dentro del hero para evitar duplicidad visual.
-    // Se conserva únicamente en el sidebar.
+    actualizarSaludo(root, usuario);
+    aplicarHeroPorComunidad(root, residencia);
     inyectarSidebarExtras({ residencia });
 
     const compras = Number(resumen.compras_activas || 0);
@@ -358,29 +569,72 @@
     const calificacionesEl = qs('#evDashCalificacionesPendientes', root);
     const saldoEl = qs('#evDashSaldoBilletera', root);
 
-    if (comprasEl) comprasEl.textContent = String(compras);
-    if (ventasEl) ventasEl.textContent = String(ventas);
-    if (calificacionesEl) calificacionesEl.textContent = String(calificaciones);
-    if (saldoEl) saldoEl.textContent = money(resumen.saldo_billetera || 0);
+    if (comprasEl) {
+      comprasEl.textContent = String(compras);
+    }
+
+    if (ventasEl) {
+      ventasEl.textContent = String(ventas);
+    }
+
+    if (calificacionesEl) {
+      calificacionesEl.textContent = String(calificaciones);
+    }
+
+    if (saldoEl) {
+      saldoEl.textContent = money(resumen.saldo_billetera || 0);
+    }
 
     const comprasText = qs('#evDashComprasTexto', root);
     const ventasText = qs('#evDashVentasTexto', root);
     const calificacionesText = qs('#evDashCalificacionesTexto', root);
 
-    if (comprasText) comprasText.textContent = textoCantidad(compras, 'pedido en proceso', 'pedidos en proceso');
-    if (ventasText) ventasText.textContent = textoCantidad(ventas, 'pedido por atender', 'pedidos por atender');
-    if (calificacionesText) calificacionesText.textContent = textoCantidad(calificaciones, 'opinión por registrar', 'opiniones por registrar');
+    if (comprasText) {
+      comprasText.textContent = textoCantidad(
+        compras,
+        'pedido en proceso',
+        'pedidos en proceso'
+      );
+    }
+
+    if (ventasText) {
+      ventasText.textContent = textoCantidad(
+        ventas,
+        'pedido por atender',
+        'pedidos por atender'
+      );
+    }
+
+    if (calificacionesText) {
+      calificacionesText.textContent = textoCantidad(
+        calificaciones,
+        'opinión por registrar',
+        'opiniones por registrar'
+      );
+    }
 
     const actividad = qs('#evDashActividadLista', root);
-    if (actividad) actividad.innerHTML = renderActividad(data.actividad_reciente || []);
+
+    if (actividad) {
+      actividad.innerHTML = renderActividad(data.actividad_reciente || []);
+    }
 
     const publicaciones = qs('#evDashPublicacionesLista', root);
-    if (publicaciones) publicaciones.innerHTML = renderPublicaciones(data.publicaciones_recientes || []);
+
+    if (publicaciones) {
+      publicaciones.innerHTML = renderPublicaciones(data.publicaciones_recientes || []);
+    }
 
     bindNavegacion(root);
   }
 
   async function cargarDashboard(root) {
+    if (!root || root.dataset.evDashboardLoading === '1') {
+      return;
+    }
+
+    root.dataset.evDashboardLoading = '1';
+
     const errorBox = qs('#evDashError', root);
     errorBox?.classList.add('d-none');
 
@@ -398,21 +652,31 @@
       pintarDashboard(root, json.data || {});
     } catch (e) {
       console.warn('[EV][Dashboard] No se pudo cargar el dashboard:', e);
+
       errorBox?.classList.remove('d-none');
 
-      inyectarSidebarExtras({});
-
       const actividad = qs('#evDashActividadLista', root);
-      if (actividad) actividad.innerHTML = renderActividad([]);
+
+      if (actividad) {
+        actividad.innerHTML = renderActividad([]);
+      }
 
       const publicaciones = qs('#evDashPublicacionesLista', root);
-      if (publicaciones) publicaciones.innerHTML = renderPublicaciones([]);
+
+      if (publicaciones) {
+        publicaciones.innerHTML = renderPublicaciones([]);
+      }
+    } finally {
+      delete root.dataset.evDashboardLoading;
     }
   }
 
   function initDashboard() {
     const root = document.getElementById('evHomeDashboardV2');
-    if (!root) return;
+
+    if (!root) {
+      return;
+    }
 
     bindNavegacion(root);
     inyectarSidebarExtras({});
@@ -424,6 +688,12 @@
 
   window.EVHomeDashboard = Object.assign(window.EVHomeDashboard || {}, {
     init: initDashboard,
-    refresh: initDashboard
+    refresh: function () {
+      const root = document.getElementById('evHomeDashboardV2');
+
+      if (root) {
+        cargarDashboard(root);
+      }
+    }
   });
 })();
