@@ -190,7 +190,7 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
     </div>
   </section>
 
-  <!-- MODAL: NUEVA / EDITAR PUBLICACIÓN -->
+  <!-- MODAL: NUEVA / EDITAR PUBLICACIÓN | ESTÁNDAR VISUAL EV -->
   <div
     class="modal fade ev-com-editor-modal"
     id="modalPublicacionCom"
@@ -200,126 +200,216 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
     data-bs-backdrop="static"
     data-bs-keyboard="false"
   >
-    <div class="modal-dialog modal-dialog-centered modal-xl modal-fullscreen-md-down">
-      <div class="modal-content ev-com-modal ev-com-modal-editor">
-        <div class="modal-header ev-com-modal-editor-head">
-          <div class="ev-com-modal-heading">
-            <span class="ev-com-modal-kicker"><i class="bi bi-megaphone"></i> Comunidad</span>
-            <h2 class="modal-title" id="evComFormTitle">Nueva publicación</h2>
-            <p>Completa el contenido y decide si deseas guardarlo como borrador o publicarlo ahora.</p>
-          </div>
-          <button type="button" class="btn-close btn-close-white" id="btnCerrarFormularioCom" aria-label="Cerrar"></button>
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-fullscreen-lg-down">
+      <div class="modal-content ev-com-modal-editor ev-com-publish-modal">
+        <div class="modal-header ev-com-publish-head">
+          <h2 class="modal-title" id="evComFormTitle">
+            <i class="bi bi-plus-circle" aria-hidden="true"></i>
+            <span>Nueva publicación</span>
+          </h2>
+          <button type="button" class="ev-com-modal-close" id="btnCerrarFormularioCom" aria-label="Cerrar">
+            <i class="bi bi-x-lg"></i>
+          </button>
         </div>
 
-        <form id="formComunidadPublicacion" enctype="multipart/form-data" autocomplete="off" novalidate>
+        <form id="formComunidadPublicacion" class="ev-com-publish-form" enctype="multipart/form-data" autocomplete="off" novalidate>
           <input type="hidden" id="codigoPublicacionCom" value="">
           <input type="hidden" id="tipoConjuntoCom" name="tipo_conjunto" value="">
           <input type="hidden" id="codigoComunidadCom" name="codigo_comunidad" value="">
+          <input type="hidden" id="tipoPublicacionCom" name="tipo_publicacion" value="comunicado">
 
-          <div class="modal-body ev-com-modal-editor-body">
-            <div class="ev-com-assigned-pill">
-              <i class="bi bi-house-heart-fill"></i>
-              <span><?= htmlspecialchars($nombreComunidadVisual, ENT_QUOTES, 'UTF-8') ?></span>
-            </div>
+          <div class="modal-body ev-com-publish-body">
+            <div class="ev-com-editor-layout">
 
-            <div class="ev-com-form-meta">
-              <div class="ev-com-field">
-                <label for="tipoPublicacionCom">Tipo de publicación <span>*</span></label>
-                <select id="tipoPublicacionCom" name="tipo_publicacion" required>
-                  <option value="comunicado">Comunicado</option>
-                  <option value="noticia">Noticia</option>
-                  <option value="evento">Evento</option>
-                </select>
+              <div class="ev-com-editor-scroll" aria-label="Formulario de publicación">
+                <section class="ev-com-step-card" aria-labelledby="evComPasoTipoTitle">
+                  <span class="ev-com-step-tag">Paso 1</span>
+                  <h3 id="evComPasoTipoTitle">¿Qué deseas publicar?</h3>
+                  <p>Selecciona el tipo de contenido institucional para tu comunidad.</p>
+
+                  <div class="ev-com-type-cards" role="radiogroup" aria-label="Tipo de publicación">
+                    <button type="button" class="ev-com-type-option is-selected" data-com-tipo="comunicado" aria-pressed="true">
+                      <span class="ev-com-type-icon"><i class="bi bi-megaphone"></i></span>
+                      <span>
+                        <strong>Comunicado</strong>
+                        <small>Aviso oficial o urgente para la comunidad.</small>
+                      </span>
+                      <i class="bi bi-check-circle-fill ev-com-type-check"></i>
+                    </button>
+                    <button type="button" class="ev-com-type-option" data-com-tipo="noticia" aria-pressed="false">
+                      <span class="ev-com-type-icon"><i class="bi bi-newspaper"></i></span>
+                      <span>
+                        <strong>Noticia</strong>
+                        <small>Novedades para vecinos.</small>
+                      </span>
+                      <i class="bi bi-check-circle-fill ev-com-type-check"></i>
+                    </button>
+                    <button type="button" class="ev-com-type-option" data-com-tipo="evento" aria-pressed="false">
+                      <span class="ev-com-type-icon"><i class="bi bi-calendar-event"></i></span>
+                      <span>
+                        <strong>Evento</strong>
+                        <small>Actividad con fecha y lugar.</small>
+                      </span>
+                      <i class="bi bi-check-circle-fill ev-com-type-check"></i>
+                    </button>
+                  </div>
+                </section>
+
+                <section class="ev-com-step-card" aria-labelledby="evComPasoPortadaTitle">
+                  <span class="ev-com-step-tag">Paso 2</span>
+                  <h3 id="evComPasoPortadaTitle">Imagen de portada</h3>
+                  <p id="textoAyudaPortadaCom">Una imagen clara refuerza el mensaje oficial del comunicado.</p>
+
+                  <label class="ev-com-dropzone" for="imagenPortadaCom" id="zonaPortadaCom">
+                    <i class="bi bi-cloud-arrow-up"></i>
+                    <strong>Arrastra tu imagen aquí o haz clic para seleccionarla</strong>
+                    <small>JPG · PNG · WEBP · Máximo 2 MB</small>
+                  </label>
+                  <input class="ev-com-file-input" type="file" id="imagenPortadaCom" name="imagen_portada" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp">
+
+                  <div class="ev-com-upload-selected" id="portadaPreviewWrapCom" hidden>
+                    <img id="portadaPreviewCom" src="" alt="Vista previa de portada seleccionada">
+                    <div class="ev-com-upload-copy">
+                      <strong>Portada seleccionada</strong>
+                      <small>Imagen lista para acompañar tu publicación.</small>
+                      <span class="ev-com-upload-name" id="nombrePortadaCom"></span>
+                    </div>
+                    <button type="button" class="ev-com-file-change" id="btnCambiarPortadaCom">Cambiar</button>
+                  </div>
+                </section>
+
+                <section class="ev-com-step-card" aria-labelledby="evComPasoInfoTitle">
+                  <span class="ev-com-step-tag">Paso 3</span>
+                  <h3 id="evComPasoInfoTitle">Información principal</h3>
+
+                  <div class="ev-com-field">
+                    <label for="tituloCom">Título <span>*</span></label>
+                    <input type="text" id="tituloCom" name="titulo" maxlength="140" placeholder="Escribe un título claro para tus vecinos" required>
+                    <small><span id="tituloCharsCom">0</span>/140 caracteres</small>
+                  </div>
+
+                  <div class="ev-com-field">
+                    <label for="resumenCom">Resumen corto <span>*</span></label>
+                    <textarea id="resumenCom" name="resumen" rows="2" maxlength="240" placeholder="Resume la información que aparecerá primero en la publicación." required></textarea>
+                    <small><span id="resumenCharsCom">0</span>/240 caracteres</small>
+                  </div>
+
+                  <div class="ev-com-field">
+                    <label for="contenidoCom">Contenido <span>*</span></label>
+                    <textarea id="contenidoCom" name="contenido" rows="5" placeholder="Redacta la información completa que recibirán los vecinos." required></textarea>
+                  </div>
+                </section>
+
+                <section class="ev-com-step-card" aria-labelledby="evComPasoConfigTitle">
+                  <span class="ev-com-step-tag">Paso 4</span>
+                  <h3 id="evComPasoConfigTitle">Publicación y visibilidad</h3>
+
+                  <div class="ev-com-form-grid ev-com-settings-grid">
+                    <div class="ev-com-field">
+                      <label for="prioridadCom">Prioridad <span>*</span></label>
+                      <select id="prioridadCom" name="prioridad" required>
+                        <option value="normal">Normal</option>
+                        <option value="importante">Importante</option>
+                        <option value="urgente">Urgente</option>
+                      </select>
+                    </div>
+
+                    <div class="ev-com-field">
+                      <label for="fechaExpiracionCom">Fecha de expiración</label>
+                      <input type="datetime-local" id="fechaExpiracionCom" name="fecha_expiracion">
+                      <small>Opcional. Dejará de priorizarse luego de esta fecha.</small>
+                    </div>
+
+                    <div class="ev-com-field ev-com-field-full" id="campoDestinoCom" <?= $esAdminSistemaVista ? '' : 'hidden' ?>>
+                      <label for="destinoCom">Comunidad destino <span>*</span></label>
+                      <select id="destinoCom">
+                        <option value="">Seleccionar comunidad</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <label class="ev-com-highlight-switch">
+                    <input type="checkbox" id="destacadoCom" name="destacado_dashboard" value="1">
+                    <span class="ev-com-switch-control" aria-hidden="true"></span>
+                    <span>
+                      <strong>Mostrar como destacado en el inicio</strong>
+                      <small>Este contenido tendrá mayor visibilidad para los vecinos.</small>
+                    </span>
+                  </label>
+                </section>
+
+                <fieldset class="ev-com-step-card ev-com-event-fields d-none" id="camposEventoCom">
+                  <legend>
+                    <span class="ev-com-step-tag">Paso 5</span>
+                    <strong>Datos del evento</strong>
+                  </legend>
+                  <p>Completa la fecha y el lugar donde se realizará la actividad.</p>
+                  <div class="ev-com-form-grid">
+                    <div class="ev-com-field">
+                      <label for="fechaEventoInicioCom">Inicio del evento <span>*</span></label>
+                      <input type="datetime-local" id="fechaEventoInicioCom" name="fecha_evento_inicio">
+                    </div>
+                    <div class="ev-com-field">
+                      <label for="fechaEventoFinCom">Fin del evento</label>
+                      <input type="datetime-local" id="fechaEventoFinCom" name="fecha_evento_fin">
+                    </div>
+                    <div class="ev-com-field ev-com-field-full">
+                      <label for="ubicacionEventoCom">Lugar <span>*</span></label>
+                      <input type="text" id="ubicacionEventoCom" name="ubicacion_evento" maxlength="180" placeholder="Ej. Local comunal de Villa Flores">
+                    </div>
+                  </div>
+                </fieldset>
               </div>
 
-              <div class="ev-com-field" id="campoDestinoCom" <?= $esAdminSistemaVista ? '' : 'hidden' ?>>
-                <label for="destinoCom">Comunidad destino <span>*</span></label>
-                <select id="destinoCom">
-                  <option value="">Seleccionar comunidad</option>
-                </select>
-              </div>
-
-              <div class="ev-com-field">
-                <label for="prioridadCom">Prioridad <span>*</span></label>
-                <select id="prioridadCom" name="prioridad" required>
-                  <option value="normal">Normal</option>
-                  <option value="importante">Importante</option>
-                  <option value="urgente">Urgente</option>
-                </select>
-              </div>
-
-              <div class="ev-com-field">
-                <label for="fechaExpiracionCom">Fecha de expiración</label>
-                <input type="datetime-local" id="fechaExpiracionCom" name="fecha_expiracion">
-                <small>Opcional. Dejará de priorizarse después de esta fecha.</small>
-              </div>
-            </div>
-
-            <div class="ev-com-form-grid ev-com-form-content-grid">
-              <div class="ev-com-field ev-com-field-full">
-                <label for="tituloCom">Título <span>*</span></label>
-                <input type="text" id="tituloCom" name="titulo" maxlength="140" placeholder="Ej. Mantenimiento temporal del acceso principal" required>
-                <small><span id="tituloCharsCom">0</span>/140 caracteres</small>
-              </div>
-
-              <div class="ev-com-field ev-com-field-full">
-                <label for="resumenCom">Resumen corto <span>*</span></label>
-                <textarea id="resumenCom" name="resumen" rows="2" maxlength="240" placeholder="Texto breve que se mostrará en las tarjetas de Comunidad y en el futuro inicio del vecino." required></textarea>
-                <small><span id="resumenCharsCom">0</span>/240 caracteres</small>
-              </div>
-
-              <div class="ev-com-field ev-com-field-full">
-                <label for="contenidoCom">Contenido <span>*</span></label>
-                <textarea id="contenidoCom" name="contenido" rows="6" placeholder="Redacta la información completa que recibirán los vecinos." required></textarea>
-              </div>
-            </div>
-
-            <fieldset class="ev-com-event-fields d-none" id="camposEventoCom">
-              <legend><i class="bi bi-calendar-event"></i> Datos del evento</legend>
-              <div class="ev-com-form-grid">
-                <div class="ev-com-field">
-                  <label for="fechaEventoInicioCom">Inicio del evento <span>*</span></label>
-                  <input type="datetime-local" id="fechaEventoInicioCom" name="fecha_evento_inicio">
+              <aside class="ev-com-live-preview" aria-label="Vista previa para el vecino">
+                <div class="ev-com-live-head">
+                  <div>
+                    <small>Vista previa</small>
+                    <h3>Así lo verán tus vecinos</h3>
+                  </div>
+                  <span class="ev-com-live-type" id="vistaTipoCom">Comunicado</span>
                 </div>
-                <div class="ev-com-field">
-                  <label for="fechaEventoFinCom">Fin del evento</label>
-                  <input type="datetime-local" id="fechaEventoFinCom" name="fecha_evento_fin">
+
+                <div class="ev-com-live-image" id="vistaImagenBoxCom">
+                  <img id="vistaImagenCom" src="" alt="Vista previa de la imagen de portada" hidden>
+                  <div id="vistaImagenEmptyCom">
+                    <i class="bi bi-image"></i>
+                    <div>
+                      <strong>Tu imagen de portada aparecerá aquí</strong>
+                      <p>Agrega una imagen clara para acompañar el contenido.</p>
+                    </div>
+                  </div>
                 </div>
-                <div class="ev-com-field ev-com-field-full">
-                  <label for="ubicacionEventoCom">Lugar <span>*</span></label>
-                  <input type="text" id="ubicacionEventoCom" name="ubicacion_evento" maxlength="180" placeholder="Ej. Local comunal de Villa Flores">
+
+                <div class="ev-com-live-card">
+                  <div class="ev-com-live-badges">
+                    <span id="vistaPrioridadCom" class="ev-com-live-priority ev-com-live-priority--normal">Normal</span>
+                    <span id="vistaDestacadoCom" class="ev-com-live-featured" hidden><i class="bi bi-star-fill"></i> Destacado</span>
+                  </div>
+                  <h4 id="vistaTituloCom">Título de la publicación</h4>
+                  <p id="vistaResumenCom">El resumen breve que verán los vecinos aparecerá aquí.</p>
+                  <div class="ev-com-live-event d-none" id="vistaEventoCom">
+                    <i class="bi bi-calendar-event"></i>
+                    <span id="vistaEventoDetalleCom">Fecha y lugar del evento</span>
+                  </div>
+                  <div class="ev-com-live-community">
+                    <i class="bi bi-house-heart"></i>
+                    <span id="vistaComunidadCom"><?= htmlspecialchars($nombreComunidadVisual, ENT_QUOTES, 'UTF-8') ?></span>
+                  </div>
                 </div>
-              </div>
-            </fieldset>
 
-            <div class="ev-com-media-row">
-              <div class="ev-com-field ev-com-upload">
-                <label for="imagenPortadaCom">Imagen de portada</label>
-                <label class="ev-com-file-drop" for="imagenPortadaCom">
-                  <i class="bi bi-image"></i>
-                  <strong>Seleccionar imagen de portada</strong>
-                  <small>JPG, PNG o WEBP · Máximo 2 MB</small>
-                </label>
-                <input class="ev-com-file-input" type="file" id="imagenPortadaCom" name="imagen_portada" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp">
-              </div>
-
-              <div class="ev-com-preview" id="portadaPreviewWrapCom" hidden>
-                <img id="portadaPreviewCom" src="" alt="Vista previa de portada">
-                <span>Portada seleccionada</span>
-              </div>
-
-              <label class="ev-com-check">
-                <input type="checkbox" id="destacadoCom" name="destacado_dashboard" value="1">
-                <span>
-                  <strong>Mostrar como destacado en el inicio</strong>
-                  <small>Este contenido tendrá mayor visibilidad para los vecinos.</small>
-                </span>
-              </label>
+                <div class="ev-com-live-note">
+                  <i class="bi bi-shield-check"></i>
+                  <span>Contenido oficial de tu comunidad.</span>
+                </div>
+              </aside>
             </div>
           </div>
 
-          <div class="modal-footer ev-com-modal-editor-footer">
-            <button type="button" class="ev-com-btn ev-com-btn-light" id="btnCancelarFormularioCom">Cancelar</button>
+          <div class="modal-footer ev-com-publish-footer">
+            <button type="button" class="ev-com-btn ev-com-btn-light" id="btnCancelarFormularioCom">
+              <i class="bi bi-x-circle"></i> Cancelar
+            </button>
             <button type="button" class="ev-com-btn ev-com-btn-outline" id="btnGuardarBorradorCom">
               <i class="bi bi-save"></i> Guardar borrador
             </button>
@@ -331,20 +421,67 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
       </div>
     </div>
   </div>
+
 </section>
 
-<div class="modal fade" id="modalHistorialCom" tabindex="-1" aria-hidden="true">
+<div
+  class="modal fade ev-com-history-modal"
+  id="modalHistorialCom"
+  tabindex="-1"
+  aria-labelledby="tituloModalHistorialCom"
+  aria-hidden="true"
+  data-bs-backdrop="static"
+  data-bs-keyboard="false"
+>
   <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content ev-com-modal">
-      <div class="modal-header">
-        <div>
-          <h5 class="modal-title"><i class="bi bi-clock-history"></i> Historial de publicación</h5>
-          <small id="tituloHistorialCom">—</small>
+    <div class="modal-content ev-com-history-modal-content">
+      <header class="ev-com-history-header">
+        <div class="ev-com-history-header-top">
+          <div class="ev-com-history-heading">
+            <span class="ev-com-history-heading-icon" aria-hidden="true">
+              <i class="bi bi-clock-history"></i>
+            </span>
+            <div class="ev-com-history-heading-copy">
+              <span class="ev-com-history-eyebrow">Trazabilidad administrativa</span>
+              <h5 class="modal-title" id="tituloModalHistorialCom">Historial de publicación</h5>
+              <p>Registro de cambios y acciones realizadas.</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="ev-com-history-close"
+            data-bs-dismiss="modal"
+            aria-label="Cerrar historial"
+          >
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+          </button>
         </div>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
-        <div id="listaHistorialCom" class="ev-com-history"></div>
+
+        <div class="ev-com-history-context" aria-label="Publicación consultada">
+          <div class="ev-com-history-context-main">
+            <span class="ev-com-history-type ev-com-history-type--comunicado" id="tipoHistorialCom">Comunicado</span>
+
+            <div class="ev-com-history-publication">
+              <span>Publicación</span>
+              <strong id="tituloHistorialCom" title="">—</strong>
+            </div>
+          </div>
+
+          <span class="ev-com-history-current ev-com-history-current--borrador" id="estadoHistorialCom">Borrador</span>
+        </div>
+      </header>
+
+      <div class="modal-body ev-com-history-body">
+        <div class="ev-com-history-summary">
+          <div>
+            <strong id="totalMovimientosHistorialCom">0</strong>
+            <span id="textoMovimientosHistorialCom">movimientos registrados</span>
+          </div>
+          <small>Del cambio más reciente al más antiguo</small>
+        </div>
+
+        <div id="listaHistorialCom" class="ev-com-history" aria-live="polite"></div>
       </div>
     </div>
   </div>

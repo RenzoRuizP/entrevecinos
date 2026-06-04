@@ -60,6 +60,122 @@
     return ({ normal: 'Normal', importante: 'Importante', urgente: 'Urgente' })[prioridad] || texto(prioridad);
   }
 
+  function accionHistorialInfo(accion) {
+    const key = String(accion || '').trim().toLowerCase();
+    const items = {
+      creacion: {
+        label: 'Creación',
+        description: 'La publicación fue registrada.',
+        icon: 'bi-plus-circle',
+        css: 'creacion'
+      },
+      publicacion: {
+        label: 'Publicación',
+        description: 'El contenido fue publicado para los vecinos.',
+        icon: 'bi-megaphone',
+        css: 'publicacion'
+      },
+      edicion: {
+        label: 'Edición',
+        description: 'Se actualizaron los datos de la publicación.',
+        icon: 'bi-pencil-square',
+        css: 'edicion'
+      },
+      desactivacion: {
+        label: 'Desactivación',
+        description: 'El contenido dejó de estar visible para los vecinos.',
+        icon: 'bi-eye-slash',
+        css: 'desactivacion'
+      },
+      ocultamiento_moderacion: {
+        label: 'Ocultamiento por moderación',
+        description: 'EV ocultó el contenido por revisión.',
+        icon: 'bi-shield-exclamation',
+        css: 'ocultamiento_moderacion'
+      },
+      reactivacion: {
+        label: 'Reactivación',
+        description: 'La publicación fue activada nuevamente.',
+        icon: 'bi-arrow-repeat',
+        css: 'reactivacion'
+      }
+    };
+
+    return items[key] || {
+      label: texto(key.replaceAll('_', ' '), 'Movimiento'),
+      description: 'Se registró una acción sobre la publicación.',
+      icon: 'bi-clock-history',
+      css: 'edicion'
+    };
+  }
+
+  function renderCambioHistorial(item) {
+    const accion = String(item.accion || '').trim().toLowerCase();
+    const anteriorRaw = String(item.estado_anterior ?? '').trim().toLowerCase();
+    const nuevoRaw = String(item.estado_nuevo ?? '').trim().toLowerCase();
+    const nuevo = estadoLabel(nuevoRaw);
+    const anterior = anteriorRaw ? estadoLabel(anteriorRaw) : '';
+
+    if (accion === 'creacion') {
+      return `
+        <div class="ev-com-history-change">
+          <i class="bi bi-file-earmark-plus" aria-hidden="true"></i>
+          <span>Estado inicial:</span>
+          <span class="ev-com-history-state">${escapeHtml(nuevo)}</span>
+        </div>`;
+    }
+
+    if (accion === 'edicion' && anteriorRaw !== '' && anteriorRaw === nuevoRaw) {
+      return `
+        <div class="ev-com-history-change">
+          <i class="bi bi-check2-circle" aria-hidden="true"></i>
+          <span>La publicación se mantiene en estado</span>
+          <span class="ev-com-history-state">${escapeHtml(nuevo)}</span>
+        </div>`;
+    }
+
+    return `
+      <div class="ev-com-history-change">
+        <i class="bi bi-arrow-left-right" aria-hidden="true"></i>
+        ${anterior
+          ? `<span class="ev-com-history-state">${escapeHtml(anterior)}</span>
+             <i class="bi bi-arrow-right ev-com-history-arrow" aria-hidden="true"></i>`
+          : ''}
+        <span class="ev-com-history-state">${escapeHtml(nuevo)}</span>
+      </div>`;
+  }
+
+  function renderHistorialItem(item, index = 0) {
+    const info = accionHistorialInfo(item.accion);
+    const motivo = String(item.motivo || '').trim();
+    const esUltimoCambio = index === 0;
+
+    return `
+      <article class="ev-com-history-item ev-com-history-item--${info.css}${esUltimoCambio ? ' is-latest' : ''}">
+        <span class="ev-com-history-icon" aria-hidden="true">
+          <i class="bi ${info.icon}"></i>
+        </span>
+        <div class="ev-com-history-content">
+          <div class="ev-com-history-top">
+            <span class="ev-com-history-action">${escapeHtml(info.label)}</span>
+            ${esUltimoCambio ? '<span class="ev-com-history-latest"><i class="bi bi-stars"></i> Último cambio</span>' : ''}
+          </div>
+          <p class="ev-com-history-description">${escapeHtml(info.description)}</p>
+          <div class="ev-com-history-meta">
+            <i class="bi bi-calendar3" aria-hidden="true"></i>
+            <span>${escapeHtml(fecha(item.created_at))}</span>
+            <span class="ev-com-history-meta-divider">•</span>
+            <i class="bi bi-person-circle" aria-hidden="true"></i>
+            <span>${escapeHtml(texto(item.usuario_accion))}</span>
+          </div>
+          ${renderCambioHistorial(item)}
+          ${motivo
+            ? `<p class="ev-com-history-reason"><strong>Motivo:</strong> ${escapeHtml(motivo)}</p>`
+            : ''}
+        </div>
+      </article>`;
+  }
+
   function notify(icon, title, message) {
     if (window.Swal?.fire) {
       return Swal.fire({ icon, title, text: message, confirmButtonColor: '#EA7C12' });
@@ -126,7 +242,8 @@
       loading: false,
       dirty: false,
       suspendDirty: false,
-      previewObjectUrl: null
+      previewObjectUrl: null,
+      scrollDestacadoAntes: null
     };
 
     const form = $('#formComunidadPublicacion', root);
@@ -144,6 +261,30 @@
     const btnGuardar = $('#btnGuardarBorradorCom', root);
     const tituloChars = $('#tituloCharsCom', root);
     const resumenChars = $('#resumenCharsCom', root);
+    const tipoOptions = Array.from(root.querySelectorAll('[data-com-tipo]'));
+    const prioridadInput = $('#prioridadCom', root);
+    const tituloInput = $('#tituloCom', root);
+    const resumenInput = $('#resumenCom', root);
+    const contenidoInput = $('#contenidoCom', root);
+    const destacadoInput = $('#destacadoCom', root);
+    const destacadoSwitch = destacadoInput?.closest('.ev-com-highlight-switch') || null;
+    const editorScroll = $('.ev-com-editor-scroll', root);
+    const zonaPortada = $('#zonaPortadaCom', root);
+    const pasoPortada = zonaPortada?.closest('.ev-com-step-card') || null;
+    const textoAyudaPortada = $('#textoAyudaPortadaCom', root);
+    const nombrePortada = $('#nombrePortadaCom', root);
+    const btnCambiarPortada = $('#btnCambiarPortadaCom', root);
+    const vistaTipo = $('#vistaTipoCom', root);
+    const vistaPrioridad = $('#vistaPrioridadCom', root);
+    const vistaDestacado = $('#vistaDestacadoCom', root);
+    const vistaTitulo = $('#vistaTituloCom', root);
+    const vistaResumen = $('#vistaResumenCom', root);
+    const vistaEvento = $('#vistaEventoCom', root);
+    const vistaEventoDetalle = $('#vistaEventoDetalleCom', root);
+    const vistaImagenBox = $('#vistaImagenBoxCom', root);
+    const vistaImagen = $('#vistaImagenCom', root);
+    const vistaImagenEmpty = $('#vistaImagenEmptyCom', root);
+    const vistaComunidad = $('#vistaComunidadCom', root);
 
     const modalFormularioEl = $('#modalPublicacionCom', root);
     const modalHistorialEl = document.getElementById('modalHistorialCom');
@@ -151,7 +292,7 @@
       ? new bootstrap.Modal(modalFormularioEl, { backdrop: 'static', keyboard: false, focus: true })
       : null;
     const modalHistorial = modalHistorialEl && window.bootstrap?.Modal
-      ? new bootstrap.Modal(modalHistorialEl)
+      ? new bootstrap.Modal(modalHistorialEl, { backdrop: 'static', keyboard: false, focus: true })
       : null;
 
     if (!form || !tbody || !modalFormulario) return;
@@ -164,7 +305,8 @@
       crear: `${BASE}/api/comunidad/publicaciones`,
       actualizar: id => `${BASE}/api/comunidad/publicaciones/${id}/actualizar`,
       publicar: id => `${BASE}/api/comunidad/publicaciones/${id}/publicar`,
-      desactivar: id => `${BASE}/api/comunidad/publicaciones/${id}/desactivar`
+      desactivar: id => `${BASE}/api/comunidad/publicaciones/${id}/desactivar`,
+      reactivar: id => `${BASE}/api/comunidad/publicaciones/${id}/reactivar`
     };
 
     function markDirty() {
@@ -178,6 +320,93 @@
       }
     }
 
+    function seleccionarTipo(tipo, registrarCambio = true) {
+      const permitido = ['comunicado', 'noticia', 'evento'].includes(String(tipo));
+      tipoInput.value = permitido ? String(tipo) : 'comunicado';
+
+      tipoOptions.forEach(option => {
+        const activo = option.dataset.comTipo === tipoInput.value;
+        option.classList.toggle('is-selected', activo);
+        option.setAttribute('aria-pressed', activo ? 'true' : 'false');
+      });
+
+      mostrarEvento();
+      if (registrarCambio) markDirty();
+    }
+
+    function ayudaPortadaPorTipo(tipo) {
+      return ({
+        comunicado: 'Una imagen clara refuerza el mensaje oficial del comunicado.',
+        noticia: 'Una imagen atractiva ayuda a presentar mejor la noticia.',
+        evento: 'Una imagen clara ayuda a invitar a los vecinos al evento.'
+      })[tipo] || 'Una imagen clara acompaña mejor el contenido.';
+    }
+
+    function comunidadDestinoActual() {
+      const visible = String(vistaComunidad?.textContent || '').trim();
+      return visible || comunidadVisible;
+    }
+
+    function sincronizarDestacadoVisual() {
+      const activo = Boolean(destacadoInput?.checked);
+
+      destacadoSwitch?.classList.toggle('is-active', activo);
+      destacadoSwitch?.setAttribute('data-active', activo ? '1' : '0');
+
+      if (vistaDestacado) {
+        vistaDestacado.hidden = !activo;
+      }
+    }
+
+    function actualizarVistaPrevia() {
+      const tipo = tipoInput.value || 'comunicado';
+      const prioridad = prioridadInput?.value || 'normal';
+      if (textoAyudaPortada) textoAyudaPortada.textContent = ayudaPortadaPorTipo(tipo);
+      if (vistaTipo) vistaTipo.textContent = tipoLabel(tipo);
+      if (vistaPrioridad) {
+        const icono = prioridad === 'urgente'
+          ? '<i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>'
+          : prioridad === 'importante'
+            ? '<i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i>'
+            : '';
+        vistaPrioridad.innerHTML = `${icono}${prioridadLabel(prioridad)}`;
+        vistaPrioridad.className = `ev-com-live-priority ev-com-live-priority--${prioridad}`;
+      }
+      sincronizarDestacadoVisual();
+      if (vistaTitulo) vistaTitulo.textContent = tituloInput?.value.trim() || 'Título de la publicación';
+      if (vistaResumen) vistaResumen.textContent = resumenInput?.value.trim() || 'El resumen breve que verán los vecinos aparecerá aquí.';
+
+      const esEvento = tipo === 'evento';
+      if (vistaEvento) vistaEvento.classList.toggle('d-none', !esEvento);
+      if (esEvento && vistaEventoDetalle) {
+        const inicio = $('#fechaEventoInicioCom', root)?.value || '';
+        const lugar = $('#ubicacionEventoCom', root)?.value.trim() || 'Lugar por definir';
+        vistaEventoDetalle.textContent = inicio ? `${fecha(inicio)} · ${lugar}` : `Fecha por definir · ${lugar}`;
+      }
+    }
+
+    function mostrarImagenEnVistas(src = '', nombre = '') {
+      const hayImagen = String(src || '').trim() !== '';
+      const nombreSeguro = String(nombre || '').trim();
+
+      previewWrap.hidden = !hayImagen;
+      if (zonaPortada) zonaPortada.hidden = hayImagen;
+      pasoPortada?.classList.toggle('has-portada', hayImagen);
+
+      previewImg.src = hayImagen ? src : '';
+      if (nombrePortada) {
+        nombrePortada.textContent = nombreSeguro || 'Archivo de portada seleccionado';
+        nombrePortada.title = nombreSeguro || '';
+      }
+
+      vistaImagenBox?.classList.toggle('has-image', hayImagen);
+      if (vistaImagen) {
+        vistaImagen.hidden = !hayImagen;
+        vistaImagen.src = hayImagen ? src : '';
+      }
+      if (vistaImagenEmpty) vistaImagenEmpty.hidden = hayImagen;
+    }
+
     function mostrarEvento() {
       const esEvento = tipoInput.value === 'evento';
       camposEvento.classList.toggle('d-none', !esEvento);
@@ -189,11 +418,13 @@
         $('#fechaEventoFinCom', root).value = '';
         $('#ubicacionEventoCom', root).value = '';
       }
+      actualizarVistaPrevia();
     }
 
     function actualizarContadores() {
-      tituloChars.textContent = String($('#tituloCom', root).value.length);
-      resumenChars.textContent = String($('#resumenCom', root).value.length);
+      tituloChars.textContent = String(tituloInput.value.length);
+      resumenChars.textContent = String(resumenInput.value.length);
+      actualizarVistaPrevia();
     }
 
     function sincronizarDestino() {
@@ -201,6 +432,11 @@
       const option = destinoSelect.selectedOptions[0];
       tipoConjuntoInput.value = option?.dataset.tipo || '';
       codigoComunidadInput.value = option?.dataset.codigo || '';
+      if (vistaComunidad) {
+        vistaComunidad.textContent = esAdminSistema && option?.dataset.codigo
+          ? texto(option.textContent, comunidadVisible)
+          : comunidadVisible;
+      }
     }
 
     function limpiarFormulario() {
@@ -208,18 +444,20 @@
       limpiarPreviewTemporal();
       form.reset();
       codigoInput.value = '';
+      tipoInput.value = 'comunicado';
       state.editando = null;
-      $('#evComFormTitle', root).textContent = 'Nueva publicación';
+      const titleNode = $('#evComFormTitle span', root);
+      if (titleNode) titleNode.textContent = 'Nueva publicación';
       btnGuardar.innerHTML = '<i class="bi bi-save"></i> Guardar borrador';
       btnPublicar.classList.remove('d-none');
       btnGuardar.disabled = false;
       btnPublicar.disabled = false;
       sincronizarDestino();
-      mostrarEvento();
+      seleccionarTipo('comunicado', false);
       actualizarContadores();
-      previewWrap.hidden = true;
-      previewImg.src = '';
+      mostrarImagenEnVistas('', '');
       imagenInput.value = '';
+      state.scrollDestacadoAntes = null;
       state.dirty = false;
       state.suspendDirty = false;
     }
@@ -302,7 +540,7 @@
           `<button type="button" class="ev-com-mini-btn" data-action="historial" data-id="${id}"><i class="bi bi-clock-history"></i> Historial</button>`
         ];
 
-        if (estado === 'borrador' || estado === 'publicado') {
+        if (estado === 'borrador' || estado === 'publicado' || estado === 'inactivo') {
           actions.unshift(`<button type="button" class="ev-com-mini-btn" data-action="editar" data-id="${id}"><i class="bi bi-pencil"></i> Editar</button>`);
         }
         if (estado === 'borrador') {
@@ -310,6 +548,9 @@
         }
         if (estado === 'publicado') {
           actions.unshift(`<button type="button" class="ev-com-mini-btn off" data-action="desactivar" data-id="${id}"><i class="bi bi-eye-slash"></i> Desactivar</button>`);
+        }
+        if (estado === 'inactivo') {
+          actions.unshift(`<button type="button" class="ev-com-mini-btn publish" data-action="reactivar" data-id="${id}"><i class="bi bi-arrow-repeat"></i> Reactivar</button>`);
         }
 
         const fechaMostrar = item.tipo_publicacion === 'evento' && item.fecha_evento_inicio
@@ -379,13 +620,11 @@
     function cargarPortadaExistente(path) {
       limpiarPreviewTemporal();
       if (!path) {
-        previewWrap.hidden = true;
-        previewImg.src = '';
+        mostrarImagenEnVistas('', '');
         return;
       }
       const clean = String(path).replace(/^\/+/, '');
-      previewImg.src = `${BASE}/${clean}`;
-      previewWrap.hidden = false;
+      mostrarImagenEnVistas(`${BASE}/${clean}`, 'Portada actual');
     }
 
     async function editar(id) {
@@ -396,8 +635,9 @@
         state.suspendDirty = true;
         state.editando = id;
         codigoInput.value = String(id);
-        $('#evComFormTitle', root).textContent = 'Editar publicación';
-        tipoInput.value = item.tipo_publicacion || 'comunicado';
+        const titleNode = $('#evComFormTitle span', root);
+        if (titleNode) titleNode.textContent = 'Editar publicación';
+        seleccionarTipo(item.tipo_publicacion || 'comunicado', false);
         $('#prioridadCom', root).value = item.prioridad || 'normal';
         $('#tituloCom', root).value = item.titulo || '';
         $('#resumenCom', root).value = item.resumen || '';
@@ -418,7 +658,7 @@
         actualizarContadores();
         cargarPortadaExistente(item.imagen_portada);
 
-        if (item.estado === 'publicado') {
+        if (item.estado === 'publicado' || item.estado === 'inactivo') {
           btnGuardar.innerHTML = '<i class="bi bi-check2-circle"></i> Guardar cambios';
           btnPublicar.classList.add('d-none');
         }
@@ -441,7 +681,7 @@
 
       if (accion === 'publicar') {
         const confirmado = await confirmar(
-          `El contenido será visible para los vecinos de ${comunidadVisible}.`,
+          `El contenido será visible para los vecinos de ${comunidadDestinoActual()}.`,
           'Sí, publicar',
           'Publicar contenido'
         );
@@ -497,24 +737,70 @@
       }
     }
 
+    async function reactivar(id) {
+      if (!await confirmar('La publicación volverá a mostrarse a los vecinos de la comunidad.', 'Sí, reactivar')) return;
+      try {
+        const data = await requestJSON(url.reactivar(id), { method: 'POST' });
+        await notify('success', 'Publicación reactivada', data.mensaje);
+        await listar();
+      } catch (e) {
+        await notify('error', 'No se pudo reactivar', e.message);
+      }
+    }
+
     async function historial(id) {
       try {
         const [detalleData, historyData] = await Promise.all([
           requestJSON(url.detalle(id)),
           requestJSON(url.historial(id))
         ]);
-        $('#tituloHistorialCom').textContent = detalleData.item?.titulo || 'Publicación';
+
+        const itemActual = detalleData.item || {};
+        const titulo = itemActual.titulo || 'Publicación';
+        const tipoKey = String(itemActual.tipo_publicacion || 'comunicado').trim().toLowerCase();
+        const estadoKey = String(itemActual.estado || 'borrador').trim().toLowerCase();
         const items = Array.isArray(historyData.items) ? historyData.items : [];
-        $('#listaHistorialCom').innerHTML = items.length ? items.map(item => `
-          <article class="ev-com-history-item">
-            <span class="ev-com-history-dot"></span>
-            <div>
-              <strong>${escapeHtml(texto(item.accion).replaceAll('_', ' '))}</strong>
-              <p>${escapeHtml(fecha(item.created_at))} · ${escapeHtml(texto(item.usuario_accion))}</p>
-              <p>Estado: ${escapeHtml(estadoLabel(item.estado_anterior))} → ${escapeHtml(estadoLabel(item.estado_nuevo))}</p>
-              ${item.motivo ? `<p>Motivo: ${escapeHtml(item.motivo)}</p>` : ''}
-            </div>
-          </article>`).join('') : '<div class="ev-com-empty"><i class="bi bi-clock-history"></i><div>Sin movimientos registrados.</div></div>';
+
+        const tituloHistorial = $('#tituloHistorialCom');
+        const tipoHistorial = $('#tipoHistorialCom');
+        const estadoHistorial = $('#estadoHistorialCom');
+        const totalHistorial = $('#totalMovimientosHistorialCom');
+        const textoMovimientos = $('#textoMovimientosHistorialCom');
+        const listaHistorial = $('#listaHistorialCom');
+
+        if (tituloHistorial) {
+          tituloHistorial.textContent = titulo;
+          tituloHistorial.title = titulo;
+        }
+
+        if (tipoHistorial) {
+          tipoHistorial.textContent = tipoLabel(tipoKey);
+          tipoHistorial.className = `ev-com-history-type ev-com-history-type--${tipoKey}`;
+        }
+
+        if (estadoHistorial) {
+          estadoHistorial.textContent = estadoLabel(estadoKey);
+          estadoHistorial.className = `ev-com-history-current ev-com-history-current--${estadoKey}`;
+        }
+
+        if (totalHistorial) totalHistorial.textContent = String(items.length);
+        if (textoMovimientos) {
+          textoMovimientos.textContent = items.length === 1
+            ? 'movimiento registrado'
+            : 'movimientos registrados';
+        }
+
+        if (listaHistorial) {
+          listaHistorial.innerHTML = items.length
+            ? items.map((item, index) => renderHistorialItem(item, index)).join('')
+            : `
+              <div class="ev-com-empty">
+                <i class="bi bi-clock-history"></i>
+                <div>Sin movimientos registrados.</div>
+                <small>Las acciones realizadas sobre esta publicación aparecerán aquí.</small>
+              </div>`;
+        }
+
         modalHistorial?.show();
       } catch (e) {
         await notify('error', 'No se pudo cargar el historial', e.message);
@@ -532,10 +818,38 @@
 
     form.addEventListener('input', markDirty);
     form.addEventListener('change', markDirty);
-    tipoInput.addEventListener('change', mostrarEvento);
+    tipoOptions.forEach(option => {
+      option.addEventListener('click', () => seleccionarTipo(option.dataset.comTipo || 'comunicado'));
+    });
     destinoSelect?.addEventListener('change', sincronizarDestino);
-    $('#tituloCom', root).addEventListener('input', actualizarContadores);
-    $('#resumenCom', root).addEventListener('input', actualizarContadores);
+    tituloInput.addEventListener('input', actualizarContadores);
+    resumenInput.addEventListener('input', actualizarContadores);
+    contenidoInput.addEventListener('input', actualizarVistaPrevia);
+    prioridadInput.addEventListener('change', actualizarVistaPrevia);
+
+    /*
+       El switch conserva su posición visual dentro del panel izquierdo.
+       Así, al activarlo/desactivarlo, el navegador no desplaza el editor
+       por enfocar el checkbox oculto.
+    */
+    destacadoSwitch?.addEventListener('pointerdown', () => {
+      state.scrollDestacadoAntes = editorScroll ? editorScroll.scrollTop : null;
+    });
+
+    destacadoInput?.addEventListener('change', () => {
+      actualizarVistaPrevia();
+
+      if (editorScroll && Number.isFinite(state.scrollDestacadoAntes)) {
+        const top = Number(state.scrollDestacadoAntes);
+        window.requestAnimationFrame(() => {
+          editorScroll.scrollTop = top;
+          state.scrollDestacadoAntes = null;
+        });
+      }
+    });
+
+    $('#fechaEventoInicioCom', root).addEventListener('change', actualizarVistaPrevia);
+    $('#ubicacionEventoCom', root).addEventListener('input', actualizarVistaPrevia);
 
     modalFormularioEl.addEventListener('hidden.bs.modal', () => {
       limpiarFormulario();
@@ -545,20 +859,48 @@
       const file = imagenInput.files?.[0];
       limpiarPreviewTemporal();
       if (!file) {
-        previewWrap.hidden = true;
-        previewImg.src = '';
+        mostrarImagenEnVistas('', '');
+        return;
+      }
+      const tiposImagenPermitidos = ['image/jpeg', 'image/png', 'image/webp'];
+      if (file.type && !tiposImagenPermitidos.includes(file.type)) {
+        imagenInput.value = '';
+        mostrarImagenEnVistas('', '');
+        notify('info', 'Formato no permitido', 'Solo puedes seleccionar imágenes JPG, PNG o WEBP.');
         return;
       }
       if (file.size > 2 * 1024 * 1024) {
         imagenInput.value = '';
-        previewWrap.hidden = true;
-        previewImg.src = '';
+        mostrarImagenEnVistas('', '');
         notify('info', 'Imagen muy grande', 'La portada debe pesar como máximo 2 MB.');
         return;
       }
       state.previewObjectUrl = URL.createObjectURL(file);
-      previewImg.src = state.previewObjectUrl;
-      previewWrap.hidden = false;
+      mostrarImagenEnVistas(state.previewObjectUrl, file.name || 'Imagen seleccionada');
+    });
+
+    btnCambiarPortada?.addEventListener('click', () => imagenInput.click());
+
+    ['dragenter', 'dragover'].forEach(type => {
+      zonaPortada?.addEventListener(type, event => {
+        event.preventDefault();
+        zonaPortada.classList.add('is-dragging');
+      });
+    });
+    ['dragleave', 'drop'].forEach(type => {
+      zonaPortada?.addEventListener(type, event => {
+        event.preventDefault();
+        zonaPortada.classList.remove('is-dragging');
+      });
+    });
+    zonaPortada?.addEventListener('drop', event => {
+      const file = event.dataTransfer?.files?.[0];
+      if (!file) return;
+      const data = new DataTransfer();
+      data.items.add(file);
+      imagenInput.files = data.files;
+      imagenInput.dispatchEvent(new Event('change', { bubbles: true }));
+      markDirty();
     });
 
     $('#filtrosComunidadForm', root).addEventListener('submit', event => {
@@ -583,11 +925,13 @@
       if (action === 'editar') editar(id);
       if (action === 'publicar') publicar(id);
       if (action === 'desactivar') desactivar(id);
+      if (action === 'reactivar') reactivar(id);
       if (action === 'historial') historial(id);
     });
 
-    mostrarEvento();
+    seleccionarTipo('comunicado', false);
     actualizarContadores();
+    mostrarImagenEnVistas('', '');
     cargarDestinos().then(listar).catch(error => notify('error', 'No se pudo iniciar el módulo', error.message));
   }
 

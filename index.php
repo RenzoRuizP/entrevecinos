@@ -785,6 +785,7 @@ $routes = [
     ['POST', '#^/api/comunidad/publicaciones/(\d+)/actualizar$#', [apiComunidadController::class, 'actualizar'], 'json'],
     ['POST', '#^/api/comunidad/publicaciones/(\d+)/publicar$#', [apiComunidadController::class, 'publicar'], 'json'],
     ['POST', '#^/api/comunidad/publicaciones/(\d+)/desactivar$#', [apiComunidadController::class, 'desactivar'], 'json'],
+    ['POST', '#^/api/comunidad/publicaciones/(\d+)/reactivar$#', [apiComunidadController::class, 'reactivar'], 'json'],
 
     // ---------------------------
     // USUARIO

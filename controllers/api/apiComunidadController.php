@@ -51,6 +51,16 @@ final class apiComunidadController
         return true;
     }
 
+    private function obtenerIdValido(string|int $codigoPublicacion): int
+    {
+        $id = (int)$codigoPublicacion;
+        if ($id <= 0) {
+            throw new InvalidArgumentException('Identificador de publicación inválido.');
+        }
+
+        return $id;
+    }
+
     public function destinos(): void
     {
         if (!$this->exigirGestion()) {
@@ -98,15 +108,12 @@ final class apiComunidadController
             return;
         }
 
-        $id = (int)$codigoPublicacion;
-        if ($id <= 0) {
-            $this->json(422, ['ok' => false, 'mensaje' => 'Identificador de publicación inválido.']);
-            return;
-        }
-
         try {
+            $id = $this->obtenerIdValido($codigoPublicacion);
+
             $m = new ComunidadPublicacion();
             $item = $m->obtenerGestion($this->auth(), $id);
+
             if (!$item) {
                 $this->json(404, ['ok' => false, 'mensaje' => 'La publicación no fue encontrada.']);
                 return;
@@ -124,13 +131,9 @@ final class apiComunidadController
             return;
         }
 
-        $id = (int)$codigoPublicacion;
-        if ($id <= 0) {
-            $this->json(422, ['ok' => false, 'mensaje' => 'Identificador de publicación inválido.']);
-            return;
-        }
-
         try {
+            $id = $this->obtenerIdValido($codigoPublicacion);
+
             $m = new ComunidadPublicacion();
             $items = $m->listarHistorial($this->auth(), $id);
             $this->json(200, ['ok' => true, 'items' => $items]);
@@ -158,7 +161,11 @@ final class apiComunidadController
                 ? 'La publicación fue creada y publicada correctamente.'
                 : 'El borrador fue guardado correctamente.';
 
-            $this->json(201, ['ok' => true, 'codigo_publicacion' => $id, 'mensaje' => $mensaje]);
+            $this->json(201, [
+                'ok' => true,
+                'codigo_publicacion' => $id,
+                'mensaje' => $mensaje
+            ]);
         } catch (Throwable $e) {
             $this->eliminarArchivoNuevo($archivoNuevo);
             $this->error($e, 'crear');
@@ -171,15 +178,10 @@ final class apiComunidadController
             return;
         }
 
-        $id = (int)$codigoPublicacion;
-        if ($id <= 0) {
-            $this->json(422, ['ok' => false, 'mensaje' => 'Identificador de publicación inválido.']);
-            return;
-        }
-
         $archivoNuevo = null;
 
         try {
+            $id = $this->obtenerIdValido($codigoPublicacion);
             $data = $this->datosValidados();
             $archivoNuevo = $this->procesarPortada();
 
@@ -190,9 +192,11 @@ final class apiComunidadController
                 $this->eliminarPortadaAnterior((string)$resultado['imagen_anterior']);
             }
 
-            $mensaje = $resultado['estado'] === 'publicado'
-                ? 'La publicación fue actualizada correctamente.'
-                : 'El borrador fue actualizado correctamente.';
+            $mensaje = match ((string)($resultado['estado'] ?? 'borrador')) {
+                'publicado' => 'La publicación fue actualizada correctamente.',
+                'inactivo' => 'La publicación inactiva fue actualizada correctamente. Puedes reactivarla cuando esté lista.',
+                default => 'El borrador fue actualizado correctamente.',
+            };
 
             $this->json(200, ['ok' => true, 'mensaje' => $mensaje]);
         } catch (Throwable $e) {
@@ -207,16 +211,16 @@ final class apiComunidadController
             return;
         }
 
-        $id = (int)$codigoPublicacion;
-        if ($id <= 0) {
-            $this->json(422, ['ok' => false, 'mensaje' => 'Identificador de publicación inválido.']);
-            return;
-        }
-
         try {
+            $id = $this->obtenerIdValido($codigoPublicacion);
+
             $m = new ComunidadPublicacion();
             $m->publicar($this->auth(), $id);
-            $this->json(200, ['ok' => true, 'mensaje' => 'La publicación ya está visible para la comunidad.']);
+
+            $this->json(200, [
+                'ok' => true,
+                'mensaje' => 'La publicación ya está visible para la comunidad.'
+            ]);
         } catch (Throwable $e) {
             $this->error($e, 'publicar');
         }
@@ -228,18 +232,39 @@ final class apiComunidadController
             return;
         }
 
-        $id = (int)$codigoPublicacion;
-        if ($id <= 0) {
-            $this->json(422, ['ok' => false, 'mensaje' => 'Identificador de publicación inválido.']);
+        try {
+            $id = $this->obtenerIdValido($codigoPublicacion);
+
+            $m = new ComunidadPublicacion();
+            $m->desactivar($this->auth(), $id);
+
+            $this->json(200, [
+                'ok' => true,
+                'mensaje' => 'La publicación fue desactivada correctamente.'
+            ]);
+        } catch (Throwable $e) {
+            $this->error($e, 'desactivar');
+        }
+    }
+
+    public function reactivar(string|int $codigoPublicacion): void
+    {
+        if (!$this->exigirGestion()) {
             return;
         }
 
         try {
+            $id = $this->obtenerIdValido($codigoPublicacion);
+
             $m = new ComunidadPublicacion();
-            $m->desactivar($this->auth(), $id);
-            $this->json(200, ['ok' => true, 'mensaje' => 'La publicación fue desactivada correctamente.']);
+            $m->reactivar($this->auth(), $id);
+
+            $this->json(200, [
+                'ok' => true,
+                'mensaje' => 'La publicación fue reactivada y ya está visible para la comunidad.'
+            ]);
         } catch (Throwable $e) {
-            $this->error($e, 'desactivar');
+            $this->error($e, 'reactivar');
         }
     }
 

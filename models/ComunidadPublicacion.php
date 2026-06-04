@@ -221,8 +221,16 @@ final class ComunidadPublicacion extends Conexion
         }
 
         if ($q !== '') {
-            $where[] = '(p.titulo LIKE :q OR p.resumen LIKE :q OR p.contenido LIKE :q)';
-            $params[':q'] = '%' . $q . '%';
+            /*
+             * PDO con ATTR_EMULATE_PREPARES=false no permite reutilizar el
+             * mismo marcador nombrado varias veces en una sentencia MySQL.
+             * Usamos un marcador independiente por columna.
+             */
+            $likeQ = '%' . $q . '%';
+            $where[] = '(p.titulo LIKE :q_titulo OR p.resumen LIKE :q_resumen OR p.contenido LIKE :q_contenido)';
+            $params[':q_titulo'] = $likeQ;
+            $params[':q_resumen'] = $likeQ;
+            $params[':q_contenido'] = $likeQ;
         }
 
         $whereSql = 'WHERE ' . implode(' AND ', $where);
@@ -413,10 +421,6 @@ final class ComunidadPublicacion extends Conexion
         if ($actual['estado'] === 'ocultado_moderacion') {
             throw new DomainException('Esta publicación fue ocultada por moderación y no puede editarse desde gestión.');
         }
-        if ($actual['estado'] === 'inactivo') {
-            throw new DomainException('Una publicación inactiva no puede editarse. Crea una nueva publicación.');
-        }
-
         $destino = $this->destinoPermitido($auth, $data);
         $usuario = $this->codigoUsuario($auth);
         $rutaImagen = $imagenPortada ?? ($actual['imagen_portada'] ?: null);
@@ -544,6 +548,72 @@ final class ComunidadPublicacion extends Conexion
         }
     }
 
+    public function reactivar(array $auth, int $codigoPublicacion): void
+    {
+        $actual = $this->obtenerGestion($auth, $codigoPublicacion);
+        if (!$actual) {
+            throw new DomainException('La publicación no existe o no está dentro de tu comunidad.');
+        }
+        if ($actual['estado'] !== 'inactivo') {
+            throw new DomainException('Solo una publicación inactiva puede reactivarse.');
+        }
+        if (
+            $actual['tipo_publicacion'] === 'evento'
+            && !empty($actual['fecha_evento_inicio'])
+            && strtotime((string)$actual['fecha_evento_inicio']) < time()
+        ) {
+            throw new DomainException('Actualiza la fecha del evento antes de reactivar la publicación.');
+        }
+        if (
+            !empty($actual['fecha_expiracion'])
+            && strtotime((string)$actual['fecha_expiracion']) <= time()
+        ) {
+            throw new DomainException('Actualiza la fecha de expiración antes de reactivar la publicación.');
+        }
+
+        $usuario = $this->codigoUsuario($auth);
+        if ($usuario <= 0) {
+            throw new RuntimeException('No se pudo identificar al usuario autenticado.');
+        }
+
+        try {
+            $this->dblink->beginTransaction();
+
+            $st = $this->dblink->prepare("UPDATE comunidad_publicacion
+                                          SET estado = 'publicado',
+                                              fecha_publicacion = NOW(),
+                                              codigo_usuario_publicacion = :usuario_publicacion,
+                                              codigo_usuario_modificacion = :usuario_modificacion
+                                          WHERE codigo_publicacion = :id
+                                            AND estado = 'inactivo'
+                                          LIMIT 1");
+            $st->bindValue(':usuario_publicacion', $usuario, PDO::PARAM_INT);
+            $st->bindValue(':usuario_modificacion', $usuario, PDO::PARAM_INT);
+            $st->bindValue(':id', $codigoPublicacion, PDO::PARAM_INT);
+            $st->execute();
+
+            if ($st->rowCount() !== 1) {
+                throw new DomainException('La publicación ya no se encuentra disponible para reactivar.');
+            }
+
+            $this->registrarHistorial(
+                $codigoPublicacion,
+                'reactivacion',
+                'inactivo',
+                'publicado',
+                $usuario,
+                null
+            );
+
+            $this->dblink->commit();
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+            throw $e;
+        }
+    }
+
     public function listarHistorial(array $auth, int $codigoPublicacion): array
     {
         if (!$this->obtenerGestion($auth, $codigoPublicacion)) {
@@ -624,13 +694,19 @@ final class ComunidadPublicacion extends Conexion
 
     private function publicarDentroTransaccion(int $codigoPublicacion, int $usuario, string $estadoAnterior): void
     {
+        /*
+         * PDO con preparaciones nativas no permite repetir :usuario dentro
+         * de la misma sentencia. Esto provocaba SQLSTATE[HY093] al usar
+         * "Publicar ahora" y la transacción se revertía completa.
+         */
         $st = $this->dblink->prepare("UPDATE comunidad_publicacion
                                       SET estado = 'publicado',
                                           fecha_publicacion = NOW(),
-                                          codigo_usuario_publicacion = :usuario,
-                                          codigo_usuario_modificacion = :usuario
+                                          codigo_usuario_publicacion = :usuario_publicacion,
+                                          codigo_usuario_modificacion = :usuario_modificacion
                                       WHERE codigo_publicacion = :id LIMIT 1");
-        $st->bindValue(':usuario', $usuario, PDO::PARAM_INT);
+        $st->bindValue(':usuario_publicacion', $usuario, PDO::PARAM_INT);
+        $st->bindValue(':usuario_modificacion', $usuario, PDO::PARAM_INT);
         $st->bindValue(':id', $codigoPublicacion, PDO::PARAM_INT);
         $st->execute();
         $this->registrarHistorial($codigoPublicacion, 'publicacion', $estadoAnterior, 'publicado', $usuario, null);
