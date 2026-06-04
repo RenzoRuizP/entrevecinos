@@ -611,7 +611,7 @@ if (!defined('EV_ADMIN_COMUNIDAD_ROLE_ID')) {
 }
 
 safeRequire(__DIR__ . '/controllers/AuthController.php');
-safeRequire(__DIR__ . '/controllers/menuPrincipalController.php');
+safeRequire(__DIR__ . '/controllers/MenuPrincipalController.php');
 safeRequire(__DIR__ . '/controllers/CondominioController.php');
 safeRequire(__DIR__ . '/controllers/UrbanizacionController.php');
 safeRequire(__DIR__ . '/controllers/UbigeoController.php');
@@ -629,6 +629,7 @@ safeRequire(__DIR__ . '/controllers/atenderCuentasUsuarioController.php');
 safeRequire(__DIR__ . '/controllers/notificacionesResidenciaController.php');
 safeRequire(__DIR__ . '/controllers/comunidadGestionController.php');
 safeRequire(__DIR__ . '/controllers/comunidadModeracionController.php');
+safeRequire(__DIR__ . '/controllers/comunidadVecinoController.php');
 
 safeRequire(__DIR__ . '/controllers/cuentaObservadaController.php');
 safeRequire(__DIR__ . '/controllers/api/apiCuentaObservadaController.php');
@@ -655,6 +656,7 @@ safeRequire(__DIR__ . '/models/SoporteDashboard.php');
 
 safeRequire(__DIR__ . '/controllers/api/apiDisponibilidadPedidosController.php');
 safeRequire(__DIR__ . '/controllers/api/apiComunidadController.php');
+safeRequire(__DIR__ . '/controllers/api/apiComunidadVecinoController.php');
 
 safeRequire(__DIR__ . '/controllers/misPedidosCompradorController.php');
 safeRequire(__DIR__ . '/controllers/misPedidosVendedorController.php');
@@ -761,6 +763,11 @@ $routes = [
     ['GET', '#^/mis-pedidos-vendedor$#',  [misPedidosVendedorController::class, 'index'],  'html'],
 
     // ---------------------------
+    // COMUNIDAD - VISTA PARA VECINOS
+    // ---------------------------
+    ['GET', '#^/comunidad$#', [comunidadVecinoController::class, 'index'], 'html'],
+
+    // ---------------------------
     // VISTAS SOPORTE
     // ---------------------------
     ['GET', '#^/atender-recargas$#', [atenderRecargasController::class, 'index'], 'html'],
@@ -786,6 +793,12 @@ $routes = [
     ['POST', '#^/api/comunidad/publicaciones/(\d+)/publicar$#', [apiComunidadController::class, 'publicar'], 'json'],
     ['POST', '#^/api/comunidad/publicaciones/(\d+)/desactivar$#', [apiComunidadController::class, 'desactivar'], 'json'],
     ['POST', '#^/api/comunidad/publicaciones/(\d+)/reactivar$#', [apiComunidadController::class, 'reactivar'], 'json'],
+
+    // ---------------------------
+    // COMUNIDAD - API DE SOLO LECTURA PARA VECINOS
+    // ---------------------------
+    ['GET', '#^/api/comunidad/vecino/publicaciones$#', [apiComunidadVecinoController::class, 'listar'], 'json'],
+    ['GET', '#^/api/comunidad/vecino/publicaciones/(\d+)$#', [apiComunidadVecinoController::class, 'detalle'], 'json'],
 
     // ---------------------------
     // USUARIO
@@ -980,9 +993,9 @@ foreach ($routes as $r) {
         $codigoUsuario = (int)($auth['codigo_usuario'] ?? 0);
         $codigoRol     = (int)($auth['codigo_rol'] ?? 0);
 
-        $adminId            = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
-        $soporteId          = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
-        $adminComunidadId   = defined('EV_ADMIN_COMUNIDAD_ROLE_ID') ? (int)EV_ADMIN_COMUNIDAD_ROLE_ID : 4;
+        $adminId          = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
+        $soporteId        = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
+        $adminComunidadId = defined('EV_ADMIN_COMUNIDAD_ROLE_ID') ? (int)EV_ADMIN_COMUNIDAD_ROLE_ID : 4;
 
         $esAdministradorComunidad = (
             $codigoUsuario > 0

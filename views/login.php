@@ -88,7 +88,7 @@ require_once __DIR__ . '/../Config/config.php';
       <header class="login-panel-header text-center">
         <div class="login-brand-mark">
           <img
-            src="<?= BASE_URL ?>resources/images/logo/logo v3.png"
+            src="<?= BASE_URL ?>resources/images/logo/logo_ev_transparente_corregido_recortado.png"
             alt="Entre Vecinos"
             class="login-logo">
         </div>

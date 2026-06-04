@@ -444,7 +444,7 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
             <div class="ev-com-history-heading-copy">
               <span class="ev-com-history-eyebrow">Trazabilidad administrativa</span>
               <h5 class="modal-title" id="tituloModalHistorialCom">Historial de publicación</h5>
-              <p>Registro de cambios y acciones realizadas.</p>
+              <!--<p>Registro de cambios y acciones realizadas.</p>-->
             </div>
           </div>
 
@@ -458,7 +458,7 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
           </button>
         </div>
 
-        <div class="ev-com-history-context" aria-label="Publicación consultada">
+        <!--<div class="ev-com-history-context" aria-label="Publicación consultada">
           <div class="ev-com-history-context-main">
             <span class="ev-com-history-type ev-com-history-type--comunicado" id="tipoHistorialCom">Comunicado</span>
 
@@ -469,7 +469,7 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
           </div>
 
           <span class="ev-com-history-current ev-com-history-current--borrador" id="estadoHistorialCom">Borrador</span>
-        </div>
+        </div>-->
       </header>
 
       <div class="modal-body ev-com-history-body">
