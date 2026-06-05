@@ -43,7 +43,7 @@ final class Dashboard extends Conexion
                     'residencia' => $residencia,
                     'resumen' => $resumen,
                     'actividad_reciente' => $this->obtenerActividadReciente($codigoUsuario),
-                    'novedades_comunidad' => [],
+                    'novedades_comunidad' => $this->obtenerNovedadesComunidad($residencia),
                     'publicaciones_recientes' => $this->obtenerPublicacionesRecientes($codigoUsuario, $residencia),
                     'rutas' => [
                         'marketplace' => '/marketplace',
@@ -390,6 +390,177 @@ final class Dashboard extends Conexion
 
             return [];
         }
+    }
+
+
+    private function obtenerNovedadesComunidad(array $residencia): array
+    {
+        $tipoConjunto = strtolower(trim((string)($residencia['tipo_conjunto'] ?? '')));
+        $codigoCondominio = (int)($residencia['codigo_condominio'] ?? 0);
+        $codigoUrbanizacion = (int)($residencia['codigo_urbanizacion'] ?? 0);
+
+        if (!in_array($tipoConjunto, ['condominio', 'urbanizacion'], true)) {
+            return $this->novedadesComunidadVacia(false);
+        }
+
+        if ($tipoConjunto === 'condominio' && $codigoCondominio <= 0) {
+            return $this->novedadesComunidadVacia(false);
+        }
+
+        if ($tipoConjunto === 'urbanizacion' && $codigoUrbanizacion <= 0) {
+            return $this->novedadesComunidadVacia(false);
+        }
+
+        $codigoComunidad = $tipoConjunto === 'urbanizacion'
+            ? $codigoUrbanizacion
+            : $codigoCondominio;
+
+        $whereComunidad = $tipoConjunto === 'urbanizacion'
+            ? "p.tipo_conjunto = :tipo_conjunto
+               AND p.codigo_urbanizacion = :codigo_comunidad
+               AND p.codigo_condominio IS NULL"
+            : "p.tipo_conjunto = :tipo_conjunto
+               AND p.codigo_condominio = :codigo_comunidad
+               AND p.codigo_urbanizacion IS NULL";
+
+        $whereVisible = "
+            p.alcance = 'comunidad'
+            AND p.estado = 'publicado'
+            AND (p.fecha_expiracion IS NULL OR p.fecha_expiracion > NOW())
+            AND {$whereComunidad}
+        ";
+
+        try {
+            $sqlCounts = "
+                SELECT
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN p.tipo_publicacion = 'comunicado' THEN 1 ELSE 0 END) AS comunicados,
+                    SUM(CASE WHEN p.tipo_publicacion = 'noticia' THEN 1 ELSE 0 END) AS noticias,
+                    SUM(CASE WHEN p.tipo_publicacion = 'evento' THEN 1 ELSE 0 END) AS eventos,
+                    SUM(CASE WHEN p.destacado_dashboard = 1 THEN 1 ELSE 0 END) AS destacados
+                FROM comunidad_publicacion p
+                WHERE {$whereVisible}
+            ";
+
+            $stCounts = $this->dblink->prepare($sqlCounts);
+            $stCounts->bindValue(':tipo_conjunto', $tipoConjunto, PDO::PARAM_STR);
+            $stCounts->bindValue(':codigo_comunidad', $codigoComunidad, PDO::PARAM_INT);
+            $stCounts->execute();
+
+            $rowCounts = $stCounts->fetch(PDO::FETCH_ASSOC) ?: [];
+
+            $counts = [
+                'total' => (int)($rowCounts['total'] ?? 0),
+                'comunicados' => (int)($rowCounts['comunicados'] ?? 0),
+                'noticias' => (int)($rowCounts['noticias'] ?? 0),
+                'eventos' => (int)($rowCounts['eventos'] ?? 0),
+                'destacados' => (int)($rowCounts['destacados'] ?? 0),
+            ];
+
+            $sql = "
+                SELECT
+                    p.codigo_publicacion,
+                    p.tipo_publicacion,
+                    p.titulo,
+                    p.resumen,
+                    p.imagen_portada,
+                    p.prioridad,
+                    p.destacado_dashboard,
+                    p.fecha_publicacion,
+                    p.fecha_expiracion,
+                    p.fecha_evento_inicio,
+                    p.fecha_evento_fin,
+                    p.ubicacion_evento
+                FROM comunidad_publicacion p
+                WHERE {$whereVisible}
+                ORDER BY
+                    p.fecha_publicacion DESC,
+                    p.codigo_publicacion DESC
+                LIMIT 3
+            ";
+
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':tipo_conjunto', $tipoConjunto, PDO::PARAM_STR);
+            $st->bindValue(':codigo_comunidad', $codigoComunidad, PDO::PARAM_INT);
+            $st->execute();
+
+            $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $items = [];
+
+            foreach ($rows as $row) {
+                $fechaPublicacion = (string)($row['fecha_publicacion'] ?? '');
+
+                $items[] = [
+                    'codigo_publicacion' => (int)($row['codigo_publicacion'] ?? 0),
+                    'tipo_publicacion' => (string)($row['tipo_publicacion'] ?? 'comunicado'),
+                    'tipo_label' => $this->labelTipoNovedad((string)($row['tipo_publicacion'] ?? '')),
+                    'titulo' => (string)($row['titulo'] ?? ''),
+                    'resumen' => (string)($row['resumen'] ?? ''),
+                    'imagen_portada' => (string)($row['imagen_portada'] ?? ''),
+                    'imagen_portada_url' => $this->urlImagen((string)($row['imagen_portada'] ?? '')),
+                    'prioridad' => (string)($row['prioridad'] ?? 'normal'),
+                    'destacado_dashboard' => (int)($row['destacado_dashboard'] ?? 0),
+                    'fecha_publicacion' => $fechaPublicacion,
+                    'fecha_label' => $this->fechaCortaNovedad($fechaPublicacion),
+                    'tiempo' => $this->tiempoRelativo($fechaPublicacion),
+                    'fecha_expiracion' => (string)($row['fecha_expiracion'] ?? ''),
+                    'fecha_evento_inicio' => (string)($row['fecha_evento_inicio'] ?? ''),
+                    'fecha_evento_fin' => (string)($row['fecha_evento_fin'] ?? ''),
+                    'ubicacion_evento' => (string)($row['ubicacion_evento'] ?? ''),
+                ];
+            }
+
+            return [
+                'habilitado' => true,
+                'hay_novedad' => !empty($items),
+                'total_activos' => $counts['total'],
+                'counts' => $counts,
+                'items' => $items,
+                'ultimo' => $items[0] ?? null,
+            ];
+        } catch (Throwable $e) {
+            error_log('[EV][Dashboard][obtenerNovedadesComunidad] ' . $e->getMessage());
+
+            return $this->novedadesComunidadVacia(true);
+        }
+    }
+
+    private function novedadesComunidadVacia(bool $habilitado = false): array
+    {
+        return [
+            'habilitado' => $habilitado,
+            'hay_novedad' => false,
+            'total_activos' => 0,
+            'counts' => [
+                'total' => 0,
+                'comunicados' => 0,
+                'noticias' => 0,
+                'eventos' => 0,
+                'destacados' => 0,
+            ],
+            'items' => [],
+            'ultimo' => null,
+        ];
+    }
+
+    private function labelTipoNovedad(string $tipo): string
+    {
+        return match (strtolower(trim($tipo))) {
+            'noticia' => 'Noticia',
+            'evento' => 'Evento',
+            default => 'Comunicado',
+        };
+    }
+
+    private function fechaCortaNovedad(string $fecha): string
+    {
+        $ts = strtotime($fecha);
+
+        if ($ts === false) {
+            return '';
+        }
+
+        return date('d/m/Y', $ts);
     }
 
     private function obtenerPublicacionesRecientes(int $codigoUsuario, array $residencia): array

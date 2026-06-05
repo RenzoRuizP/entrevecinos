@@ -815,4 +815,471 @@ body{ background:var(--ev-gris-fondo); }
   .ev-home-panel-head h2{ font-size:.92rem; }
   .ev-home-panel-action--pending{ padding:5px 8px; }
 }
+
+
+/* ============================================================
+   COMUNIDAD EN DASHBOARD - PREVIEW COMPACTO
+============================================================ */
+.ev-home-action-card--community span{
+  background:linear-gradient(135deg,rgba(187,247,208,.78),rgba(255,247,237,.94));
+  color:var(--ev-verde-oscuro);
+}
+
+.ev-home-community-panel{
+  margin-top:14px;
+}
+
+.ev-home-community-strip{
+  display:grid;
+  gap:10px;
+}
+
+.ev-home-community-summary{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:12px 14px;
+  border-radius:17px;
+  background:
+    radial-gradient(circle at top left, rgba(22,163,74,.10), transparent 34%),
+    linear-gradient(135deg,#FFFFFF 0%,#F7FEFA 100%);
+  border:1px solid rgba(22,163,74,.15);
+}
+
+.ev-home-community-summary-copy{
+  min-width:0;
+}
+
+.ev-home-community-summary-copy span{
+  display:block;
+  color:var(--ev-naranja);
+  font-size:.70rem;
+  font-weight:950;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.ev-home-community-summary-copy strong{
+  display:block;
+  margin:2px 0;
+  color:var(--ev-verde-oscuro);
+  font-size:1.55rem;
+  line-height:1;
+  font-weight:950;
+  letter-spacing:-.035em;
+}
+
+.ev-home-community-summary-copy small{
+  display:block;
+  color:var(--ev-gris-500);
+  font-size:.78rem;
+  font-weight:750;
+}
+
+.ev-home-community-list{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  align-items:stretch;
+}
+
+.ev-home-community-card{
+  position:relative;
+  min-width:0;
+  min-height:118px;
+  max-height:132px;
+  overflow:hidden;
+  display:flex;
+  border-radius:16px;
+  background:#fff;
+  border:1px solid rgba(148,163,184,.18);
+  box-shadow:0 8px 20px rgba(15,23,42,.055);
+  transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+
+.ev-home-community-card::before{
+  content:"";
+  position:absolute;
+  top:0;
+  left:0;
+  bottom:0;
+  width:4px;
+  background:linear-gradient(180deg,var(--ev-verde),var(--ev-verde-claro));
+  z-index:2;
+}
+
+.ev-home-community-card.is-importante::before{
+  background:linear-gradient(180deg,var(--ev-naranja),#F59E0B);
+}
+
+.ev-home-community-card.is-urgente::before{
+  background:linear-gradient(180deg,var(--ev-rojo),#F97316);
+}
+
+.ev-home-community-card:hover{
+  transform:translateY(-1px);
+  box-shadow:0 14px 30px rgba(15,23,42,.08);
+  border-color:rgba(234,124,18,.22);
+}
+
+.ev-home-community-thumb{
+  width:104px;
+  min-width:104px;
+  height:auto;
+  background:linear-gradient(135deg,#ECFDF5,#FFF7ED);
+  overflow:hidden;
+  margin-left:4px;
+}
+
+.ev-home-community-thumb img{
+  width:100%;
+  height:100%;
+  display:block;
+  object-fit:cover;
+}
+
+.ev-home-community-body{
+  flex:1 1 auto;
+  min-width:0;
+  padding:10px 12px 10px 12px;
+  display:flex;
+  flex-direction:column;
+}
+
+.ev-home-community-meta{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:5px;
+}
+
+.ev-home-community-meta span{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  color:var(--ev-verde-oscuro);
+  font-size:.70rem;
+  font-weight:950;
+  line-height:1.1;
+}
+
+.ev-home-community-meta em{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:3px 7px;
+  border-radius:999px;
+  background:#FFF7ED;
+  color:var(--ev-naranja-oscuro);
+  font-size:.62rem;
+  font-style:normal;
+  font-weight:950;
+  white-space:nowrap;
+}
+
+.ev-home-community-card.is-urgente .ev-home-community-meta em{
+  background:#FEF2F2;
+  color:#B91C1C;
+}
+
+.ev-home-community-body h3{
+  margin:0 0 4px;
+  color:var(--ev-texto);
+  font-size:.86rem;
+  line-height:1.18;
+  font-weight:950;
+  letter-spacing:-.015em;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+
+.ev-home-community-body p{
+  margin:0;
+  color:var(--ev-gris-500);
+  font-size:.74rem;
+  line-height:1.32;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+
+.ev-home-community-foot{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-top:auto;
+  padding-top:8px;
+}
+
+.ev-home-community-foot time{
+  color:var(--ev-gris-400);
+  font-size:.70rem;
+  font-weight:850;
+  white-space:nowrap;
+}
+
+.ev-home-community-foot .ev-home-mini-action{
+  min-height:28px;
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:.70rem;
+  font-weight:900;
+}
+
+.ev-home-community-empty{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:15px;
+  border-radius:18px;
+  background:linear-gradient(135deg,#FFFFFF 0%,#F9FAFB 100%);
+  border:1px dashed rgba(148,163,184,.36);
+}
+
+.ev-home-community-empty strong{
+  display:block;
+  margin-bottom:4px;
+  color:var(--ev-verde-oscuro);
+  font-weight:950;
+}
+
+.ev-home-community-empty p{
+  margin:0;
+  color:var(--ev-gris-500);
+  line-height:1.45;
+  font-size:.88rem;
+}
+
+@media (max-width:1199.98px){
+  .ev-home-community-list{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media (max-width:767.98px){
+  .ev-home-community-summary{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .ev-home-community-list{
+    grid-template-columns:1fr;
+  }
+
+  .ev-home-community-card{
+    max-height:none;
+    min-height:118px;
+  }
+
+  .ev-home-community-thumb{
+    width:96px;
+    min-width:96px;
+  }
+
+  .ev-home-community-empty{
+    align-items:flex-start;
+  }
+}
+
+
+
+/* ============================================================
+   AJUSTE FINAL EV - ACCIONES ANARANJADAS DASHBOARD
+============================================================ */
+.ev-home-panel-action{
+  color:var(--ev-naranja-oscuro);
+  font-weight:950;
+  transition:color .16s ease, gap .16s ease, transform .16s ease, text-shadow .16s ease;
+}
+
+.ev-home-panel-action:hover,
+.ev-home-panel-action:focus-visible{
+  color:var(--ev-naranja);
+  gap:11px;
+  transform:translateY(-1px);
+  text-shadow:0 8px 18px rgba(234,124,18,.14);
+  outline:0;
+}
+
+.ev-home-panel-action i{
+  color:currentColor;
+}
+
+.ev-home-mini-action,
+.ev-home-community-panel .ev-home-mini-action,
+.ev-home-publications-panel .ev-home-mini-action{
+  border:0;
+  color:#fff;
+  background:linear-gradient(135deg,var(--ev-naranja),#F59E0B);
+  box-shadow:0 10px 22px rgba(234,124,18,.22);
+  transition:transform .16s ease, box-shadow .16s ease, background .16s ease, filter .16s ease;
+}
+
+.ev-home-mini-action:hover,
+.ev-home-mini-action:focus-visible,
+.ev-home-community-panel .ev-home-mini-action:hover,
+.ev-home-community-panel .ev-home-mini-action:focus-visible,
+.ev-home-publications-panel .ev-home-mini-action:hover,
+.ev-home-publications-panel .ev-home-mini-action:focus-visible{
+  color:#fff;
+  background:linear-gradient(135deg,var(--ev-naranja-oscuro),var(--ev-naranja));
+  box-shadow:0 14px 28px rgba(234,124,18,.30);
+  transform:translateY(-1px);
+  filter:brightness(1.02);
+  outline:0;
+}
+
+.ev-home-community-summary .ev-home-mini-action{
+  min-height:36px;
+  padding:9px 15px;
+  font-size:.78rem;
+  font-weight:950;
+}
+
+.ev-home-community-foot .ev-home-mini-action{
+  min-height:28px;
+  padding:6px 11px;
+  font-size:.70rem;
+  font-weight:950;
+}
+
+.ev-home-actions-panel .ev-home-action-card strong{
+  color:var(--ev-naranja-oscuro);
+}
+
+.ev-home-actions-panel .ev-home-action-card .ev-home-action-chevron{
+  color:var(--ev-naranja-oscuro);
+}
+
+.ev-home-actions-panel .ev-home-action-card:hover strong,
+.ev-home-actions-panel .ev-home-action-card:focus-visible strong,
+.ev-home-actions-panel .ev-home-action-card:hover .ev-home-action-chevron,
+.ev-home-actions-panel .ev-home-action-card:focus-visible .ev-home-action-chevron{
+  color:var(--ev-naranja);
+}
+
+.ev-home-community-card{
+  border-color:rgba(148,163,184,.16);
+  box-shadow:0 8px 18px rgba(15,23,42,.045);
+}
+
+.ev-home-community-card:hover,
+.ev-home-community-card:focus-within{
+  border-color:rgba(234,124,18,.28);
+  box-shadow:0 14px 30px rgba(15,23,42,.075);
+}
+
+
+/* ============================================================
+   AJUSTE FINAL EV - DASHBOARD LIMPIO + CARD COMUNIDAD CLICKEABLE
+============================================================ */
+.ev-home-community-card[role="button"]{
+  cursor:pointer;
+}
+
+.ev-home-community-card[role="button"] .ev-home-community-thumb,
+.ev-home-community-card[role="button"] .ev-home-community-body{
+  pointer-events:none;
+}
+
+.ev-home-community-card[role="button"] .ev-home-mini-action{
+  pointer-events:none;
+}
+
+.ev-home-community-card[role="button"]:hover,
+.ev-home-community-card[role="button"]:focus-visible{
+  transform:translateY(-2px);
+  border-color:rgba(234,124,18,.36);
+  box-shadow:
+    0 16px 34px rgba(15,23,42,.09),
+    0 10px 22px rgba(234,124,18,.10);
+  outline:0;
+}
+
+.ev-home-community-card[role="button"]:hover .ev-home-mini-action,
+.ev-home-community-card[role="button"]:focus-visible .ev-home-mini-action{
+  background:linear-gradient(135deg,var(--ev-naranja-oscuro),var(--ev-naranja));
+  box-shadow:0 14px 28px rgba(234,124,18,.30);
+  transform:translateY(-1px);
+}
+
+.ev-home-community-card[role="button"]:focus-visible{
+  box-shadow:
+    0 0 0 3px rgba(234,124,18,.18),
+    0 16px 34px rgba(15,23,42,.09),
+    0 10px 22px rgba(234,124,18,.10);
+}
+
+/* Clase lista para el módulo Comunidad: usarla al leer
+   sessionStorage.ev_comunidad_publicacion_seleccionada o ?publicacion=ID. */
+.ev-comunidad-publicacion--seleccionada,
+.ev-comunidad-card--seleccionada,
+[data-publicacion-seleccionada="1"]{
+  border-color:rgba(234,124,18,.70) !important;
+  box-shadow:
+    0 0 0 4px rgba(234,124,18,.14),
+    0 18px 40px rgba(234,124,18,.16),
+    0 16px 36px rgba(15,23,42,.08) !important;
+  animation:evComunidadSeleccionadaPulse 1.35s ease-in-out 2;
+}
+
+@keyframes evComunidadSeleccionadaPulse{
+  0%{ transform:translateY(0); }
+  45%{ transform:translateY(-3px); }
+  100%{ transform:translateY(0); }
+}
+
+
+
+/* ============================================================
+   AJUSTE EV - CARD COMUNIDAD SIN BOTÓN INTERNO
+   La card completa es la acción hacia /comunidad?publicacion=ID.
+============================================================ */
+.ev-home-community-card[role="button"]{
+  cursor:pointer;
+}
+
+.ev-home-community-card[role="button"]::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+  opacity:0;
+  background:linear-gradient(135deg,rgba(234,124,18,.055),rgba(255,255,255,0));
+  transition:opacity .16s ease;
+}
+
+.ev-home-community-card[role="button"]:hover::after,
+.ev-home-community-card[role="button"]:focus-visible::after{
+  opacity:1;
+}
+
+.ev-home-community-card[role="button"]:hover,
+.ev-home-community-card[role="button"]:focus-visible{
+  transform:translateY(-2px);
+  border-color:rgba(234,124,18,.36);
+  box-shadow:
+    0 16px 34px rgba(15,23,42,.09),
+    0 10px 22px rgba(234,124,18,.10);
+  outline:0;
+}
+
+.ev-home-community-card[role="button"]:focus-visible{
+  box-shadow:
+    0 0 0 3px rgba(234,124,18,.18),
+    0 16px 34px rgba(15,23,42,.09),
+    0 10px 22px rgba(234,124,18,.10);
+}
+
+.ev-home-community-card[role="button"] .ev-home-community-foot{
+  justify-content:flex-start;
+}
+
 </style>

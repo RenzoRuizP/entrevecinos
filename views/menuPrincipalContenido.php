@@ -221,21 +221,11 @@ $nombreSaludoSafe = htmlspecialchars($nombreSaludoRaw, ENT_QUOTES, 'UTF-8');
           <i class="bi bi-chevron-right ev-home-action-chevron"></i>
         </button>
 
-        <button
-          type="button"
-          class="ev-home-action-card ev-home-action-card--pending"
-          data-ev-action="comunidad-proximamente"
-          aria-label="Comunidad, módulo disponible próximamente"
-        >
+        <button type="button" class="ev-home-action-card ev-home-action-card--community" data-ev-route="/comunidad">
           <span><i class="bi bi-people"></i></span>
-
-          <div class="ev-home-action-heading">
-            <strong>Comunidad</strong>
-            <em>Próximamente</em>
-          </div>
-
+          <strong>Comunidad</strong>
           <small>Comunicados, eventos y noticias</small>
-          <i class="bi bi-info-circle ev-home-action-chevron"></i>
+          <i class="bi bi-chevron-right ev-home-action-chevron"></i>
         </button>
 
       </div>
@@ -249,16 +239,6 @@ $nombreSaludoSafe = htmlspecialchars($nombreSaludoRaw, ENT_QUOTES, 'UTF-8');
         <i class="bi bi-megaphone"></i>
         <h2>Novedades de tu comunidad</h2>
       </div>
-
-      <button
-        type="button"
-        class="ev-home-panel-action ev-home-panel-action--pending"
-        data-ev-action="comunidad-proximamente"
-        aria-label="Módulo Comunidad disponible próximamente"
-      >
-        <i class="bi bi-hourglass-split"></i>
-        Próximamente
-      </button>
     </header>
 
     <div id="evDashComunidadLista" class="ev-home-community-strip">
@@ -268,10 +248,10 @@ $nombreSaludoSafe = htmlspecialchars($nombreSaludoRaw, ENT_QUOTES, 'UTF-8');
         </div>
 
         <div>
-          <strong>Módulo Comunidad en preparación</strong>
+          <strong>Cargando novedades de tu comunidad</strong>
           <p>
-            En la siguiente fase aquí verás comunicados, eventos y noticias
-            de tu condominio o urbanización.
+            Estamos consultando comunicados, eventos y noticias disponibles
+            para tu condominio o urbanización.
           </p>
         </div>
       </article>
@@ -285,10 +265,6 @@ $nombreSaludoSafe = htmlspecialchars($nombreSaludoRaw, ENT_QUOTES, 'UTF-8');
         <i class="bi bi-tags"></i>
         <h2>Publicaciones recientes</h2>
       </div>
-
-      <button type="button" class="ev-home-panel-action" data-ev-route="/marketplace">
-        Ver todas <i class="bi bi-chevron-right"></i>
-      </button>
     </header>
 
     <div id="evDashPublicacionesLista" class="ev-home-publications-grid">

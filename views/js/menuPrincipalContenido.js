@@ -3,8 +3,8 @@
 // Versión final premium:
 // - Hero dinámico por tipo de comunidad.
 // - Sidebar sincronizado con residencia real.
-// - Comunidad comunicada como próxima fase.
-// - Renderizado seguro de métricas, actividad y publicaciones.
+// - Comunidad conectada al Dashboard.
+// - Renderizado seguro de métricas, actividad, comunidad y publicaciones.
 (function () {
   'use strict';
 
@@ -126,10 +126,12 @@
       return;
     }
 
-    const link = Array.from(document.querySelectorAll('.submenu-link[data-vista]'))
-      .find((el) => String(el.getAttribute('data-vista') || '').trim() === ruta);
+    const rutaSinQuery = ruta.split('?', 1)[0];
 
-    if (link) {
+    const link = Array.from(document.querySelectorAll('.submenu-link[data-vista]'))
+      .find((el) => String(el.getAttribute('data-vista') || '').trim() === rutaSinQuery);
+
+    if (link && ruta === rutaSinQuery) {
       link.click();
       return;
     }
@@ -137,22 +139,54 @@
     window.location.href = `${BASE}/MenuPrincipal?ev_goto=${encodeURIComponent(ruta)}`;
   }
 
-  async function comunidadProximamente() {
-    if (window.Swal?.fire) {
-      await Swal.fire({
-        icon: 'info',
-        title: 'Comunidad estará disponible próximamente',
-        text: 'En la siguiente fase aquí encontrarás comunicados, eventos y noticias de tu condominio o urbanización.',
-        confirmButtonText: 'Entendido',
-        confirmButtonColor: '#EA7C12'
-      });
-      return;
+  function guardarPublicacionComunidadSeleccionada(codigoPublicacion) {
+    const id = Number(codigoPublicacion || 0);
+
+    if (id <= 0) {
+      return 0;
     }
 
-    alert('Comunidad estará disponible próximamente.');
+    try {
+      sessionStorage.setItem('ev_comunidad_publicacion_seleccionada', String(id));
+      sessionStorage.setItem('ev_comunidad_publicacion_seleccionada_at', String(Date.now()));
+    } catch (_) {}
+
+    return id;
+  }
+
+  async function irAComunidadSeleccionada(codigoPublicacion) {
+    const id = guardarPublicacionComunidadSeleccionada(codigoPublicacion);
+    const ruta = id > 0
+      ? `/comunidad?publicacion=${encodeURIComponent(String(id))}`
+      : '/comunidad';
+
+    await navegar(ruta);
   }
 
   function bindNavegacion(root) {
+    qsa('[data-ev-comunidad-publicacion]', root).forEach((el) => {
+      if (el.dataset.evCommunityBound === '1') {
+        return;
+      }
+
+      el.dataset.evCommunityBound = '1';
+
+      el.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        await irAComunidadSeleccionada(el.dataset.evComunidadPublicacion || '');
+      });
+
+      el.addEventListener('keydown', async (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') {
+          return;
+        }
+
+        e.preventDefault();
+        await irAComunidadSeleccionada(el.dataset.evComunidadPublicacion || '');
+      });
+    });
+
     qsa('[data-ev-route]', root).forEach((btn) => {
       if (btn.dataset.evBound === '1') {
         return;
@@ -163,19 +197,6 @@
       btn.addEventListener('click', async (e) => {
         e.preventDefault();
         await navegar(btn.dataset.evRoute || '');
-      });
-    });
-
-    qsa('[data-ev-action="comunidad-proximamente"]', root).forEach((btn) => {
-      if (btn.dataset.evBound === '1') {
-        return;
-      }
-
-      btn.dataset.evBound = '1';
-
-      btn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        await comunidadProximamente();
       });
     });
   }
@@ -484,6 +505,151 @@
     return `${BASE}/${path}`;
   }
 
+  function tipoNovedadLabel(tipo) {
+    const value = String(tipo || '').trim().toLowerCase();
+
+    if (value === 'noticia') return 'Noticia';
+    if (value === 'evento') return 'Evento';
+
+    return 'Comunicado';
+  }
+
+  function iconoNovedad(tipo) {
+    const value = String(tipo || '').trim().toLowerCase();
+
+    if (value === 'noticia') return 'bi-newspaper';
+    if (value === 'evento') return 'bi-calendar-event';
+
+    return 'bi-megaphone';
+  }
+
+  function prioridadClass(value) {
+    const prioridad = String(value || '').trim().toLowerCase();
+
+    if (prioridad === 'urgente') return 'urgente';
+    if (prioridad === 'importante') return 'importante';
+
+    return 'normal';
+  }
+
+  function renderComunidad(payload) {
+    const data = payload && typeof payload === 'object' ? payload : {};
+    const items = Array.isArray(data.items) ? data.items : [];
+    const counts = data.counts && typeof data.counts === 'object' ? data.counts : {};
+
+    if (data.habilitado === false) {
+      return `
+        <article class="ev-home-community-empty">
+          <div class="ev-home-empty-icon">
+            <i class="bi bi-house-heart"></i>
+          </div>
+
+          <div>
+            <strong>Tu comunidad aún no está habilitada</strong>
+            <p>
+              Cuando tu residencia esté validada, aquí verás comunicados,
+              noticias y eventos oficiales.
+            </p>
+          </div>
+        </article>
+      `;
+    }
+
+    if (!items.length) {
+      return `
+        <article class="ev-home-community-empty">
+          <div class="ev-home-empty-icon">
+            <i class="bi bi-newspaper"></i>
+          </div>
+
+          <div>
+            <strong>No hay novedades publicadas por ahora</strong>
+            <p>
+              Cuando la administración publique comunicados, eventos o noticias,
+              aparecerán aquí.
+            </p>
+
+            <button type="button" class="ev-home-mini-action" data-ev-route="/comunidad">
+              Ir a Comunidad
+            </button>
+          </div>
+        </article>
+      `;
+    }
+
+    const total = Number(counts.total || data.total_activos || items.length || 0);
+    const comunicados = Number(counts.comunicados || 0);
+    const eventos = Number(counts.eventos || 0);
+
+    return `
+      <div class="ev-home-community-summary">
+        <div class="ev-home-community-summary-copy">
+          <span>Novedades oficiales</span>
+          <strong>${escapeHtml(total)}</strong>
+          <small>
+            ${escapeHtml(comunicados)} comunicados · ${escapeHtml(eventos)} eventos
+          </small>
+        </div>
+
+        <button type="button" class="ev-home-mini-action" data-ev-route="/comunidad">
+          Ver Comunidad
+        </button>
+      </div>
+
+      <div class="ev-home-community-list">
+        ${items.map((item) => {
+          const tipo = String(item.tipo_publicacion || 'comunicado').trim().toLowerCase();
+          const prioridad = prioridadClass(item.prioridad);
+          const img = imageUrl(item.imagen_portada_url || item.imagen_portada);
+          const titulo = item.titulo || tipoNovedadLabel(tipo);
+          const resumen = item.resumen || '';
+          const tiempo = item.tiempo || item.fecha_label || '';
+
+          const codigoPublicacion = Number(item.codigo_publicacion || 0);
+
+          return `
+            <article
+              class="ev-home-community-card is-${escapeHtml(prioridad)}"
+              role="button"
+              tabindex="0"
+              data-ev-comunidad-publicacion="${escapeHtml(codigoPublicacion)}"
+              aria-label="Ver novedad: ${escapeHtml(titulo)}"
+            >
+              <div class="ev-home-community-thumb">
+                <img
+                  src="${escapeHtml(img)}"
+                  alt="${escapeHtml(titulo)}"
+                  loading="lazy"
+                >
+              </div>
+
+              <div class="ev-home-community-body">
+                <div class="ev-home-community-meta">
+                  <span>
+                    <i class="bi ${escapeHtml(iconoNovedad(tipo))}"></i>
+                    ${escapeHtml(tipoNovedadLabel(tipo))}
+                  </span>
+
+                  ${prioridad !== 'normal'
+                    ? `<em>${prioridad === 'urgente' ? 'Urgente' : 'Importante'}</em>`
+                    : ''
+                  }
+                </div>
+
+                <h3>${escapeHtml(truncar(titulo, 68))}</h3>
+                <p>${escapeHtml(truncar(resumen, 96))}</p>
+
+                <div class="ev-home-community-foot">
+                  <time>${escapeHtml(tiempo)}</time>
+                </div>
+              </div>
+            </article>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
   function renderPublicaciones(items) {
     const lista = Array.isArray(items) ? items : [];
 
@@ -619,6 +785,12 @@
       actividad.innerHTML = renderActividad(data.actividad_reciente || []);
     }
 
+    const comunidad = qs('#evDashComunidadLista', root);
+
+    if (comunidad) {
+      comunidad.innerHTML = renderComunidad(data.novedades_comunidad || {});
+    }
+
     const publicaciones = qs('#evDashPublicacionesLista', root);
 
     if (publicaciones) {
@@ -661,11 +833,23 @@
         actividad.innerHTML = renderActividad([]);
       }
 
+      const comunidad = qs('#evDashComunidadLista', root);
+
+      if (comunidad) {
+        comunidad.innerHTML = renderComunidad({
+          habilitado: true,
+          items: [],
+          counts: {}
+        });
+      }
+
       const publicaciones = qs('#evDashPublicacionesLista', root);
 
       if (publicaciones) {
         publicaciones.innerHTML = renderPublicaciones([]);
       }
+
+      bindNavegacion(root);
     } finally {
       delete root.dataset.evDashboardLoading;
     }

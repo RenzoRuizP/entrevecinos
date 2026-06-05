@@ -1,11 +1,10 @@
 // views/js/comunidadVecino.js
 // Entre Vecinos - Novedades oficiales visibles para el vecino.
-// Versión corregida:
-// - Modal detalle con estándar visual EV.
-// - Imagen completa, centrada y encajada sin deformarse.
-// - Imagen de tarjeta y destacada controlada para no ocupar demasiado alto.
-// - Un solo botón: "Ver documento completo", centrado debajo de la imagen.
-// - Modal estable: no se cierra al hacer clic fuera ni con Escape.
+// Corrección EV:
+// - Lee ?publicacion=ID y/o sessionStorage desde Dashboard.
+// - Enfoca la publicación seleccionada con scroll suave.
+// - Aplica efecto visual premium temporal sin abrir modal automáticamente.
+// - Mantiene modal detalle estable y botón "Ver documento completo" centrado.
 
 (function () {
   'use strict';
@@ -15,6 +14,10 @@
   if (!BASE) {
     return;
   }
+
+  const STORAGE_ID = 'ev_comunidad_publicacion_seleccionada';
+  const STORAGE_AT = 'ev_comunidad_publicacion_seleccionada_at';
+  const HIGHLIGHT_TTL_MS = 10 * 60 * 1000;
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
@@ -185,8 +188,10 @@
   }
 
   function renderDestacada(item) {
+    const id = Number(item.codigo_publicacion || 0);
+
     return `
-      <article class="ev-cv-feature-card">
+      <article class="ev-cv-feature-card" data-cv-publicacion-id="${escapeHtml(id)}">
         <div class="ev-cv-feature-img">
           ${imagenHtml(item, true)}
         </div>
@@ -224,7 +229,7 @@
           <button
             type="button"
             class="ev-cv-read"
-            data-cv-ver="${Number(item.codigo_publicacion)}"
+            data-cv-ver="${escapeHtml(id)}"
           >
             Leer publicación <i class="bi bi-arrow-right"></i>
           </button>
@@ -234,8 +239,10 @@
   }
 
   function renderCard(item) {
+    const id = Number(item.codigo_publicacion || 0);
+
     return `
-      <article class="ev-cv-card">
+      <article class="ev-cv-card" data-cv-publicacion-id="${escapeHtml(id)}">
         <div class="ev-cv-card-img">
           ${imagenHtml(item)}
         </div>
@@ -252,7 +259,7 @@
           <div class="ev-cv-card-footer">
             <time>${escapeHtml(formatFecha(item.fecha_publicacion))}</time>
 
-            <button type="button" data-cv-ver="${Number(item.codigo_publicacion)}">
+            <button type="button" data-cv-ver="${escapeHtml(id)}">
               Leer más <i class="bi bi-chevron-right"></i>
             </button>
           </div>
@@ -362,11 +369,6 @@
       return null;
     }
 
-    /*
-     * Limpieza defensiva:
-     * elimina botones anteriores generados por versiones viejas
-     * para evitar duplicados como "Ampliar comunicado".
-     */
     modalBody.querySelectorAll('.ev-cv-modal-image-open-wrap').forEach((wrap) => {
       if (wrap.id !== 'evCvModalImageOpenWrap') {
         wrap.remove();
@@ -407,10 +409,6 @@
     link.rel = 'noopener noreferrer';
     link.innerHTML = '<i class="bi bi-arrows-fullscreen"></i><span>Ver documento completo</span>';
 
-    /*
-     * Siempre se ubica inmediatamente debajo de la imagen.
-     * insertAdjacentElement mueve el nodo si ya existe.
-     */
     media.insertAdjacentElement('afterend', wrap);
 
     return link;
@@ -568,6 +566,193 @@
     }
   }
 
+  function extraerPublicacionDesdeEvGoto() {
+    try {
+      const qs = new URLSearchParams(window.location.search || '');
+      const evGoto = qs.get('ev_goto') || '';
+
+      if (!evGoto) {
+        return 0;
+      }
+
+      const decoded = decodeURIComponent(evGoto);
+      const idx = decoded.indexOf('?');
+
+      if (idx < 0) {
+        return 0;
+      }
+
+      const inner = new URLSearchParams(decoded.slice(idx + 1));
+      return Number(inner.get('publicacion') || 0);
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  function obtenerPublicacionSeleccionada() {
+    try {
+      const qs = new URLSearchParams(window.location.search || '');
+      const directa = Number(qs.get('publicacion') || 0);
+
+      if (directa > 0) {
+        return directa;
+      }
+    } catch (_) {}
+
+    const desdeEvGoto = extraerPublicacionDesdeEvGoto();
+    if (desdeEvGoto > 0) {
+      return desdeEvGoto;
+    }
+
+    try {
+      const id = Number(sessionStorage.getItem(STORAGE_ID) || 0);
+      const at = Number(sessionStorage.getItem(STORAGE_AT) || 0);
+
+      if (id > 0 && (!at || Date.now() - at <= HIGHLIGHT_TTL_MS)) {
+        return id;
+      }
+    } catch (_) {}
+
+    return 0;
+  }
+
+  function limpiarPublicacionSeleccionada() {
+    try {
+      sessionStorage.removeItem(STORAGE_ID);
+      sessionStorage.removeItem(STORAGE_AT);
+    } catch (_) {}
+  }
+
+  function inyectarEstilosEnfoque() {
+    if (document.getElementById('ev-cv-focus-dashboard-style')) {
+      return;
+    }
+
+    const style = document.createElement('style');
+    style.id = 'ev-cv-focus-dashboard-style';
+    style.textContent = `
+      .ev-cv-feature-card[data-cv-publicacion-id],
+      .ev-cv-card[data-cv-publicacion-id]{
+        scroll-margin-top: 112px;
+      }
+
+      .ev-cv-publicacion-seleccionada{
+        border-color: rgba(234,124,18,.92) !important;
+        box-shadow:
+          0 0 0 4px rgba(234,124,18,.13),
+          0 24px 55px rgba(234,124,18,.19),
+          0 12px 28px rgba(15,23,42,.08) !important;
+        animation: evCvPublicacionSeleccionadaPulse 1.35s ease-in-out 0s 3;
+      }
+
+      .ev-cv-publicacion-seleccionada::after{
+        content:'Publicación seleccionada';
+        position:absolute;
+        top:12px;
+        right:12px;
+        z-index:4;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        min-height:28px;
+        padding:6px 10px;
+        border-radius:999px;
+        color:#fff;
+        background:linear-gradient(135deg,#EA7C12,#F59E0B);
+        font-size:.68rem;
+        font-weight:900;
+        letter-spacing:.01em;
+        box-shadow:0 12px 24px rgba(234,124,18,.26);
+        pointer-events:none;
+      }
+
+      @keyframes evCvPublicacionSeleccionadaPulse{
+        0%{ transform:translateY(0); }
+        35%{ transform:translateY(-3px); }
+        70%{ transform:translateY(0); }
+        100%{ transform:translateY(0); }
+      }
+
+      @media (max-width:767.98px){
+        .ev-cv-publicacion-seleccionada::after{
+          top:10px;
+          right:10px;
+          font-size:.64rem;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function enfocarPublicacionSeleccionada(root, idSeleccionado) {
+    const id = Number(idSeleccionado || obtenerPublicacionSeleccionada() || 0);
+
+    if (id <= 0 || !root) {
+      return false;
+    }
+
+    inyectarEstilosEnfoque();
+
+    const selector = `[data-cv-publicacion-id="${CSS.escape(String(id))}"]`;
+    const card = root.querySelector(selector);
+
+    if (!card) {
+      return false;
+    }
+
+    $$('.ev-cv-publicacion-seleccionada', root).forEach((el) => {
+      el.classList.remove('ev-cv-publicacion-seleccionada');
+    });
+
+    card.classList.add('ev-cv-publicacion-seleccionada');
+    card.setAttribute('tabindex', '-1');
+
+    window.setTimeout(() => {
+      try {
+        card.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+          inline: 'nearest'
+        });
+      } catch (_) {
+        card.scrollIntoView();
+      }
+    }, 180);
+
+    window.setTimeout(() => {
+      try {
+        card.focus({ preventScroll: true });
+      } catch (_) {}
+    }, 760);
+
+    window.setTimeout(() => {
+      card.classList.remove('ev-cv-publicacion-seleccionada');
+    }, 6200);
+
+    limpiarPublicacionSeleccionada();
+    return true;
+  }
+
+  function intentarEnfoqueDiferido(root) {
+    const id = obtenerPublicacionSeleccionada();
+
+    if (id <= 0) {
+      return;
+    }
+
+    const intentos = [120, 320, 700, 1100];
+
+    intentos.forEach((delay) => {
+      window.setTimeout(() => {
+        if (!obtenerPublicacionSeleccionada() && !root.querySelector(`[data-cv-publicacion-id="${CSS.escape(String(id))}"]`)) {
+          return;
+        }
+
+        enfocarPublicacionSeleccionada(root, id);
+      }, delay);
+    });
+  }
+
   async function cargar(root, state) {
     const grid = $('#evCvGrid', root);
     const featureSection = $('#evCvDestacadaSection', root);
@@ -635,6 +820,8 @@
           ? restantes.map(renderCard).join('')
           : renderVacio();
       }
+
+      intentarEnfoqueDiferido(root);
     } catch (errorRequest) {
       console.warn('[EV][ComunidadVecino] No se pudieron cargar publicaciones:', errorRequest);
 
@@ -683,6 +870,7 @@
     };
 
     vincularModal();
+    inyectarEstilosEnfoque();
 
     $$('[data-cv-tipo]', root).forEach((button) => {
       button.addEventListener('click', () => {
@@ -745,7 +933,11 @@
   document.addEventListener('ev:content-loaded', init);
 
   window.EVComunidadVecino = {
-    init
+    init,
+    focusPublicacion: function (id) {
+      const root = document.getElementById('evComunidadVecino');
+      return enfocarPublicacionSeleccionada(root, Number(id || 0));
+    }
   };
 
   init();
