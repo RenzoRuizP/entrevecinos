@@ -1,11 +1,10 @@
 // views/js/comunidadVecino.js
 // Entre Vecinos - Novedades oficiales visibles para el vecino.
-// Versión final:
-// - Vista escritorio y móvil optimizada.
-// - Tabs accesibles y sincronizados.
+// Versión corregida:
 // - Modal detalle con estándar visual EV.
-// - Imagen completa sin recortes.
-// - Protección ante respuestas AJAX fuera de orden.
+// - Imagen completa, centrada y encajada sin deformarse.
+// - Imagen de tarjeta y destacada controlada para no ocupar demasiado alto.
+// - Un solo botón: "Ver documento completo", centrado debajo de la imagen.
 // - Modal estable: no se cierra al hacer clic fuera ni con Escape.
 
 (function () {
@@ -19,9 +18,6 @@
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
-
-  let listaRequestId = 0;
-  let detalleRequestId = 0;
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -189,8 +185,6 @@
   }
 
   function renderDestacada(item) {
-    const tipo = tipoSeguro(item.tipo_publicacion);
-
     return `
       <article class="ev-cv-feature-card">
         <div class="ev-cv-feature-img">
@@ -200,10 +194,8 @@
         <div class="ev-cv-feature-body">
           <div class="ev-cv-badges">
             ${renderBadge(item)}
-
             <span class="ev-cv-badge ev-cv-badge--featured">
-              <i class="bi bi-star-fill"></i>
-              Destacado
+              <i class="bi bi-star-fill"></i> Destacado
             </span>
           </div>
 
@@ -218,7 +210,7 @@
             </span>
 
             ${
-              tipo === 'evento' && item.fecha_evento_inicio
+              item.tipo_publicacion === 'evento' && item.fecha_evento_inicio
                 ? `
                   <span>
                     <i class="bi bi-calendar-event"></i>
@@ -233,7 +225,6 @@
             type="button"
             class="ev-cv-read"
             data-cv-ver="${Number(item.codigo_publicacion)}"
-            aria-label="Leer publicación ${escapeHtml(item.titulo || '')}"
           >
             Leer publicación <i class="bi bi-arrow-right"></i>
           </button>
@@ -261,11 +252,7 @@
           <div class="ev-cv-card-footer">
             <time>${escapeHtml(formatFecha(item.fecha_publicacion))}</time>
 
-            <button
-              type="button"
-              data-cv-ver="${Number(item.codigo_publicacion)}"
-              aria-label="Leer publicación ${escapeHtml(item.titulo || '')}"
-            >
+            <button type="button" data-cv-ver="${Number(item.codigo_publicacion)}">
               Leer más <i class="bi bi-chevron-right"></i>
             </button>
           </div>
@@ -281,14 +268,6 @@
         <strong>No hay novedades disponibles por ahora</strong>
         <p>Cuando tu comunidad publique comunicados, noticias o eventos, aparecerán aquí.</p>
       </div>
-    `;
-  }
-
-  function renderSkeleton() {
-    return `
-      <div class="ev-cv-skeleton"></div>
-      <div class="ev-cv-skeleton"></div>
-      <div class="ev-cv-skeleton"></div>
     `;
   }
 
@@ -335,18 +314,6 @@
     siguiente.disabled = state.page >= state.pages;
   }
 
-  function actualizarTabActivo(root, tipoSeleccionado) {
-    const tipo = String(tipoSeleccionado || 'all');
-
-    $$('[data-cv-tipo]', root).forEach((button) => {
-      const activo = String(button.dataset.cvTipo || 'all') === tipo;
-
-      button.classList.toggle('is-active', activo);
-      button.setAttribute('aria-selected', activo ? 'true' : 'false');
-      button.tabIndex = activo ? 0 : -1;
-    });
-  }
-
   function crearModal() {
     const modalEl = document.getElementById('modalDetalleComunidadVecino');
 
@@ -387,10 +354,74 @@
     prioridadEl.className = `ev-cv-modal-priority ev-cv-modal-priority--${prioridad}`;
   }
 
+  function asegurarBotonDocumentoCompleto() {
+    const modalBody = document.querySelector('#modalDetalleComunidadVecino .ev-cv-modal-body');
+    const media = document.getElementById('evCvModalMedia');
+
+    if (!modalBody || !media) {
+      return null;
+    }
+
+    /*
+     * Limpieza defensiva:
+     * elimina botones anteriores generados por versiones viejas
+     * para evitar duplicados como "Ampliar comunicado".
+     */
+    modalBody.querySelectorAll('.ev-cv-modal-image-open-wrap').forEach((wrap) => {
+      if (wrap.id !== 'evCvModalImageOpenWrap') {
+        wrap.remove();
+      }
+    });
+
+    modalBody.querySelectorAll('.ev-cv-modal-image-open').forEach((link) => {
+      if (link.id !== 'evCvModalImageOpen') {
+        const wrap = link.closest('.ev-cv-modal-image-open-wrap');
+
+        if (wrap) {
+          wrap.remove();
+        } else {
+          link.remove();
+        }
+      }
+    });
+
+    let wrap = document.getElementById('evCvModalImageOpenWrap');
+    let link = document.getElementById('evCvModalImageOpen');
+
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.id = 'evCvModalImageOpenWrap';
+      wrap.className = 'ev-cv-modal-image-open-wrap';
+      wrap.hidden = true;
+    }
+
+    if (!link) {
+      link = document.createElement('a');
+      link.id = 'evCvModalImageOpen';
+      wrap.appendChild(link);
+    }
+
+    link.className = 'ev-cv-modal-image-open';
+    link.href = '#';
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.innerHTML = '<i class="bi bi-arrows-fullscreen"></i><span>Ver documento completo</span>';
+
+    /*
+     * Siempre se ubica inmediatamente debajo de la imagen.
+     * insertAdjacentElement mueve el nodo si ya existe.
+     */
+    media.insertAdjacentElement('afterend', wrap);
+
+    return link;
+  }
+
   function configurarImagenModal(item) {
     const imagen = imagenUrl(item.imagen_portada);
     const media = document.getElementById('evCvModalMedia');
     const imagenEl = document.getElementById('evCvModalImagen');
+    const linkDocumento = asegurarBotonDocumentoCompleto();
+    const wrapDocumento = document.getElementById('evCvModalImageOpenWrap');
 
     if (!media || !imagenEl) {
       return;
@@ -403,6 +434,13 @@
 
       media.hidden = false;
       media.classList.add('has-image');
+
+      if (linkDocumento && wrapDocumento) {
+        linkDocumento.href = imagen;
+        linkDocumento.setAttribute('aria-label', 'Ver documento completo en una pestaña nueva');
+        wrapDocumento.hidden = false;
+      }
+
       return;
     }
 
@@ -412,6 +450,11 @@
 
     media.hidden = true;
     media.classList.remove('has-image');
+
+    if (linkDocumento && wrapDocumento) {
+      linkDocumento.href = '#';
+      wrapDocumento.hidden = true;
+    }
   }
 
   function configurarFechaModal(item) {
@@ -424,8 +467,13 @@
 
     const fecha = formatFecha(item.fecha_publicacion);
 
-    fechaTexto.textContent = fecha || 'Fecha no disponible';
-    fechaContenedor.hidden = false;
+    if (fecha) {
+      fechaTexto.textContent = fecha;
+      fechaContenedor.hidden = false;
+    } else {
+      fechaTexto.textContent = 'Fecha no disponible';
+      fechaContenedor.hidden = false;
+    }
   }
 
   function configurarEventoModal(item) {
@@ -485,16 +533,10 @@
       return;
     }
 
-    const requestActual = ++detalleRequestId;
-
     try {
       const data = await requestJson(
         `${BASE}/api/comunidad/vecino/publicaciones/${encodeURIComponent(id)}`
       );
-
-      if (requestActual !== detalleRequestId || !root.isConnected) {
-        return;
-      }
 
       const item = data.item || {};
       pintarDetalleModal(item);
@@ -509,10 +551,6 @@
       const modal = crearModal();
       modal?.show();
     } catch (error) {
-      if (requestActual !== detalleRequestId) {
-        return;
-      }
-
       if (window.Swal?.fire) {
         await Swal.fire({
           icon: 'info',
@@ -520,8 +558,7 @@
           text: error.message || 'No se pudo abrir esta publicación.',
           confirmButtonText: 'Entendido',
           confirmButtonColor: '#EA7C12',
-          allowOutsideClick: false,
-          allowEscapeKey: false
+          allowOutsideClick: false
         });
 
         return;
@@ -543,14 +580,13 @@
       return;
     }
 
-    const requestActual = ++listaRequestId;
-
     error.classList.add('d-none');
-    featureSection.hidden = true;
-    feature.innerHTML = '';
-    recientes.hidden = false;
-    meta.textContent = 'Cargando novedades...';
-    grid.innerHTML = renderSkeleton();
+
+    grid.innerHTML = `
+      <div class="ev-cv-skeleton"></div>
+      <div class="ev-cv-skeleton"></div>
+      <div class="ev-cv-skeleton"></div>
+    `;
 
     const params = new URLSearchParams({
       tipo: state.tipo,
@@ -564,10 +600,6 @@
         `${BASE}/api/comunidad/vecino/publicaciones?${params.toString()}`
       );
 
-      if (requestActual !== listaRequestId || !root.isConnected) {
-        return;
-      }
-
       const items = Array.isArray(data.items) ? data.items : [];
 
       renderCounts(root, data.counts || {});
@@ -580,6 +612,9 @@
       if (destacada) {
         feature.innerHTML = renderDestacada(destacada);
         featureSection.hidden = false;
+      } else {
+        feature.innerHTML = '';
+        featureSection.hidden = true;
       }
 
       const restantes = destacada
@@ -594,18 +629,13 @@
 
       if (!restantes.length && destacada) {
         recientes.hidden = true;
-        return;
+      } else {
+        recientes.hidden = false;
+        grid.innerHTML = restantes.length
+          ? restantes.map(renderCard).join('')
+          : renderVacio();
       }
-
-      recientes.hidden = false;
-      grid.innerHTML = restantes.length
-        ? restantes.map(renderCard).join('')
-        : renderVacio();
     } catch (errorRequest) {
-      if (requestActual !== listaRequestId) {
-        return;
-      }
-
       console.warn('[EV][ComunidadVecino] No se pudieron cargar publicaciones:', errorRequest);
 
       featureSection.hidden = true;
@@ -634,36 +664,6 @@
     });
   }
 
-  function vincularTabs(root, state) {
-    $$('[data-cv-tipo]', root).forEach((button) => {
-      button.addEventListener('click', () => {
-        const tipo = String(button.dataset.cvTipo || 'all');
-
-        state.tipo = tipo;
-        state.page = 1;
-
-        actualizarTabActivo(root, tipo);
-        cargar(root, state);
-      });
-
-      button.addEventListener('keydown', (event) => {
-        const tabs = $$('[data-cv-tipo]', root);
-        const actual = tabs.indexOf(button);
-
-        if (actual < 0 || !['ArrowLeft', 'ArrowRight'].includes(event.key)) {
-          return;
-        }
-
-        event.preventDefault();
-
-        const direccion = event.key === 'ArrowRight' ? 1 : -1;
-        const siguienteIndice = (actual + direccion + tabs.length) % tabs.length;
-        tabs[siguienteIndice].focus();
-        tabs[siguienteIndice].click();
-      });
-    });
-  }
-
   function init() {
     const root = document.getElementById('evComunidadVecino');
 
@@ -683,8 +683,21 @@
     };
 
     vincularModal();
-    actualizarTabActivo(root, state.tipo);
-    vincularTabs(root, state);
+
+    $$('[data-cv-tipo]', root).forEach((button) => {
+      button.addEventListener('click', () => {
+        $$('[data-cv-tipo]', root).forEach((item) => {
+          item.classList.remove('is-active');
+        });
+
+        button.classList.add('is-active');
+
+        state.tipo = button.dataset.cvTipo || 'all';
+        state.page = 1;
+
+        cargar(root, state);
+      });
+    });
 
     const formularioBusqueda = $('#evCvBuscarForm', root);
     const inputBusqueda = $('#evCvBuscar', root);
@@ -732,17 +745,7 @@
   document.addEventListener('ev:content-loaded', init);
 
   window.EVComunidadVecino = {
-    init,
-    refresh: function () {
-      const root = document.getElementById('evComunidadVecino');
-
-      if (!root) {
-        return;
-      }
-
-      delete root.dataset.cvInit;
-      init();
-    }
+    init
   };
 
   init();

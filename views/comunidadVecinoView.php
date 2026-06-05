@@ -46,14 +46,12 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
   class="ev-cv-shell fade-in"
   id="evComunidadVecino"
   data-comunidad="<?= htmlspecialchars($nombreVisible, ENT_QUOTES, 'UTF-8') ?>"
-  data-tipo-conjunto="<?= htmlspecialchars($tipoConjunto, ENT_QUOTES, 'UTF-8') ?>"
   aria-label="Novedades de mi comunidad"
 >
   <header class="ev-cv-hero">
     <div class="ev-cv-hero-copy">
       <span class="ev-cv-kicker">
-        <i class="bi bi-people-fill" aria-hidden="true"></i>
-        Comunidad
+        <i class="bi bi-people-fill"></i> Comunidad
       </span>
 
       <h1>Novedades de tu comunidad</h1>
@@ -64,8 +62,8 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
       </p>
     </div>
 
-    <div class="ev-cv-community-pill" aria-label="Comunidad actual">
-      <i class="<?= htmlspecialchars($iconoComunidad, ENT_QUOTES, 'UTF-8') ?>" aria-hidden="true"></i>
+    <div class="ev-cv-community-pill">
+      <i class="<?= htmlspecialchars($iconoComunidad, ENT_QUOTES, 'UTF-8') ?>"></i>
 
       <div>
         <small>Tu comunidad</small>
@@ -76,60 +74,31 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
 
   <section class="ev-cv-toolbar" aria-label="Filtros de novedades">
     <div class="ev-cv-tabs" role="tablist" aria-label="Tipo de contenido">
-      <button
-        type="button"
-        class="is-active"
-        data-cv-tipo="all"
-        role="tab"
-        aria-selected="true"
-        aria-controls="evCvGrid"
-        tabindex="0"
-      >
+      <button type="button" class="is-active" data-cv-tipo="all">
         Todo <span id="evCvCountTodo">0</span>
       </button>
 
-      <button
-        type="button"
-        data-cv-tipo="comunicado"
-        role="tab"
-        aria-selected="false"
-        aria-controls="evCvGrid"
-        tabindex="-1"
-      >
+      <button type="button" data-cv-tipo="comunicado">
         Comunicados <span id="evCvCountComunicados">0</span>
       </button>
 
-      <button
-        type="button"
-        data-cv-tipo="noticia"
-        role="tab"
-        aria-selected="false"
-        aria-controls="evCvGrid"
-        tabindex="-1"
-      >
+      <button type="button" data-cv-tipo="noticia">
         Noticias <span id="evCvCountNoticias">0</span>
       </button>
 
-      <button
-        type="button"
-        data-cv-tipo="evento"
-        role="tab"
-        aria-selected="false"
-        aria-controls="evCvGrid"
-        tabindex="-1"
-      >
+      <button type="button" data-cv-tipo="evento">
         Eventos <span id="evCvCountEventos">0</span>
       </button>
     </div>
 
     <form id="evCvBuscarForm" class="ev-cv-search" autocomplete="off">
-      <i class="bi bi-search" aria-hidden="true"></i>
+      <i class="bi bi-search"></i>
 
       <input
         type="search"
         id="evCvBuscar"
         placeholder="Buscar en tu comunidad..."
-        aria-label="Buscar publicaciones de la comunidad"
+        aria-label="Buscar publicaciones"
       >
 
       <button type="submit">Buscar</button>
@@ -143,7 +112,7 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
     aria-label="Novedad destacada"
   >
     <div class="ev-cv-section-heading">
-      <i class="bi bi-star-fill" aria-hidden="true"></i>
+      <i class="bi bi-star-fill"></i>
       <h2>Destacado para ti</h2>
     </div>
 
@@ -157,11 +126,11 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
   >
     <div class="ev-cv-section-head">
       <div class="ev-cv-section-heading">
-        <i class="bi bi-newspaper" aria-hidden="true"></i>
+        <i class="bi bi-newspaper"></i>
         <h2>Publicaciones recientes</h2>
       </div>
 
-      <p id="evCvMeta" aria-live="polite">Cargando novedades...</p>
+      <p id="evCvMeta">Cargando novedades...</p>
     </div>
 
     <div class="ev-cv-grid" id="evCvGrid">
@@ -170,21 +139,21 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
       <div class="ev-cv-skeleton"></div>
     </div>
 
-    <div class="ev-cv-pager" id="evCvPager" hidden aria-label="Paginación">
+    <div class="ev-cv-pager" id="evCvPager" hidden>
       <button type="button" id="evCvAnterior" aria-label="Página anterior">
-        <i class="bi bi-chevron-left" aria-hidden="true"></i>
+        <i class="bi bi-chevron-left"></i>
       </button>
 
       <span id="evCvPagina">1 / 1</span>
 
       <button type="button" id="evCvSiguiente" aria-label="Página siguiente">
-        <i class="bi bi-chevron-right" aria-hidden="true"></i>
+        <i class="bi bi-chevron-right"></i>
       </button>
     </div>
   </section>
 
-  <div class="ev-cv-error d-none" id="evCvError" role="alert">
-    <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
+  <div class="ev-cv-error d-none" id="evCvError">
+    <i class="bi bi-exclamation-circle"></i>
     No se pudieron cargar las novedades. Intenta nuevamente.
   </div>
 </section>
@@ -224,7 +193,7 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
               </span>
 
               <span class="ev-cv-modal-community">
-                <i class="<?= htmlspecialchars($iconoComunidad, ENT_QUOTES, 'UTF-8') ?>" aria-hidden="true"></i>
+                <i class="<?= htmlspecialchars($iconoComunidad, ENT_QUOTES, 'UTF-8') ?>"></i>
                 <?= htmlspecialchars($nombreVisible, ENT_QUOTES, 'UTF-8') ?>
               </span>
             </div>
@@ -237,7 +206,7 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
           data-bs-dismiss="modal"
           aria-label="Cerrar publicación"
         >
-          <i class="bi bi-x-lg" aria-hidden="true"></i>
+          <i class="bi bi-x-lg"></i>
         </button>
       </header>
 
@@ -254,13 +223,12 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
               </span>
 
               <span class="ev-cv-modal-featured" id="evCvModalDestacado" hidden>
-                <i class="bi bi-star-fill" aria-hidden="true"></i>
-                Destacado
+                <i class="bi bi-star-fill"></i> Destacado
               </span>
             </div>
 
             <time class="ev-cv-modal-date" id="evCvModalFecha">
-              <i class="bi bi-calendar3" aria-hidden="true"></i>
+              <i class="bi bi-calendar3"></i>
               <span>—</span>
             </time>
           </div>
@@ -275,13 +243,25 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
             >
           </div>
 
+          <a
+            href="#"
+            class="ev-cv-modal-image-open"
+            id="evCvModalImagenCompleta"
+            target="_blank"
+            rel="noopener noreferrer"
+            hidden
+          >
+            <i class="bi bi-arrows-fullscreen"></i>
+            Ver documento completo
+          </a>
+
           <section class="ev-cv-modal-block ev-cv-modal-block--summary">
             <span class="ev-cv-modal-block-label">Resumen</span>
             <p class="ev-cv-modal-summary" id="evCvModalResumen"></p>
           </section>
 
           <div class="ev-cv-modal-event" id="evCvModalEvento" hidden>
-            <i class="bi bi-calendar-event" aria-hidden="true"></i>
+            <i class="bi bi-calendar-event"></i>
             <span id="evCvModalEventoTexto"></span>
           </div>
 
@@ -294,7 +274,7 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
 
         <footer class="ev-cv-modal-footer">
           <span>
-            <i class="bi bi-shield-check" aria-hidden="true"></i>
+            <i class="bi bi-shield-check"></i>
             Contenido oficial de <?= htmlspecialchars($nombreVisible, ENT_QUOTES, 'UTF-8') ?>
           </span>
 

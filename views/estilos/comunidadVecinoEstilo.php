@@ -302,9 +302,9 @@
 .ev-cv-feature-card{
   position:relative;
   display:grid;
-  grid-template-columns:minmax(220px,37%) 1fr;
+  grid-template-columns:minmax(260px,35%) 1fr;
   gap:20px;
-  min-height:252px;
+  min-height:205px;
   padding:12px;
   border-radius:18px;
   border:1px solid rgba(22,163,74,.18);
@@ -314,25 +314,28 @@
 
 .ev-cv-feature-img,
 .ev-cv-card-img{
-  border-radius:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   overflow:hidden;
+  border-radius:14px;
   background:#F1F7F3;
-  display:grid;
-  place-items:center;
 }
 
 .ev-cv-feature-img{
-  height:264px;
-  padding:9px;
+  height:200px;
 }
 
 .ev-cv-feature-img img{
   display:block;
-  width:100%;
-  height:100%;
-  object-fit:contain;
-  object-position:center center;
-  background:#F6FBF8;
+  width:auto !important;
+  height:auto !important;
+  max-width:100% !important;
+  max-height:100% !important;
+  margin:0 auto !important;
+  object-fit:contain !important;
+  object-position:center center !important;
+  background:transparent;
 }
 
 .ev-cv-no-img{
@@ -357,7 +360,6 @@
   justify-content:center;
   align-items:flex-start;
   padding:10px 14px 10px 0;
-  min-width:0;
 }
 
 .ev-cv-badges{
@@ -401,11 +403,11 @@
 
 .ev-cv-feature-body h3{
   color:var(--ev-cv-green-dark);
-  font-size:1.35rem;
+  font-size:1.25rem;
   line-height:1.25;
   font-weight:800;
   margin:0 0 8px;
-  overflow-wrap:anywhere;
+  word-break:break-word;
 }
 
 .ev-cv-feature-body p{
@@ -413,7 +415,6 @@
   line-height:1.55;
   font-size:.9rem;
   margin:0 0 14px;
-  overflow-wrap:anywhere;
 }
 
 .ev-cv-meta-row{
@@ -483,16 +484,22 @@
 .ev-cv-card-img{
   height:164px;
   margin:10px 10px 0;
-  padding:7px;
 }
 
 .ev-cv-card-img img{
   display:block;
-  width:100%;
-  height:100%;
-  object-fit:contain;
-  object-position:center center;
-  background:#F7FBF8;
+  width:auto !important;
+  height:auto !important;
+  max-width:100% !important;
+  max-height:100% !important;
+  margin:0 auto !important;
+  object-fit:contain !important;
+  object-position:center center !important;
+  background:transparent;
+}
+
+.ev-cv-feature-img{
+  justify-self:stretch;
 }
 
 .ev-cv-card-body{
@@ -508,7 +515,7 @@
   font-size:.95rem;
   line-height:1.35;
   font-weight:800;
-  overflow-wrap:anywhere;
+  word-break:break-word;
 }
 
 .ev-cv-card-body p{
@@ -517,7 +524,6 @@
   font-size:.81rem;
   margin:0 0 14px;
   flex:1;
-  overflow-wrap:anywhere;
 }
 
 .ev-cv-card-footer{
@@ -655,7 +661,7 @@
   position:relative;
   display:flex;
   flex-direction:column;
-  max-height:min(92vh,860px);
+  max-height:min(92vh, 860px);
   border:0 !important;
   outline:0 !important;
   border-radius:var(--ev-cv-modal-radius) !important;
@@ -680,18 +686,14 @@
   display:none !important;
 }
 
-/* ============================================================
-   CABECERA DEL MODAL
-============================================================ */
-
 .ev-cv-modal-head{
   flex:0 0 auto;
   display:flex;
   justify-content:space-between;
   align-items:flex-start;
   gap:16px;
-  min-height:106px;
-  padding:17px 20px 16px;
+  min-height:102px;
+  padding:18px 20px 17px;
   margin:0;
   border:0 !important;
   border-radius:var(--ev-cv-modal-radius) var(--ev-cv-modal-radius) 0 0;
@@ -741,7 +743,7 @@
   line-height:1.25;
   font-weight:900;
   letter-spacing:-.022em;
-  overflow-wrap:anywhere;
+  word-break:break-word;
 }
 
 .ev-cv-modal-head-meta{
@@ -810,10 +812,6 @@
   outline-offset:1px;
 }
 
-/* ============================================================
-   SUPERFICIE BLANCA / SCROLL
-============================================================ */
-
 .ev-cv-modal-surface{
   flex:1 1 auto;
   min-height:0;
@@ -828,28 +826,20 @@
   flex:1 1 auto;
   min-height:0;
   overflow-y:auto;
-  padding:15px 20px 16px !important;
+  padding:16px 20px !important;
   background:#fff !important;
   scrollbar-width:thin;
-  scrollbar-color:#C9D3CF transparent;
+  scrollbar-color:#D1D5DB transparent;
 }
 
 .ev-cv-modal-body::-webkit-scrollbar{
   width:6px;
 }
 
-.ev-cv-modal-body::-webkit-scrollbar-track{
-  background:transparent;
-}
-
 .ev-cv-modal-body::-webkit-scrollbar-thumb{
   border-radius:99px;
-  background:#C9D3CF;
+  background:#D1D5DB;
 }
-
-/* ============================================================
-   ESTADO / FECHA
-============================================================ */
 
 .ev-cv-modal-topline{
   display:flex;
@@ -917,25 +907,20 @@
 }
 
 /* ============================================================
-   PORTADA DEL MODAL - CORRECCIÓN DE RAÍZ
-   - Nunca recorta imágenes verticales ni horizontales.
-   - El marco conserva altura premium.
-   - La imagen se ajusta completa usando contain reforzado.
+   MODAL - IMAGEN ENCAJADA + BOTÓN CENTRADO
 ============================================================ */
 
 .ev-cv-modal-media{
   width:100%;
-  height:clamp(274px,42vh,394px) !important;
-  min-height:274px !important;
-  max-height:394px !important;
-  display:flex !important;
-  align-items:center !important;
-  justify-content:center !important;
-  padding:10px !important;
-  margin:0 0 15px !important;
-  overflow:hidden !important;
+  height:clamp(220px, 34vh, 310px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:10px;
+  margin:0 0 10px;
+  overflow:hidden;
   border-radius:17px;
-  border:1px solid #DDECE4;
+  border:1px solid #E5ECE8;
   background:#F7FCF9;
 }
 
@@ -943,34 +928,74 @@
   display:none !important;
 }
 
-#modalDetalleComunidadVecino .ev-cv-modal-media .ev-cv-modal-image,
-#modalDetalleComunidadVecino img#evCvModalImagen{
-  display:block !important;
-  position:static !important;
-  inset:auto !important;
-  width:100% !important;
-  height:100% !important;
-  min-width:0 !important;
-  min-height:0 !important;
+#modalDetalleComunidadVecino .ev-cv-modal-media .ev-cv-modal-image{
+  display:block;
+  width:auto !important;
+  height:auto !important;
   max-width:100% !important;
   max-height:100% !important;
-  margin:0 !important;
+  margin:0 auto !important;
   padding:0 !important;
   border:0 !important;
-  border-radius:12px !important;
+  border-radius:12px;
   object-fit:contain !important;
   object-position:center center !important;
-  transform:none !important;
   background:transparent !important;
 }
 
-#modalDetalleComunidadVecino .ev-cv-modal-media .ev-cv-modal-image[hidden],
-#modalDetalleComunidadVecino img#evCvModalImagen[hidden]{
+#modalDetalleComunidadVecino .ev-cv-modal-media .ev-cv-modal-image[hidden]{
   display:none !important;
 }
 
+.ev-cv-modal-image-open-wrap{
+  width:100%;
+  display:flex !important;
+  justify-content:center !important;
+  align-items:center !important;
+  margin:10px 0 16px !important;
+  text-align:center;
+}
+
+.ev-cv-modal-image-open-wrap[hidden]{
+  display:none !important;
+}
+
+.ev-cv-modal-image-open{
+  display:inline-flex !important;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:38px;
+  padding:9px 16px;
+  border-radius:999px;
+  border:1px solid rgba(15,89,47,.20);
+  background:linear-gradient(180deg,#FFFFFF 0%,#F3FCF7 100%);
+  color:var(--ev-cv-green-dark) !important;
+  font-size:.82rem;
+  line-height:1;
+  font-weight:850;
+  text-decoration:none !important;
+  box-shadow:
+    0 9px 18px rgba(15,89,47,.07),
+    inset 0 1px 0 rgba(255,255,255,.75);
+}
+
+.ev-cv-modal-image-open i{
+  font-size:.88rem;
+  line-height:1;
+}
+
+.ev-cv-modal-image-open:hover{
+  background:#F0FDF4;
+  border-color:rgba(22,163,74,.32);
+  transform:translateY(-1px);
+  box-shadow:
+    0 12px 22px rgba(15,89,47,.10),
+    inset 0 1px 0 rgba(255,255,255,.85);
+}
+
 /* ============================================================
-   BLOQUES DE INFORMACIÓN DEL MODAL
+   BLOQUES DEL MODAL
 ============================================================ */
 
 .ev-cv-modal-block{
@@ -1003,7 +1028,7 @@
   font-size:.94rem;
   font-weight:750;
   line-height:1.6;
-  overflow-wrap:anywhere;
+  word-break:break-word;
 }
 
 .ev-cv-modal-event{
@@ -1028,12 +1053,8 @@
   font-size:.9rem;
   line-height:1.73;
   white-space:pre-wrap;
-  overflow-wrap:anywhere;
+  word-break:break-word;
 }
-
-/* ============================================================
-   FOOTER DEL MODAL
-============================================================ */
 
 .ev-cv-modal-footer{
   flex:0 0 auto;
@@ -1078,7 +1099,7 @@
 }
 
 /* ============================================================
-   TABLET
+   RESPONSIVE
 ============================================================ */
 
 @media (max-width:1100px){
@@ -1095,15 +1116,7 @@
     flex-basis:auto;
     width:100%;
   }
-
-  .ev-cv-feature-card{
-    grid-template-columns:minmax(210px,41%) 1fr;
-  }
 }
-
-/* ============================================================
-   MÓVIL
-============================================================ */
 
 @media (max-width:767.98px){
   .ev-cv-shell{
@@ -1114,54 +1127,15 @@
     padding:20px 17px;
     flex-direction:column;
     align-items:stretch;
-    gap:18px;
-    border-radius:22px;
-  }
-
-  .ev-cv-hero h1{
-    font-size:1.64rem;
-    line-height:1.16;
   }
 
   .ev-cv-community-pill{
     min-width:0;
     max-width:none;
-    padding:12px 13px;
   }
 
   .ev-cv-toolbar{
     padding:10px;
-    gap:12px;
-    border-radius:18px;
-  }
-
-  .ev-cv-tabs{
-    width:100%;
-    display:grid;
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:7px;
-    overflow:visible;
-  }
-
-  .ev-cv-tabs button{
-    width:100%;
-    justify-content:center;
-    padding:10px 7px;
-    font-size:.86rem;
-  }
-
-  .ev-cv-search{
-    height:45px;
-  }
-
-  .ev-cv-feature,
-  .ev-cv-content{
-    padding:12px;
-    border-radius:19px;
-  }
-
-  .ev-cv-section-heading{
-    margin-bottom:12px;
   }
 
   .ev-cv-grid{
@@ -1170,27 +1144,16 @@
 
   .ev-cv-feature-card{
     grid-template-columns:1fr;
-    gap:12px;
-    padding:9px;
-    border-radius:16px;
+    gap:14px;
+    min-height:0;
   }
 
   .ev-cv-feature-img{
-    height:286px;
-    padding:8px;
-  }
-
-  .ev-cv-feature-img img{
-    min-height:0;
-    max-height:none;
+    height:260px;
   }
 
   .ev-cv-feature-body{
-    padding:3px 6px 9px;
-  }
-
-  .ev-cv-feature-body h3{
-    font-size:1.03rem;
+    padding:0 4px 4px;
   }
 
   .ev-cv-modal .modal-dialog{
@@ -1199,17 +1162,17 @@
 
   .ev-cv-modal-content{
     --ev-cv-modal-radius:20px;
-    max-height:calc(100svh - 20px);
+    max-height:calc(100vh - 20px);
   }
 
   .ev-cv-modal-head{
     min-height:0;
-    padding:14px 13px 13px;
-    gap:9px;
+    padding:15px 14px 14px;
+    gap:10px;
   }
 
   .ev-cv-modal-heading{
-    gap:9px;
+    gap:10px;
   }
 
   .ev-cv-modal-heading-icon{
@@ -1220,143 +1183,61 @@
     font-size:1rem;
   }
 
-  .ev-cv-modal-eyebrow{
-    font-size:.63rem;
-  }
-
   .ev-cv-modal-head h2{
-    font-size:1rem;
-    line-height:1.22;
+    font-size:1.04rem;
     margin-bottom:7px;
   }
 
-  .ev-cv-modal-type{
-    min-height:22px;
-    padding:4px 9px;
-    font-size:.64rem;
-  }
-
   .ev-cv-modal-community{
-    font-size:.69rem;
+    font-size:.71rem;
   }
 
   .ev-cv-modal-close{
     flex-basis:36px;
     width:36px;
     height:36px;
-    border-radius:11px;
   }
 
   .ev-cv-modal-body{
-    padding:13px 10px 12px !important;
+    padding:13px !important;
   }
 
   .ev-cv-modal-topline{
-    align-items:center;
+    flex-direction:column;
+    align-items:flex-start;
     margin-bottom:12px;
   }
 
-  .ev-cv-modal-priority,
-  .ev-cv-modal-featured{
-    min-height:26px;
-    padding:5px 10px;
-    font-size:.72rem;
-  }
-
-  .ev-cv-modal-date{
-    font-size:.71rem;
-  }
-
-  /*
-     En móvil se conserva una altura suficiente para que la portada
-     vertical se vea completa, centrada y sin ampliar de forma agresiva.
-  */
   .ev-cv-modal-media{
-    height:clamp(254px,39svh,336px) !important;
-    min-height:254px !important;
-    max-height:336px !important;
-    padding:7px !important;
-    margin-bottom:12px !important;
-    border-radius:15px;
+    width:100%;
+    height:clamp(230px, 44vh, 360px);
+    padding:8px;
+    margin-bottom:10px;
   }
 
-  #modalDetalleComunidadVecino .ev-cv-modal-media .ev-cv-modal-image,
-  #modalDetalleComunidadVecino img#evCvModalImagen{
-    border-radius:10px !important;
-    object-fit:contain !important;
-    object-position:center center !important;
+  .ev-cv-modal-image-open-wrap{
+    margin:10px 0 15px !important;
+  }
+
+  .ev-cv-modal-image-open{
+    width:auto;
+    max-width:100%;
+    min-height:38px;
+    padding:9px 15px;
   }
 
   .ev-cv-modal-block{
-    margin-top:11px;
     padding:12px;
-    border-radius:14px;
-  }
-
-  .ev-cv-modal-summary{
-    font-size:.9rem;
-    line-height:1.52;
-  }
-
-  .ev-cv-modal-text{
-    font-size:.86rem;
-    line-height:1.62;
   }
 
   .ev-cv-modal-footer{
     flex-direction:column;
     align-items:stretch;
-    gap:12px;
-    padding:11px 10px 12px;
-  }
-
-  .ev-cv-modal-footer span{
-    font-size:.74rem;
-    padding:0 2px;
+    padding:12px 13px 13px;
   }
 
   .ev-cv-modal-footer button{
     width:100%;
-    min-height:44px;
-  }
-}
-
-/* ============================================================
-   MÓVIL MUY ANGOSTO
-============================================================ */
-
-@media (max-width:389.98px){
-  .ev-cv-shell{
-    padding-left:10px;
-    padding-right:10px;
-  }
-
-  .ev-cv-hero{
-    padding:18px 14px;
-  }
-
-  .ev-cv-hero h1{
-    font-size:1.5rem;
-  }
-
-  .ev-cv-tabs button{
-    font-size:.8rem;
-    gap:5px;
-  }
-
-  .ev-cv-modal .modal-dialog{
-    margin:7px;
-  }
-
-  .ev-cv-modal-body{
-    padding:11px 8px !important;
-  }
-
-  .ev-cv-modal-media{
-    height:clamp(238px,37svh,305px) !important;
-    min-height:238px !important;
-    max-height:305px !important;
-    padding:6px !important;
   }
 }
 </style>
