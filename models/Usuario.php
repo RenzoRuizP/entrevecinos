@@ -6,10 +6,6 @@ require_once __DIR__ . '/../database/Conexion.php';
 
 class Usuario extends Conexion
 {
-    /* =========================
-       Helpers
-    ========================== */
-
     private function emailExiste(string $email, int $codigo_usuario_excluir): bool
     {
         $sql = "SELECT COUNT(*) FROM usuario
@@ -47,10 +43,6 @@ class Usuario extends Conexion
         return (bool)$stmt->fetchColumn();
     }
 
-    /**
-     * Retorna el ID de la residencia vigente del usuario
-     * (última fila registrada).
-     */
     private function residenciaIdVigentePorUsuario(int $codigo_usuario): int
     {
         $sql = "SELECT codigo_usuario_residencia
@@ -63,10 +55,6 @@ class Usuario extends Conexion
         $stmt->execute();
         return (int)($stmt->fetchColumn() ?: 0);
     }
-
-    /* =========================
-       ESTADO
-    ========================== */
 
     public function obtenerEstado(int $codigo_usuario): int
     {
@@ -90,10 +78,6 @@ class Usuario extends Conexion
         return $st->execute();
     }
 
-    /* =========================
-       OBTENER USUARIO
-    ========================== */
-
     public function obtenerPorCodigo(int $codigo_usuario): array|false
     {
         $sql = "SELECT
@@ -102,6 +86,7 @@ class Usuario extends Conexion
                     u.email,
                     u.documento,
                     u.telefono,
+                    u.foto_perfil,
 
                     ur.tipo_conjunto,
                     ur.codigo_condominio,
@@ -133,9 +118,11 @@ class Usuario extends Conexion
         return [
             'codigo_usuario'        => $row['codigo_usuario'],
             'nombre_completo'       => $row['nombre_completo'],
+            'nombre'                => $row['nombre_completo'],
             'email'                 => $row['email'],
             'documento'             => $row['documento'],
             'telefono'              => $row['telefono'],
+            'foto_perfil'           => $row['foto_perfil'] ?? '',
             'tipo_conjunto'         => $row['tipo_conjunto'] ?? '',
             'codigo_condominio'     => $row['codigo_condominio'] ?? '',
             'codigo_urbanizacion'   => $row['codigo_urbanizacion'] ?? '',
@@ -144,9 +131,37 @@ class Usuario extends Conexion
         ];
     }
 
-    /* =========================
-       ACTUALIZAR SOLO TELEFONO
-    ========================== */
+    public function obtenerFotoPerfil(int $codigo_usuario): string
+    {
+        if ($codigo_usuario <= 0) {
+            return '';
+        }
+
+        $sql = "SELECT foto_perfil FROM usuario WHERE codigo_usuario = :cu LIMIT 1";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':cu', $codigo_usuario, PDO::PARAM_INT);
+        $st->execute();
+
+        return trim((string)($st->fetchColumn() ?: ''));
+    }
+
+    public function actualizarFotoPerfil(int $codigo_usuario, string $foto_perfil): bool
+    {
+        $foto_perfil = trim($foto_perfil);
+
+        if ($codigo_usuario <= 0 || $foto_perfil === '') {
+            return false;
+        }
+
+        $sql = "UPDATE usuario
+                SET foto_perfil = :foto_perfil
+                WHERE codigo_usuario = :cu
+                LIMIT 1";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':foto_perfil', $foto_perfil, PDO::PARAM_STR);
+        $st->bindValue(':cu', $codigo_usuario, PDO::PARAM_INT);
+        return $st->execute();
+    }
 
     public function actualizarTelefono(int $codigo_usuario, string $telefono): bool
     {
@@ -166,12 +181,6 @@ class Usuario extends Conexion
         $stmt->bindValue(':cu', $codigo_usuario, PDO::PARAM_INT);
         return $stmt->execute();
     }
-
-    /* =========================
-       ACTUALIZAR DATOS (legacy controlado)
-       - Actualiza usuario
-       - Actualiza solo la residencia vigente
-    ========================== */
 
     public function actualizarDatos(int $codigo_usuario, array $data): bool
     {
@@ -284,10 +293,6 @@ class Usuario extends Conexion
             throw $e;
         }
     }
-
-    /* =========================
-       PASSWORD / CLAVE
-    ========================== */
 
     public function obtenerHashClave(int $codigo_usuario): ?string
     {

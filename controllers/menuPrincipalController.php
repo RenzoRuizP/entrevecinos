@@ -1,10 +1,11 @@
 <?php
-// controllers/menuPrincipalController.php
+// controllers/MenuPrincipalController.php
 
 declare(strict_types=1);
 
 require_once __DIR__ . '/../Config/config.php';
 require_once __DIR__ . '/../models/SesionJWT.php';
+require_once __DIR__ . '/../models/Usuario.php';
 
 class MenuPrincipalController
 {
@@ -26,17 +27,21 @@ class MenuPrincipalController
             exit;
         }
 
+        $codigoUsuario = (int)($usuario['codigo_usuario'] ?? 0);
+
+        if ($codigoUsuario > 0) {
+            try {
+                $usuarioModel = new Usuario();
+                $fotoPerfil = $usuarioModel->obtenerFotoPerfil($codigoUsuario);
+                $usuario['foto_perfil'] = $fotoPerfil;
+            } catch (Throwable $e) {
+                error_log('[EV][MenuPrincipalController][foto_perfil] ' . $e->getMessage());
+                $usuario['foto_perfil'] = (string)($usuario['foto_perfil'] ?? '');
+            }
+        }
+
         $rolUsuario = strtolower(trim((string)$usuario['rol']));
 
-        /*
-         * Regla institucional:
-         * El administrador de comunidad no tiene dashboard comercial ni
-         * dashboard de inicio independiente en esta fase.
-         *
-         * Su punto de entrada real es Gestión de publicaciones.
-         * Esto evita mostrar "Inicio" activo cuando la pantalla visible
-         * realmente pertenece al módulo Comunidad.
-         */
         $evGotoActual = trim((string)($_GET['ev_goto'] ?? ''));
 
         if ($rolUsuario === 'administrador_comunidad' && $evGotoActual === '') {
@@ -44,10 +49,6 @@ class MenuPrincipalController
                 . '/MenuPrincipal?ev_goto='
                 . rawurlencode('/comunidad/gestionar');
 
-            /*
-             * Conserva el mensaje de inicio de sesión exitoso cuando
-             * la redirección proviene del login.
-             */
             if (trim((string)($_GET['success'] ?? '')) === 'login_exitoso') {
                 $destino .= '&success=login_exitoso';
             }

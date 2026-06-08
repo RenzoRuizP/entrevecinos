@@ -1,7 +1,7 @@
 // views/js/menuArriba.js
 // ============================================================
 // Entre Vecinos - Menú superior premium
-// Sidebar responsive + perfil móvil enfocado + logout centralizado
+// Sidebar responsive + perfil móvil enfocado + foto de perfil controlada
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const btnToggleSidebar = document.getElementById('btnToggleSidebar');
   const btnToggleIcon = btnToggleSidebar?.querySelector('i') || null;
+
   const sidebar =
     document.getElementById('sidebar') ||
     document.querySelector('.app-sidebar') ||
@@ -26,6 +27,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const baseUrl = String(window.BASE_URL || window.EV_BASE_URL || '/entrevecinos').replace(/\/+$/, '');
   const mediaMobile = window.matchMedia('(max-width: 991.98px)');
 
+  const AVATAR_ENDPOINT = `${baseUrl}/api/usuario/foto-perfil`;
+  const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+  const AVATAR_ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+
+  let avatarFile = null;
+  let avatarPreviewUrl = '';
+  let avatarModalInstance = null;
+
   function esMobile() {
     return mediaMobile.matches;
   }
@@ -33,6 +42,23 @@ document.addEventListener('DOMContentLoaded', () => {
   function dropdownUsuarioInstance() {
     if (!userDropdown || !window.bootstrap?.Dropdown) return null;
     return window.bootstrap.Dropdown.getOrCreateInstance(userDropdown);
+  }
+
+  function modalUsuarioInstance() {
+    const modal = crearModalAvatar();
+
+    if (!window.bootstrap?.Modal) {
+      return null;
+    }
+
+    if (!avatarModalInstance) {
+      avatarModalInstance = window.bootstrap.Modal.getOrCreateInstance(modal, {
+        backdrop: 'static',
+        keyboard: true
+      });
+    }
+
+    return avatarModalInstance;
   }
 
   function obtenerBackdropPerfil() {
@@ -391,6 +417,729 @@ document.addEventListener('DOMContentLoaded', () => {
     dropdownMenu.style.minWidth = '230px';
   }
 
+  // ============================================================
+  // FOTO DE PERFIL
+  // Regla UX:
+  // Click en avatar -> abre modal.
+  // Click en "Seleccionar nueva foto" -> abre archivos.
+  // Click en "Guardar foto" -> recién sube y actualiza.
+  // ============================================================
+
+  function avatarActualUrl() {
+    const img =
+      document.querySelector('#userDropdown img') ||
+      document.querySelector('.user-menu img');
+
+    return img?.getAttribute('src') || `${baseUrl}/views/fotos/00000000.png`;
+  }
+
+  function nombreArchivoSeguro(file) {
+    if (!file) return '';
+    return String(file.name || 'imagen seleccionada').replace(/\s+/g, ' ').trim();
+  }
+
+  function formatearPeso(bytes) {
+    const n = Number(bytes || 0);
+
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+
+    return `${(n / 1024 / 1024).toFixed(2)} MB`;
+  }
+
+  function validarAvatar(file) {
+    if (!file) {
+      return 'Selecciona una imagen.';
+    }
+
+    if (!AVATAR_ALLOWED.includes(String(file.type || '').toLowerCase())) {
+      return 'Solo se permiten imágenes JPG, PNG o WEBP.';
+    }
+
+    if (file.size <= 0 || file.size > AVATAR_MAX_BYTES) {
+      return 'La imagen debe pesar como máximo 2 MB.';
+    }
+
+    return '';
+  }
+
+  function extraerFotoUrl(data) {
+    return String(
+      data?.foto_url ||
+      data?.foto_perfil_url ||
+      data?.avatar_url ||
+      data?.url ||
+      data?.data?.foto_url ||
+      data?.data?.foto_perfil_url ||
+      data?.data?.avatar_url ||
+      data?.data?.url ||
+      data?.data?.usuario?.foto_url ||
+      data?.data?.usuario?.foto_perfil_url ||
+      ''
+    ).trim();
+  }
+
+  function actualizarAvataresEnVista(url) {
+    const finalUrl = String(url || '').trim();
+    if (!finalUrl) return;
+
+    const srcConCache = finalUrl.includes('?')
+      ? `${finalUrl}&v=${Date.now()}`
+      : `${finalUrl}?v=${Date.now()}`;
+
+    document
+      .querySelectorAll('.user-menu img, #userDropdown img, img[data-ev-avatar-img], .ev-avatar-img')
+      .forEach((img) => {
+        img.src = srcConCache;
+      });
+
+    const actual = document.getElementById('evAvatarActual');
+    const preview = document.getElementById('evAvatarPreview');
+
+    if (actual) actual.src = srcConCache;
+    if (preview) preview.src = srcConCache;
+
+    window.EV_FOTO_USUARIO = srcConCache;
+  }
+
+  function inyectarEstilosAvatarModal() {
+    if (document.getElementById('evAvatarModalStyles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'evAvatarModalStyles';
+    style.textContent = `
+      .ev-avatar-modal .modal-dialog{
+        max-width:min(520px, calc(100vw - 22px));
+      }
+
+      .ev-avatar-modal-content{
+        border:0;
+        border-radius:26px;
+        overflow:hidden;
+        background:#fff;
+        box-shadow:0 32px 80px rgba(15,23,42,.24), 0 10px 26px rgba(15,23,42,.12);
+      }
+
+      .ev-avatar-modal-head{
+        position:relative;
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:14px;
+        padding:18px 20px;
+        color:#fff;
+        background:
+          radial-gradient(circle at 86% 16%, rgba(255,255,255,.18), transparent 34%),
+          linear-gradient(135deg,#0F592F,#0E7A43,#16A34A);
+      }
+
+      .ev-avatar-modal-title{
+        min-width:0;
+        display:flex;
+        align-items:center;
+        gap:12px;
+      }
+
+      .ev-avatar-modal-title span{
+        width:44px;
+        height:44px;
+        flex:0 0 auto;
+        display:grid;
+        place-items:center;
+        border-radius:16px;
+        color:#0F592F;
+        background:rgba(255,255,255,.94);
+        box-shadow:0 10px 22px rgba(15,23,42,.13);
+      }
+
+      .ev-avatar-modal-title small{
+        display:block;
+        margin-bottom:3px;
+        color:rgba(255,255,255,.82);
+        font-size:.72rem;
+        font-weight:950;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+
+      .ev-avatar-modal-title h2{
+        margin:0;
+        color:#fff;
+        font-size:1.22rem;
+        line-height:1.12;
+        font-weight:950;
+        letter-spacing:-.025em;
+      }
+
+      .ev-avatar-modal-close{
+        width:40px;
+        height:40px;
+        flex:0 0 auto;
+        display:grid;
+        place-items:center;
+        border-radius:14px;
+        border:1px solid rgba(255,255,255,.22);
+        color:#fff;
+        background:rgba(255,255,255,.11);
+        transition:background .16s ease, transform .16s ease;
+      }
+
+      .ev-avatar-modal-close:hover{
+        background:rgba(255,255,255,.18);
+        transform:translateY(-1px);
+      }
+
+      .ev-avatar-modal-body{
+        padding:22px 22px 18px;
+        background:linear-gradient(180deg,#FFFFFF 0%,#F9FAFB 100%);
+      }
+
+      .ev-avatar-preview-shell{
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        text-align:center;
+        gap:12px;
+      }
+
+      .ev-avatar-preview-ring{
+        width:132px;
+        height:132px;
+        border-radius:999px;
+        padding:5px;
+        background:
+          linear-gradient(#fff,#fff) padding-box,
+          linear-gradient(135deg,#0F592F,#16A34A,#EA7C12) border-box;
+        border:2px solid transparent;
+        box-shadow:0 16px 36px rgba(15,23,42,.13);
+      }
+
+      .ev-avatar-preview-ring img{
+        width:100%;
+        height:100%;
+        display:block;
+        object-fit:cover;
+        border-radius:999px;
+        background:#F3F4F6;
+      }
+
+      .ev-avatar-help{
+        max-width:360px;
+        margin:0;
+        color:#6B7280;
+        font-size:.88rem;
+        line-height:1.45;
+        font-weight:700;
+      }
+
+      .ev-avatar-file-card{
+        width:100%;
+        margin-top:16px;
+        padding:14px;
+        border:1px dashed rgba(15,89,47,.26);
+        border-radius:18px;
+        background:linear-gradient(135deg,#F0FDF4,#FFFFFF);
+      }
+
+      .ev-avatar-file-card strong{
+        display:block;
+        color:#0F592F;
+        font-size:.9rem;
+        font-weight:950;
+      }
+
+      .ev-avatar-file-card small{
+        display:block;
+        margin-top:3px;
+        color:#6B7280;
+        font-size:.78rem;
+        font-weight:750;
+      }
+
+      .ev-avatar-actions{
+        display:flex;
+        flex-wrap:wrap;
+        justify-content:center;
+        gap:10px;
+        margin-top:18px;
+      }
+
+      .ev-avatar-btn{
+        min-height:40px;
+        border-radius:999px;
+        padding:9px 16px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:8px;
+        font-size:.86rem;
+        font-weight:950;
+        transition:transform .16s ease, box-shadow .16s ease, background .16s ease, color .16s ease, border-color .16s ease;
+      }
+
+      .ev-avatar-btn-select{
+        color:#0F592F;
+        background:#fff;
+        border:1px solid rgba(15,89,47,.20);
+        box-shadow:0 10px 22px rgba(15,23,42,.055);
+      }
+
+      .ev-avatar-btn-select:hover{
+        color:#0F592F;
+        background:#ECFDF3;
+        border-color:rgba(22,163,74,.32);
+        transform:translateY(-1px);
+      }
+
+      .ev-avatar-btn-save{
+        color:#fff;
+        border:0;
+        background:linear-gradient(135deg,#EA7C12,#F59E0B);
+        box-shadow:0 14px 28px rgba(234,124,18,.28);
+      }
+
+      .ev-avatar-btn-save:hover{
+        color:#fff;
+        transform:translateY(-1px);
+        box-shadow:0 18px 34px rgba(234,124,18,.34);
+      }
+
+      .ev-avatar-btn-save:disabled{
+        opacity:.55;
+        cursor:not-allowed;
+        transform:none;
+        box-shadow:none;
+      }
+
+      .ev-avatar-modal-footer{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        padding:14px 20px;
+        border-top:1px solid #EEF2F7;
+        background:#fff;
+      }
+
+      .ev-avatar-modal-footer span{
+        color:#6B7280;
+        font-size:.78rem;
+        font-weight:800;
+      }
+
+      .ev-avatar-btn-cancel{
+        min-height:38px;
+        border-radius:999px;
+        padding:8px 16px;
+        color:#111827;
+        background:#fff;
+        border:1px solid #E5E7EB;
+        font-size:.84rem;
+        font-weight:950;
+      }
+
+      .ev-avatar-btn-cancel:hover{
+        background:#F9FAFB;
+      }
+
+      .user-menu img,
+      #userDropdown img{
+        cursor:pointer;
+      }
+
+      @media (max-width:575.98px){
+        .ev-avatar-modal-body{
+          padding:18px 16px 16px;
+        }
+
+        .ev-avatar-modal-footer{
+          align-items:stretch;
+          flex-direction:column;
+        }
+
+        .ev-avatar-btn-cancel{
+          width:100%;
+        }
+
+        .ev-avatar-actions{
+          flex-direction:column;
+        }
+
+        .ev-avatar-btn{
+          width:100%;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function crearModalAvatar() {
+    let modal = document.getElementById('evAvatarPerfilModal');
+
+    if (modal) return modal;
+
+    inyectarEstilosAvatarModal();
+
+    modal = document.createElement('div');
+    modal.className = 'modal fade ev-avatar-modal';
+    modal.id = 'evAvatarPerfilModal';
+    modal.tabIndex = -1;
+    modal.setAttribute('aria-labelledby', 'evAvatarPerfilTitle');
+    modal.setAttribute('aria-hidden', 'true');
+
+    modal.innerHTML = `
+      <div class="modal-dialog modal-dialog-centered">
+        <article class="modal-content ev-avatar-modal-content">
+          <header class="ev-avatar-modal-head">
+            <div class="ev-avatar-modal-title">
+              <span aria-hidden="true">
+                <i class="bi bi-camera"></i>
+              </span>
+              <div>
+                <small>Foto de perfil</small>
+                <h2 id="evAvatarPerfilTitle">Actualizar foto</h2>
+              </div>
+            </div>
+
+            <button type="button" class="ev-avatar-modal-close" data-bs-dismiss="modal" aria-label="Cerrar">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </header>
+
+          <div class="modal-body ev-avatar-modal-body">
+            <div class="ev-avatar-preview-shell">
+              <div class="ev-avatar-preview-ring">
+                <img id="evAvatarPreview" src="${avatarActualUrl()}" alt="Vista previa de foto de perfil">
+              </div>
+
+              <p class="ev-avatar-help">
+                Primero selecciona una imagen y revisa la vista previa.
+                Tu foto recién se actualizará cuando presiones <strong>Guardar foto</strong>.
+              </p>
+            </div>
+
+            <div class="ev-avatar-file-card" id="evAvatarFileInfo">
+              <strong>Ninguna imagen seleccionada</strong>
+              <small>Formatos permitidos: JPG, PNG o WEBP. Tamaño máximo: 2 MB.</small>
+            </div>
+
+            <input
+              type="file"
+              id="evAvatarInput"
+              accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+              hidden
+            >
+
+            <div class="ev-avatar-actions">
+              <button type="button" class="ev-avatar-btn ev-avatar-btn-select" id="evAvatarBtnSelect">
+                <i class="bi bi-folder2-open"></i>
+                Seleccionar nueva foto
+              </button>
+
+              <button type="button" class="ev-avatar-btn ev-avatar-btn-save" id="evAvatarBtnSave" disabled>
+                <i class="bi bi-check2-circle"></i>
+                Guardar foto
+              </button>
+            </div>
+          </div>
+
+          <footer class="ev-avatar-modal-footer">
+            <span>
+              <i class="bi bi-shield-check"></i>
+              Tu imagen será visible en tu cuenta EV.
+            </span>
+
+            <button type="button" class="ev-avatar-btn-cancel" data-bs-dismiss="modal">
+              Cancelar
+            </button>
+          </footer>
+        </article>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const input = modal.querySelector('#evAvatarInput');
+    const btnSelect = modal.querySelector('#evAvatarBtnSelect');
+    const btnSave = modal.querySelector('#evAvatarBtnSave');
+
+    btnSelect?.addEventListener('click', () => {
+      input?.click();
+    });
+
+    input?.addEventListener('change', () => {
+      const file = input.files && input.files[0] ? input.files[0] : null;
+      prepararPreviewAvatar(file);
+    });
+
+    btnSave?.addEventListener('click', subirAvatar);
+
+    modal.addEventListener('hidden.bs.modal', () => {
+      resetAvatarModal();
+    });
+
+    return modal;
+  }
+
+  function resetAvatarModal() {
+    const input = document.getElementById('evAvatarInput');
+    const preview = document.getElementById('evAvatarPreview');
+    const info = document.getElementById('evAvatarFileInfo');
+    const btnSave = document.getElementById('evAvatarBtnSave');
+
+    if (avatarPreviewUrl) {
+      URL.revokeObjectURL(avatarPreviewUrl);
+    }
+
+    avatarFile = null;
+    avatarPreviewUrl = '';
+
+    if (input) input.value = '';
+    if (preview) preview.src = avatarActualUrl();
+
+    if (info) {
+      info.innerHTML = `
+        <strong>Ninguna imagen seleccionada</strong>
+        <small>Formatos permitidos: JPG, PNG o WEBP. Tamaño máximo: 2 MB.</small>
+      `;
+    }
+
+    if (btnSave) {
+      btnSave.disabled = true;
+      btnSave.classList.remove('is-loading');
+      btnSave.innerHTML = '<i class="bi bi-check2-circle"></i> Guardar foto';
+    }
+  }
+
+  async function notificarAvatar(icon, title, text) {
+    if (window.Swal?.fire) {
+      await Swal.fire({
+        icon,
+        title,
+        text,
+        confirmButtonText: 'Aceptar',
+        confirmButtonColor: icon === 'error' ? '#DC2626' : '#EA7C12'
+      });
+      return;
+    }
+
+    alert(`${title}\n\n${text || ''}`);
+  }
+
+  function prepararPreviewAvatar(file) {
+    const preview = document.getElementById('evAvatarPreview');
+    const info = document.getElementById('evAvatarFileInfo');
+    const btnSave = document.getElementById('evAvatarBtnSave');
+
+    const error = validarAvatar(file);
+
+    if (error) {
+      avatarFile = null;
+
+      if (avatarPreviewUrl) {
+        URL.revokeObjectURL(avatarPreviewUrl);
+        avatarPreviewUrl = '';
+      }
+
+      if (preview) preview.src = avatarActualUrl();
+
+      if (info) {
+        info.innerHTML = `
+          <strong>No se pudo usar esta imagen</strong>
+          <small>${error}</small>
+        `;
+      }
+
+      if (btnSave) btnSave.disabled = true;
+
+      notificarAvatar('warning', 'Imagen no válida', error);
+      return;
+    }
+
+    if (avatarPreviewUrl) {
+      URL.revokeObjectURL(avatarPreviewUrl);
+    }
+
+    avatarFile = file;
+    avatarPreviewUrl = URL.createObjectURL(file);
+
+    if (preview) preview.src = avatarPreviewUrl;
+
+    if (info) {
+      info.innerHTML = `
+        <strong>${nombreArchivoSeguro(file)}</strong>
+        <small>${formatearPeso(file.size)} · Lista para guardar.</small>
+      `;
+    }
+
+    if (btnSave) btnSave.disabled = false;
+  }
+
+  async function manejarAuthAvatar(response, data) {
+    if (response.status === 401 || response.status === 403) {
+      await notificarAvatar(
+        'info',
+        'Sesión finalizada',
+        data?.mensaje || data?.message || 'Tu sesión ya no está activa. Vuelve a iniciar sesión.'
+      );
+
+      window.location.href = data?.redirect || `${baseUrl}/login`;
+      return true;
+    }
+
+    if (response.status === 409 && String(data?.error || '').trim() === 'CUENTA_OBSERVADA') {
+      await notificarAvatar(
+        'warning',
+        'Cuenta observada',
+        data?.mensaje || 'Debes revisar el estado de tu cuenta.'
+      );
+
+      window.location.href = data?.redirect || `${baseUrl}/cuenta-observada`;
+      return true;
+    }
+
+    return false;
+  }
+
+  async function subirAvatar() {
+    if (!avatarFile) {
+      await notificarAvatar('warning', 'Selecciona una foto', 'Primero selecciona una imagen para actualizar tu perfil.');
+      return;
+    }
+
+    const error = validarAvatar(avatarFile);
+
+    if (error) {
+      await notificarAvatar('warning', 'Imagen no válida', error);
+      return;
+    }
+
+    const btnSave = document.getElementById('evAvatarBtnSave');
+    const btnSelect = document.getElementById('evAvatarBtnSelect');
+
+    if (btnSave) {
+      btnSave.disabled = true;
+      btnSave.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Guardando...';
+    }
+
+    if (btnSelect) {
+      btnSelect.disabled = true;
+    }
+
+    try {
+      const fd = new FormData();
+      fd.append('foto_perfil', avatarFile);
+
+      const response = await fetch(AVATAR_ENDPOINT, {
+        method: 'POST',
+        body: fd,
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (await manejarAuthAvatar(response, data)) {
+        return;
+      }
+
+      if (!response.ok || !(data.ok === true || data.success === true)) {
+        throw new Error(data.mensaje || data.message || 'No se pudo actualizar la foto de perfil.');
+      }
+
+      const fotoUrl = extraerFotoUrl(data);
+
+      if (fotoUrl) {
+        actualizarAvataresEnVista(fotoUrl);
+      } else if (avatarPreviewUrl) {
+        actualizarAvataresEnVista(avatarPreviewUrl);
+      }
+
+      modalUsuarioInstance()?.hide();
+
+      await notificarAvatar(
+        'success',
+        'Foto actualizada',
+        data.mensaje || data.message || 'Tu foto de perfil fue actualizada correctamente.'
+      );
+
+    } catch (errorUpload) {
+      await notificarAvatar(
+        'error',
+        'No se pudo actualizar',
+        errorUpload?.message || 'Ocurrió un problema al subir tu foto.'
+      );
+
+      if (btnSave) {
+        btnSave.disabled = false;
+        btnSave.innerHTML = '<i class="bi bi-check2-circle"></i> Guardar foto';
+      }
+    } finally {
+      if (btnSelect) {
+        btnSelect.disabled = false;
+      }
+    }
+  }
+
+  function abrirModalAvatar() {
+    cerrarPerfil();
+    cerrarSidebar();
+
+    crearModalAvatar();
+
+    const preview = document.getElementById('evAvatarPreview');
+    if (preview) preview.src = avatarActualUrl();
+
+    const modal = modalUsuarioInstance();
+
+    if (modal) {
+      modal.show();
+      return;
+    }
+
+    notificarAvatar('warning', 'No se pudo abrir', 'No se pudo abrir la ventana para actualizar la foto.');
+  }
+
+  function vincularClickAvatares() {
+    const avatares = document.querySelectorAll('.user-menu img, #userDropdown img, img[data-ev-avatar-img], .ev-avatar-img');
+
+    avatares.forEach((img) => {
+      if (img.dataset.evAvatarBound === '1') return;
+
+      img.dataset.evAvatarBound = '1';
+      img.setAttribute('title', 'Actualizar foto de perfil');
+      img.setAttribute('role', 'button');
+      img.setAttribute('tabindex', '0');
+
+      img.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        abrirModalAvatar();
+      });
+
+      img.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        abrirModalAvatar();
+      });
+    });
+  }
+
   ajustarDropdownUsuario();
+  vincularClickAvatares();
+
   window.addEventListener('resize', ajustarDropdownUsuario);
+
+  window.EVTopbar = Object.assign(window.EVTopbar || {}, {
+    refreshAvatarBindings: vincularClickAvatares,
+    openAvatarModal: abrirModalAvatar,
+    updateAvatar: actualizarAvataresEnVista
+  });
 });

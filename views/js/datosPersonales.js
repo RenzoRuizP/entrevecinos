@@ -1,4 +1,6 @@
-// views/js/datosPersonales.js — Wizard 3 pasos (EV) + Guardar por paso + residencia con solicitud + cambio clave
+// views/js/datosPersonales.js
+// Mi perfil - Wizard 3 pasos EV + residencia + cambio clave
+// Punto 5: compatible con foto de perfil clickeable desde topbar y Mi perfil.
 (function () {
   "use strict";
 
@@ -16,6 +18,7 @@
   const API_ACTUALIZAR_TELEFONO = `${baseURL}/api/usuario/actualizar-telefono`;
   const API_SOLICITAR_CAMBIO = `${baseURL}/api/usuario/solicitar-cambio-residencia`;
   const API_CAMBIAR_CLAVE = `${baseURL}/api/usuario/cambiar-clave`;
+  const API_FOTO_PERFIL = `${baseURL}/api/usuario/foto-perfil`;
 
   function $(sel, root = document) { return root.querySelector(sel); }
 
@@ -385,6 +388,274 @@
     btnRemove.addEventListener("click", clearSelected);
   }
 
+  function fotoPerfilUrl(value) {
+    const raw = String(value || "").trim();
+
+    if (!raw) return "";
+
+    if (/^https?:\/\//i.test(raw)) {
+      return raw;
+    }
+
+    /*
+     * Si el backend retorna una URL absoluta del proyecto:
+     * /entrevecinos/resources/uploads/perfiles/...
+     * no se vuelve a concatenar BASE_URL.
+     */
+    if (raw.startsWith("/")) {
+      return raw;
+    }
+
+    return `${baseURL}/${raw.replace(/^\/+/, "")}`;
+  }
+
+  function fotoPerfilConCacheBuster(url) {
+    const clean = String(url || "").trim();
+
+    if (!clean) return "";
+
+    if (/^blob:/i.test(clean) || /^data:/i.test(clean)) {
+      return clean;
+    }
+
+    const sep = clean.includes("?") ? "&" : "?";
+    return `${clean}${sep}v=${Date.now()}`;
+  }
+
+  function resolverUrlFotoPerfil(data) {
+    const payload = data && typeof data === "object" ? data : {};
+    const nested = payload.data && typeof payload.data === "object" ? payload.data : {};
+
+    return fotoPerfilUrl(
+      payload.url ||
+      payload.foto_url ||
+      payload.foto_perfil_url ||
+      payload.foto_perfil ||
+      nested.url ||
+      nested.foto_url ||
+      nested.foto_perfil_url ||
+      nested.foto_perfil ||
+      ""
+    );
+  }
+
+  function actualizarAvataresGlobales(url) {
+    const finalUrl = fotoPerfilConCacheBuster(url);
+    if (!finalUrl) return;
+
+    const selectors = [
+      "[data-ev-avatar-img]",
+      "#evDpFotoPreview",
+      "#userDropdown img",
+      ".user-menu .dropdown-menu img",
+      ".ev-profile-photo-trigger img"
+    ];
+
+    const imgs = new Set();
+
+    selectors.forEach((selector) => {
+      document.querySelectorAll(selector).forEach((img) => {
+        if (img && img.tagName && img.tagName.toLowerCase() === "img") {
+          imgs.add(img);
+        }
+      });
+    });
+
+    imgs.forEach((img) => {
+      img.src = finalUrl;
+    });
+
+    document.dispatchEvent(new CustomEvent("ev:perfil-foto-actualizada", {
+      detail: { url: finalUrl }
+    }));
+  }
+
+  function validarArchivoFotoPerfil(file) {
+    if (!file) {
+      return "Selecciona una imagen.";
+    }
+
+    const max = 2 * 1024 * 1024;
+    const name = String(file.name || "");
+    const type = String(file.type || "").toLowerCase();
+
+    const okType = ["image/jpeg", "image/png", "image/webp"].includes(type);
+    const okExt = /\.(jpg|jpeg|png|webp)$/i.test(name);
+
+    if (!okType && !okExt) {
+      return "Solo se permiten imágenes JPG, PNG o WEBP.";
+    }
+
+    if (Number(file.size || 0) <= 0) {
+      return "La imagen seleccionada no es válida.";
+    }
+
+    if (Number(file.size || 0) > max) {
+      return "La imagen debe pesar como máximo 2 MB.";
+    }
+
+    return "";
+  }
+
+  function crearInputFotoPerfil() {
+    let input = document.getElementById("evDpFotoPerfilInput");
+
+    if (!input) {
+      input = document.createElement("input");
+      input.type = "file";
+      input.id = "evDpFotoPerfilInput";
+      input.accept = "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
+      input.style.position = "fixed";
+      input.style.left = "-9999px";
+      input.style.width = "1px";
+      input.style.height = "1px";
+      input.style.opacity = "0";
+      input.setAttribute("aria-hidden", "true");
+      document.body.appendChild(input);
+    }
+
+    return input;
+  }
+
+  async function subirFotoPerfil(file, container) {
+    const error = validarArchivoFotoPerfil(file);
+    if (error) {
+      swalWarn("Imagen no válida", error);
+      return;
+    }
+
+    const trigger = container?.querySelector("[data-ev-avatar-trigger]");
+    const preview = container?.querySelector("#evDpFotoPreview, [data-ev-avatar-img]");
+    const originalTriggerHtml = trigger ? trigger.innerHTML : "";
+
+    if (trigger) {
+      trigger.disabled = true;
+      trigger.classList.add("is-uploading");
+      trigger.setAttribute("aria-busy", "true");
+    }
+
+    let localPreviewUrl = "";
+
+    try {
+      /*
+       * Previsualización inmediata, sin esperar al servidor.
+       * Si el servidor responde correctamente, se reemplaza por la URL final real.
+       */
+      if (preview && window.URL?.createObjectURL) {
+        localPreviewUrl = URL.createObjectURL(file);
+        preview.src = localPreviewUrl;
+      }
+
+      const fd = new FormData();
+      fd.append("foto_perfil", file);
+      fd.append("foto", file);
+      fd.append("avatar", file);
+
+      const res = await fetch(API_FOTO_PERFIL, {
+        method: "POST",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          "Accept": "application/json"
+        },
+        credentials: "include",
+        cache: "no-store",
+        body: fd
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 401 || res.status === 403) {
+        throw new Error(data.mensaje || data.message || "Tu sesión no está activa. Vuelve a iniciar sesión.");
+      }
+
+      if (!res.ok || data.ok === false || data.success === false) {
+        throw new Error(data.mensaje || data.message || data.error || `No se pudo actualizar la foto. HTTP ${res.status}`);
+      }
+
+      const urlFinal = resolverUrlFotoPerfil(data);
+
+      if (urlFinal) {
+        actualizarAvataresGlobales(urlFinal);
+      } else if (localPreviewUrl) {
+        /*
+         * Fallback visual: el backend guardó la imagen, pero no devolvió URL.
+         * Igual dejamos visible la previsualización local para no romper la UX.
+         */
+        actualizarAvataresGlobales(localPreviewUrl);
+      }
+
+      swalOk("Foto actualizada", "Tu foto de perfil fue actualizada correctamente.");
+    } catch (e) {
+      console.error("[EV][FotoPerfil] Error:", e);
+      swalErr(e.message || "No se pudo actualizar la foto de perfil.");
+    } finally {
+      if (trigger) {
+        trigger.disabled = false;
+        trigger.classList.remove("is-uploading");
+        trigger.removeAttribute("aria-busy");
+
+        /*
+         * No se restaura innerHTML porque el botón contiene la imagen actualizada.
+         * Se conserva la estructura actual del DOM.
+         */
+        if (!trigger.querySelector("img") && originalTriggerHtml) {
+          trigger.innerHTML = originalTriggerHtml;
+        }
+      }
+
+      if (localPreviewUrl && window.URL?.revokeObjectURL) {
+        setTimeout(() => URL.revokeObjectURL(localPreviewUrl), 1200);
+      }
+    }
+  }
+
+  function initFotoPerfil(container) {
+    if (!container || container.dataset.dpFotoPerfilBound === "1") return;
+    container.dataset.dpFotoPerfilBound = "1";
+
+    const input = crearInputFotoPerfil();
+
+    container.querySelectorAll("[data-ev-avatar-trigger]").forEach((trigger) => {
+      if (trigger.dataset.evFotoPerfilBound === "1") return;
+      trigger.dataset.evFotoPerfilBound = "1";
+
+      trigger.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        input.value = "";
+        input._evDpContainer = container;
+        input.click();
+      });
+    });
+
+    if (input.dataset.evFotoPerfilInputBound !== "1") {
+      input.dataset.evFotoPerfilInputBound = "1";
+
+      input.addEventListener("change", async () => {
+        const file = input.files && input.files[0] ? input.files[0] : null;
+        const targetContainer = input._evDpContainer || document.querySelector(".container-datos-personales");
+
+        if (!file || !targetContainer) {
+          input.value = "";
+          return;
+        }
+
+        await subirFotoPerfil(file, targetContainer);
+        input.value = "";
+      });
+    }
+
+    document.addEventListener("ev:perfil-foto-actualizada", (event) => {
+      const url = String(event?.detail?.url || "").trim();
+      if (!url) return;
+
+      container.querySelectorAll("[data-ev-avatar-img]").forEach((img) => {
+        img.src = url;
+      });
+    });
+  }
+
   async function guardarPaso1(container) {
     const btn = $("#btnGuardarPaso1", container);
     const original = btn ? btn.innerHTML : "";
@@ -457,7 +728,7 @@
     try {
       const fd = new FormData();
       fd.append("tipo_conjunto", now.tipo);
-      fd.append("direccion", now.direccion_condominio);
+      fd.append("direccion", now.direccion);
       fd.append("codigo_condominio", now.tipo === "condominio" ? now.condominio : "");
       fd.append("codigo_urbanizacion", now.tipo === "urbanizacion" ? now.urbanizacion : "");
       fd.append("ubigeo_departamento", now.ubD);
@@ -641,6 +912,7 @@
 
       refreshResidenciaUI(container, base);
       initFilePreview(container);
+      initFotoPerfil(container);
       bindStepper(container);
       bindGuardar(container, base);
 
@@ -649,6 +921,7 @@
     }
 
     bindStepper(container);
+    initFotoPerfil(container);
     return true;
   }
 

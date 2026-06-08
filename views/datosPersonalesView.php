@@ -14,6 +14,20 @@ require_once __DIR__ . '/../Config/config.php';
   $ub_depto = (string)($datosUsuario['ubigeo_departamento'] ?? '');
   $ub_prov  = (string)($datosUsuario['ubigeo_provincia'] ?? '');
   $ub_dist  = (string)($datosUsuario['ubigeo_distrito'] ?? '');
+
+  $basePerfil = rtrim(BASE_URL, '/');
+  $fotoPerfilDefault = $basePerfil . '/views/fotos/00000000.png';
+  $fotoPerfilRel = trim((string)($datosUsuario['foto_perfil'] ?? ''));
+
+  if ($fotoPerfilRel === '') {
+      $fotoPerfilUrl = $fotoPerfilDefault;
+  } elseif (preg_match('#^https?://#i', $fotoPerfilRel)) {
+      $fotoPerfilUrl = $fotoPerfilRel;
+  } elseif (str_starts_with($fotoPerfilRel, '/')) {
+      $fotoPerfilUrl = $fotoPerfilRel;
+  } else {
+      $fotoPerfilUrl = $basePerfil . '/' . ltrim($fotoPerfilRel, '/');
+  }
 ?>
 
 <div
@@ -67,6 +81,30 @@ require_once __DIR__ . '/../Config/config.php';
       <form id="formDatosPersonales" class="ev-wizard" autocomplete="off" enctype="multipart/form-data">
 
         <section class="ev-step-panel" data-panel="1">
+          <div class="ev-profile-photo-panel mb-4">
+            <button
+              type="button"
+              class="ev-profile-photo-trigger"
+              data-ev-avatar-trigger="1"
+              aria-label="Cambiar foto de perfil">
+              <img
+                id="evDpFotoPreview"
+                data-ev-avatar-img="1"
+                src="<?= htmlspecialchars($fotoPerfilUrl, ENT_QUOTES, 'UTF-8'); ?>"
+                alt="Foto de perfil"
+              >
+              <span class="ev-profile-photo-camera" aria-hidden="true">
+                <i class="bi bi-camera-fill"></i>
+              </span>
+            </button>
+
+            <div class="ev-profile-photo-copy">
+              <strong>Foto de perfil</strong>
+              <p>Haz clic sobre la foto para cargar una imagen desde tu computadora.</p>
+              <small>Formatos permitidos: JPG, PNG o WEBP. Tamaño máximo: 2 MB.</small>
+            </div>
+          </div>
+
           <div class="row g-3">
             <div class="col-md-6">
               <label for="nombre_completo" class="form-label ev-form-label">Nombre completo</label>

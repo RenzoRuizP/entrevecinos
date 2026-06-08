@@ -1,7 +1,7 @@
-<?php /* views/estilos/DatosPersonalesEstilo.php — UX/UI Mi Perfil (armonizado con Mis Productos) */ ?>
+<?php /* views/estilos/DatosPersonalesEstilo.php — UX/UI Mi Perfil + foto de perfil EV */ ?>
 <style>
 /* ===================================================
-   TOKENS EV (mantener consistencia)
+   TOKENS EV
 =================================================== */
 :root{
   --ev-verde-oscuro:#0F592F;
@@ -36,7 +36,7 @@
 }
 
 /* ===================================================
-   HEADER (blanco como "Mis Productos")
+   HEADER
 =================================================== */
 .ev-datos-card .card-header{
   background: #ffffff !important;
@@ -56,6 +56,7 @@
   box-shadow: 0 8px 18px rgba(15,23,42,0.06);
   flex: 0 0 auto;
 }
+
 .ev-datos-icon i{
   color: var(--ev-verde-oscuro);
   font-size: 1.05rem;
@@ -65,7 +66,7 @@
 .ev-datos-card .card-header h5{
   margin: 0;
   font-weight: 800;
-  font-size: 1.55rem;      /* similar sensación "Mis Productos" */
+  font-size: 1.55rem;
   color: #0B1F13;
   letter-spacing: 0.01em;
 }
@@ -78,14 +79,108 @@
   line-height: 1.3;
 }
 
-/* Body */
 .ev-datos-card .card-body{
   background: linear-gradient(180deg, #FFFFFF 0%, #FAFBFC 100%);
   padding: 18px 18px 16px !important;
 }
 
 /* ===================================================
-   STEPPER (premium pill)
+   FOTO DE PERFIL
+=================================================== */
+.ev-profile-photo-panel{
+  display:flex;
+  align-items:center;
+  gap:18px;
+  padding:16px;
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(22,163,74,.12), transparent 34%),
+    linear-gradient(135deg,#F0FDF4,#FFFFFF);
+  border:1px solid rgba(22,163,74,.16);
+  box-shadow:0 12px 26px rgba(15,23,42,.045);
+}
+
+.ev-profile-photo-trigger{
+  width:96px;
+  height:96px;
+  min-width:96px;
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:0;
+  border-radius:999px;
+  padding:0;
+  background:transparent;
+  cursor:pointer;
+}
+
+.ev-profile-photo-trigger img{
+  width:96px;
+  height:96px;
+  display:block;
+  object-fit:cover;
+  border-radius:999px;
+  border:3px solid #fff;
+  box-shadow:0 14px 28px rgba(15,23,42,.16);
+  transition:filter .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+
+.ev-profile-photo-trigger:hover img{
+  filter:brightness(.88);
+  transform:translateY(-1px);
+  box-shadow:0 18px 34px rgba(15,23,42,.20);
+}
+
+.ev-profile-photo-trigger:focus-visible{
+  outline:0;
+  box-shadow:0 0 0 .22rem rgba(187,247,208,.72);
+}
+
+.ev-profile-photo-camera{
+  position:absolute;
+  right:2px;
+  bottom:5px;
+  width:30px;
+  height:30px;
+  display:grid;
+  place-items:center;
+  border-radius:999px;
+  color:#fff;
+  background:linear-gradient(135deg,var(--ev-naranja),#F59E0B);
+  border:3px solid #fff;
+  box-shadow:0 10px 20px rgba(234,124,18,.24);
+  font-size:.86rem;
+}
+
+.ev-profile-photo-copy{
+  min-width:0;
+}
+
+.ev-profile-photo-copy strong{
+  display:block;
+  color:var(--ev-verde-oscuro);
+  font-size:1.08rem;
+  font-weight:950;
+  letter-spacing:-.02em;
+}
+
+.ev-profile-photo-copy p{
+  margin:4px 0 3px;
+  color:#374151;
+  line-height:1.42;
+  font-size:.93rem;
+  font-weight:600;
+}
+
+.ev-profile-photo-copy small{
+  color:var(--ev-gris-500);
+  font-size:.82rem;
+  font-weight:700;
+}
+
+/* ===================================================
+   STEPPER
 =================================================== */
 .ev-stepper{
   background: rgba(15, 89, 47, 0.04);
@@ -140,11 +235,11 @@
   font-size: 0.95rem;
 }
 
-/* active + done */
 .ev-step.active{
   border-color: rgba(22,163,74,0.45);
   background: rgba(22,163,74,0.08);
 }
+
 .ev-step.active .ev-step-dot{
   background: rgba(22,163,74,0.12);
   border-color: rgba(22,163,74,0.35);
@@ -154,6 +249,7 @@
 .ev-step.done{
   border-color: rgba(22,163,74,0.28);
 }
+
 .ev-step.done .ev-step-dot{
   background: rgba(22,163,74,0.14);
   color: var(--ev-verde-oscuro);
@@ -168,7 +264,7 @@
 }
 
 /* ===================================================
-   PANEL (card interno tipo Mis Productos)
+   PANEL
 =================================================== */
 .ev-step-panel{
   background: #ffffff;
@@ -178,7 +274,6 @@
   box-shadow: var(--ev-shadow-soft);
 }
 
-/* Labels e inputs */
 .ev-form-label{
   font-weight: 700;
   font-size: 0.92rem;
@@ -209,7 +304,6 @@
   color: #6B7280 !important;
 }
 
-/* Hint */
 .ev-hint{
   display: flex;
   align-items: flex-start;
@@ -220,9 +314,12 @@
   background: #F9FAFB;
   color: #111827;
 }
-.ev-hint i{ color: var(--ev-naranja); margin-top: 2px; }
 
-/* File row */
+.ev-hint i{
+  color: var(--ev-naranja);
+  margin-top: 2px;
+}
+
 .ev-file-row{
   display: flex;
   align-items: center;
@@ -234,13 +331,17 @@
   background: #FFFFFF;
   box-shadow: 0 10px 22px rgba(15,23,42,0.04);
 }
+
 .ev-file-info{
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
-.ev-file-info i{ color: var(--ev-verde-oscuro); }
+
+.ev-file-info i{
+  color: var(--ev-verde-oscuro);
+}
 
 /* ===================================================
    FOOTER / BOTONES
@@ -259,6 +360,7 @@
   padding: 10px 18px !important;
   box-shadow: 0 10px 22px rgba(15,23,42,0.05);
 }
+
 .btn-ev-neutral:hover{
   background: #F3F4F6 !important;
 }
@@ -272,15 +374,18 @@
   box-shadow: var(--ev-shadow-cta) !important;
   transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
 }
+
 .btn-ev-primary:hover{
   background: linear-gradient(135deg, var(--ev-naranja-oscuro), #EA580C) !important;
   transform: translateY(-1px);
   box-shadow: 0 14px 32px rgba(234,124,18,0.48) !important;
 }
+
 .btn-ev-primary:active{
   transform: translateY(0);
   box-shadow: 0 6px 16px rgba(234,124,18,0.30) !important;
 }
+
 .btn-ev-primary.saving{
   opacity: .92;
   pointer-events: none;
@@ -290,26 +395,81 @@
    RESPONSIVO
 =================================================== */
 @media (max-width: 992px){
-  .ev-step{ min-width: 140px; }
+  .ev-step{
+    min-width: 140px;
+  }
 }
 
 @media (max-width: 768px){
-  .container-datos-personales{ padding: 12px 8px 18px; }
-  .ev-datos-card .card-header{ padding: 16px 14px !important; }
-  .ev-datos-card .card-body{ padding: 14px 14px 12px !important; }
+  .container-datos-personales{
+    padding: 12px 8px 18px;
+  }
+
+  .ev-datos-card .card-header{
+    padding: 16px 14px !important;
+  }
+
+  .ev-datos-card .card-body{
+    padding: 14px 14px 12px !important;
+  }
+
+  .ev-profile-photo-panel{
+    align-items:flex-start;
+    gap:14px;
+  }
+
+  .ev-profile-photo-trigger,
+  .ev-profile-photo-trigger img{
+    width:82px;
+    height:82px;
+    min-width:82px;
+  }
+
+  .ev-profile-photo-camera{
+    width:27px;
+    height:27px;
+    font-size:.78rem;
+  }
 
   .ev-stepper{
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
   }
-  .ev-step-line{ display: none; }
-  .ev-step{ width: 100%; justify-content: flex-start; }
+
+  .ev-step-line{
+    display: none;
+  }
+
+  .ev-step{
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 576px){
-  .ev-datos-card .card-header h5{ font-size: 1.3rem; }
-  .ev-step-panel{ padding: 14px 12px; }
-  .btn-ev-neutral, .btn-ev-primary{ width: auto; }
+  .ev-datos-card .card-header h5{
+    font-size: 1.3rem;
+  }
+
+  .ev-step-panel{
+    padding: 14px 12px;
+  }
+
+  .ev-profile-photo-panel{
+    flex-direction:column;
+    text-align:center;
+    align-items:center;
+  }
+
+  .ev-profile-photo-copy p{
+    margin-left:auto;
+    margin-right:auto;
+  }
+
+  .btn-ev-neutral,
+  .btn-ev-primary{
+    width: auto;
+  }
 }
 </style>

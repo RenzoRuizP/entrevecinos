@@ -25,19 +25,16 @@ class SesionJWT extends Conexion
         $this->clave = $clave;
     }
 
-    /**
-     * Detecta si el usuario está OBSERVADO (estado_revision = 3).
-     */
     private function usuarioEstaObservado(int $codigoUsuario): bool
     {
         try {
-            $st = $this->dblink->prepare("
-                SELECT 1
-                FROM usuario_revision
-                WHERE codigo_usuario = :id
-                  AND estado_revision = 3
-                LIMIT 1
-            ");
+            $st = $this->dblink->prepare(""
+                . "SELECT 1\n"
+                . "FROM usuario_revision\n"
+                . "WHERE codigo_usuario = :id\n"
+                . "  AND estado_revision = 3\n"
+                . "LIMIT 1"
+            );
             $st->execute([':id' => $codigoUsuario]);
 
             return (bool)$st->fetchColumn();
@@ -47,27 +44,20 @@ class SesionJWT extends Conexion
         }
     }
 
-    /**
-     * Si está OBSERVADO y estaba INACTIVO, lo deja en REVISIÓN (estado=1)
-     * para permitir el ingreso a /cuenta-observada.
-     */
     private function forzarEstadoRevision(int $codigoUsuario): void
     {
         try {
-            $st = $this->dblink->prepare("
-                UPDATE usuario
-                SET estado = 1
-                WHERE codigo_usuario = :id
-            ");
+            $st = $this->dblink->prepare(""
+                . "UPDATE usuario\n"
+                . "SET estado = 1\n"
+                . "WHERE codigo_usuario = :id"
+            );
             $st->execute([':id' => $codigoUsuario]);
         } catch (Throwable $e) {
             error_log('[EV][SesionJWT][forzarEstadoRevision] ' . $e->getMessage());
         }
     }
 
-    /**
-     * Obtiene nombre del rol por código de usuario.
-     */
     private function obtenerNombreRol(int $codigoUsuario): string
     {
         $sql = "
@@ -88,9 +78,6 @@ class SesionJWT extends Conexion
         return is_string($rol) ? trim($rol) : '';
     }
 
-    /**
-     * Retorna una estructura normalizada de comunidad vacía.
-     */
     private function comunidadVacia(): array
     {
         return [
@@ -106,14 +93,6 @@ class SesionJWT extends Conexion
         ];
     }
 
-    /**
-     * Residencia vigente moderna:
-     * usuario_residencia soporta condominio y urbanización.
-     *
-     * La última fila aprobada/registrada es la residencia vigente,
-     * conforme al comportamiento actual de models/Usuario.php y
-     * models/UsuarioResidenciaSolicitud.php.
-     */
     private function obtenerResidenciaVigente(int $codigoUsuario): array
     {
         $base = $this->comunidadVacia();
@@ -172,13 +151,6 @@ class SesionJWT extends Conexion
         }
     }
 
-    /**
-     * Contexto institucional para el rol administrador_comunidad.
-     *
-     * Importante:
-     * La autorización no nace de usuario_residencia. Se obtiene de
-     * administrador_comunidad, que representa la asignación formal.
-     */
     private function obtenerComunidadAdministrada(int $codigoUsuario): array
     {
         $base = $this->comunidadVacia();
@@ -235,11 +207,6 @@ class SesionJWT extends Conexion
         }
     }
 
-    /**
-     * Residencia legacy: usuario_departamento.
-     * Se conserva exclusivamente como fallback controlado mientras los
-     * usuarios antiguos terminan su migración a usuario_residencia.
-     */
     private function obtenerResidenciaLegacy(int $codigoUsuario): array
     {
         $base = $this->comunidadVacia();
@@ -335,11 +302,11 @@ class SesionJWT extends Conexion
                 'codigo_usuario'        => $codigoUsuario,
                 'nombre'                => (string)($usuario['nombre'] ?? ''),
                 'email'                 => (string)($usuario['email'] ?? ''),
+                'foto_perfil'           => (string)($usuario['foto_perfil'] ?? ''),
                 'codigo_rol'            => (int)($usuario['codigo_rol'] ?? 0),
                 'rol'                   => $rolNombre,
                 'nombre_rol'            => $rolNombre,
 
-                /* Contexto unificado de comunidad */
                 'tipo_conjunto'         => $comunidad['tipo_conjunto'],
                 'conjunto_tipo'         => $comunidad['tipo_conjunto'],
                 'codigo_condominio'     => $comunidad['codigo_condominio'],
@@ -348,7 +315,6 @@ class SesionJWT extends Conexion
                 'nombre_conjunto'       => $comunidad['conjunto_nombre'],
                 'direccion_residencia'  => $comunidad['direccion_residencia'],
 
-                /* Compatibilidad con vistas existentes */
                 'condominio_nombre'     => $comunidad['condominio_nombre'],
                 'urbanizacion_nombre'   => $comunidad['urbanizacion_nombre'],
                 'torre_nombre'          => $comunidad['torre_nombre'],

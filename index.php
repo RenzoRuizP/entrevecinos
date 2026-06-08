@@ -805,6 +805,7 @@ $routes = [
     // ---------------------------
     ['GET',  '#^/api/usuario/datos$#', [usuarioDatosController::class, 'obtenerDatos'], 'json'],
     ['POST', '#^/api/usuario/actualizar$#', [usuarioDatosController::class, 'actualizarDatos'], 'json'],
+    ['POST', '#^/api/usuario/foto-perfil$#', [usuarioDatosController::class, 'actualizarFotoPerfil'], 'json'],
     ['POST', '#^/api/usuario/cambiar-clave$#', [usuarioDatosController::class, 'cambiarClave'], 'json'],
     ['POST', '#^/api/usuario/solicitar-cambio-residencia$#', [usuarioDatosController::class, 'solicitarCambioResidencia'], 'json'],
 

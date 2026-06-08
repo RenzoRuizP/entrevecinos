@@ -1,24 +1,27 @@
 <?php
 // controllers/api/usuarioDatosController.php
-// EV — API: Datos de usuario + Solicitud cambio de residencia + Guardado por secciones
+// EV — API: Datos de usuario + Solicitud cambio de residencia + Guardado por secciones + Foto de perfil
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/Usuario.php';
 require_once __DIR__ . '/../../models/UsuarioResidenciaSolicitud.php';
 require_once __DIR__ . '/../../models/CondominioModel.php';
 require_once __DIR__ . '/../../models/Urbanizacion.php';
-
-// ✅ Reutilizamos el updater ya existente (no tocamos Usuario.php)
 require_once __DIR__ . '/../../models/UsuarioSoporte.php';
 
 class usuarioDatosController
 {
+    private const MAX_FOTO_PERFIL_BYTES = 2 * 1024 * 1024;
+
     private function json(int $status, array $payload): void
     {
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
-        echo json_encode($payload);
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     private function authUserId(): int
@@ -32,16 +35,13 @@ class usuarioDatosController
         return strtolower(trim($tipo));
     }
 
-    /**
-     * Dirección: NO confiar en POST cuando el input es disabled.
-     * Regla: se toma desde BD según tipo_conjunto.
-     */
     private function obtenerDireccionDesdeBD(string $tipo, int $codCon, int $codUrb): string
     {
         if ($tipo === 'condominio') {
             $m = new CondominioModel();
             return trim((string)$m->obtenerDireccionPorId($codCon));
         }
+
         $m = new Urbanizacion();
         return trim((string)$m->obtenerDireccionPorId($codUrb));
     }
@@ -73,10 +73,6 @@ class usuarioDatosController
         }
     }
 
-    /**
-     * LEGACY: /api/usuario/actualizar
-     * Mantener para compatibilidad.
-     */
     public function actualizarDatos(): void
     {
         try {
@@ -128,10 +124,6 @@ class usuarioDatosController
         }
     }
 
-    // =========================================================
-    // ✅ Guardado por secciones
-    // =========================================================
-
     public function actualizarTelefono(): void
     {
         try {
@@ -182,15 +174,6 @@ class usuarioDatosController
         $this->solicitarCambioResidencia();
     }
 
-    /**
-     * POST /api/usuario/solicitar-cambio-residencia
-     * FormData:
-     * - tipo_conjunto: condominio|urbanizacion
-     * - codigo_condominio (si condominio)
-     * - codigo_urbanizacion (si urbanizacion)
-     * - ubigeo_departamento, ubigeo_provincia, ubigeo_distrito
-     * - documento_domicilio (file: pdf|jpg|jpeg|png <= 5MB)
-     */
     public function solicitarCambioResidencia(): void
     {
         try {
@@ -234,7 +217,6 @@ class usuarioDatosController
                 return;
             }
 
-            // Archivo
             if (!isset($_FILES['documento_domicilio']) || !is_array($_FILES['documento_domicilio'])) {
                 $this->json(422, ['ok' => false, 'mensaje' => 'Adjunta un comprobante de domicilio.']);
                 return;
@@ -275,7 +257,6 @@ class usuarioDatosController
 
             $rutaRelativa = 'resources/uploads/comprobantes/' . $safeFile;
 
-            // ✅ Registrar solicitud (upsert)
             $model = new UsuarioResidenciaSolicitud();
             $idSolicitud = $model->upsertPendiente($codigoUsuario, [
                 'tipo_conjunto'        => $tipo,
@@ -289,13 +270,11 @@ class usuarioDatosController
                 return;
             }
 
-            // ✅ Regla: al solicitar cambio, cuenta pasa a "En revisión" (estado=1)
-            // (Así aparece en Modo Usuarios / En revisión)
             try {
                 $uSoporte = new UsuarioSoporte();
                 $uSoporte->actualizarEstado($codigoUsuario, 1);
             } catch (Throwable $e) {
-                // No bloquear la solicitud si el update del estado falla
+                error_log('[EV][usuarioDatosController][solicitarCambioResidencia][estado] ' . $e->getMessage());
             }
 
             $this->json(200, [
@@ -409,6 +388,168 @@ class usuarioDatosController
                 'error'   => 'ERROR_SERVIDOR',
                 'detalle' => $e->getMessage(),
             ]);
+        }
+    }
+
+    public function actualizarFotoPerfil(): void
+    {
+        $archivoNuevo = null;
+
+        try {
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido.']);
+                return;
+            }
+
+            $codigoUsuario = $this->authUserId();
+            if ($codigoUsuario <= 0) {
+                $this->json(401, ['ok' => false, 'error' => 'UNAUTHORIZED', 'mensaje' => 'Tu sesión no es válida.']);
+                return;
+            }
+
+            $archivoNuevo = $this->procesarFotoPerfil($codigoUsuario);
+            $rutaNueva = (string)($archivoNuevo['ruta'] ?? '');
+
+            if ($rutaNueva === '') {
+                throw new RuntimeException('No se pudo preparar la foto de perfil.');
+            }
+
+            $usuarioModel = new Usuario();
+            $fotoAnterior = $usuarioModel->obtenerFotoPerfil($codigoUsuario);
+            $ok = $usuarioModel->actualizarFotoPerfil($codigoUsuario, $rutaNueva);
+
+            if (!$ok) {
+                throw new RuntimeException('No se pudo actualizar la foto de perfil.');
+            }
+
+            $this->eliminarFotoPerfilAnterior((string)$fotoAnterior, $rutaNueva);
+
+            $this->json(200, [
+                'ok' => true,
+                'mensaje' => 'Tu foto de perfil fue actualizada correctamente.',
+                'data' => [
+                    'foto_perfil' => $rutaNueva,
+                    'foto_perfil_url' => $this->urlPublica($rutaNueva),
+                ],
+            ]);
+        } catch (InvalidArgumentException $e) {
+            $this->eliminarArchivoNuevo($archivoNuevo);
+            $this->json(422, ['ok' => false, 'mensaje' => $e->getMessage()]);
+        } catch (Throwable $e) {
+            $this->eliminarArchivoNuevo($archivoNuevo);
+            error_log('[EV][usuarioDatosController][actualizarFotoPerfil] ' . $e->getMessage());
+            $this->json(500, ['ok' => false, 'mensaje' => 'No se pudo actualizar la foto de perfil.']);
+        }
+    }
+
+    private function procesarFotoPerfil(int $codigoUsuario): array
+    {
+        if (!isset($_FILES['foto_perfil']) || !is_array($_FILES['foto_perfil'])) {
+            throw new InvalidArgumentException('Selecciona una foto de perfil.');
+        }
+
+        $file = $_FILES['foto_perfil'];
+        $error = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
+
+        if ($error === UPLOAD_ERR_NO_FILE) {
+            throw new InvalidArgumentException('Selecciona una foto de perfil.');
+        }
+
+        if ($error !== UPLOAD_ERR_OK) {
+            throw new InvalidArgumentException('No se pudo cargar la foto seleccionada.');
+        }
+
+        $tmp = (string)($file['tmp_name'] ?? '');
+        $size = (int)($file['size'] ?? 0);
+
+        if ($tmp === '' || !is_uploaded_file($tmp)) {
+            throw new InvalidArgumentException('La foto recibida no es válida.');
+        }
+
+        if ($size <= 0 || $size > self::MAX_FOTO_PERFIL_BYTES) {
+            throw new InvalidArgumentException('La foto debe pesar como máximo 2 MB.');
+        }
+
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime = (string)$finfo->file($tmp);
+        $extensiones = [
+            'image/jpeg' => 'jpg',
+            'image/png'  => 'png',
+            'image/webp' => 'webp',
+        ];
+
+        if (!array_key_exists($mime, $extensiones) || @getimagesize($tmp) === false) {
+            throw new InvalidArgumentException('Solo se permiten imágenes JPG, PNG o WEBP.');
+        }
+
+        $directorio = rtrim((string)EV_UPLOADS_DIR, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'perfiles';
+
+        if (!is_dir($directorio) && !mkdir($directorio, 0775, true) && !is_dir($directorio)) {
+            throw new RuntimeException('No se pudo preparar la carpeta de fotos de perfil.');
+        }
+
+        $nombre = 'perfil_' . $codigoUsuario . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(6)) . '.' . $extensiones[$mime];
+        $absoluta = $directorio . DIRECTORY_SEPARATOR . $nombre;
+
+        if (!move_uploaded_file($tmp, $absoluta)) {
+            throw new RuntimeException('No se pudo guardar la foto de perfil.');
+        }
+
+        return [
+            'ruta' => 'resources/uploads/perfiles/' . $nombre,
+            'absoluta' => $absoluta,
+        ];
+    }
+
+    private function urlPublica(string $ruta): string
+    {
+        $ruta = trim($ruta);
+
+        if ($ruta === '') {
+            return rtrim(BASE_URL, '/') . '/views/fotos/00000000.png';
+        }
+
+        if (preg_match('#^https?://#i', $ruta)) {
+            return $ruta;
+        }
+
+        if (str_starts_with($ruta, '/')) {
+            return $ruta;
+        }
+
+        return rtrim(BASE_URL, '/') . '/' . ltrim($ruta, '/');
+    }
+
+    private function eliminarArchivoNuevo(?array $archivo): void
+    {
+        if ($archivo && !empty($archivo['absoluta']) && is_file((string)$archivo['absoluta'])) {
+            @unlink((string)$archivo['absoluta']);
+        }
+    }
+
+    private function eliminarFotoPerfilAnterior(string $rutaAnterior, string $rutaNueva): void
+    {
+        $rutaAnterior = trim($rutaAnterior);
+        $rutaNueva = trim($rutaNueva);
+
+        if ($rutaAnterior === '' || $rutaAnterior === $rutaNueva) {
+            return;
+        }
+
+        $prefijo = 'resources/uploads/perfiles/';
+        if (!str_starts_with($rutaAnterior, $prefijo)) {
+            return;
+        }
+
+        $nombre = basename($rutaAnterior);
+        $absoluta = rtrim((string)EV_UPLOADS_DIR, DIRECTORY_SEPARATOR)
+            . DIRECTORY_SEPARATOR
+            . 'perfiles'
+            . DIRECTORY_SEPARATOR
+            . $nombre;
+
+        if (is_file($absoluta)) {
+            @unlink($absoluta);
         }
     }
 }

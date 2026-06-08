@@ -8,9 +8,44 @@ $rolUsuarioRaw = $rolUsuarioRaw ?? strtolower(trim((string)$rolUsuario));
 
 $baseUrl = rtrim(BASE_URL, '/');
 
-$fotoUsuario = $baseUrl . "/views/fotos/00000000.png";
-$iconEntreVecinos = $baseUrl . "/resources/images/logo/logo_ev_transparente_corregido_recortado.png";
-$homeUrl = $baseUrl . "/MenuPrincipal";
+$usuarioTopbar = isset($usuario) && is_array($usuario) ? $usuario : [];
+
+function ev_topbar_asset_url(string $baseUrl, ?string $path, string $fallback): string
+{
+    $path = trim((string)$path);
+
+    if ($path === '') {
+        return $fallback;
+    }
+
+    if (preg_match('#^https?://#i', $path)) {
+        return $path;
+    }
+
+    if (str_starts_with($path, '/')) {
+        $basePath = rtrim(parse_url(BASE_URL, PHP_URL_PATH) ?? '', '/');
+
+        if ($basePath !== '' && $basePath !== '/' && str_starts_with($path, $basePath . '/')) {
+            return $path;
+        }
+
+        return $baseUrl . $path;
+    }
+
+    return $baseUrl . '/' . ltrim($path, '/');
+}
+
+$fotoDefault = $baseUrl . '/views/fotos/00000000.png';
+$fotoRelativa = trim((string)(
+    $usuarioTopbar['foto_perfil']
+    ?? $usuarioTopbar['avatar']
+    ?? $usuarioTopbar['imagen_perfil']
+    ?? ''
+));
+$fotoUsuario = ev_topbar_asset_url($baseUrl, $fotoRelativa, $fotoDefault);
+
+$iconEntreVecinos = $baseUrl . '/resources/images/logo/logo_ev_transparente_corregido_recortado.png';
+$homeUrl = $baseUrl . '/MenuPrincipal';
 ?>
 
 <nav class="app-header navbar navbar-expand-lg navbar-dark shadow-sm px-3">
@@ -39,59 +74,70 @@ $homeUrl = $baseUrl . "/MenuPrincipal";
       <?php endif; ?>
     </div>
 
+    <input
+      type="file"
+      id="evFotoPerfilInput"
+      class="ev-avatar-file-input"
+      accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+      hidden
+    >
+
     <ul class="navbar-nav align-items-center">
       <li class="nav-item dropdown user-menu position-relative">
         <a href="#"
-           class="nav-link dropdown-toggle d-flex align-items-center text-white"
+           class="nav-link dropdown-toggle d-flex align-items-center text-white ev-user-topbar-link"
            id="userDropdown"
            data-bs-toggle="dropdown"
            aria-expanded="false">
 
-          <img
-            src="<?= htmlspecialchars($fotoUsuario, ENT_QUOTES, 'UTF-8') ?>"
-            alt="Usuario"
-            class="rounded-circle me-2 border border-white"
-            style="width:38px; height:38px; object-fit:cover;"
-          />
+          <span
+            class="ev-avatar-upload-trigger ev-avatar-upload-trigger-sm"
+            data-ev-avatar-trigger="1"
+            title="Cambiar foto de perfil"
+            aria-label="Cambiar foto de perfil">
+            <img
+              src="<?= htmlspecialchars($fotoUsuario, ENT_QUOTES, 'UTF-8') ?>"
+              alt="Foto de perfil"
+              data-ev-avatar-img="1"
+              class="rounded-circle me-2 border border-white"
+              style="width:38px; height:38px; object-fit:cover;"
+            />
+            <span class="ev-avatar-camera" aria-hidden="true"><i class="bi bi-camera-fill"></i></span>
+          </span>
 
-          <span class="fw-semibold d-none d-lg-inline">
+          <span class="fw-semibold d-none d-lg-inline ev-user-topbar-name">
             <?= htmlspecialchars($nombreUsuario, ENT_QUOTES, 'UTF-8') ?>
           </span>
         </a>
 
-        <ul class="dropdown-menu border-0 shadow-lg mt-3 rounded-4 overflow-hidden" style="min-width: 230px;">
+        <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg mt-3 rounded-4 overflow-hidden ev-user-dropdown-menu" style="min-width: 250px;">
+          <li class="ev-user-dropdown-card text-center text-white">
+            <span
+              class="ev-avatar-upload-trigger ev-avatar-upload-trigger-lg"
+              data-ev-avatar-trigger="1"
+              title="Cambiar foto de perfil"
+              aria-label="Cambiar foto de perfil">
+              <img
+                src="<?= htmlspecialchars($fotoUsuario, ENT_QUOTES, 'UTF-8') ?>"
+                data-ev-avatar-img="1"
+                class="rounded-circle shadow-sm mb-2 border border-white"
+                style="width:76px; height:76px; object-fit:cover;"
+                alt="Foto de perfil"
+              />
+              <span class="ev-avatar-camera" aria-hidden="true"><i class="bi bi-camera-fill"></i></span>
+            </span>
 
-          <li class="text-center p-3 bg-success text-white">
-            <img
-              src="<?= htmlspecialchars($fotoUsuario, ENT_QUOTES, 'UTF-8') ?>"
-              class="rounded-circle shadow-sm mb-2 border border-white"
-              style="width:70px; height:70px; object-fit:cover;"
-              alt="Usuario"
-            />
-
-            <p class="mb-0 fw-semibold">
+            <p class="mb-0 fw-semibold ev-user-dropdown-name">
               <?= htmlspecialchars($nombreUsuario, ENT_QUOTES, 'UTF-8') ?>
             </p>
 
-            <small><?= ucfirst(htmlspecialchars($rolUsuario, ENT_QUOTES, 'UTF-8')) ?></small>
-          </li>
+            <small class="ev-user-dropdown-role"><?= ucfirst(htmlspecialchars($rolUsuario, ENT_QUOTES, 'UTF-8')) ?></small>
 
-          <li class="bg-white">
-            <div class="d-flex justify-content-between px-3 py-3">
-              <a href="<?= $baseUrl ?>/mi-perfil"
-                 id="btnPerfil"
-                 class="btn btn-outline-success btn-sm submenu-link">
-                <i class="bi bi-person-circle me-1"></i> Mis datos
-              </a>
-
-              <a href="#"
-                 id="btnCerrarSesion"
-                 class="btn btn-danger btn-sm">
-                <i class="bi bi-box-arrow-right me-1"></i> Salir
-              </a>
+            <div class="ev-user-dropdown-hint">
+              <i class="bi bi-camera"></i>
+              <span>Haz clic en tu foto para actualizarla.</span>
             </div>
           </li>
-
         </ul>
       </li>
     </ul>
