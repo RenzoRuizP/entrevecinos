@@ -423,14 +423,40 @@ final class Dashboard extends Conexion
                AND p.codigo_condominio = :codigo_comunidad
                AND p.codigo_urbanizacion IS NULL";
 
-        $whereVisible = "
+        $whereVisibleComunidad = "
             p.alcance = 'comunidad'
             AND p.estado = 'publicado'
             AND (p.fecha_expiracion IS NULL OR p.fecha_expiracion > NOW())
             AND {$whereComunidad}
         ";
 
+        /*
+         * Regla EV:
+         * - prioridad = urgente/importante/normal solo controla semántica visual dentro de Comunidad.
+         * - destacado_dashboard = 1 es la autorización explícita para aparecer en el Dashboard.
+         *
+         * Por eso el Dashboard no debe listar comunicados publicados si el switch
+         * "Mostrar como destacado en el inicio" está apagado.
+         */
+        $whereDashboard = "
+            {$whereVisibleComunidad}
+            AND COALESCE(p.destacado_dashboard, 0) = 1
+        ";
+
         try {
+            $sqlTotalPublicadas = "
+                SELECT COUNT(*) AS total
+                FROM comunidad_publicacion p
+                WHERE {$whereVisibleComunidad}
+            ";
+
+            $stTotalPublicadas = $this->dblink->prepare($sqlTotalPublicadas);
+            $stTotalPublicadas->bindValue(':tipo_conjunto', $tipoConjunto, PDO::PARAM_STR);
+            $stTotalPublicadas->bindValue(':codigo_comunidad', $codigoComunidad, PDO::PARAM_INT);
+            $stTotalPublicadas->execute();
+
+            $totalPublicadasComunidad = (int)($stTotalPublicadas->fetchColumn() ?: 0);
+
             $sqlCounts = "
                 SELECT
                     COUNT(*) AS total,
@@ -439,7 +465,7 @@ final class Dashboard extends Conexion
                     SUM(CASE WHEN p.tipo_publicacion = 'evento' THEN 1 ELSE 0 END) AS eventos,
                     SUM(CASE WHEN p.destacado_dashboard = 1 THEN 1 ELSE 0 END) AS destacados
                 FROM comunidad_publicacion p
-                WHERE {$whereVisible}
+                WHERE {$whereDashboard}
             ";
 
             $stCounts = $this->dblink->prepare($sqlCounts);
@@ -472,8 +498,13 @@ final class Dashboard extends Conexion
                     p.fecha_evento_fin,
                     p.ubicacion_evento
                 FROM comunidad_publicacion p
-                WHERE {$whereVisible}
+                WHERE {$whereDashboard}
                 ORDER BY
+                    CASE p.prioridad
+                        WHEN 'urgente' THEN 1
+                        WHEN 'importante' THEN 2
+                        ELSE 3
+                    END ASC,
                     p.fecha_publicacion DESC,
                     p.codigo_publicacion DESC
                 LIMIT 3
@@ -514,6 +545,7 @@ final class Dashboard extends Conexion
                 'habilitado' => true,
                 'hay_novedad' => !empty($items),
                 'total_activos' => $counts['total'],
+                'total_publicadas_comunidad' => $totalPublicadasComunidad,
                 'counts' => $counts,
                 'items' => $items,
                 'ultimo' => $items[0] ?? null,
@@ -531,6 +563,7 @@ final class Dashboard extends Conexion
             'habilitado' => $habilitado,
             'hay_novedad' => false,
             'total_activos' => 0,
+            'total_publicadas_comunidad' => 0,
             'counts' => [
                 'total' => 0,
                 'comunicados' => 0,

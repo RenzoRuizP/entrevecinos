@@ -556,18 +556,24 @@
     }
 
     if (!items.length) {
+      const totalPublicadasComunidad = Number(data.total_publicadas_comunidad || 0);
+      const tienePublicacionesSinDestacar = totalPublicadasComunidad > 0;
+
       return `
         <article class="ev-home-community-empty">
           <div class="ev-home-empty-icon">
-            <i class="bi bi-newspaper"></i>
+            <i class="bi ${tienePublicacionesSinDestacar ? 'bi-star' : 'bi-newspaper'}"></i>
           </div>
 
           <div>
-            <strong>No hay novedades publicadas por ahora</strong>
-            <p>
-              Cuando la administración publique comunicados, eventos o noticias,
-              aparecerán aquí.
-            </p>
+            <strong>${tienePublicacionesSinDestacar
+              ? 'No hay novedades destacadas en el inicio'
+              : 'No hay novedades destacadas por ahora'
+            }</strong>
+            <p>${tienePublicacionesSinDestacar
+              ? 'Hay publicaciones visibles en Comunidad, pero ninguna está marcada como destacada para el dashboard.'
+              : 'Cuando la administración marque una publicación como destacada, aparecerá aquí.'
+            }</p>
 
             <button type="button" class="ev-home-mini-action" data-ev-route="/comunidad">
               Ir a Comunidad

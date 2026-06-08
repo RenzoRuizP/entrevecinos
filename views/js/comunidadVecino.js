@@ -1,10 +1,11 @@
 // views/js/comunidadVecino.js
 // Entre Vecinos - Novedades oficiales visibles para el vecino.
-// Corrección EV:
-// - Lee ?publicacion=ID y/o sessionStorage desde Dashboard.
-// - Enfoca la publicación seleccionada con scroll suave.
-// - Aplica efecto visual premium temporal sin abrir modal automáticamente.
-// - Mantiene modal detalle estable y botón "Ver documento completo" centrado.
+// Versión limpia EV:
+// - Soporta múltiples destacados en grilla.
+// - Separa destacadas de recientes para evitar duplicidad.
+// - Unifica CTA: "Leer publicación".
+// - Mantiene enfoque desde Dashboard sin etiqueta temporal confusa.
+// - Conserva modal detalle estable y botón "Ver documento completo" centrado.
 
 (function () {
   'use strict';
@@ -171,6 +172,10 @@
     return data;
   }
 
+  function esDestacada(item) {
+    return Number(item?.destacado_dashboard || 0) === 1;
+  }
+
   function renderBadge(item) {
     const tipo = tipoSeguro(item.tipo_publicacion);
     const prioridad = prioridadSegura(item.prioridad);
@@ -260,7 +265,7 @@
             <time>${escapeHtml(formatFecha(item.fecha_publicacion))}</time>
 
             <button type="button" data-cv-ver="${escapeHtml(id)}">
-              Leer más <i class="bi bi-chevron-right"></i>
+              Leer publicación <i class="bi bi-chevron-right"></i>
             </button>
           </div>
         </div>
@@ -645,40 +650,11 @@
         animation: evCvPublicacionSeleccionadaPulse 1.35s ease-in-out 0s 3;
       }
 
-      .ev-cv-publicacion-seleccionada::after{
-        content:'Publicación seleccionada';
-        position:absolute;
-        top:12px;
-        right:12px;
-        z-index:4;
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        min-height:28px;
-        padding:6px 10px;
-        border-radius:999px;
-        color:#fff;
-        background:linear-gradient(135deg,#EA7C12,#F59E0B);
-        font-size:.68rem;
-        font-weight:900;
-        letter-spacing:.01em;
-        box-shadow:0 12px 24px rgba(234,124,18,.26);
-        pointer-events:none;
-      }
-
       @keyframes evCvPublicacionSeleccionadaPulse{
         0%{ transform:translateY(0); }
         35%{ transform:translateY(-3px); }
         70%{ transform:translateY(0); }
         100%{ transform:translateY(0); }
-      }
-
-      @media (max-width:767.98px){
-        .ev-cv-publicacion-seleccionada::after{
-          top:10px;
-          right:10px;
-          font-size:.64rem;
-        }
       }
     `;
     document.head.appendChild(style);
@@ -753,6 +729,18 @@
     });
   }
 
+  function actualizarTituloDestacadas(featureSection, totalDestacadas) {
+    const titulo = featureSection?.querySelector('.ev-cv-section-heading h2');
+
+    if (!titulo) {
+      return;
+    }
+
+    titulo.textContent = totalDestacadas === 1
+      ? 'Destacado para ti'
+      : 'Destacados para ti';
+  }
+
   async function cargar(root, state) {
     const grid = $('#evCvGrid', root);
     const featureSection = $('#evCvDestacadaSection', root);
@@ -790,34 +778,33 @@
       renderCounts(root, data.counts || {});
       renderPager(root, state, data.meta || {});
 
-      const destacada = state.page === 1
-        ? items.find((item) => Number(item.destacado_dashboard || 0) === 1) || null
-        : null;
+      const destacadas = state.page === 1
+        ? items.filter(esDestacada)
+        : [];
 
-      if (destacada) {
-        feature.innerHTML = renderDestacada(destacada);
+      if (destacadas.length) {
+        actualizarTituloDestacadas(featureSection, destacadas.length);
+        feature.innerHTML = destacadas.map(renderDestacada).join('');
         featureSection.hidden = false;
       } else {
         feature.innerHTML = '';
         featureSection.hidden = true;
       }
 
-      const restantes = destacada
-        ? items.filter(
-            (item) => Number(item.codigo_publicacion) !== Number(destacada.codigo_publicacion)
-          )
+      const recientesItems = state.page === 1
+        ? items.filter((item) => !esDestacada(item))
         : items;
 
       meta.textContent = state.total === 1
         ? '1 publicación disponible.'
         : `${state.total} publicaciones disponibles.`;
 
-      if (!restantes.length && destacada) {
+      if (!recientesItems.length && destacadas.length) {
         recientes.hidden = true;
       } else {
         recientes.hidden = false;
-        grid.innerHTML = restantes.length
-          ? restantes.map(renderCard).join('')
+        grid.innerHTML = recientesItems.length
+          ? recientesItems.map(renderCard).join('')
           : renderVacio();
       }
 

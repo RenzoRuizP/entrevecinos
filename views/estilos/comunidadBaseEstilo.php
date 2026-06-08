@@ -1637,4 +1637,262 @@
   }
   .ev-com-publish-footer .ev-com-btn{ width:100%; }
 }
+
+
+
+
+/* ============================================================
+   EV Comunidad - Fix vista previa: textos largos sin espacios
+   Regla: la vista previa nunca debe generar scroll horizontal.
+============================================================ */
+.ev-com-live-preview,
+.ev-com-live-preview *,
+.ev-com-live-card,
+.ev-com-live-card *,
+.ev-com-live-head,
+.ev-com-live-head *,
+.ev-com-live-community,
+.ev-com-live-note{
+  min-width:0;
+  max-width:100%;
+}
+
+.ev-com-live-preview{
+  overflow-x:hidden;
+}
+
+.ev-com-live-card{
+  overflow:hidden;
+}
+
+.ev-com-live-card h4,
+.ev-com-live-card > p,
+.ev-com-live-community span,
+.ev-com-live-note span,
+#vistaTituloCom,
+#vistaResumenCom,
+#vistaComunidadCom,
+#vistaEventoDetalleCom{
+  white-space:normal;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  hyphens:auto;
+}
+
+.ev-com-live-card > p{
+  display:-webkit-box;
+  -webkit-line-clamp:3;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+
+.ev-com-live-card h4{
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+
+.ev-com-live-event{
+  min-width:0;
+  overflow:hidden;
+}
+
+.ev-com-live-image,
+.ev-com-live-image.has-image{
+  max-width:100%;
+  overflow:hidden;
+}
+
+
+/* ---------- Base defensiva contra desbordes ---------- */
+.ev-cv-shell,
+.ev-cv-shell *{
+  min-width:0;
+  box-sizing:border-box;
+}
+
+.ev-cv-feature-card,
+.ev-cv-card,
+.ev-cv-feature-body,
+.ev-cv-card-body,
+.ev-cv-modal-content,
+.ev-cv-modal-body,
+.ev-cv-modal-text,
+.ev-cv-modal-summary{
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+
+/* ---------- Múltiples destacados con estándar uniforme ---------- */
+#evCvDestacada{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap:14px;
+  align-items:stretch;
+}
+
+#evCvDestacada .ev-cv-feature-card{
+  height:100%;
+  min-height:218px;
+  display:grid;
+  grid-template-columns:minmax(150px, .46fr) minmax(0, 1fr);
+  align-items:stretch;
+  overflow:hidden;
+}
+
+#evCvDestacada .ev-cv-feature-img{
+  min-height:180px;
+  height:100%;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  background:linear-gradient(135deg, rgba(236,253,245,.80), rgba(255,255,255,.98));
+}
+
+#evCvDestacada .ev-cv-feature-img img{
+  width:100%;
+  height:100%;
+  max-height:210px;
+  object-fit:contain;
+  object-position:center;
+  display:block;
+}
+
+#evCvDestacada .ev-cv-feature-body{
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+
+#evCvDestacada .ev-cv-feature-body h3{
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  line-height:1.22;
+  max-width:100%;
+}
+
+#evCvDestacada .ev-cv-feature-body > p{
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  max-width:100%;
+}
+
+#evCvDestacada .ev-cv-read{
+  width:max-content;
+  max-width:100%;
+  margin-top:auto;
+}
+
+/* ---------- Publicaciones recientes con cards del mismo alto ---------- */
+.ev-cv-grid{
+  align-items:stretch;
+}
+
+.ev-cv-card{
+  height:100%;
+  min-height:318px;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+
+.ev-cv-card-img{
+  flex:0 0 152px;
+  height:152px;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  background:linear-gradient(135deg, rgba(236,253,245,.78), rgba(255,255,255,.98));
+}
+
+.ev-cv-card-img img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  object-position:center;
+  display:block;
+}
+
+.ev-cv-card-body{
+  flex:1 1 auto;
+  display:flex;
+  flex-direction:column;
+}
+
+.ev-cv-card-body h3{
+  min-height:42px;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  line-height:1.25;
+  max-width:100%;
+}
+
+.ev-cv-card-body > p{
+  min-height:40px;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  max-width:100%;
+}
+
+.ev-cv-card-footer{
+  margin-top:auto;
+}
+
+.ev-cv-card-footer button,
+.ev-cv-read{
+  white-space:nowrap;
+}
+
+/* ---------- Evitar etiqueta confusa de selección temporal ---------- */
+.ev-cv-publicacion-seleccionada::after{
+  content:none !important;
+  display:none !important;
+}
+
+.ev-cv-publicacion-seleccionada{
+  border-color:rgba(234,124,18,.80) !important;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1199.98px){
+  #evCvDestacada .ev-cv-feature-card{
+    grid-template-columns:180px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767.98px){
+  #evCvDestacada{
+    grid-template-columns:1fr;
+  }
+
+  #evCvDestacada .ev-cv-feature-card{
+    grid-template-columns:1fr;
+    min-height:0;
+  }
+
+  #evCvDestacada .ev-cv-feature-img{
+    height:178px;
+    min-height:178px;
+  }
+
+  .ev-cv-card{
+    min-height:0;
+  }
+
+  .ev-cv-card-img{
+    flex-basis:170px;
+    height:170px;
+  }
+}
+
 </style>
