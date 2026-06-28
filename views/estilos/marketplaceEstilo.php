@@ -2946,4 +2946,115 @@ body.modal-open .ev-mp-card{
   }
 }
 
+/* ==========================================================
+   PUNTO 7 — SERVICIOS VISIBLES SIN DISPONIBILIDAD DE PEDIDOS
+   Corrección visual EV:
+   - Estado con verde EV.
+   - Acción principal con naranja EV.
+   - Sin identidad visual azul añadida para servicios.
+========================================================== */
+.ev-mp-card-top-status-service{
+  background:linear-gradient(135deg, rgba(15,89,47,.14), rgba(22,163,74,.20));
+  color:#0F592F;
+}
+
+.ev-mp-card-servicio{
+  border-color:rgba(15,89,47,.16) !important;
+}
+
+.ev-mp-card-servicio:hover{
+  border-color:rgba(15,89,47,.42) !important;
+}
+
+.ev-mp-card-actions.is-service .ev-mp-btn-servicio{
+  width:100%;
+  border:none;
+  color:#fff;
+  background:linear-gradient(135deg, #D97706, #EA7C12);
+  box-shadow:0 10px 22px rgba(217,119,6,.28);
+}
+
+.ev-mp-card-actions.is-service .ev-mp-btn-servicio:hover{
+  color:#fff;
+  background:linear-gradient(135deg, #C46B05, #D46F0F);
+  box-shadow:0 13px 27px rgba(217,119,6,.38);
+}
+
+.ev-mp-service-notice{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  margin-top:15px;
+  padding:13px 14px;
+  border-radius:16px;
+  border:1px solid rgba(15,89,47,.16);
+  background:linear-gradient(135deg, rgba(230,244,236,.94), rgba(255,255,255,.98));
+  color:#0F592F;
+}
+
+.ev-mp-service-notice i{
+  flex:0 0 auto;
+  font-size:18px;
+  line-height:1.3;
+  color:#0E7A43;
+}
+
+.ev-mp-service-notice strong,
+.ev-mp-service-notice span{
+  display:block;
+}
+
+.ev-mp-service-notice strong{
+  margin-bottom:2px;
+  font-size:13.5px;
+  font-weight:900;
+}
+
+.ev-mp-service-notice span{
+  font-size:12.5px;
+  line-height:1.45;
+  color:#4B5563;
+}
+
+
+
+/* ==========================================================
+   CORRECCIÓN UX/UI — BOTÓN "VER SERVICIO"
+   Alineado al estándar visual del botón "Iniciar sesión" EV:
+   - Texto blanco legible.
+   - Gradiente naranja EV (#EA7C12 → #F59E0B).
+   - Hover #C46B05 → #EA580C, elevación sutil de 1px.
+   - Sombra y active consistentes con Login.
+========================================================== */
+.ev-mp-card-actions.is-service .ev-mp-btn-servicio,
+.ev-mp-card-actions.is-service .ev-mp-btn-servicio:focus,
+.ev-mp-card-actions.is-service .ev-mp-btn-servicio:visited{
+  width:100%;
+  border:none !important;
+  color:#FFFFFF !important;
+  background:linear-gradient(135deg, #EA7C12, #F59E0B) !important;
+  font-weight:800 !important;
+  box-shadow:0 12px 26px rgba(234,124,18,0.35) !important;
+  transition:all 0.2s ease !important;
+}
+
+.ev-mp-card-actions.is-service .ev-mp-btn-servicio:hover{
+  color:#FFFFFF !important;
+  background:linear-gradient(135deg, #C46B05, #EA580C) !important;
+  transform:translateY(-1px) !important;
+  box-shadow:0 14px 32px rgba(234,124,18,0.48) !important;
+}
+
+.ev-mp-card-actions.is-service .ev-mp-btn-servicio:active{
+  color:#FFFFFF !important;
+  transform:translateY(0) !important;
+  box-shadow:0 6px 16px rgba(234,124,18,0.30) !important;
+}
+
+.ev-mp-card-actions.is-service .ev-mp-btn-servicio:focus-visible{
+  outline:3px solid rgba(234,124,18,0.24) !important;
+  outline-offset:3px;
+}
+
 </style>
+

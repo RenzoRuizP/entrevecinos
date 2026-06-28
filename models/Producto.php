@@ -17,8 +17,9 @@
       - Una publicación solo puede mostrarse en marketplace si:
         1) producto.visible = 2
         2) usuario.estado = 2
-        3) usuario.disponibilidad_pedidos = 1
-        4) producto.estado_residencial_publicacion = 'activa'
+        3) producto.estado_residencial_publicacion = 'activa'
+        4) producto: usuario.disponibilidad_pedidos = 1
+           servicio: permanece visible aunque el usuario esté desconectado
       - La publicación se filtra por la residencia propia con la que fue creada,
         NO por la residencia actual del usuario dueño.
 */
@@ -308,8 +309,11 @@ class Producto extends Conexion
 
         return " {$aliasProducto}.visible = 2
                  AND {$aliasUsuario}.estado = 2
-                 AND {$aliasUsuario}.disponibilidad_pedidos = 1
-                 AND {$aliasProducto}.estado_residencial_publicacion = 'activa' ";
+                 AND {$aliasProducto}.estado_residencial_publicacion = 'activa'
+                 AND (
+                    {$aliasProducto}.tipo_publicacion = 'servicio'
+                    OR COALESCE({$aliasUsuario}.disponibilidad_pedidos, 0) = 1
+                 ) ";
     }
 
     /* ==========================================================

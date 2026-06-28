@@ -2324,6 +2324,56 @@
     }
   }
 
+  function configurarModalDetallePorTipo(modalEl, publicacion) {
+    if (!modalEl || !publicacion) return;
+
+    const esServicio = esServicioPublicacion(publicacion);
+    const btnPedirDetalle = document.getElementById('btnPedirAhoraDetalle');
+    const descEl = document.getElementById('mp_modal_descripcion');
+
+    let avisoServicio = modalEl.querySelector('#mp_modal_aviso_servicio');
+    if (!avisoServicio && descEl) {
+      avisoServicio = document.createElement('div');
+      avisoServicio.id = 'mp_modal_aviso_servicio';
+      avisoServicio.className = 'ev-mp-service-notice d-none';
+      descEl.insertAdjacentElement('afterend', avisoServicio);
+    }
+
+    modalEl.dataset.evTipoPublicacion = esServicio ? 'servicio' : 'producto';
+
+    if (esServicio) {
+      if (avisoServicio) {
+        avisoServicio.classList.remove('d-none');
+        avisoServicio.innerHTML = `
+          <i class="bi bi-stars" aria-hidden="true"></i>
+          <div>
+            <strong>Servicio disponible para coordinar</strong>
+            <span>Este servicio permanece visible aunque el vecino no esté recibiendo pedidos de productos.</span>
+          </div>
+        `;
+      }
+
+      if (btnPedirDetalle) {
+        btnPedirDetalle.classList.add('d-none');
+        btnPedirDetalle.disabled = true;
+        btnPedirDetalle.setAttribute('aria-hidden', 'true');
+      }
+      return;
+    }
+
+    if (avisoServicio) {
+      avisoServicio.classList.add('d-none');
+      avisoServicio.innerHTML = '';
+    }
+
+    if (btnPedirDetalle) {
+      btnPedirDetalle.classList.remove('d-none');
+      btnPedirDetalle.disabled = false;
+      btnPedirDetalle.removeAttribute('aria-hidden');
+      btnPedirDetalle.textContent = 'Pedir ahora';
+    }
+  }
+
   async function abrirModalDetalle(idProducto) {
     if (!idProducto) return;
 
@@ -2359,8 +2409,11 @@
       window.EV_MP_DETALLE_ACTUAL = {
         ...producto,
         imagenes: Array.isArray(imagenes) ? imagenes : [],
+        tipo_publicacion: pub.__tipo_publicacion,
         vendedor_disponible: Number(pub.__vendedor_disponible || 0) === 1 ? 1 : 0
       };
+
+      configurarModalDetallePorTipo(modalEl, pub);
 
       const titulo = pub.__titulo || 'Publicación';
       const precio = pub.__precio || 0;
@@ -2493,6 +2546,20 @@
     const esServicio = tipoPublicacion === 'servicio';
     const labelPublicacion = tipoPublicacionLabelFromKey(tipoPublicacion);
 
+    if (esServicio) {
+      notify(
+        'info',
+        'Servicio disponible para coordinar',
+        'Este servicio permanece publicado aunque el vecino no esté recibiendo pedidos de productos. El flujo propio para solicitar servicios se habilitará en la siguiente etapa.',
+        {
+          subtitle: 'Información del servicio',
+          productLabel: 'Servicio',
+          productText: producto.titulo || labelPublicacion
+        }
+      );
+      return;
+    }
+
     if (Number(producto.es_producto_propio || 0) === 1) {
       notify('warning', 'Acción no permitida', 'No puedes solicitar un pedido sobre tu propia publicación.', {
         subtitle: 'Esta publicación te pertenece'
@@ -2592,6 +2659,16 @@
   }
 
   async function enviarSolicitudPedido() {
+    if (normalizarTipoPublicacion(window.EV_MP_DETALLE_ACTUAL || {}) === 'servicio') {
+      await notify(
+        'info',
+        'Solicitud de servicio',
+        'Los servicios utilizan un flujo propio de coordinación y todavía no usan el formulario de pedidos de productos.',
+        { subtitle: 'Acción no disponible para este tipo de publicación' }
+      );
+      return;
+    }
+
     const codigoProductoEl  = document.getElementById('mp_sp_codigo_producto');
     const cantidadEl        = document.getElementById('mp_sp_cantidad');
     const tipoEntregaEl     = document.getElementById('mp_sp_tipo_entrega');
@@ -2934,22 +3011,37 @@
     const vendedorDisponible = Number(p.__vendedor_disponible || 0) === 1;
     const esServicio = esServicioPublicacion(p);
     const tipoLabel = esServicio ? 'Servicio' : 'Producto';
-    const textoAccion = esServicio ? 'Solicitar' : 'Pedir ahora';
 
     let badgesHtml = `<span class="ev-mp-badge" style="background:${esServicio ? '#0EA5E9cc' : '#16A34Acc'}">${tipoLabel}</span>`;
     if (esPotenciado) {
       badgesHtml += `<span class="ev-mp-badge ev-mp-badge-potenciado">Recomendado</span>`;
     }
 
-    const estadoClass = vendedorDisponible
-      ? 'ev-mp-card-top-status ev-mp-card-top-status-on'
-      : 'ev-mp-card-top-status ev-mp-card-top-status-off';
+    const estadoClass = esServicio
+      ? 'ev-mp-card-top-status ev-mp-card-top-status-service'
+      : vendedorDisponible
+        ? 'ev-mp-card-top-status ev-mp-card-top-status-on'
+        : 'ev-mp-card-top-status ev-mp-card-top-status-off';
 
-    const estadoLabel = vendedorDisponible ? 'Disponible' : 'No disponible';
-    const pedirAttrs = vendedorDisponible ? '' : 'disabled aria-disabled="true" title="El vendedor no está disponible"';
+    const estadoLabel = esServicio
+      ? 'Servicio disponible para coordinar'
+      : vendedorDisponible
+        ? 'Disponible'
+        : 'No disponible';
+
+    const accionesHtml = esServicio
+      ? `
+          <button type="button" class="btn btn-success ev-mp-btn-detalle ev-mp-btn-servicio">
+            Ver servicio
+          </button>
+        `
+      : `
+          <button type="button" class="btn btn-outline-success ev-mp-btn-detalle">Ver detalle</button>
+          <button type="button" class="btn btn-success ev-mp-btn-pedir" ${vendedorDisponible ? '' : 'disabled aria-disabled="true" title="El vendedor no está disponible"'}>Pedir ahora</button>
+        `;
 
     return `
-      <div class="ev-mp-card" data-id="${escapeHtml(String(id))}">
+      <div class="ev-mp-card ${esServicio ? 'ev-mp-card-servicio' : 'ev-mp-card-producto'}" data-id="${escapeHtml(String(id))}" data-tipo-publicacion="${esServicio ? 'servicio' : 'producto'}">
         <div class="${estadoClass}" title="${estadoLabel}" aria-label="${estadoLabel}">
           <span class="ev-mp-card-top-status-text">${estadoLabel}</span>
         </div>
@@ -2965,9 +3057,8 @@
           <p class="ev-mp-card-price">${precio}</p>
           <p class="ev-mp-card-desc">${desc}</p>
 
-          <div class="ev-mp-card-actions">
-            <button type="button" class="btn btn-outline-success ev-mp-btn-detalle">Ver detalle</button>
-            <button type="button" class="btn btn-success ev-mp-btn-pedir" ${pedirAttrs}>${textoAccion}</button>
+          <div class="ev-mp-card-actions ${esServicio ? 'is-service' : ''}">
+            ${accionesHtml}
           </div>
         </div>
       </div>
@@ -2981,6 +3072,7 @@
       const id = card.getAttribute('data-id');
       if (!id) return;
 
+      const esServicio = card.dataset.tipoPublicacion === 'servicio';
       const btnDetalle = card.querySelector('.ev-mp-btn-detalle');
       const btnPedir = card.querySelector('.ev-mp-btn-pedir');
 
@@ -2992,7 +3084,7 @@
       if (btnPedir && !btnPedir.dataset.boundPedir) {
         btnPedir.dataset.boundPedir = '1';
         btnPedir.addEventListener('click', async () => {
-          if (btnPedir.disabled) return;
+          if (btnPedir.disabled || esServicio) return;
 
           const detalle = await obtenerDetalleProducto(id);
           if (!detalle) return;

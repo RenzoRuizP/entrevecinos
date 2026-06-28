@@ -643,7 +643,8 @@ final class Dashboard extends Conexion
                AND c.rol_calificado = 'vendedor'
                AND c.estado = 'enviada'
                AND c.puntaje IS NOT NULL
-            WHERE p.visible = 1
+            WHERE p.visible = 2
+              AND u.estado = 2
               AND p.estado_residencial_publicacion = 'activa'
               AND {$whereResidencia}
               AND p.codigo_usuario <> :codigo_usuario
