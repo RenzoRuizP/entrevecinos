@@ -121,51 +121,83 @@
     return window.confirm(`${title}\n\n${text}`);
   }
 
-  async function evMostrarSaldoInsuficienteServicio(data = {}) {
-    const redirect = data.redirect || `${EV_API_BASE}/billetera`;
-    const saldoActual = Number(data.saldo_actual ?? 0);
-    const montoRequerido = Number(data.monto_requerido ?? 1);
+  const EV_SERVICIOS_PILOTO_MAX = 5;
+  let evServiciosPiloto = {
+    maximo: EV_SERVICIOS_PILOTO_MAX,
+    activos: 0,
+    disponibles: EV_SERVICIOS_PILOTO_MAX,
+    alcanzado: false,
+    es_gratis: true
+  };
 
-    const saldoTxt = Number.isFinite(saldoActual) ? saldoActual.toFixed(2) : '0.00';
-    const montoTxt = Number.isFinite(montoRequerido) ? montoRequerido.toFixed(2) : '1.00';
+  function normalizarResumenServiciosPiloto(resumen = {}) {
+    const maximo = Math.max(1, Number(resumen?.maximo ?? EV_SERVICIOS_PILOTO_MAX) || EV_SERVICIOS_PILOTO_MAX);
+    const activos = Math.max(0, Number(resumen?.activos ?? 0) || 0);
+    const disponibles = Math.max(0, Number(resumen?.disponibles ?? (maximo - activos)) || 0);
 
-    if (window.Swal?.fire) {
-      const { isConfirmed } = await Swal.fire({
-        icon: 'warning',
-        title: 'Saldo insuficiente',
-        html: `
-          <div class="text-start" style="line-height:1.55">
-            <p class="mb-2">No cuentas con saldo suficiente para publicar este servicio.</p>
-            <p class="mb-2">Necesitas tener como mínimo <strong>S/ ${montoTxt}</strong> en tu billetera.</p>
-            <p class="mb-0">Saldo disponible actual: <strong>S/ ${saldoTxt}</strong>.</p>
-            <hr class="my-3">
-            <p class="mb-0">Haz clic en <strong>Recargar saldo</strong> para ir a la vista de <strong>Mi billetera</strong>.</p>
-          </div>
-        `,
-        showCancelButton: true,
-        confirmButtonText: 'Recargar saldo',
-        cancelButtonText: 'Ahora no',
-        customClass: {
-          confirmButton: 'btn btn-warning me-2',
-          cancelButton: 'btn btn-outline-secondary'
-        },
-        buttonsStyling: false,
-        focusConfirm: true
-      });
+    return {
+      maximo,
+      activos,
+      disponibles,
+      alcanzado: Boolean(resumen?.alcanzado ?? activos >= maximo),
+      es_gratis: true
+    };
+  }
 
-      if (isConfirmed) {
-        window.location.assign(redirect);
-      }
-      return;
+  function textoCuposServiciosPiloto(resumen = evServiciosPiloto) {
+    const info = normalizarResumenServiciosPiloto(resumen);
+
+    if (info.alcanzado) {
+      return `Tienes ${info.activos} de ${info.maximo} cupos activos. Puedes guardar borradores, pero anula un servicio para liberar un cupo antes de enviarlo a revisión.`;
     }
 
-    const ir = window.confirm(
-      `No cuentas con saldo suficiente para publicar este servicio.\n\n` +
-      `Necesitas como mínimo S/ ${montoTxt}. Tu saldo actual es S/ ${saldoTxt}.\n\n` +
-      `Aceptar: Recargar saldo en Mi billetera.`
-    );
+    return `${info.activos} de ${info.maximo} cupos activos en uso · ${info.disponibles} ${info.disponibles === 1 ? 'cupo disponible' : 'cupos disponibles'}.`;
+  }
 
-    if (ir) window.location.assign(redirect);
+  function actualizarResumenServiciosPiloto(resumen = {}) {
+    evServiciosPiloto = normalizarResumenServiciosPiloto(resumen);
+    window.EVServiciosPiloto = { ...evServiciosPiloto };
+
+    const root = document.getElementById('evServiciosPiloto');
+    if (root) {
+      const usados = root.querySelector('[data-ev-service-used]');
+      const maximo = root.querySelector('[data-ev-service-max]');
+      const texto = root.querySelector('[data-ev-service-text]');
+      const barra = root.querySelector('[data-ev-service-meter]');
+      const porcentaje = Math.min(100, Math.round((evServiciosPiloto.activos / evServiciosPiloto.maximo) * 100));
+
+      root.classList.toggle('is-full', evServiciosPiloto.alcanzado);
+      root.setAttribute('data-estado', evServiciosPiloto.alcanzado ? 'limite' : 'disponible');
+      if (usados) usados.textContent = String(evServiciosPiloto.activos);
+      if (maximo) maximo.textContent = String(evServiciosPiloto.maximo);
+      if (texto) texto.textContent = textoCuposServiciosPiloto(evServiciosPiloto);
+      if (barra) {
+        barra.style.width = `${porcentaje}%`;
+        barra.setAttribute('aria-valuenow', String(evServiciosPiloto.activos));
+        barra.setAttribute('aria-valuemax', String(evServiciosPiloto.maximo));
+      }
+    }
+
+    document.querySelectorAll('[data-ev-service-pilot-notice]').forEach((notice) => {
+      const count = notice.querySelector('[data-ev-service-notice-count]');
+      const max = notice.querySelector('[data-ev-service-notice-max]');
+      const message = notice.querySelector('[data-ev-service-notice-text]');
+      notice.classList.toggle('is-full', evServiciosPiloto.alcanzado);
+      if (count) count.textContent = String(evServiciosPiloto.activos);
+      if (max) max.textContent = String(evServiciosPiloto.maximo);
+      if (message) message.textContent = textoCuposServiciosPiloto(evServiciosPiloto);
+    });
+  }
+
+  function mostrarLimiteServiciosPiloto(resumen = {}) {
+    const info = normalizarResumenServiciosPiloto(resumen);
+    actualizarResumenServiciosPiloto(info);
+
+    evNotify(
+      'info',
+      'Límite de servicios alcanzado',
+      `Ya tienes ${info.activos} de ${info.maximo} servicios activos o en revisión. Anula uno de ellos para liberar un cupo y luego podrás enviar este servicio a revisión.`
+    );
   }
 
   function setEvVh() {
@@ -441,6 +473,12 @@
       }
     }
 
+    modal.querySelectorAll('[data-ev-service-pilot-notice]').forEach((notice) => {
+      notice.hidden = !esServicio;
+      notice.setAttribute('aria-hidden', esServicio ? 'false' : 'true');
+    });
+
+    actualizarResumenServiciosPiloto(evServiciosPiloto);
     evShortenCategoriaPlaceholder(modal);
     actualizarPreviewMetaTipo(modal, tipo);
     dispararMetaPreviewLive(modal);
@@ -1376,6 +1414,10 @@
         return;
       }
 
+      if (data?.servicios_piloto) {
+        actualizarResumenServiciosPiloto(data.servicios_piloto);
+      }
+
       evNotify('success', 'Publicación anulada', data.mensaje || 'La publicación ha sido anulada correctamente.');
       window.evCargarProductos?.();
 
@@ -1391,16 +1433,22 @@
     const publicacion = (window.evProductosCache || []).find((p) => String(p?.codigo_producto ?? '') === String(id));
     const tipoPublicacion = getTipoPublicacionItem(publicacion || {});
     const esServicio = tipoPublicacion === 'servicio';
+    const resumen = normalizarResumenServiciosPiloto(evServiciosPiloto);
+
+    if (esServicio && resumen.alcanzado) {
+      mostrarLimiteServiciosPiloto(resumen);
+      return;
+    }
 
     const ok = await evConfirm({
-      icon: esServicio ? 'warning' : 'question',
-      title: esServicio ? 'Publicar servicio' : 'Enviar a revisión',
+      icon: esServicio ? 'info' : 'question',
+      title: esServicio ? 'Enviar servicio a revisión' : 'Enviar a revisión',
       text: esServicio
-        ? 'Para enviar este servicio a revisión se validará tu billetera y se descontará S/ 1.00 si tienes saldo suficiente. Aún no se mostrará en el marketplace hasta que soporte lo apruebe.'
+        ? `Este servicio se enviará a revisión sin costo durante el piloto. ${textoCuposServiciosPiloto(resumen)} Aún no se mostrará en el marketplace hasta que soporte lo apruebe.`
         : 'Al enviar a revisión, tu publicación quedará en estado Pendiente hasta que soporte la apruebe. Aún no se mostrará en el marketplace.',
-      confirmText: esServicio ? 'Sí, publicar servicio' : 'Sí, enviar',
+      confirmText: esServicio ? 'Sí, enviar servicio' : 'Sí, enviar',
       cancelText: 'Cancelar',
-      confirmBtnClass: esServicio ? 'btn btn-warning me-2' : 'btn btn-success me-2'
+      confirmBtnClass: esServicio ? 'btn btn-success me-2' : 'btn btn-success me-2'
     });
     if (!ok) return;
 
@@ -1413,13 +1461,17 @@
       if (!resp.ok || !data.ok) {
         const codigoError = String(data?.error || data?.codigo || '').trim();
 
-        if (codigoError === 'SALDO_INSUFICIENTE') {
-          await evMostrarSaldoInsuficienteServicio(data || {});
+        if (codigoError === 'LIMITE_SERVICIOS_ALCANZADO') {
+          mostrarLimiteServiciosPiloto(data?.servicios_piloto || evServiciosPiloto);
           return;
         }
 
         evNotify('error', 'Error', data.mensaje || data.error || 'No se pudo enviar la publicación a revisión.');
         return;
+      }
+
+      if (data?.servicios_piloto) {
+        actualizarResumenServiciosPiloto(data.servicios_piloto);
       }
 
       evNotify('success', 'Enviado a revisión', data.mensaje || 'Solicitud enviada. La publicación quedó Pendiente de aprobación.');
@@ -1742,8 +1794,18 @@
       if (await evHandleAuthResponse(resp, data)) return;
 
       if (!resp.ok || !data.ok) {
+        const codigoError = String(data?.error || data?.codigo || '').trim();
+        if (codigoError === 'LIMITE_SERVICIOS_ALCANZADO') {
+          mostrarLimiteServiciosPiloto(data?.servicios_piloto || evServiciosPiloto);
+          return;
+        }
+
         evNotify('error', 'Error', data.mensaje || data.error || 'No se pudo actualizar la publicación.');
         return;
+      }
+
+      if (data?.servicios_piloto) {
+        actualizarResumenServiciosPiloto(data.servicios_piloto);
       }
 
       evNotify('success', 'Publicación actualizada', data.mensaje || 'Los cambios se guardaron correctamente.');
@@ -1938,6 +2000,15 @@
 
       const items = Array.isArray(data.data) ? data.data : [];
       window.evProductosCache = items.slice();
+
+      const resumenServiciosFallback = {
+        maximo: EV_SERVICIOS_PILOTO_MAX,
+        activos: items.filter((item) => (
+          getTipoPublicacionItem(item) === 'servicio'
+          && [1, 2].includes(Number(item?.visible ?? -1))
+        )).length
+      };
+      actualizarResumenServiciosPiloto(data?.servicios_piloto || resumenServiciosFallback);
 
       const counts = { all: items.length, aprobado: 0, observado: 0, rechazado: 0, pendiente: 0, borrador: 0, anulado: 0 };
       items.forEach(p => {

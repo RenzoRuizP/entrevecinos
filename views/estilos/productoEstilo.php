@@ -1422,6 +1422,145 @@
 /* ==========================================================
    11. RESPONSIVE
 ========================================================== */
+
+/* ==========================================================
+   SERVICIOS DEL PILOTO
+========================================================== */
+.ev-service-pilot-card{
+  min-width:min(100%, 340px);
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border:1px solid rgba(22,163,74,.20);
+  border-radius:16px;
+  background:linear-gradient(135deg,#F0FDF4,#FFFFFF);
+  box-shadow:0 10px 22px rgba(15,23,42,.05);
+}
+
+.ev-service-pilot-card.is-full{
+  border-color:rgba(234,124,18,.36);
+  background:linear-gradient(135deg,#FFF7ED,#FFFFFF);
+}
+
+.ev-service-pilot-icon{
+  width:36px;
+  height:36px;
+  flex:0 0 auto;
+  display:grid;
+  place-items:center;
+  border-radius:13px;
+  color:var(--ev-verde-oscuro);
+  background:#DCFCE7;
+  border:1px solid rgba(22,163,74,.18);
+}
+
+.ev-service-pilot-card.is-full .ev-service-pilot-icon{
+  color:var(--ev-naranja-oscuro);
+  background:#FFEDD5;
+  border-color:rgba(234,124,18,.22);
+}
+
+.ev-service-pilot-copy{
+  min-width:0;
+  flex:1 1 auto;
+  display:grid;
+  gap:1px;
+}
+
+.ev-service-pilot-copy strong{
+  color:var(--ev-verde-oscuro);
+  font-size:.82rem;
+  font-weight:900;
+}
+
+.ev-service-pilot-copy span,
+.ev-service-pilot-copy small{
+  color:var(--ev-gris-600);
+  font-size:.74rem;
+  line-height:1.28;
+}
+
+.ev-service-pilot-copy b{
+  color:var(--ev-verde-oscuro);
+  font-weight:950;
+}
+
+.ev-service-pilot-meter{
+  width:56px;
+  height:7px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#DCFCE7;
+}
+
+.ev-service-pilot-meter > span{
+  display:block;
+  width:0;
+  height:100%;
+  border-radius:inherit;
+  background:linear-gradient(90deg,var(--ev-verde),#34D66F);
+  transition:width .22s ease;
+}
+
+.ev-service-pilot-card.is-full .ev-service-pilot-meter{
+  background:#FFEDD5;
+}
+
+.ev-service-pilot-card.is-full .ev-service-pilot-meter > span{
+  background:linear-gradient(90deg,var(--ev-naranja),#F59E0B);
+}
+
+.ev-service-pilot-notice{
+  display:flex;
+  align-items:flex-start;
+  gap:9px;
+  margin-top:12px;
+  padding:10px 12px;
+  border:1px solid rgba(22,163,74,.18);
+  border-radius:14px;
+  background:linear-gradient(135deg,#F0FDF4,#FFFFFF);
+  color:var(--ev-verde-oscuro);
+}
+
+.ev-service-pilot-notice[hidden]{
+  display:none !important;
+}
+
+.ev-service-pilot-notice > i{
+  margin-top:1px;
+  color:var(--ev-verde);
+  font-size:1rem;
+}
+
+.ev-service-pilot-notice > div{
+  min-width:0;
+  display:grid;
+  gap:2px;
+}
+
+.ev-service-pilot-notice strong{
+  font-size:.80rem;
+  line-height:1.3;
+  font-weight:900;
+}
+
+.ev-service-pilot-notice small{
+  color:var(--ev-gris-600);
+  font-size:.75rem;
+  line-height:1.35;
+}
+
+.ev-service-pilot-notice.is-full{
+  color:var(--ev-naranja-oscuro);
+  border-color:rgba(234,124,18,.30);
+  background:linear-gradient(135deg,#FFF7ED,#FFFFFF);
+}
+
+.ev-service-pilot-notice.is-full > i{
+  color:var(--ev-naranja);
+}
+
 @media (min-width: 1400px){
   .ev-modal-xl{
     max-width:1120px;
@@ -2101,6 +2240,19 @@
   .ev-preview-thumb{
     width:58px;
     height:44px;
+  }
+}
+
+
+
+@media (max-width: 768px){
+  .ev-service-pilot-card{
+    width:100%;
+    min-width:0;
+  }
+
+  .ev-service-pilot-meter{
+    width:48px;
   }
 }
 

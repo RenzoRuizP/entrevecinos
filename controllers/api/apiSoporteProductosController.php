@@ -6,9 +6,6 @@ require_once __DIR__ . '/../../models/ProductoSoporte.php';
 
 class apiSoporteProductosController
 {
-    // =========================
-    // Core helpers
-    // =========================
     private function json(int $status, array $payload): void
     {
         http_response_code($status);
@@ -40,11 +37,9 @@ class apiSoporteProductosController
     private function puedeAtenderPublicaciones(array $u): bool
     {
         $rol = (int)($u['codigo_rol'] ?? 0);
-
-        $adminId   = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
+        $adminId = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
         $soporteId = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
-
-        return ($rol === $adminId || $rol === $soporteId);
+        return $rol === $adminId || $rol === $soporteId;
     }
 
     private function requireSoporte(array $u): void
@@ -61,15 +56,13 @@ class apiSoporteProductosController
 
     private function getString(string $key, string $default = ''): string
     {
-        $v = $_GET[$key] ?? $default;
-        return trim((string)$v);
+        return trim((string)($_GET[$key] ?? $default));
     }
 
     private function getInt(string $key, int $default = 0): int
     {
         $v = $_GET[$key] ?? null;
-        if ($v === null || $v === '') return $default;
-        return (int)$v;
+        return ($v === null || $v === '') ? $default : (int)$v;
     }
 
     private function readJsonBody(): array
@@ -79,27 +72,6 @@ class apiSoporteProductosController
         return is_array($data) ? $data : [];
     }
 
-    private function mapEstadoToVisible(string $estado): ?int
-    {
-        // borrador=0, pendiente=1, aprobada=2, rechazada=3
-        $estado = strtolower(trim($estado));
-
-        return match ($estado) {
-            'borrador', 'borradores' => 0,
-            'pendiente', 'pendientes' => 1,
-            'aprobada', 'aprobadas' => 2,
-            'rechazada', 'rechazadas' => 3,
-            default => null
-        };
-    }
-
-    // =========================
-    // Endpoints
-    // =========================
-
-    /**
-     * GET /api/soporte/productos?estado=pendiente|aprobada|rechazada|borrador|todas&q=&page=1&size=10
-     */
     public function listar(): void
     {
         try {
@@ -107,9 +79,9 @@ class apiSoporteProductosController
             $this->requireSoporte($u);
 
             $estado = strtolower($this->getString('estado', 'pendiente'));
-            $q      = $this->getString('q', '');
-            $page   = max(1, $this->getInt('page', 1));
-            $size   = max(1, min(50, $this->getInt('size', 10)));
+            $q = $this->getString('q', '');
+            $page = max(1, $this->getInt('page', 1));
+            $size = max(1, min(50, $this->getInt('size', 10)));
 
             if ($q === '') {
                 $q = $this->getString('search', '');
@@ -123,23 +95,23 @@ class apiSoporteProductosController
             $m = new ProductoSoporte();
             $r = $m->listarSoporte([
                 'estado' => $estado,
-                'q'      => $q,
-                'page'   => $page,
-                'size'   => $size,
+                'q' => $q,
+                'page' => $page,
+                'size' => $size,
             ]);
 
             $this->json(200, [
-                'ok'     => true,
-                'total'  => (int)($r['total'] ?? 0),
-                'page'   => (int)($r['page'] ?? $page),
-                'size'   => (int)($r['size'] ?? $size),
+                'ok' => true,
+                'total' => (int)($r['total'] ?? 0),
+                'page' => (int)($r['page'] ?? $page),
+                'size' => (int)($r['size'] ?? $size),
                 'counts' => $r['counts'] ?? [
                     'borradores' => 0,
                     'pendientes' => 0,
-                    'aprobadas'  => 0,
+                    'aprobadas' => 0,
                     'rechazadas' => 0,
                 ],
-                'items'  => $r['items'] ?? [],
+                'items' => $r['items'] ?? [],
             ]);
         } catch (Throwable $e) {
             error_log('[EV][apiSoporteProductosController][listar] ' . $e->getMessage());
@@ -151,9 +123,6 @@ class apiSoporteProductosController
         }
     }
 
-    /**
-     * GET /api/soporte/productos/{id}
-     */
     public function detalle($id): void
     {
         try {
@@ -162,28 +131,16 @@ class apiSoporteProductosController
 
             $id = (int)$id;
             if ($id <= 0) {
-                $this->json(400, [
-                    'ok' => false,
-                    'error' => 'BAD_REQUEST',
-                    'mensaje' => 'ID inválido.'
-                ]);
+                $this->json(400, ['ok' => false, 'error' => 'BAD_REQUEST', 'mensaje' => 'ID inválido.']);
             }
 
             $m = new ProductoSoporte();
             $row = $m->obtenerDetalle($id);
-
             if (!$row) {
-                $this->json(404, [
-                    'ok' => false,
-                    'error' => 'NOT_FOUND',
-                    'mensaje' => 'No existe el producto.'
-                ]);
+                $this->json(404, ['ok' => false, 'error' => 'NOT_FOUND', 'mensaje' => 'No existe el producto.']);
             }
 
-            $this->json(200, [
-                'ok' => true,
-                'item' => $row
-            ]);
+            $this->json(200, ['ok' => true, 'item' => $row]);
         } catch (Throwable $e) {
             error_log('[EV][apiSoporteProductosController][detalle] ' . $e->getMessage());
             $this->json(500, [
@@ -195,74 +152,28 @@ class apiSoporteProductosController
     }
 
     /**
-     * POST /api/soporte/productos/{id}/estado
-     * Body JSON: { "estado": "aprobada|rechazada|pendiente|borrador" }
+     * Endpoint legado bloqueado deliberadamente.
+     * Toda aprobación, rechazo u observación debe pasar por /revisar
+     * para mantener la trazabilidad de producto_revision y no saltar
+     * reglas de negocio, incluidos los cupos del piloto de servicios.
      */
     public function actualizarEstado($id): void
     {
-        try {
-            $u = $this->requireAuth();
-            $this->requireSoporte($u);
+        $u = $this->requireAuth();
+        $this->requireSoporte($u);
 
-            $id = (int)$id;
-            if ($id <= 0) {
-                $this->json(400, [
-                    'ok' => false,
-                    'error' => 'BAD_REQUEST',
-                    'mensaje' => 'ID inválido.'
-                ]);
-            }
-
-            $body = $this->readJsonBody();
-            $estado = (string)($body['estado'] ?? '');
-
-            $nuevoVisible = $this->mapEstadoToVisible($estado);
-            if ($nuevoVisible === null) {
-                $this->json(400, [
-                    'ok' => false,
-                    'error' => 'BAD_REQUEST',
-                    'mensaje' => 'Estado inválido.',
-                    'permitidos' => ['borrador', 'pendiente', 'aprobada', 'rechazada']
-                ]);
-            }
-
-            $m = new ProductoSoporte();
-            $ok = $m->actualizarEstadoSoporte($id, $nuevoVisible);
-
-            if (!$ok) {
-                $this->json(500, [
-                    'ok' => false,
-                    'error' => 'UPDATE_FAILED',
-                    'mensaje' => 'No se pudo actualizar el estado.'
-                ]);
-            }
-
-            $this->json(200, [
-                'ok' => true,
-                'mensaje' => 'Estado actualizado correctamente.',
-                'codigo_producto' => $id,
-                'visible' => $nuevoVisible
-            ]);
-        } catch (Throwable $e) {
-            error_log('[EV][apiSoporteProductosController][actualizarEstado] ' . $e->getMessage());
-            $this->json(500, [
-                'ok' => false,
-                'error' => 'SERVER_ERROR',
-                'mensaje' => 'Error interno al actualizar estado.'
-            ]);
+        $id = (int)$id;
+        if ($id <= 0) {
+            $this->json(400, ['ok' => false, 'error' => 'BAD_REQUEST', 'mensaje' => 'ID inválido.']);
         }
+
+        $this->json(409, [
+            'ok' => false,
+            'error' => 'FLUJO_REVISION_REQUERIDO',
+            'mensaje' => 'El cambio directo de estado está bloqueado. Usa la acción Aprobar, Rechazar u Observar del flujo de revisión para mantener la trazabilidad de la publicación.'
+        ]);
     }
 
-    /**
-     * POST /api/soporte/productos/{id}/revisar
-     * Body JSON: { "accion": "aprobar|rechazar|observar", "comentario": "..." }
-     *
-     * ✅ REGLA DE RAÍZ:
-     * Solo se puede revisar si el producto está visible = 1 (Pendiente).
-     * - 0 (Borrador): no corresponde
-     * - 2 (Aprobada): no corresponde
-     * - 3 (Rechazada): estado terminal (solo lectura)
-     */
     public function revisar($id): void
     {
         try {
@@ -301,8 +212,8 @@ class apiSoporteProductosController
             }
 
             $m = new ProductoSoporte();
-
             $estadoAnterior = $m->obtenerVisibleActual($id);
+
             if ($estadoAnterior === null) {
                 $this->json(404, [
                     'ok' => false,
@@ -311,7 +222,6 @@ class apiSoporteProductosController
                 ]);
             }
 
-            // ✅ BLOQUEO DE RAÍZ
             if ((int)$estadoAnterior !== 1) {
                 $msg = match ((int)$estadoAnterior) {
                     0 => 'La publicación está en Borrador. No se revisa por soporte.',
@@ -328,17 +238,17 @@ class apiSoporteProductosController
                 ]);
             }
 
-            // observar: NO cambia visible, solo deja trazabilidad
-            if ($accion === 'aprobar')      $estadoNuevo = 2;
-            elseif ($accion === 'rechazar') $estadoNuevo = 3;
-            else                            $estadoNuevo = (int)$estadoAnterior; // 1
+            $estadoNuevo = match ($accion) {
+                'aprobar' => 2,
+                'rechazar' => 3,
+                default => (int)$estadoAnterior,
+            };
 
             $codigoSoporte = (int)($u['codigo_usuario'] ?? 0);
             if ($codigoSoporte <= 0) {
                 $this->json(401, ['ok' => false, 'error' => 'UNAUTHORIZED', 'mensaje' => 'Usuario soporte inválido.']);
             }
 
-            // registra siempre en producto_revision
             $m->registrarRevisionTablaExistente(
                 $id,
                 $codigoSoporte,
@@ -347,7 +257,6 @@ class apiSoporteProductosController
                 $comentario
             );
 
-            // si aprueba/rechaza, actualiza visible
             if ($accion === 'aprobar' || $accion === 'rechazar') {
                 $ok = $m->actualizarEstadoSoporte($id, (int)$estadoNuevo);
                 if (!$ok) {

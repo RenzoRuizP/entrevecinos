@@ -72,6 +72,20 @@ class apiProductoController
         return $tipoPublicacion === 'servicio' ? 'Servicio' : 'Producto';
     }
 
+    private function respuestaLimiteServiciosPiloto(array $resumen = []): array
+    {
+        $maximo = max(1, (int)($resumen['maximo'] ?? Producto::MAX_SERVICIOS_ACTIVOS_PILOTO));
+        $activos = max(0, (int)($resumen['activos'] ?? 0));
+
+        return [
+            'maximo'      => $maximo,
+            'activos'     => $activos,
+            'disponibles' => max(0, (int)($resumen['disponibles'] ?? ($maximo - $activos))),
+            'alcanzado'   => (bool)($resumen['alcanzado'] ?? ($activos >= $maximo)),
+            'es_gratis'   => true,
+        ];
+    }
+
     private function normalizarEstadoPublicacion($valor, string $tipoPublicacion): string
     {
         if ($tipoPublicacion === 'servicio') {
@@ -438,6 +452,9 @@ class apiProductoController
                 'tipo_atencion_producto' => $tipoAtencionProducto,
                 'imagenes_subidas'       => (int)$upload['subidas'],
                 'warnings'               => $upload['errores'],
+                'servicios_piloto'        => $this->respuestaLimiteServiciosPiloto(
+                    $prod->obtenerResumenServiciosPiloto($codigoUsuario)
+                ),
             ]);
             return;
 
@@ -499,67 +516,48 @@ class apiProductoController
                 return;
             }
 
-            $resultado = $model->publicarConValidacionBilleteraServicio(
-                $codigoProducto,
-                $codigoUsuario,
-                1.00
-            );
+            $resultado = $model->publicarConReglaPilotoServicios($codigoProducto, $codigoUsuario);
 
             if (!($resultado['ok'] ?? false)) {
                 $codigoError = (string)($resultado['codigo'] ?? 'NO_SE_PUDO_PUBLICAR');
 
-                if ($codigoError === 'SALDO_INSUFICIENTE') {
-                    $redirect = (defined('BASE_URL') ? rtrim((string)BASE_URL, '/') : '') . '/billetera';
-
-                    $this->json(402, [
-                        'ok'              => false,
-                        'error'           => 'SALDO_INSUFICIENTE',
-                        'codigo'          => 'SALDO_INSUFICIENTE',
-                        'mensaje'         => 'No cuentas con saldo suficiente para publicar este servicio.',
-                        'detalle'         => 'Necesitas tener como mínimo S/ 1.00 en tu billetera. Haz clic en Recargar saldo para ir a Mi billetera.',
-                        'redirect'        => $redirect,
-                        'saldo_actual'    => round((float)($resultado['saldo_actual'] ?? 0), 2),
-                        'monto_requerido' => round((float)($resultado['monto_requerido'] ?? 1.00), 2),
-                        'tipo_publicacion'=> $tipoPublicacion,
-                    ]);
-                    return;
-                }
-
                 $status = match ($codigoError) {
-                    'PUBLICACION_NO_ENCONTRADA' => 404,
-                    'ESTADO_NO_PUBLICABLE'      => 409,
-                    'PARAMETROS_INVALIDOS',
-                    'MONTO_INVALIDO'            => 400,
-                    default                     => 400,
+                    'PUBLICACION_NO_ENCONTRADA'  => 404,
+                    'ESTADO_NO_PUBLICABLE',
+                    'LIMITE_SERVICIOS_ALCANZADO' => 409,
+                    'PARAMETROS_INVALIDOS'       => 400,
+                    default                       => 400,
                 };
 
                 $this->json($status, [
-                    'ok'      => false,
-                    'error'   => $codigoError,
-                    'codigo'  => $codigoError,
-                    'mensaje' => $resultado['mensaje'] ?? 'No se pudo enviar la publicación a revisión.',
-                    'visible' => $resultado['visible_actual'] ?? $visibleActual,
+                    'ok'                => false,
+                    'error'             => $codigoError,
+                    'codigo'            => $codigoError,
+                    'mensaje'           => $resultado['mensaje'] ?? 'No se pudo enviar la publicación a revisión.',
+                    'visible'           => $resultado['visible_actual'] ?? $visibleActual,
+                    'tipo_publicacion'  => $tipoPublicacion,
+                    'servicios_piloto'  => $this->respuestaLimiteServiciosPiloto(
+                        $resultado['servicios_piloto'] ?? $model->obtenerResumenServiciosPiloto($codigoUsuario)
+                    ),
                 ]);
                 return;
             }
 
-            $mensaje = $tipoPublicacion === 'servicio'
-                ? 'Servicio enviado a revisión. Se descontó S/ 1.00 de tu billetera.'
-                : 'Publicación enviada a revisión. Ahora está en estado Pendiente.';
+            $resumenServicios = $this->respuestaLimiteServiciosPiloto(
+                $resultado['servicios_piloto'] ?? $model->obtenerResumenServiciosPiloto($codigoUsuario)
+            );
 
-            if (!empty($resultado['ya_cobrado'])) {
-                $mensaje = 'Servicio enviado a revisión. El cargo ya había sido aplicado previamente, por eso no se volvió a descontar saldo.';
-            }
+            $mensaje = $tipoPublicacion === 'servicio'
+                ? 'Servicio enviado a revisión sin costo durante el piloto. Ahora tienes '
+                    . $resumenServicios['activos'] . ' de ' . $resumenServicios['maximo'] . ' cupos activos en uso.'
+                : 'Publicación enviada a revisión. Ahora está en estado Pendiente.';
 
             $this->json(200, [
                 'ok'               => true,
                 'mensaje'          => $mensaje,
                 'tipo_publicacion' => $tipoPublicacion,
                 'visible'          => 1,
-                'cargo_aplicado'   => (bool)($resultado['cargo_aplicado'] ?? false),
-                'ya_cobrado'       => (bool)($resultado['ya_cobrado'] ?? false),
-                'monto_debitado'   => round((float)($resultado['monto_debitado'] ?? 0), 2),
-                'saldo_actual'     => $resultado['saldo_actual'] ?? null,
+                'servicios_piloto' => $resumenServicios,
             ]);
             return;
 
@@ -589,7 +587,13 @@ class apiProductoController
             $model = new Producto();
             $lista = $model->listarPorUsuario($codigoUsuario);
 
-            $this->json(200, ['ok' => true, 'data' => $lista]);
+            $this->json(200, [
+                'ok'                => true,
+                'data'              => $lista,
+                'servicios_piloto'  => $this->respuestaLimiteServiciosPiloto(
+                    $model->obtenerResumenServiciosPiloto($codigoUsuario)
+                ),
+            ]);
             return;
 
         } catch (Exception $e) {
@@ -784,9 +788,31 @@ class apiProductoController
                 'imagenes_subidas'       => (int)$upload['subidas'],
                 'warnings'               => $upload['errores'],
                 'reenviado_correccion'   => $reenviado,
+                'servicios_piloto'        => $this->respuestaLimiteServiciosPiloto(
+                    $model->obtenerResumenServiciosPiloto($codigoUsuario)
+                ),
             ]);
             return;
 
+        } catch (DomainException $e) {
+            if ($e->getMessage() === 'LIMITE_SERVICIOS_ALCANZADO') {
+                $resumen = (new Producto())->obtenerResumenServiciosPiloto((int)($codigoUsuario ?? 0));
+                $this->json(409, [
+                    'ok'               => false,
+                    'error'            => 'LIMITE_SERVICIOS_ALCANZADO',
+                    'codigo'           => 'LIMITE_SERVICIOS_ALCANZADO',
+                    'mensaje'          => 'No puedes convertir esta publicación en un servicio activo porque ya tienes 5 servicios activos o en revisión.',
+                    'servicios_piloto' => $this->respuestaLimiteServiciosPiloto($resumen),
+                ]);
+                return;
+            }
+
+            $this->json(409, [
+                'ok'      => false,
+                'error'   => 'REGLA_NEGOCIO',
+                'mensaje' => $e->getMessage(),
+            ]);
+            return;
         } catch (Exception $e) {
             $this->json(500, [
                 'ok'      => false,
@@ -832,8 +858,11 @@ class apiProductoController
 
             $this->json(200, [
                 'ok'      => true,
-                'mensaje' => 'Publicación anulada correctamente.',
-                'visible' => 4,
+                'mensaje'           => 'Publicación anulada correctamente.',
+                'visible'           => 4,
+                'servicios_piloto' => $this->respuestaLimiteServiciosPiloto(
+                    $model->obtenerResumenServiciosPiloto($codigoUsuario)
+                ),
             ]);
             return;
 

@@ -721,227 +721,213 @@ class Producto extends Conexion
         return $fila;
     }
 
-    public function actualizarProductoBase(int $codigoProducto, int $codigoUsuario): void
-    {
-        $this->aplicarReglasPorTipoPublicacion();
-
-        $sql = "
-            UPDATE producto
-            SET
-                tipo_publicacion        = :tipo_publicacion,
-                titulo                  = :titulo,
-                descripcion             = :descripcion,
-                estado                  = :estado,
-                precio                  = :precio,
-                tipo_atencion_producto  = :tipo_atencion_producto,
-                requiere_preparacion    = :requiere_preparacion,
-                codigo_tipo             = :codigo_tipo,
-                codigo_categoria        = :codigo_categoria,
-                updated_at              = CURRENT_TIMESTAMP
-            WHERE codigo_producto = :codigo_producto
-              AND codigo_usuario  = :codigo_usuario
-        ";
-
-        $stmt = $this->dblink->prepare($sql);
-        $stmt->bindValue(':tipo_publicacion', $this->tipo_publicacion, PDO::PARAM_STR);
-        $stmt->bindValue(':titulo', $this->titulo, PDO::PARAM_STR);
-        $stmt->bindValue(':descripcion', $this->descripcion, PDO::PARAM_STR);
-        $stmt->bindValue(':estado', $this->estado, PDO::PARAM_STR);
-        $stmt->bindValue(':precio', $this->precio);
-        $stmt->bindValue(':tipo_atencion_producto', $this->tipo_atencion_producto, PDO::PARAM_STR);
-        $stmt->bindValue(':requiere_preparacion', $this->requiere_preparacion, PDO::PARAM_INT);
-        $stmt->bindValue(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
-        $stmt->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
-
-        if ($this->codigo_tipo !== null) $stmt->bindValue(':codigo_tipo', $this->codigo_tipo, PDO::PARAM_INT);
-        else $stmt->bindValue(':codigo_tipo', null, PDO::PARAM_NULL);
-
-        if ($this->codigo_categoria !== null) $stmt->bindValue(':codigo_categoria', $this->codigo_categoria, PDO::PARAM_INT);
-        else $stmt->bindValue(':codigo_categoria', null, PDO::PARAM_NULL);
-
-        $stmt->execute();
-    }
-
     /* ==========================================================
-       ESTADOS
+       PILOTO DE SERVICIOS
+       - Publicar servicios no tiene costo durante el piloto.
+       - Cada vecino puede tener como máximo 5 servicios activos.
+       - Activos = Pendiente (visible=1) o Aprobado (visible=2).
+       - Borrador, Rechazado y Anulado no consumen cupo.
     ========================================================== */
-    public function publicarProducto(int $codigoProducto, int $codigoUsuario): bool
-    {
-        $sql = "
-            UPDATE producto
-            SET visible = 1,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE codigo_producto = :p_codigo_producto
-              AND codigo_usuario  = :p_codigo_usuario
-              AND visible = 0
-        ";
-        $stmt = $this->dblink->prepare($sql);
-        $stmt->bindValue(':p_codigo_producto', $codigoProducto, PDO::PARAM_INT);
-        $stmt->bindValue(':p_codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
-        $stmt->execute();
-        return $stmt->rowCount() > 0;
-    }
+    public const MAX_SERVICIOS_ACTIVOS_PILOTO = 5;
 
     private function normalizarTipoPublicacionPersistida($valor): string
     {
-        $v = strtolower(trim((string)$valor));
-        return in_array($v, ['producto', 'servicio'], true) ? $v : 'producto';
+        $valor = strtolower(trim((string)$valor));
+        return in_array($valor, ['producto', 'servicio'], true) ? $valor : 'producto';
     }
 
-    private function limpiarTituloMovimientoBilletera(string $titulo): string
+    private function crearResumenServiciosPiloto(int $activos): array
     {
-        $titulo = trim((string)preg_replace('/\s+/u', ' ', $titulo));
-        if ($titulo === '') {
-            return 'servicio';
-        }
+        $maximo = self::MAX_SERVICIOS_ACTIVOS_PILOTO;
+        $activos = max(0, $activos);
 
-        if (function_exists('mb_strlen') && function_exists('mb_substr')) {
-            if (mb_strlen($titulo, 'UTF-8') > 70) {
-                return mb_substr($titulo, 0, 67, 'UTF-8') . '...';
-            }
-            return $titulo;
-        }
-
-        return strlen($titulo) > 70 ? substr($titulo, 0, 67) . '...' : $titulo;
+        return [
+            'maximo'      => $maximo,
+            'activos'     => $activos,
+            'disponibles' => max(0, $maximo - $activos),
+            'alcanzado'   => $activos >= $maximo,
+            'es_gratis'   => true,
+        ];
     }
 
-    private function obtenerOBilleteraBloqueadaParaPublicacion(int $codigoUsuario): array
+    /**
+     * Serializa la validación del cupo por usuario para evitar que dos
+     * solicitudes concurrentes permitan registrar un sexto servicio.
+     */
+    private function bloquearUsuarioParaCupoServicios(int $codigoUsuario): void
     {
         $sql = "
-            SELECT
-                b.codigo_billetera,
-                b.codigo_usuario,
-                b.saldo_actual
-            FROM billetera b
-            WHERE b.codigo_usuario = :codigo_usuario
+            SELECT codigo_usuario
+            FROM usuario
+            WHERE codigo_usuario = :codigo_usuario
             FOR UPDATE
         ";
 
         $stmt = $this->dblink->prepare($sql);
         $stmt->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
         $stmt->execute();
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($row) {
-            return [
-                'codigo_billetera' => (int)$row['codigo_billetera'],
-                'codigo_usuario'   => (int)$row['codigo_usuario'],
-                'saldo_actual'     => (float)$row['saldo_actual'],
-            ];
+        if (!$stmt->fetchColumn()) {
+            throw new RuntimeException('No se encontró el usuario para validar los cupos de servicio.');
         }
-
-        $sqlInsert = "
-            INSERT INTO billetera (codigo_usuario, saldo_actual, estado)
-            VALUES (:codigo_usuario, 0.00, 1)
-        ";
-        $stmtInsert = $this->dblink->prepare($sqlInsert);
-        $stmtInsert->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
-        $stmtInsert->execute();
-
-        return [
-            'codigo_billetera' => (int)$this->dblink->lastInsertId(),
-            'codigo_usuario'   => $codigoUsuario,
-            'saldo_actual'     => 0.00,
-        ];
     }
 
-    private function existeDebitoPublicacionServicio(int $codigoBilletera, int $codigoProducto): bool
+    private function contarServiciosActivosPilotoBloqueado(int $codigoUsuario): int
     {
         $sql = "
-            SELECT 1
-            FROM billetera_movimiento
-            WHERE codigo_billetera = :codigo_billetera
-              AND tipo_movimiento = 'D'
-              AND origen = 'PUBLICACION_SERVICIO'
-              AND codigo_referencia = :codigo_producto
-            LIMIT 1
+            SELECT codigo_producto
+            FROM producto
+            WHERE codigo_usuario = :codigo_usuario
+              AND tipo_publicacion = 'servicio'
+              AND visible IN (1, 2)
+            ORDER BY codigo_producto ASC
+            FOR UPDATE
         ";
 
         $stmt = $this->dblink->prepare($sql);
-        $stmt->bindValue(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
-        $stmt->bindValue(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
+        $stmt->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
         $stmt->execute();
 
-        return (bool)$stmt->fetchColumn();
-    }
-
-    private function registrarDebitoPublicacionServicio(
-        int $codigoBilletera,
-        int $codigoProducto,
-        float $monto,
-        float $saldoAntes,
-        float $saldoDespues,
-        string $tituloServicio
-    ): void {
-        $descripcion = 'Costo por publicar servicio: ' . $this->limpiarTituloMovimientoBilletera($tituloServicio);
-
-        $sqlMov = "
-            INSERT INTO billetera_movimiento
-            (
-                codigo_billetera,
-                tipo_movimiento,
-                monto,
-                saldo_antes,
-                saldo_despues,
-                descripcion,
-                origen,
-                codigo_referencia,
-                es_promocional,
-                fecha_expira
-            )
-            VALUES
-            (
-                :codigo_billetera,
-                'D',
-                :monto,
-                :saldo_antes,
-                :saldo_despues,
-                :descripcion,
-                'PUBLICACION_SERVICIO',
-                :codigo_producto,
-                0,
-                NULL
-            )
-        ";
-
-        $stmtMov = $this->dblink->prepare($sqlMov);
-        $stmtMov->bindValue(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
-        $stmtMov->bindValue(':monto', $monto);
-        $stmtMov->bindValue(':saldo_antes', $saldoAntes);
-        $stmtMov->bindValue(':saldo_despues', $saldoDespues);
-        $stmtMov->bindValue(':descripcion', $descripcion, PDO::PARAM_STR);
-        $stmtMov->bindValue(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
-        $stmtMov->execute();
-    }
-
-    private function actualizarSaldoBilleteraPublicacion(int $codigoBilletera, float $nuevoSaldo): void
-    {
-        $sqlUpd = "
-            UPDATE billetera
-            SET saldo_actual = :saldo_actual
-            WHERE codigo_billetera = :codigo_billetera
-        ";
-
-        $stmtUpd = $this->dblink->prepare($sqlUpd);
-        $stmtUpd->bindValue(':saldo_actual', $nuevoSaldo);
-        $stmtUpd->bindValue(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
-        $stmtUpd->execute();
+        return count($stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
     }
 
     /**
-     * Publica una publicación en una sola transacción.
-     * - Producto: solo pasa de borrador a pendiente.
-     * - Servicio: valida saldo mínimo, descuenta S/ 1.00 e inmediatamente pasa a pendiente.
-     *
-     * Esto evita estados inconsistentes: cobrado sin publicar o publicado sin cobrar.
+     * Resumen para la interfaz. No bloquea registros porque es solo lectura.
      */
-    public function publicarConValidacionBilleteraServicio(
-        int $codigoProducto,
-        int $codigoUsuario,
-        float $montoServicio = 1.00
-    ): array {
-        $montoServicio = round($montoServicio, 2);
+    public function obtenerResumenServiciosPiloto(int $codigoUsuario): array
+    {
+        if ($codigoUsuario <= 0) {
+            return $this->crearResumenServiciosPiloto(0);
+        }
 
+        $sql = "
+            SELECT COUNT(*)
+            FROM producto
+            WHERE codigo_usuario = :codigo_usuario
+              AND tipo_publicacion = 'servicio'
+              AND visible IN (1, 2)
+        ";
+
+        $stmt = $this->dblink->prepare($sql);
+        $stmt->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $this->crearResumenServiciosPiloto((int)$stmt->fetchColumn());
+    }
+
+    /**
+     * Actualiza una publicación y bloquea el cambio producto -> servicio
+     * cuando la publicación ya está activa y el vecino alcanzó su cupo.
+     */
+    public function actualizarProductoBase(int $codigoProducto, int $codigoUsuario): void
+    {
+        $this->aplicarReglasPorTipoPublicacion();
+
+        $abrioTransaccion = false;
+
+        try {
+            if (!$this->dblink->inTransaction()) {
+                $this->dblink->beginTransaction();
+                $abrioTransaccion = true;
+            }
+
+            $sqlActual = "
+                SELECT tipo_publicacion, visible
+                FROM producto
+                WHERE codigo_producto = :codigo_producto
+                  AND codigo_usuario = :codigo_usuario
+                FOR UPDATE
+            ";
+
+            $stmtActual = $this->dblink->prepare($sqlActual);
+            $stmtActual->bindValue(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
+            $stmtActual->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+            $stmtActual->execute();
+            $actual = $stmtActual->fetch(PDO::FETCH_ASSOC);
+
+            if (!$actual) {
+                throw new RuntimeException('La publicación no existe o no pertenece al usuario.');
+            }
+
+            $tipoAnterior = $this->normalizarTipoPublicacionPersistida($actual['tipo_publicacion'] ?? 'producto');
+            $visibleActual = (int)($actual['visible'] ?? -1);
+            $convierteServicioActivo = (
+                $this->tipo_publicacion === 'servicio'
+                && $tipoAnterior !== 'servicio'
+                && in_array($visibleActual, [1, 2], true)
+            );
+
+            if ($convierteServicioActivo) {
+                $this->bloquearUsuarioParaCupoServicios($codigoUsuario);
+                $serviciosActivos = $this->contarServiciosActivosPilotoBloqueado($codigoUsuario);
+
+                if ($serviciosActivos >= self::MAX_SERVICIOS_ACTIVOS_PILOTO) {
+                    throw new DomainException('LIMITE_SERVICIOS_ALCANZADO');
+                }
+            }
+
+            $sql = "
+                UPDATE producto
+                SET
+                    tipo_publicacion        = :tipo_publicacion,
+                    titulo                  = :titulo,
+                    descripcion             = :descripcion,
+                    estado                  = :estado,
+                    precio                  = :precio,
+                    tipo_atencion_producto  = :tipo_atencion_producto,
+                    requiere_preparacion    = :requiere_preparacion,
+                    codigo_tipo             = :codigo_tipo,
+                    codigo_categoria        = :codigo_categoria,
+                    updated_at              = CURRENT_TIMESTAMP
+                WHERE codigo_producto = :codigo_producto
+                  AND codigo_usuario  = :codigo_usuario
+            ";
+
+            $stmt = $this->dblink->prepare($sql);
+            $stmt->bindValue(':tipo_publicacion', $this->tipo_publicacion, PDO::PARAM_STR);
+            $stmt->bindValue(':titulo', $this->titulo, PDO::PARAM_STR);
+            $stmt->bindValue(':descripcion', $this->descripcion, PDO::PARAM_STR);
+            $stmt->bindValue(':estado', $this->estado, PDO::PARAM_STR);
+            $stmt->bindValue(':precio', $this->precio);
+            $stmt->bindValue(':tipo_atencion_producto', $this->tipo_atencion_producto, PDO::PARAM_STR);
+            $stmt->bindValue(':requiere_preparacion', $this->requiere_preparacion, PDO::PARAM_INT);
+            $stmt->bindValue(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
+            $stmt->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+
+            if ($this->codigo_tipo !== null) $stmt->bindValue(':codigo_tipo', $this->codigo_tipo, PDO::PARAM_INT);
+            else $stmt->bindValue(':codigo_tipo', null, PDO::PARAM_NULL);
+
+            if ($this->codigo_categoria !== null) $stmt->bindValue(':codigo_categoria', $this->codigo_categoria, PDO::PARAM_INT);
+            else $stmt->bindValue(':codigo_categoria', null, PDO::PARAM_NULL);
+
+            $stmt->execute();
+
+            if ($abrioTransaccion && $this->dblink->inTransaction()) {
+                $this->dblink->commit();
+            }
+        } catch (Throwable $e) {
+            if ($abrioTransaccion && $this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * Compatibilidad interna: ahora aplica la misma regla del piloto.
+     */
+    public function publicarProducto(int $codigoProducto, int $codigoUsuario): bool
+    {
+        $resultado = $this->publicarConReglaPilotoServicios($codigoProducto, $codigoUsuario);
+        return (bool)($resultado['ok'] ?? false);
+    }
+
+    /**
+     * Envía un borrador a revisión. Los servicios son gratuitos, pero se
+     * reservan dentro del máximo de cinco cuando pasan a Pendiente.
+     */
+    public function publicarConReglaPilotoServicios(int $codigoProducto, int $codigoUsuario): array
+    {
         if ($codigoProducto <= 0 || $codigoUsuario <= 0) {
             return [
                 'ok'      => false,
@@ -950,32 +936,19 @@ class Producto extends Conexion
             ];
         }
 
-        if ($montoServicio <= 0) {
-            return [
-                'ok'      => false,
-                'codigo'  => 'MONTO_INVALIDO',
-                'mensaje' => 'El monto de publicación de servicio no es válido.',
-            ];
-        }
-
-        $abrioTx = false;
+        $abrioTransaccion = false;
 
         try {
             if (!$this->dblink->inTransaction()) {
                 $this->dblink->beginTransaction();
-                $abrioTx = true;
+                $abrioTransaccion = true;
             }
 
             $sqlProducto = "
-                SELECT
-                    p.codigo_producto,
-                    p.codigo_usuario,
-                    p.titulo,
-                    p.tipo_publicacion,
-                    p.visible
-                FROM producto p
-                WHERE p.codigo_producto = :codigo_producto
-                  AND p.codigo_usuario = :codigo_usuario
+                SELECT codigo_producto, codigo_usuario, tipo_publicacion, visible
+                FROM producto
+                WHERE codigo_producto = :codigo_producto
+                  AND codigo_usuario = :codigo_usuario
                 FOR UPDATE
             ";
 
@@ -986,7 +959,7 @@ class Producto extends Conexion
             $producto = $stmtProducto->fetch(PDO::FETCH_ASSOC);
 
             if (!$producto) {
-                if ($abrioTx && $this->dblink->inTransaction()) $this->dblink->rollBack();
+                if ($abrioTransaccion && $this->dblink->inTransaction()) $this->dblink->rollBack();
                 return [
                     'ok'      => false,
                     'codigo'  => 'PUBLICACION_NO_ENCONTRADA',
@@ -998,7 +971,7 @@ class Producto extends Conexion
             $tipoPublicacion = $this->normalizarTipoPublicacionPersistida($producto['tipo_publicacion'] ?? 'producto');
 
             if ($visibleActual !== 0) {
-                if ($abrioTx && $this->dblink->inTransaction()) $this->dblink->rollBack();
+                if ($abrioTransaccion && $this->dblink->inTransaction()) $this->dblink->rollBack();
                 return [
                     'ok'               => false,
                     'codigo'           => 'ESTADO_NO_PUBLICABLE',
@@ -1008,45 +981,23 @@ class Producto extends Conexion
                 ];
             }
 
-            $saldoActual = null;
-            $saldoDespues = null;
-            $cargoAplicado = false;
-            $yaCobrado = false;
+            $resumenServicios = null;
 
             if ($tipoPublicacion === 'servicio') {
-                $billetera = $this->obtenerOBilleteraBloqueadaParaPublicacion($codigoUsuario);
-                $codigoBilletera = (int)$billetera['codigo_billetera'];
-                $saldoActual = (float)$billetera['saldo_actual'];
+                $this->bloquearUsuarioParaCupoServicios($codigoUsuario);
+                $serviciosActivos = $this->contarServiciosActivosPilotoBloqueado($codigoUsuario);
+                $resumenServicios = $this->crearResumenServiciosPiloto($serviciosActivos);
 
-                if ($this->existeDebitoPublicacionServicio($codigoBilletera, $codigoProducto)) {
-                    $yaCobrado = true;
-                    $saldoDespues = $saldoActual;
-                } else {
-                    if ($saldoActual < $montoServicio) {
-                        if ($abrioTx && $this->dblink->inTransaction()) $this->dblink->rollBack();
-                        return [
-                            'ok'              => false,
-                            'codigo'          => 'SALDO_INSUFICIENTE',
-                            'mensaje'         => 'No cuentas con saldo suficiente para publicar este servicio.',
-                            'saldo_actual'    => round($saldoActual, 2),
-                            'monto_requerido' => $montoServicio,
-                            'tipo_publicacion'=> $tipoPublicacion,
-                        ];
-                    }
+                if ($serviciosActivos >= self::MAX_SERVICIOS_ACTIVOS_PILOTO) {
+                    if ($abrioTransaccion && $this->dblink->inTransaction()) $this->dblink->rollBack();
 
-                    $saldoDespues = round($saldoActual - $montoServicio, 2);
-
-                    $this->registrarDebitoPublicacionServicio(
-                        $codigoBilletera,
-                        $codigoProducto,
-                        $montoServicio,
-                        $saldoActual,
-                        $saldoDespues,
-                        (string)($producto['titulo'] ?? '')
-                    );
-
-                    $this->actualizarSaldoBilleteraPublicacion($codigoBilletera, $saldoDespues);
-                    $cargoAplicado = true;
+                    return [
+                        'ok'                => false,
+                        'codigo'            => 'LIMITE_SERVICIOS_ALCANZADO',
+                        'mensaje'           => 'Ya tienes 5 servicios activos o en revisión. Anula uno de ellos para liberar un cupo antes de enviar otro servicio.',
+                        'tipo_publicacion'  => 'servicio',
+                        'servicios_piloto'  => $resumenServicios,
+                    ];
                 }
             }
 
@@ -1064,7 +1015,7 @@ class Producto extends Conexion
             $stmtUpdate->execute();
 
             if ($stmtUpdate->rowCount() <= 0) {
-                if ($abrioTx && $this->dblink->inTransaction()) $this->dblink->rollBack();
+                if ($abrioTransaccion && $this->dblink->inTransaction()) $this->dblink->rollBack();
                 return [
                     'ok'      => false,
                     'codigo'  => 'NO_SE_PUDO_PUBLICAR',
@@ -1072,7 +1023,13 @@ class Producto extends Conexion
                 ];
             }
 
-            if ($abrioTx && $this->dblink->inTransaction()) {
+            if ($tipoPublicacion === 'servicio') {
+                $resumenServicios = $this->crearResumenServiciosPiloto(
+                    (int)($resumenServicios['activos'] ?? 0) + 1
+                );
+            }
+
+            if ($abrioTransaccion && $this->dblink->inTransaction()) {
                 $this->dblink->commit();
             }
 
@@ -1082,14 +1039,10 @@ class Producto extends Conexion
                 'mensaje'          => 'Publicación enviada a revisión. Ahora está en estado Pendiente.',
                 'tipo_publicacion' => $tipoPublicacion,
                 'visible'          => 1,
-                'cargo_aplicado'   => $cargoAplicado,
-                'ya_cobrado'       => $yaCobrado,
-                'monto_debitado'   => $cargoAplicado ? $montoServicio : 0.00,
-                'saldo_anterior'   => $saldoActual !== null ? round($saldoActual, 2) : null,
-                'saldo_actual'     => $saldoDespues !== null ? round($saldoDespues, 2) : null,
+                'servicios_piloto' => $resumenServicios,
             ];
-        } catch (Exception $e) {
-            if ($abrioTx && $this->dblink->inTransaction()) {
+        } catch (Throwable $e) {
+            if ($abrioTransaccion && $this->dblink->inTransaction()) {
                 $this->dblink->rollBack();
             }
             throw $e;
