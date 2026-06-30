@@ -592,6 +592,58 @@
     });
   }
 
+  /**
+   * Cierra el modal de solicitud de servicio antes de mostrar el resultado
+   * exitoso. Usa Bootstrap 5, el fallback jQuery o un cierre defensivo para
+   * evitar que el formulario quede visible detrás de SweetAlert.
+   */
+  async function cerrarModalSolicitudServicioConfirmada(modalEl) {
+    if (!modalEl) return;
+
+    const estabaAbierto = modalEl.classList.contains('show') || modalEl.style.display === 'block';
+    const esperaOculto = estabaAbierto ? esperarModalOculto(modalEl) : Promise.resolve();
+    let seSolicitoCierre = false;
+
+    try {
+      if (window.bootstrap && typeof window.bootstrap.Modal === 'function') {
+        const instancia = window.bootstrap.Modal.getOrCreateInstance(modalEl, {
+          backdrop: 'static',
+          keyboard: false
+        });
+        instancia.hide();
+        seSolicitoCierre = true;
+      }
+    } catch (e) {
+      warn('No se pudo cerrar el modal de servicio con Bootstrap:', e);
+    }
+
+    if (!seSolicitoCierre) {
+      try {
+        if (window.$ && typeof window.$(modalEl).modal === 'function') {
+          window.$(modalEl).modal('hide');
+          seSolicitoCierre = true;
+        }
+      } catch (e) {
+        warn('No se pudo cerrar el modal de servicio con jQuery:', e);
+      }
+    }
+
+    if (!seSolicitoCierre) {
+      modalEl.classList.remove('show');
+      modalEl.style.display = 'none';
+      modalEl.setAttribute('aria-hidden', 'true');
+    }
+
+    await esperaOculto;
+
+    // Limpieza defensiva: solo remueve el backdrop cuando no queda otro modal Bootstrap abierto.
+    if (!document.querySelector('.modal.show')) {
+      document.querySelectorAll('.modal-backdrop').forEach((el) => el.remove());
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('padding-right');
+    }
+  }
+
   function triggerSwalBounce() {
     const popup = window.Swal?.getPopup ? Swal.getPopup() : null;
     if (!popup) return;
@@ -2348,15 +2400,16 @@
           <i class="bi bi-stars" aria-hidden="true"></i>
           <div>
             <strong>Servicio disponible para coordinar</strong>
-            <span>Este servicio permanece visible aunque el vecino no esté recibiendo pedidos de productos.</span>
+            <span>El precio es referencial. Envía una solicitud y el proveedor responderá para coordinar contigo.</span>
           </div>
         `;
       }
 
       if (btnPedirDetalle) {
-        btnPedirDetalle.classList.add('d-none');
-        btnPedirDetalle.disabled = true;
-        btnPedirDetalle.setAttribute('aria-hidden', 'true');
+        btnPedirDetalle.classList.remove('d-none');
+        btnPedirDetalle.disabled = false;
+        btnPedirDetalle.removeAttribute('aria-hidden');
+        btnPedirDetalle.textContent = 'Solicitar servicio';
       }
       return;
     }
@@ -2534,6 +2587,302 @@
     }
   }
 
+  function abrirModalSolicitudServicio(servicio) {
+    if (!servicio || typeof servicio !== 'object') {
+      notify('error', 'Error', 'No se pudo preparar la solicitud de servicio.', {
+        subtitle: 'No se pudo abrir el formulario'
+      });
+      return;
+    }
+
+    if (normalizarTipoPublicacion(servicio) !== 'servicio') {
+      notify('warning', 'Publicación inválida', 'La publicación seleccionada no corresponde a un servicio.', {
+        subtitle: 'No se puede continuar'
+      });
+      return;
+    }
+
+    if (Number(servicio.es_producto_propio || 0) === 1) {
+      notify('warning', 'Acción no permitida', 'No puedes solicitar coordinación para tu propio servicio.', {
+        subtitle: 'Esta publicación te pertenece'
+      });
+      return;
+    }
+
+    const modalServicioEl = document.getElementById('mp_modal_solicitud_servicio');
+    const modalDetalleEl = document.getElementById('mp_modal_detalle');
+
+    if (!modalServicioEl) {
+      notify('error', 'Error UI', 'No se encontró el formulario de solicitud de servicio.', {
+        subtitle: 'Falta un componente en la vista'
+      });
+      return;
+    }
+
+    const codigoEl = document.getElementById('mp_ss_codigo_producto');
+    const nombreEl = document.getElementById('mp_ss_nombre_servicio');
+    const precioEl = document.getElementById('mp_ss_precio_referencial');
+    const fechaEl = document.getElementById('mp_ss_fecha_deseada');
+    const rangoEl = document.getElementById('mp_ss_rango_horario');
+    const direccionEl = document.getElementById('mp_ss_direccion_atencion');
+    const mensajeEl = document.getElementById('mp_ss_mensaje_solicitante');
+
+    const codigoProducto = Number(servicio.codigo_producto || servicio.__id || 0);
+    if (!codigoProducto) {
+      notify('error', 'Error', 'No se pudo identificar el servicio seleccionado.', {
+        subtitle: 'No se puede continuar'
+      });
+      return;
+    }
+
+    if (codigoEl) codigoEl.value = String(codigoProducto);
+    if (nombreEl) nombreEl.value = String(servicio.titulo || servicio.__titulo || '');
+    if (precioEl) precioEl.value = formatPrecio(servicio.precio ?? servicio.__precio ?? 0);
+    if (fechaEl) {
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      fechaEl.min = hoy.toISOString().slice(0, 10);
+      fechaEl.value = '';
+    }
+    if (rangoEl) rangoEl.value = 'a_coordinar';
+    if (direccionEl) direccionEl.value = '';
+    if (mensajeEl) mensajeEl.value = '';
+
+    window.EV_MP_SERVICIO_ACTUAL = {
+      ...servicio,
+      codigo_producto: codigoProducto,
+      tipo_publicacion: 'servicio'
+    };
+
+    const abrir = () => {
+      if (window.bootstrap && typeof window.bootstrap.Modal === 'function') {
+        const modalServicio = window.bootstrap.Modal.getOrCreateInstance(modalServicioEl, {
+          backdrop: 'static',
+          keyboard: false
+        });
+        modalServicio.show();
+      } else if (window.$ && typeof window.$(modalServicioEl).modal === 'function') {
+        window.$(modalServicioEl).modal({ backdrop: 'static', keyboard: false });
+        window.$(modalServicioEl).modal('show');
+      }
+    };
+
+    if (
+      modalDetalleEl &&
+      modalDetalleEl.classList.contains('show') &&
+      window.bootstrap &&
+      typeof window.bootstrap.Modal === 'function'
+    ) {
+      const modalDetalle = window.bootstrap.Modal.getOrCreateInstance(modalDetalleEl, {
+        backdrop: 'static',
+        keyboard: false
+      });
+
+      const handler = () => {
+        document.querySelectorAll('.modal-backdrop').forEach((el) => el.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('padding-right');
+        abrir();
+      };
+
+      modalDetalleEl.addEventListener('hidden.bs.modal', handler, { once: true });
+      modalDetalle.hide();
+      return;
+    }
+
+    abrir();
+  }
+
+  function showLoadingSolicitudServicio() {
+    if (!window.Swal?.fire) return;
+
+    Swal.fire(swalBaseConfig({
+      title: 'Enviando solicitud',
+      html: `
+        <div class="ev-mp-swal-loader" aria-hidden="true"></div>
+        <div class="ev-mp-swal-soft-text">
+          Estamos registrando tu solicitud de coordinación. Espera un momento.
+        </div>
+      `,
+      showConfirmButton: false,
+      showCancelButton: false,
+      allowOutsideClick: false,
+      allowEscapeKey: false
+    }));
+  }
+
+  async function enviarSolicitudServicio() {
+    const codigoEl = document.getElementById('mp_ss_codigo_producto');
+    const nombreEl = document.getElementById('mp_ss_nombre_servicio');
+    const fechaEl = document.getElementById('mp_ss_fecha_deseada');
+    const rangoEl = document.getElementById('mp_ss_rango_horario');
+    const direccionEl = document.getElementById('mp_ss_direccion_atencion');
+    const mensajeEl = document.getElementById('mp_ss_mensaje_solicitante');
+    const formEl = document.getElementById('mp_form_solicitud_servicio');
+    const modalEl = document.getElementById('mp_modal_solicitud_servicio');
+    const btnSubmit = formEl ? formEl.querySelector('button[type="submit"]') : null;
+
+    const codigoProducto = Number(codigoEl?.value || 0);
+    const tituloServicio = String(nombreEl?.value || 'tu servicio');
+    const fechaDeseada = String(fechaEl?.value || '').trim();
+    const rangoHorario = String(rangoEl?.value || 'a_coordinar').trim();
+    const direccionAtencion = String(direccionEl?.value || '').trim();
+    const mensajeSolicitante = String(mensajeEl?.value || '').trim();
+
+    if (!codigoProducto) {
+      await notify('warning', 'Validación', 'No se encontró el servicio seleccionado.', {
+        subtitle: 'Completa correctamente el formulario'
+      });
+      return;
+    }
+
+    if (direccionAtencion.length < 5) {
+      await notify('warning', 'Validación', 'Indica la dirección o punto de atención para coordinar el servicio.', {
+        subtitle: 'Completa correctamente el formulario',
+        productLabel: 'Servicio',
+        productText: tituloServicio
+      });
+      direccionEl?.focus();
+      return;
+    }
+
+    if (mensajeSolicitante.length < 8) {
+      await notify('warning', 'Validación', 'Describe brevemente lo que necesitas para que el proveedor pueda responderte.', {
+        subtitle: 'Completa correctamente el formulario',
+        productLabel: 'Servicio',
+        productText: tituloServicio
+      });
+      mensajeEl?.focus();
+      return;
+    }
+
+    if (fechaDeseada) {
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const fecha = new Date(`${fechaDeseada}T00:00:00`);
+      if (Number.isNaN(fecha.getTime()) || fecha < hoy) {
+        await notify('warning', 'Validación', 'La fecha deseada no puede ser anterior a hoy.', {
+          subtitle: 'Revisa la fecha seleccionada',
+          productLabel: 'Servicio',
+          productText: tituloServicio
+        });
+        fechaEl?.focus();
+        return;
+      }
+    }
+
+    try {
+      if (btnSubmit) btnSubmit.disabled = true;
+      showLoadingSolicitudServicio();
+
+      const fd = new FormData();
+      fd.append('codigo_producto', String(codigoProducto));
+      fd.append('fecha_deseada', fechaDeseada);
+      fd.append('rango_horario', rangoHorario || 'a_coordinar');
+      fd.append('direccion_atencion', direccionAtencion);
+      fd.append('mensaje_solicitante', mensajeSolicitante);
+
+      const { resp, json, text } = await fetchJsonRobusto(`${BASE}/api/servicios/solicitudes`, {
+        method: 'POST',
+        body: fd,
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-store'
+      });
+
+      if (await manejarRespuestaAuth(resp, json)) return;
+
+      if (resp.status === 409 && json?.error === 'SIN_RESIDENCIA_ACTIVA' && json?.redirect) {
+        swalCloseIfVisible();
+        await notify('warning', 'Residencia requerida', json.mensaje || 'Debes completar tu residencia.', {
+          subtitle: 'Necesitas una residencia activa'
+        });
+        window.location.href = json.redirect;
+        return;
+      }
+
+      if (!json) {
+        swalCloseIfVisible();
+        err('REGISTRAR SERVICIO no devolvió JSON:', (text || '').slice(0, 400));
+        await notify('error', 'Error', 'La respuesta del servidor no fue válida.', {
+          subtitle: 'No se pudo enviar la solicitud'
+        });
+        return;
+      }
+
+      if (!resp.ok || json.ok === false) {
+        swalCloseIfVisible();
+        const apiError = String(json?.error || '').trim();
+        const apiMsg = json?.mensaje || json?.error || 'No se pudo enviar la solicitud de servicio.';
+
+        if (apiError === 'SERVICIO_PROPIO') {
+          await notify('warning', 'Acción no permitida', apiMsg, {
+            subtitle: 'No puedes solicitar tu propio servicio'
+          });
+          return;
+        }
+
+        if (
+          apiError === 'SERVICIO_NO_DISPONIBLE' ||
+          apiError === 'PROVEEDOR_NO_HABILITADO' ||
+          apiError === 'SERVICIO_FUERA_DE_RESIDENCIA'
+        ) {
+          await notify('warning', 'Servicio no disponible', apiMsg, {
+            subtitle: 'Este servicio ya no está disponible',
+            productLabel: 'Servicio',
+            productText: tituloServicio
+          });
+          await refrescarDisponibilidadMarketplace({ force: true });
+          return;
+        }
+
+        if (apiError === 'SOLICITUD_ACTIVA_EXISTENTE') {
+          await notify('info', 'Solicitud ya enviada', apiMsg, {
+            subtitle: 'Evitemos duplicar la coordinación',
+            productLabel: 'Servicio',
+            productText: tituloServicio
+          });
+          return;
+        }
+
+        await notify('error', 'No se pudo enviar la solicitud', apiMsg, {
+          subtitle: 'Revisa los datos e inténtalo nuevamente',
+          productLabel: 'Servicio',
+          productText: tituloServicio
+        });
+        return;
+      }
+
+      const data = json.data || {};
+
+      // El formulario solo se cierra después de confirmar el registro exitoso.
+      // En caso de error se mantiene abierto para que el vecino corrija los datos.
+      await cerrarModalSolicitudServicioConfirmada(modalEl);
+      try { formEl?.reset(); } catch (_) {}
+      swalCloseIfVisible();
+
+      await notify(
+        'success',
+        'Solicitud enviada',
+        'Tu solicitud fue enviada al proveedor. Tendrá hasta 24 horas para responder y coordinar contigo.',
+        {
+          subtitle: 'Coordinación solicitada correctamente',
+          productLabel: 'Servicio',
+          productText: String(data.titulo_servicio || tituloServicio),
+          note: 'No se realizó ningún cobro. El precio publicado es referencial y la coordinación se confirmará con el proveedor.'
+        }
+      );
+    } catch (e) {
+      err('EXCEPTION registrar solicitud servicio', e);
+      swalCloseIfVisible();
+      await notify('error', 'Error inesperado', 'Ocurrió un problema al enviar la solicitud de servicio.', {
+        subtitle: 'No se pudo completar el proceso'
+      });
+    } finally {
+      if (btnSubmit) btnSubmit.disabled = false;
+    }
+  }
+
   function abrirModalSolicitudDesdeProducto(producto) {
     if (!producto || typeof producto !== 'object') {
       notify('error', 'Error', 'No se pudo preparar la solicitud.', {
@@ -2547,16 +2896,7 @@
     const labelPublicacion = tipoPublicacionLabelFromKey(tipoPublicacion);
 
     if (esServicio) {
-      notify(
-        'info',
-        'Servicio disponible para coordinar',
-        'Este servicio permanece publicado aunque el vecino no esté recibiendo pedidos de productos. El flujo propio para solicitar servicios se habilitará en la siguiente etapa.',
-        {
-          subtitle: 'Información del servicio',
-          productLabel: 'Servicio',
-          productText: producto.titulo || labelPublicacion
-        }
-      );
+      abrirModalSolicitudServicio(producto);
       return;
     }
 
@@ -3000,6 +3340,28 @@
     }
   }
 
+
+
+  function bindSolicitudServicioModalEvents() {
+    const formServicio = document.getElementById('mp_form_solicitud_servicio');
+    const fechaDeseadaEl = document.getElementById('mp_ss_fecha_deseada');
+
+    if (fechaDeseadaEl && !fechaDeseadaEl.dataset.boundSolicitudServicioFecha) {
+      fechaDeseadaEl.dataset.boundSolicitudServicioFecha = '1';
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      fechaDeseadaEl.min = hoy.toISOString().slice(0, 10);
+    }
+
+    if (formServicio && !formServicio.dataset.boundSolicitudServicio) {
+      formServicio.dataset.boundSolicitudServicio = '1';
+      formServicio.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        await enviarSolicitudServicio();
+      });
+    }
+  }
+
   function cardHtml(p) {
     const id     = p.__id;
     const titulo = escapeHtml(p.__titulo || '');
@@ -3031,9 +3393,8 @@
 
     const accionesHtml = esServicio
       ? `
-          <button type="button" class="btn btn-success ev-mp-btn-detalle ev-mp-btn-servicio">
-            Ver servicio
-          </button>
+          <button type="button" class="btn ev-mp-btn-detalle">Ver detalle</button>
+          <button type="button" class="btn ev-mp-btn-servicio">Solicitar servicio</button>
         `
       : `
           <button type="button" class="btn btn-outline-success ev-mp-btn-detalle">Ver detalle</button>
@@ -3075,10 +3436,29 @@
       const esServicio = card.dataset.tipoPublicacion === 'servicio';
       const btnDetalle = card.querySelector('.ev-mp-btn-detalle');
       const btnPedir = card.querySelector('.ev-mp-btn-pedir');
+      const btnServicio = card.querySelector('.ev-mp-btn-servicio');
 
       if (btnDetalle && !btnDetalle.dataset.boundDetalle) {
         btnDetalle.dataset.boundDetalle = '1';
         btnDetalle.addEventListener('click', () => abrirModalDetalle(id));
+      }
+
+      if (btnServicio && !btnServicio.dataset.boundSolicitudServicio) {
+        btnServicio.dataset.boundSolicitudServicio = '1';
+        btnServicio.addEventListener('click', async () => {
+          const detalle = await obtenerDetalleProducto(id);
+          if (!detalle) return;
+
+          const { producto, imagenes } = detalle;
+          window.EV_MP_DETALLE_ACTUAL = {
+            ...producto,
+            imagenes: Array.isArray(imagenes) ? imagenes : [],
+            tipo_publicacion: 'servicio',
+            vendedor_disponible: Number(producto?.vendedor_disponible ?? producto?.disponibilidad_pedidos_vendedor ?? 0) === 1 ? 1 : 0
+          };
+
+          abrirModalSolicitudServicio(window.EV_MP_DETALLE_ACTUAL);
+        });
       }
 
       if (btnPedir && !btnPedir.dataset.boundPedir) {
@@ -3681,6 +4061,7 @@
   function initStaticModals() {
     const modalDetalleEl = document.getElementById('mp_modal_detalle');
     const modalSolicitudEl = document.getElementById('mp_modal_solicitud');
+    const modalSolicitudServicioEl = document.getElementById('mp_modal_solicitud_servicio');
 
     if (window.bootstrap && typeof window.bootstrap.Modal === 'function') {
       if (modalDetalleEl) {
@@ -3692,6 +4073,14 @@
 
       if (modalSolicitudEl) {
         window.bootstrap.Modal.getOrCreateInstance(modalSolicitudEl, {
+          backdrop: 'static',
+          keyboard: false
+        });
+      }
+
+
+      if (modalSolicitudServicioEl) {
+        window.bootstrap.Modal.getOrCreateInstance(modalSolicitudServicioEl, {
           backdrop: 'static',
           keyboard: false
         });
@@ -3710,6 +4099,7 @@
     bindEvents();
     initCustomSelects();
     bindSolicitudModalEvents();
+    bindSolicitudServicioModalEvents();
     initStaticModals();
 
     if (!marketplaceInicializado) {

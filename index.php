@@ -639,6 +639,7 @@ safeRequire(__DIR__ . '/controllers/api/apiBilleteraController.php');
 safeRequire(__DIR__ . '/models/Dashboard.php');
 safeRequire(__DIR__ . '/controllers/api/apiDashboardController.php');
 safeRequire(__DIR__ . '/controllers/api/apiPedidoController.php');
+safeRequire(__DIR__ . '/controllers/api/apiSolicitudServicioController.php');
 safeRequire(__DIR__ . '/models/Calificacion.php');
 safeRequire(__DIR__ . '/controllers/api/apiCalificacionController.php');
 safeRequire(__DIR__ . '/controllers/api/apiSoporteRecargasController.php');
@@ -660,6 +661,7 @@ safeRequire(__DIR__ . '/controllers/api/apiComunidadVecinoController.php');
 
 safeRequire(__DIR__ . '/controllers/misPedidosCompradorController.php');
 safeRequire(__DIR__ . '/controllers/misPedidosVendedorController.php');
+safeRequire(__DIR__ . '/controllers/misSolicitudesServicioVendedorController.php');
 
 // ============================================================
 // 2) Normalización BASE_URL / basePath
@@ -761,6 +763,7 @@ $routes = [
 
     ['GET', '#^/mis-pedidos-comprador$#', [misPedidosCompradorController::class, 'index'], 'html'],
     ['GET', '#^/mis-pedidos-vendedor$#',  [misPedidosVendedorController::class, 'index'],  'html'],
+    ['GET', '#^/mis-solicitudes-servicio-vendedor$#', [misSolicitudesServicioVendedorController::class, 'index'], 'html'],
 
     // ---------------------------
     // COMUNIDAD - VISTA PARA VECINOS
@@ -833,6 +836,16 @@ $routes = [
     ['POST', '#^/api/producto/(\d+)/anular$#', [apiProductoController::class, 'anularProducto'], 'json'],
     ['POST', '#^/api/producto/(\d+)/publicar$#', [apiProductoController::class, 'publicarProducto'], 'json'],
     ['GET',  '#^/api/producto/marketplace$#', [apiProductoController::class, 'listarMarketplace'], 'json'],
+
+    // ---------------------------
+    // SOLICITUDES DE SERVICIO
+    // Flujo propio: no usa pedido, cola, stock ni billetera.
+    // ---------------------------
+    ['POST', '#^/api/servicios/solicitudes$#', [apiSolicitudServicioController::class, 'registrar'], 'json'],
+    ['GET',  '#^/api/servicios/solicitudes/proveedor$#', [apiSolicitudServicioController::class, 'listarProveedor'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/solicitar-informacion$#', [apiSolicitudServicioController::class, 'solicitarInformacion'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/propuesta$#', [apiSolicitudServicioController::class, 'enviarPropuesta'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/rechazar$#', [apiSolicitudServicioController::class, 'rechazar'], 'json'],
 
     // ---------------------------
     // BILLETERA

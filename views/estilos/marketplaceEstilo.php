@@ -3056,5 +3056,115 @@ body.modal-open .ev-mp-card{
   outline-offset:3px;
 }
 
-</style>
 
+
+/* ==========================================================
+   PUNTO 8 — SOLICITUD DE SERVICIO
+   Flujo propio de coordinación, separado de pedidos.
+========================================================== */
+.ev-mp-card-actions.is-service{
+  display:flex;
+  align-items:center;
+  gap:10px !important;
+}
+
+.ev-mp-card-actions.is-service .ev-mp-btn-detalle,
+.ev-mp-card-actions.is-service .ev-mp-btn-servicio{
+  flex:1 1 0 !important;
+  min-width:0 !important;
+}
+
+.ev-mp-card-actions.is-service .ev-mp-btn-servicio,
+.ev-mp-card-actions.is-service .ev-mp-btn-servicio:focus,
+.ev-mp-card-actions.is-service .ev-mp-btn-servicio:visited{
+  width:auto !important;
+}
+
+.ev-mp-card-actions.is-service .ev-mp-btn-detalle{
+  color:#526071 !important;
+  border:1px solid rgba(15,23,42,.11) !important;
+  background:#FFFFFF !important;
+  box-shadow:0 8px 18px rgba(15,23,42,.04);
+}
+
+.ev-mp-card-actions.is-service .ev-mp-btn-detalle:hover{
+  background:#F8FAFC !important;
+  color:#0F592F !important;
+  border-color:rgba(15,89,47,.22) !important;
+  transform:translateY(-1px);
+  box-shadow:0 10px 22px rgba(15,23,42,.08);
+}
+
+.ev-mp-service-request-note{
+  display:flex;
+  align-items:flex-start;
+  gap:11px;
+  margin:0 0 16px;
+  padding:14px 15px;
+  border-radius:16px;
+  border:1px solid rgba(234,124,18,.22);
+  background:linear-gradient(135deg, rgba(255,247,237,.98), rgba(255,255,255,.98));
+  color:#9A3412;
+}
+
+.ev-mp-service-request-note i{
+  flex:0 0 auto;
+  font-size:19px;
+  line-height:1.35;
+  color:#EA7C12;
+}
+
+.ev-mp-service-request-note strong,
+.ev-mp-service-request-note span{
+  display:block;
+}
+
+.ev-mp-service-request-note strong{
+  margin-bottom:3px;
+  color:#9A3412;
+  font-size:13.5px;
+  font-weight:900;
+}
+
+.ev-mp-service-request-note span{
+  color:#7C2D12;
+  font-size:12.5px;
+  line-height:1.5;
+}
+
+.ev-mp-optional{
+  color:#7C8796;
+  font-size:.82em;
+  font-weight:600;
+}
+
+#mp_modal_solicitud_servicio .form-text{
+  color:#6B7280;
+  font-size:12px;
+  line-height:1.4;
+}
+
+#mp_modal_solicitud_servicio textarea.form-control{
+  min-height:76px;
+  height:auto;
+  resize:vertical;
+  padding-top:11px;
+  padding-bottom:11px;
+}
+
+#mp_modal_solicitud_servicio .btn-ev-primary i{
+  margin-right:6px;
+}
+
+@media (max-width:575.98px){
+  .ev-mp-card-actions.is-service{
+    gap:8px !important;
+  }
+
+  .ev-mp-service-request-note{
+    margin-bottom:14px;
+    padding:13px;
+  }
+}
+
+</style>

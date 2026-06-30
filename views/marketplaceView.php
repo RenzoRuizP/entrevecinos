@@ -321,3 +321,91 @@ $labelConjunto = ($conjuntoTipo === 'urbanizacion') ? 'Urbanización actual' : '
     </div>
   </div>
 </div>
+
+<!-- ==========================
+     MODAL SOLICITUD DE SERVICIO
+     Punto 8: coordinación independiente de pedidos.
+========================== -->
+<div class="modal fade"
+     id="mp_modal_solicitud_servicio"
+     tabindex="-1"
+     aria-hidden="true"
+     data-bs-backdrop="static"
+     data-bs-keyboard="false">
+  <div class="modal-dialog ev-mp-modal-dialog modal-dialog-centered">
+    <div class="modal-content ev-mp-modal-content">
+
+      <div class="modal-header ev-mp-modal-header">
+        <h5 class="modal-title d-flex align-items-center gap-2">
+          <i class="bi bi-stars"></i>
+          <span>Solicitar servicio</span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <form id="mp_form_solicitud_servicio" novalidate>
+        <div class="modal-body ev-mp-modal-body">
+          <div class="ev-mp-preview-card">
+            <input type="hidden" id="mp_ss_codigo_producto">
+
+            <div class="ev-mp-service-request-note" role="note">
+              <i class="bi bi-chat-square-text" aria-hidden="true"></i>
+              <div>
+                <strong>Solicitud de coordinación</strong>
+                <span>El precio es referencial. No se realizará ningún cargo; el proveedor responderá para coordinar contigo.</span>
+              </div>
+            </div>
+
+            <div class="row g-3 mt-0">
+              <div class="col-12">
+                <label class="form-label fw-semibold" for="mp_ss_nombre_servicio">Servicio solicitado</label>
+                <input type="text" id="mp_ss_nombre_servicio" class="form-control" readonly>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold" for="mp_ss_precio_referencial">Precio referencial</label>
+                <input type="text" id="mp_ss_precio_referencial" class="form-control" readonly>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-semibold" for="mp_ss_fecha_deseada">Fecha deseada <span class="ev-mp-optional">(opcional)</span></label>
+                <input type="date" id="mp_ss_fecha_deseada" class="form-control">
+                <div class="form-text">Déjalo vacío cuando prefieras coordinar la fecha directamente.</div>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label fw-semibold" for="mp_ss_rango_horario">Horario preferido</label>
+                <select id="mp_ss_rango_horario" class="form-select">
+                  <option value="a_coordinar">A coordinar con el proveedor</option>
+                  <option value="manana">Mañana (8:00 a 12:00)</option>
+                  <option value="tarde">Tarde (12:00 a 18:00)</option>
+                  <option value="noche">Noche (18:00 a 21:00)</option>
+                </select>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label fw-semibold" for="mp_ss_direccion_atencion">Dirección o punto de atención</label>
+                <textarea id="mp_ss_direccion_atencion" class="form-control" rows="2" maxlength="255" placeholder="Ej. Torre B, Dpto. 402 / área común / calle y número" required></textarea>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label fw-semibold" for="mp_ss_mensaje_solicitante">¿Qué necesitas?</label>
+                <textarea id="mp_ss_mensaje_solicitante" class="form-control" rows="4" maxlength="1500" placeholder="Describe brevemente el servicio que necesitas, cantidades, medidas o cualquier detalle importante." required></textarea>
+                <div class="form-text">El proveedor tendrá hasta 24 horas para responder tu solicitud.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer ev-mp-modal-footer d-flex justify-content-end gap-2 flex-wrap">
+          <button type="button" class="btn-ev-neutral" data-bs-dismiss="modal">Cerrar</button>
+          <button type="submit" class="btn-ev-primary">
+            <i class="bi bi-send"></i>
+            Enviar solicitud
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
