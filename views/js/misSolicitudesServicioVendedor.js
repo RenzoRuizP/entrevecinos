@@ -171,9 +171,9 @@
 
   function badge(item) {
     const estado = String(item?.estado || '').trim();
-    if (estado === 'pendiente_proveedor' || estado === 'ajuste_solicitado') return { cls: 'ev-ssv-badge ev-ssv-badge-pending', text: item.estado_texto || 'Pendiente' };
-    if (estado === 'informacion_adicional_solicitada' || estado === 'propuesta_enviada_solicitante') return { cls: 'ev-ssv-badge ev-ssv-badge-wait', text: item.estado_texto || 'Esperando respuesta' };
-    if (estado === 'coordinacion_confirmada') return { cls: 'ev-ssv-badge ev-ssv-badge-success', text: item.estado_texto || 'Confirmada' };
+    if (['pendiente_proveedor', 'ajuste_solicitado', 'ajuste_cotizacion_solicitado', 'cotizacion_vencida'].includes(estado)) return { cls: 'ev-ssv-badge ev-ssv-badge-pending', text: item.estado_texto || 'Pendiente' };
+    if (['informacion_adicional_solicitada', 'propuesta_enviada_solicitante', 'cotizacion_final_enviada', 'servicio_realizado_proveedor'].includes(estado)) return { cls: 'ev-ssv-badge ev-ssv-badge-wait', text: item.estado_texto || 'Esperando respuesta' };
+    if (['coordinacion_confirmada', 'servicio_confirmado_solicitante'].includes(estado)) return { cls: 'ev-ssv-badge ev-ssv-badge-success', text: item.estado_texto || 'Confirmada' };
     return { cls: 'ev-ssv-badge ev-ssv-badge-negative', text: item.estado_texto || 'Cerrada' };
   }
 
@@ -228,17 +228,11 @@
 
   function actionsHtml(item) {
     const id = Number(item?.codigo_solicitud_servicio || 0);
-    const estado = String(item?.estado || '');
-    const items = [];
-    if (['pendiente_proveedor', 'ajuste_solicitado'].includes(estado)) {
-      items.push(`<button type="button" class="btn ev-ssv-btn-proposal" data-ssv-action="propuesta" data-id="${id}"><i class="bi bi-send-check me-1"></i>Enviar propuesta</button>`);
-      items.push(`<button type="button" class="btn ev-ssv-btn-info" data-ssv-action="informacion" data-id="${id}"><i class="bi bi-question-circle me-1"></i>Pedir información</button>`);
-      items.push(`<button type="button" class="btn ev-ssv-btn-danger" data-ssv-action="rechazar" data-id="${id}"><i class="bi bi-x-circle me-1"></i>Rechazar</button>`);
-    } else if (estado === 'informacion_adicional_solicitada') {
-      items.push(`<button type="button" class="btn ev-ssv-btn-proposal" data-ssv-action="propuesta" data-id="${id}"><i class="bi bi-send-check me-1"></i>Enviar propuesta</button>`);
-    }
-    items.push(`<button type="button" class="btn ev-ssv-btn-outline" data-ssv-action="detalle" data-id="${id}"><i class="bi bi-eye me-1"></i>Ver detalle</button>`);
-    return items.join('');
+    return `
+      <button type="button" class="btn ev-ssv-btn-proposal" data-ssv-action="conversacion" data-id="${id}">
+        <i class="bi bi-chat-square-text me-1"></i>Abrir conversación
+      </button>
+    `;
   }
 
   function renderCard(item) {
@@ -269,7 +263,7 @@
             <div class="ev-ssv-data ev-ssv-data-price"><span>Precio referencial</span><strong>${escapeHtml(formatMoney(item?.precio_referencial))}</strong></div>
           </div>
           <div class="ev-ssv-info">
-            <div class="ev-ssv-line"><span class="ev-ssv-line-label">Punto de atención</span><span class="ev-ssv-line-value">${escapeHtml(item?.direccion_atencion || '—')}</span></div>
+            <div class="ev-ssv-line"><span class="ev-ssv-line-label">Ubicación</span><span class="ev-ssv-line-value">${Number(item?.ubicacion_compartida || 0) === 1 ? 'Compartida en conversación' : 'El vecino la compartirá cuando sea necesaria para cotizar'}</span></div>
             <div class="ev-ssv-note"><span class="ev-ssv-note-label">Lo que necesita el vecino</span><div class="ev-ssv-note-text">${escapeHtml(item?.mensaje_solicitante || 'Sin detalle adicional.')}</div></div>
             ${propuestaHtml(item?.propuesta)}
           </div>
@@ -437,6 +431,11 @@
   }
 
   async function abrirPropuesta(item) {
+    if (await asegurarConversacionServicio()) {
+      window.EVServicioConversacion.open(Number(item?.codigo_solicitud_servicio || 0), { openProposal: true });
+      return;
+    }
+
     if (!window.Swal?.fire) return;
     const result = await Swal.fire(swalConfig({
       title: 'Enviar propuesta',
@@ -540,7 +539,7 @@
         <div class="ev-ssv-detail-grid">
           <div class="ev-ssv-detail-box"><span>Precio referencial</span><strong>${escapeHtml(formatMoney(item?.precio_referencial))}</strong></div>
           <div class="ev-ssv-detail-box"><span>Fecha deseada</span><strong>${escapeHtml(rangoDeseado(item))}</strong></div>
-          <div class="ev-ssv-detail-box"><span>Punto de atención</span><strong>${escapeHtml(item?.direccion_atencion || '—')}</strong></div>
+          <div class="ev-ssv-detail-box"><span>Ubicación</span><strong>${Number(item?.ubicacion_compartida || 0) === 1 ? 'Compartida dentro de la conversación' : 'Se comparte cuando sea necesaria para cotizar'}</strong></div>
           <div class="ev-ssv-detail-box"><span>Estado</span><strong>${escapeHtml(item?.estado_texto || '—')}</strong></div>
         </div>
         <div class="ev-ssv-detail-section"><h6>Solicitud del vecino</h6><p>${escapeHtml(item?.mensaje_solicitante || 'Sin detalle adicional.')}</p></div>
@@ -550,7 +549,32 @@
     `;
   }
 
+
+  async function asegurarConversacionServicio() {
+    if (window.EVServicioConversacion?.open) return true;
+    const id = 'ev-servicio-conversacion-script';
+    let script = document.getElementById(id);
+    if (!script) {
+      script = document.createElement('script');
+      script.id = id;
+      script.src = `${BASE}/views/js/servicioConversacion.js`;
+      document.head.appendChild(script);
+    }
+    await new Promise((resolve) => {
+      if (window.EVServicioConversacion?.open) return resolve();
+      script.addEventListener('load', resolve, { once: true });
+      script.addEventListener('error', resolve, { once: true });
+      window.setTimeout(resolve, 3500);
+    });
+    return !!window.EVServicioConversacion?.open;
+  }
+
   async function detalle(item) {
+    if (await asegurarConversacionServicio()) {
+      window.EVServicioConversacion.open(Number(item?.codigo_solicitud_servicio || 0));
+      return;
+    }
+
     if (!window.Swal?.fire) return;
     await Swal.fire(swalConfig({ title: 'Detalle de solicitud', html: detalleHtml(item), width: 800, confirmButtonText: 'Cerrar' }));
   }
@@ -564,10 +588,10 @@
     const action = btn.dataset.ssvAction;
     const item = cache.get(id);
     if (!id || !item) return;
+    if (action === 'conversacion' || action === 'detalle') await detalle(item);
     if (action === 'informacion') await pedirInformacion(item);
     if (action === 'propuesta') await abrirPropuesta(item);
     if (action === 'rechazar') await rechazar(item);
-    if (action === 'detalle') await detalle(item);
   }
 
   function bind() {

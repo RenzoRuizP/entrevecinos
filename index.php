@@ -662,6 +662,7 @@ safeRequire(__DIR__ . '/controllers/api/apiComunidadVecinoController.php');
 safeRequire(__DIR__ . '/controllers/misPedidosCompradorController.php');
 safeRequire(__DIR__ . '/controllers/misPedidosVendedorController.php');
 safeRequire(__DIR__ . '/controllers/misSolicitudesServicioVendedorController.php');
+safeRequire(__DIR__ . '/controllers/misSolicitudesServicioCompradorController.php');
 
 // ============================================================
 // 2) Normalización BASE_URL / basePath
@@ -763,6 +764,7 @@ $routes = [
 
     ['GET', '#^/mis-pedidos-comprador$#', [misPedidosCompradorController::class, 'index'], 'html'],
     ['GET', '#^/mis-pedidos-vendedor$#',  [misPedidosVendedorController::class, 'index'],  'html'],
+    ['GET', '#^/mis-solicitudes-servicio-comprador$#', [misSolicitudesServicioCompradorController::class, 'index'], 'html'],
     ['GET', '#^/mis-solicitudes-servicio-vendedor$#', [misSolicitudesServicioVendedorController::class, 'index'], 'html'],
 
     // ---------------------------
@@ -843,9 +845,28 @@ $routes = [
     // ---------------------------
     ['POST', '#^/api/servicios/solicitudes$#', [apiSolicitudServicioController::class, 'registrar'], 'json'],
     ['GET',  '#^/api/servicios/solicitudes/proveedor$#', [apiSolicitudServicioController::class, 'listarProveedor'], 'json'],
+    ['GET',  '#^/api/servicios/solicitudes/solicitante$#', [apiSolicitudServicioController::class, 'listarSolicitante'], 'json'],
+
+    // Punto 10: conversación privada, imágenes y punto exacto tras aceptación.
+    ['GET',  '#^/api/servicios/solicitudes/(\d+)/conversacion$#', [apiSolicitudServicioController::class, 'obtenerConversacion'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/mensajes$#', [apiSolicitudServicioController::class, 'enviarMensaje'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/compartir-ubicacion$#', [apiSolicitudServicioController::class, 'compartirUbicacion'], 'json'],
+
     ['POST', '#^/api/servicios/solicitudes/(\d+)/solicitar-informacion$#', [apiSolicitudServicioController::class, 'solicitarInformacion'], 'json'],
     ['POST', '#^/api/servicios/solicitudes/(\d+)/propuesta$#', [apiSolicitudServicioController::class, 'enviarPropuesta'], 'json'],
     ['POST', '#^/api/servicios/solicitudes/(\d+)/rechazar$#', [apiSolicitudServicioController::class, 'rechazar'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/responder-informacion$#', [apiSolicitudServicioController::class, 'responderInformacion'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/aceptar-propuesta$#', [apiSolicitudServicioController::class, 'aceptarPropuesta'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/solicitar-ajuste$#', [apiSolicitudServicioController::class, 'solicitarAjuste'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/cancelar$#', [apiSolicitudServicioController::class, 'cancelar'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/cotizacion-final$#', [apiSolicitudServicioController::class, 'enviarCotizacionFinal'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/aceptar-cotizacion-final$#', [apiSolicitudServicioController::class, 'aceptarCotizacionFinal'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/solicitar-ajuste-cotizacion$#', [apiSolicitudServicioController::class, 'solicitarAjusteCotizacionFinal'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/rechazar-cotizacion-final$#', [apiSolicitudServicioController::class, 'rechazarCotizacionFinal'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/cancelar-proveedor$#', [apiSolicitudServicioController::class, 'cancelarProveedor'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/marcar-realizado$#', [apiSolicitudServicioController::class, 'marcarRealizado'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/confirmar-realizado$#', [apiSolicitudServicioController::class, 'confirmarRealizado'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/reportar-observacion$#', [apiSolicitudServicioController::class, 'reportarObservacion'], 'json'],
 
     // ---------------------------
     // BILLETERA
@@ -1139,7 +1160,20 @@ foreach ($routes as $r) {
     }
 
     array_shift($matches);
-    call_user_func_array([$controller, $action], $matches);
+
+    /*
+     * preg_match entrega las capturas de rutas como string. Con declare(strict_types=1),
+     * los métodos tipados como int (por ejemplo, solicitudes de servicio) no aceptan
+     * directamente esos valores. Convertimos únicamente capturas compuestas solo por dígitos.
+     */
+    $routeParams = array_map(
+        static function ($value) {
+            return is_string($value) && ctype_digit($value) ? (int)$value : $value;
+        },
+        $matches
+    );
+
+    call_user_func_array([$controller, $action], $routeParams);
     break;
 }
 

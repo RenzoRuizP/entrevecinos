@@ -3167,4 +3167,108 @@ body.modal-open .ev-mp-card{
   }
 }
 
+/* ==========================================================
+   PUNTO 10 — Solicitud inteligente de servicios
+========================================================== */
+.ev-mp-service-request-card{max-width:860px}
+.ev-mp-service-request-note{display:flex;align-items:flex-start;gap:11px;padding:13px 14px;border:1px solid rgba(15,89,47,.16);border-radius:16px;background:linear-gradient(135deg,#F0FDF4,#fff);color:#365747;margin-bottom:4px}
+.ev-mp-service-request-note i{color:#0F592F;font-size:1.16rem;line-height:1.2}.ev-mp-service-request-note strong{display:block;color:#0F592F;font-size:.89rem;font-weight:900;margin-bottom:2px}.ev-mp-service-request-note span{display:block;color:#64748B;font-size:.81rem;line-height:1.42}
+.ev-mp-optional{font-size:.74rem;color:#94A3B8;font-weight:700}.ev-mp-service-file-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}.ev-mp-service-file-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid #CDE7D5;border-radius:999px;background:#F6FBF8;color:#356044;font-size:.75rem;font-weight:800;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ev-mp-service-file-pill i{color:#16A34A}
+@media(max-width:575.98px){.ev-mp-service-request-note{padding:12px}.ev-mp-service-request-note span{font-size:.78rem}}
+
+
+/* ==========================================================
+   SOLICITAR COTIZACIÓN — flujo mínimo y privado
+========================================================== */
+.ev-mp-quote-request-modal .ev-mp-modal-body{
+  background:linear-gradient(180deg,#F5FAF7 0%,#F3F4F6 100%);
+}
+.ev-mp-service-request-card{
+  padding:20px;
+}
+.ev-mp-quote-request-hero{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  margin-bottom:16px;
+  padding:14px 15px;
+  border:1px solid rgba(22,163,74,.18);
+  border-radius:17px;
+  background:linear-gradient(135deg,#ECFDF3 0%,#FFFFFF 76%);
+}
+.ev-mp-quote-request-hero-icon{
+  flex:0 0 38px;
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border-radius:13px;
+  color:#0F592F;
+  background:#fff;
+  border:1px solid rgba(22,163,74,.2);
+  box-shadow:0 8px 16px rgba(15,89,47,.08);
+}
+.ev-mp-quote-request-hero strong{
+  display:block;
+  color:#0F592F;
+  font-size:.91rem;
+  font-weight:900;
+  margin-bottom:3px;
+}
+.ev-mp-quote-request-hero p{
+  margin:0;
+  color:#5E6B7A;
+  font-size:.82rem;
+  line-height:1.48;
+}
+.ev-mp-quote-service-summary{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding:13px 14px;
+  border:1px solid #E5E7EB;
+  border-radius:16px;
+  background:#fff;
+  margin-bottom:16px;
+}
+.ev-mp-quote-service-summary span,
+.ev-mp-quote-price-ref span{
+  display:block;
+  color:#728096;
+  font-size:.7rem;
+  font-weight:900;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  margin-bottom:3px;
+}
+.ev-mp-quote-service-summary strong{
+  display:block;
+  color:#123D27;
+  font-size:.94rem;
+  font-weight:900;
+  overflow-wrap:anywhere;
+}
+.ev-mp-quote-price-ref{
+  min-width:125px;
+  padding-left:14px;
+  border-left:1px solid #E9EEF1;
+}
+.ev-mp-quote-price-ref strong{color:#168047;}
+.ev-mp-quote-request-modal textarea.form-control{
+  border-radius:14px;
+  border-color:#DCE4EE;
+  min-height:132px;
+  resize:vertical;
+}
+.ev-mp-quote-request-modal textarea.form-control:focus,
+.ev-mp-quote-request-modal input[type=file]:focus{
+  border-color:#16A34A;
+  box-shadow:0 0 0 .2rem rgba(22,163,74,.11);
+}
+@media(max-width:575.98px){
+  .ev-mp-service-request-card{padding:14px;}
+  .ev-mp-quote-service-summary{flex-direction:column;}
+  .ev-mp-quote-price-ref{padding:10px 0 0;border-left:0;border-top:1px solid #E9EEF1;}
+}
+
 </style>

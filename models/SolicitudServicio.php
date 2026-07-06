@@ -291,19 +291,13 @@ class SolicitudServicio extends Conexion
             ];
         }
 
-        if (mb_strlen($direccionAtencion, 'UTF-8') < 5) {
-            return [
-                'ok' => false,
-                'error' => 'DIRECCION_REQUERIDA',
-                'mensaje' => 'Indica la dirección o punto de atención para coordinar el servicio.',
-            ];
-        }
-
-        if (mb_strlen($direccionAtencion, 'UTF-8') > 255) {
+        // La ubicación exacta se comparte dentro de la conversación cuando sea necesaria
+        // para calcular movilidad o condiciones de atención. No es obligatoria al iniciar.
+        if (mb_strlen($direccionAtencion, 'UTF-8') > 500) {
             return [
                 'ok' => false,
                 'error' => 'DIRECCION_DEMASIADO_LARGA',
-                'mensaje' => 'La dirección o punto de atención no puede superar 255 caracteres.',
+                'mensaje' => 'El punto de atención no puede superar 500 caracteres.',
             ];
         }
 
@@ -475,7 +469,11 @@ class SolicitudServicio extends Conexion
             $st->bindValue(':precio_referencial', round((float)($servicio['precio'] ?? 0), 2));
             $st->bindValue(':fecha_deseada', $fechaDeseada, $fechaDeseada !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
             $st->bindValue(':rango_horario', $rangoHorario, PDO::PARAM_STR);
-            $st->bindValue(':direccion_atencion', $direccionAtencion, PDO::PARAM_STR);
+            if ($direccionAtencion !== '') {
+                $st->bindValue(':direccion_atencion', $direccionAtencion, PDO::PARAM_STR);
+            } else {
+                $st->bindValue(':direccion_atencion', null, PDO::PARAM_NULL);
+            }
             $st->bindValue(':mensaje_solicitante', $mensajeSolicitante, PDO::PARAM_STR);
             $st->bindValue(':fecha_limite_respuesta', $fechaLimite, PDO::PARAM_STR);
             $st->execute();
@@ -529,8 +527,16 @@ class SolicitudServicio extends Conexion
             'propuesta_enviada_solicitante' => 'Propuesta enviada',
             'ajuste_solicitado' => 'Ajuste solicitado',
             'coordinacion_confirmada' => 'Coordinación confirmada',
+            'servicio_realizado_proveedor' => 'Pendiente de confirmación del comprador',
+            'servicio_confirmado_solicitante' => 'Servicio confirmado',
+            'observacion_reportada' => 'Observación reportada',
+            'cotizacion_final_enviada' => 'Cotización final enviada',
+            'ajuste_cotizacion_solicitado' => 'Ajuste de cotización solicitado',
+            'cotizacion_vencida' => 'Cotización vencida',
+            'cotizacion_rechazada_solicitante' => 'Cotización rechazada',
             'rechazada_proveedor' => 'Rechazada por proveedor',
             'cancelada_solicitante' => 'Cancelada por solicitante',
+            'cancelada_proveedor' => 'Cancelada por proveedor',
             'sin_respuesta_proveedor' => 'Sin respuesta del proveedor',
             default => 'Sin estado',
         };
@@ -902,11 +908,15 @@ class SolicitudServicio extends Conexion
             'categoria_nombre' => (string)($row['categoria_nombre'] ?? ''),
             'tipo_nombre' => (string)($row['tipo_nombre'] ?? ''),
             'nombre_solicitante' => trim((string)($row['nombre_solicitante'] ?? '')) ?: 'Vecino',
+            'nombre_proveedor' => trim((string)($row['nombre_proveedor'] ?? '')) ?: 'Vecino',
             'precio_referencial' => (string)($row['precio_referencial'] ?? '0.00'),
             'fecha_deseada' => $row['fecha_deseada'] ?? null,
             'rango_horario' => (string)($row['rango_horario'] ?? 'a_coordinar'),
             'rango_horario_texto' => $this->etiquetaRangoHorario((string)($row['rango_horario'] ?? 'a_coordinar')),
-            'direccion_atencion' => (string)($row['direccion_atencion'] ?? ''),
+            // La dirección exacta no viaja a los paneles resumidos; solo se muestra
+            // en la conversación privada a sus dos participantes.
+            'direccion_atencion' => '',
+            'ubicacion_compartida' => !empty($row['direccion_compartida_at']) ? 1 : 0,
             'mensaje_solicitante' => (string)($row['mensaje_solicitante'] ?? ''),
             'estado' => $estado,
             'estado_texto' => $this->etiquetaEstadoServicio($estado),
@@ -930,6 +940,7 @@ class SolicitudServicio extends Conexion
 
         try {
             $this->sincronizarSolicitudesVencidasProveedor($codigoProveedor);
+            $this->sincronizarCotizacionesVencidas(null, $codigoProveedor, 'proveedor');
 
             $sql = "
                 SELECT
@@ -967,7 +978,7 @@ class SolicitudServicio extends Conexion
                     ON t.codigo_tipo = p.codigo_tipo
                 LEFT JOIN solicitud_servicio_propuesta pr
                     ON pr.codigo_solicitud_servicio = ss.codigo_solicitud_servicio
-                   AND pr.estado = 'vigente'
+                   AND pr.estado IN ('vigente', 'aceptada', 'requiere_actualizacion')
                 WHERE ss.codigo_usuario_proveedor = :codigo_usuario_proveedor
                 ORDER BY
                     CASE ss.estado
@@ -993,9 +1004,9 @@ class SolicitudServicio extends Conexion
                 $item = $this->mapearSolicitudSalida($row);
                 $estado = (string)$item['estado'];
 
-                if (in_array($estado, ['pendiente_proveedor', 'ajuste_solicitado'], true)) {
+                if (in_array($estado, ['pendiente_proveedor', 'ajuste_solicitado', 'ajuste_cotizacion_solicitado', 'cotizacion_vencida'], true)) {
                     $pendientes[] = $item;
-                } elseif (in_array($estado, ['informacion_adicional_solicitada', 'propuesta_enviada_solicitante', 'coordinacion_confirmada'], true)) {
+                } elseif (in_array($estado, ['informacion_adicional_solicitada', 'propuesta_enviada_solicitante', 'cotizacion_final_enviada', 'coordinacion_confirmada', 'servicio_realizado_proveedor'], true)) {
                     $esperando[] = $item;
                 } else {
                     $cerradas[] = $item;
@@ -1319,6 +1330,1399 @@ class SolicitudServicio extends Conexion
             if ($this->dblink->inTransaction()) $this->dblink->rollBack();
             error_log('[EV][SolicitudServicio][rechazarSolicitud] ' . $e->getMessage());
             return ['ok' => false, 'error' => 'ERROR_RECHAZAR_SOLICITUD', 'mensaje' => 'No se pudo registrar el rechazo de la solicitud.'];
+        }
+    }
+
+
+
+    /* ==========================================================
+       PUNTO 10 — VISTA DEL SOLICITANTE / COMPRADOR
+       - Permite responder información, aceptar propuesta,
+         solicitar ajustes y cancelar antes de la confirmación.
+       - Mantiene el flujo de servicios separado de pedidos.
+    ========================================================== */
+
+    private function sincronizarSolicitudesVencidasSolicitante(int $codigoSolicitante): void
+    {
+        if ($codigoSolicitante <= 0) {
+            return;
+        }
+
+        $sql = "
+            UPDATE solicitud_servicio
+            SET
+                estado = 'sin_respuesta_proveedor',
+                estado_anterior = 'pendiente_proveedor',
+                motivo_estado = 'El proveedor no respondió dentro de las 24 horas esperadas.',
+                fecha_cierre = NOW(),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE codigo_usuario_solicitante = :codigo_usuario_solicitante
+              AND estado = 'pendiente_proveedor'
+              AND fecha_limite_respuesta IS NOT NULL
+              AND fecha_limite_respuesta <= NOW()
+        ";
+
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_usuario_solicitante', $codigoSolicitante, PDO::PARAM_INT);
+        $st->execute();
+    }
+
+    private function registrarNotificacionProveedor(
+        array $solicitud,
+        string $subcategoria,
+        string $titulo,
+        string $mensaje,
+        array $payloadExtra = []
+    ): void {
+        $codigoProveedor = (int)($solicitud['codigo_usuario_proveedor'] ?? 0);
+        $codigoSolicitud = (int)($solicitud['codigo_solicitud_servicio'] ?? 0);
+
+        if ($codigoProveedor <= 0 || $codigoSolicitud <= 0) {
+            return;
+        }
+
+        $payload = array_merge([
+            'codigo_solicitud_servicio' => $codigoSolicitud,
+            'codigo_producto' => (int)($solicitud['codigo_producto'] ?? 0),
+            'titulo_servicio' => (string)($solicitud['titulo_servicio'] ?? 'Servicio'),
+            'rol_destino' => 'proveedor',
+            'ruta' => '/mis-solicitudes-servicio-vendedor',
+        ], $payloadExtra);
+
+        $sql = "
+            INSERT INTO notificacion
+            (
+                codigo_usuario,
+                canal,
+                categoria,
+                subcategoria,
+                referencia_id,
+                titulo,
+                mensaje,
+                payload_json,
+                estado
+            )
+            VALUES
+            (
+                :codigo_usuario,
+                'app',
+                'servicio',
+                :subcategoria,
+                :referencia_id,
+                :titulo,
+                :mensaje,
+                :payload_json,
+                'no_leida'
+            )
+        ";
+
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_usuario', $codigoProveedor, PDO::PARAM_INT);
+        $st->bindValue(':subcategoria', $subcategoria, PDO::PARAM_STR);
+        $st->bindValue(':referencia_id', $codigoSolicitud, PDO::PARAM_INT);
+        $st->bindValue(':titulo', mb_substr($titulo, 0, 180, 'UTF-8'), PDO::PARAM_STR);
+        $st->bindValue(':mensaje', $mensaje, PDO::PARAM_STR);
+        $st->bindValue(':payload_json', json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), PDO::PARAM_STR);
+        $st->execute();
+    }
+
+    private function obtenerSolicitudSolicitanteBloqueada(int $codigoSolicitud, int $codigoSolicitante): ?array
+    {
+        $sql = "
+            SELECT
+                ss.*,
+                p.titulo AS titulo_servicio,
+                p.imagen_portada,
+                p.descripcion AS descripcion_servicio,
+                p.codigo_tipo,
+                p.codigo_categoria,
+                c.nombre AS categoria_nombre,
+                t.nombre AS tipo_nombre,
+                up.nombre AS nombre_proveedor
+            FROM solicitud_servicio ss
+            INNER JOIN producto p
+                ON p.codigo_producto = ss.codigo_producto
+            INNER JOIN usuario up
+                ON up.codigo_usuario = ss.codigo_usuario_proveedor
+            LEFT JOIN categoria c
+                ON c.codigo_categoria = p.codigo_categoria
+            LEFT JOIN tipo t
+                ON t.codigo_tipo = p.codigo_tipo
+            WHERE ss.codigo_solicitud_servicio = :codigo_solicitud_servicio
+              AND ss.codigo_usuario_solicitante = :codigo_usuario_solicitante
+            LIMIT 1
+            FOR UPDATE
+        ";
+
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_solicitud_servicio', $codigoSolicitud, PDO::PARAM_INT);
+        $st->bindValue(':codigo_usuario_solicitante', $codigoSolicitante, PDO::PARAM_INT);
+        $st->execute();
+
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    private function obtenerPropuestaVigenteBloqueada(int $codigoSolicitud): ?array
+    {
+        $sql = "
+            SELECT *
+            FROM solicitud_servicio_propuesta
+            WHERE codigo_solicitud_servicio = :codigo_solicitud_servicio
+              AND estado = 'vigente'
+            ORDER BY version DESC, codigo_solicitud_servicio_propuesta DESC
+            LIMIT 1
+            FOR UPDATE
+        ";
+
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_solicitud_servicio', $codigoSolicitud, PDO::PARAM_INT);
+        $st->execute();
+
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    private function estadoPermiteRespuestaSolicitante(string $estado): bool
+    {
+        return $estado === 'informacion_adicional_solicitada';
+    }
+
+    private function estadoPermiteAceptarPropuestaSolicitante(string $estado): bool
+    {
+        return $estado === 'propuesta_enviada_solicitante';
+    }
+
+    private function estadoPermiteCancelarSolicitante(string $estado): bool
+    {
+        return in_array($estado, [
+            'pendiente_proveedor',
+            'informacion_adicional_solicitada',
+            'propuesta_enviada_solicitante',
+            'ajuste_solicitado',
+        ], true);
+    }
+
+    public function listarSolicitudesSolicitante(int $codigoSolicitante): array
+    {
+        if ($codigoSolicitante <= 0) {
+            return ['ok' => false, 'error' => 'PARAMETROS_INVALIDOS', 'mensaje' => 'No se pudo identificar al solicitante.'];
+        }
+
+        try {
+            $this->sincronizarSolicitudesVencidasSolicitante($codigoSolicitante);
+            $this->sincronizarCotizacionesVencidas(null, $codigoSolicitante, 'solicitante');
+
+            $sql = "
+                SELECT
+                    ss.*,
+                    p.titulo AS titulo_servicio,
+                    p.descripcion AS descripcion_servicio,
+                    p.imagen_portada,
+                    p.codigo_tipo,
+                    p.codigo_categoria,
+                    c.nombre AS categoria_nombre,
+                    t.nombre AS tipo_nombre,
+                    up.nombre AS nombre_proveedor,
+                    pr.codigo_solicitud_servicio_propuesta,
+                    pr.version AS version_propuesta,
+                    pr.modalidad AS modalidad_propuesta,
+                    pr.momento_tipo,
+                    pr.fecha_propuesta,
+                    pr.horario_propuesto,
+                    pr.alcance_confirmado,
+                    pr.tipo_precio,
+                    pr.monto_propuesto,
+                    pr.unidad_precio,
+                    pr.duracion_estimada,
+                    pr.requisitos,
+                    pr.mensaje_proveedor,
+                    pr.created_at AS propuesta_created_at
+                FROM solicitud_servicio ss
+                INNER JOIN producto p
+                    ON p.codigo_producto = ss.codigo_producto
+                INNER JOIN usuario up
+                    ON up.codigo_usuario = ss.codigo_usuario_proveedor
+                LEFT JOIN categoria c
+                    ON c.codigo_categoria = p.codigo_categoria
+                LEFT JOIN tipo t
+                    ON t.codigo_tipo = p.codigo_tipo
+                LEFT JOIN solicitud_servicio_propuesta pr
+                    ON pr.codigo_solicitud_servicio = ss.codigo_solicitud_servicio
+                   AND pr.estado IN ('vigente', 'aceptada', 'requiere_actualizacion')
+                WHERE ss.codigo_usuario_solicitante = :codigo_usuario_solicitante
+                ORDER BY
+                    CASE ss.estado
+                        WHEN 'informacion_adicional_solicitada' THEN 1
+                        WHEN 'propuesta_enviada_solicitante' THEN 2
+                        WHEN 'pendiente_proveedor' THEN 3
+                        WHEN 'ajuste_solicitado' THEN 4
+                        WHEN 'coordinacion_confirmada' THEN 5
+                        ELSE 6
+                    END,
+                    ss.updated_at DESC,
+                    ss.created_at DESC,
+                    ss.codigo_solicitud_servicio DESC
+            ";
+
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':codigo_usuario_solicitante', $codigoSolicitante, PDO::PARAM_INT);
+            $st->execute();
+
+            $porResponder = [];
+            $enCoordinacion = [];
+            $cerradas = [];
+
+            foreach (($st->fetchAll(PDO::FETCH_ASSOC) ?: []) as $row) {
+                $item = $this->mapearSolicitudSalida($row);
+                $estado = (string)$item['estado'];
+
+                if (in_array($estado, ['informacion_adicional_solicitada', 'propuesta_enviada_solicitante', 'cotizacion_final_enviada', 'servicio_realizado_proveedor'], true)) {
+                    $porResponder[] = $item;
+                } elseif (in_array($estado, [
+                    'pendiente_proveedor',
+                    'ajuste_solicitado',
+                    'ajuste_cotizacion_solicitado',
+                    'cotizacion_vencida',
+                    'coordinacion_confirmada',
+                ], true)) {
+                    $enCoordinacion[] = $item;
+                } else {
+                    $cerradas[] = $item;
+                }
+            }
+
+            return [
+                'ok' => true,
+                'data' => [
+                    'por_responder' => $porResponder,
+                    'en_coordinacion' => $enCoordinacion,
+                    'cerradas' => $cerradas,
+                    'resumen' => [
+                        'por_responder' => count($porResponder),
+                        'en_coordinacion' => count($enCoordinacion),
+                        'cerradas' => count($cerradas),
+                    ],
+                ],
+            ];
+        } catch (Throwable $e) {
+            error_log('[EV][SolicitudServicio][listarSolicitudesSolicitante] ' . $e->getMessage());
+            return [
+                'ok' => false,
+                'error' => 'ERROR_LISTAR_SOLICITUDES_SERVICIO',
+                'mensaje' => 'No se pudieron cargar tus solicitudes de servicio.',
+            ];
+        }
+    }
+
+    public function responderInformacionSolicitante(int $codigoSolicitud, int $codigoSolicitante, string $mensaje): array
+    {
+        $mensaje = $this->textoLimpio($mensaje, 1500);
+
+        if ($codigoSolicitud <= 0 || $codigoSolicitante <= 0) {
+            return ['ok' => false, 'error' => 'PARAMETROS_INVALIDOS', 'mensaje' => 'No se pudo identificar la solicitud.'];
+        }
+
+        if (mb_strlen($mensaje, 'UTF-8') < 8) {
+            return [
+                'ok' => false,
+                'error' => 'MENSAJE_RESPUESTA_REQUERIDO',
+                'mensaje' => 'Describe la información solicitada para que el proveedor pueda continuar.',
+            ];
+        }
+
+        try {
+            $this->dblink->beginTransaction();
+            $this->sincronizarSolicitudesVencidasSolicitante($codigoSolicitante);
+
+            $solicitud = $this->obtenerSolicitudSolicitanteBloqueada($codigoSolicitud, $codigoSolicitante);
+            if (!$solicitud) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'SOLICITUD_NO_ENCONTRADA', 'mensaje' => 'La solicitud no existe o no te pertenece.'];
+            }
+
+            $estadoActual = (string)($solicitud['estado'] ?? '');
+            if (!$this->estadoPermiteRespuestaSolicitante($estadoActual)) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'ESTADO_NO_PERMITE_ACCION', 'mensaje' => 'La solicitud ya no permite responder información adicional.'];
+            }
+
+            $detalleOriginal = trim((string)($solicitud['mensaje_solicitante'] ?? ''));
+            $detalleActualizado = $detalleOriginal === ''
+                ? $mensaje
+                : $detalleOriginal . "\n\nInformación adicional enviada por el solicitante:\n" . $mensaje;
+
+            $sql = "
+                UPDATE solicitud_servicio
+                SET
+                    mensaje_solicitante = :mensaje_solicitante,
+                    estado = 'pendiente_proveedor',
+                    estado_anterior = :estado_anterior,
+                    motivo_estado = 'El solicitante respondió la información solicitada.',
+                    fecha_limite_respuesta = DATE_ADD(NOW(), INTERVAL 24 HOUR),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :codigo_solicitud_servicio
+                  AND codigo_usuario_solicitante = :codigo_usuario_solicitante
+            ";
+
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':mensaje_solicitante', $detalleActualizado, PDO::PARAM_STR);
+            $st->bindValue(':estado_anterior', $estadoActual, PDO::PARAM_STR);
+            $st->bindValue(':codigo_solicitud_servicio', $codigoSolicitud, PDO::PARAM_INT);
+            $st->bindValue(':codigo_usuario_solicitante', $codigoSolicitante, PDO::PARAM_INT);
+            $st->execute();
+
+            $this->registrarInteraccion(
+                $codigoSolicitud,
+                $codigoSolicitante,
+                'solicitante',
+                'informacion_adicional_respondida',
+                $mensaje,
+                ['estado_anterior' => $estadoActual]
+            );
+
+            $this->registrarNotificacionProveedor(
+                $solicitud,
+                'informacion_respondida',
+                'El vecino respondió la información solicitada',
+                'El solicitante envió información adicional para “' . (string)$solicitud['titulo_servicio'] . '”.'
+            );
+
+            $this->dblink->commit();
+
+            return [
+                'ok' => true,
+                'mensaje' => 'Tu información fue enviada al proveedor.',
+                'estado' => 'pendiente_proveedor',
+            ];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+
+            error_log('[EV][SolicitudServicio][responderInformacionSolicitante] ' . $e->getMessage());
+            return [
+                'ok' => false,
+                'error' => 'ERROR_RESPONDER_INFORMACION',
+                'mensaje' => 'No se pudo enviar la información adicional.',
+            ];
+        }
+    }
+
+    public function aceptarPropuestaSolicitante(int $codigoSolicitud, int $codigoSolicitante): array
+    {
+        if ($codigoSolicitud <= 0 || $codigoSolicitante <= 0) {
+            return ['ok' => false, 'error' => 'PARAMETROS_INVALIDOS', 'mensaje' => 'No se pudo identificar la solicitud.'];
+        }
+
+        try {
+            $this->dblink->beginTransaction();
+            $this->sincronizarSolicitudesVencidasSolicitante($codigoSolicitante);
+
+            $solicitud = $this->obtenerSolicitudSolicitanteBloqueada($codigoSolicitud, $codigoSolicitante);
+            if (!$solicitud) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'SOLICITUD_NO_ENCONTRADA', 'mensaje' => 'La solicitud no existe o no te pertenece.'];
+            }
+
+            $estadoActual = (string)($solicitud['estado'] ?? '');
+            if (!$this->estadoPermiteAceptarPropuestaSolicitante($estadoActual)) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'ESTADO_NO_PERMITE_ACCION', 'mensaje' => 'La solicitud ya no permite aceptar una propuesta.'];
+            }
+
+            $propuesta = $this->obtenerPropuestaVigenteBloqueada($codigoSolicitud);
+            if (!$propuesta) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'PROPUESTA_NO_ENCONTRADA', 'mensaje' => 'No se encontró una propuesta vigente para aceptar.'];
+            }
+
+            $sqlPropuesta = "
+                UPDATE solicitud_servicio_propuesta
+                SET
+                    estado = 'aceptada',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio_propuesta = :codigo_solicitud_servicio_propuesta
+                  AND estado = 'vigente'
+            ";
+            $stPropuesta = $this->dblink->prepare($sqlPropuesta);
+            $stPropuesta->bindValue(':codigo_solicitud_servicio_propuesta', (int)$propuesta['codigo_solicitud_servicio_propuesta'], PDO::PARAM_INT);
+            $stPropuesta->execute();
+
+            $sqlSolicitud = "
+                UPDATE solicitud_servicio
+                SET
+                    estado = 'coordinacion_confirmada',
+                    estado_anterior = :estado_anterior,
+                    motivo_estado = 'El solicitante aceptó la propuesta de coordinación.',
+                    fecha_aceptacion = NOW(),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :codigo_solicitud_servicio
+                  AND codigo_usuario_solicitante = :codigo_usuario_solicitante
+            ";
+            $stSolicitud = $this->dblink->prepare($sqlSolicitud);
+            $stSolicitud->bindValue(':estado_anterior', $estadoActual, PDO::PARAM_STR);
+            $stSolicitud->bindValue(':codigo_solicitud_servicio', $codigoSolicitud, PDO::PARAM_INT);
+            $stSolicitud->bindValue(':codigo_usuario_solicitante', $codigoSolicitante, PDO::PARAM_INT);
+            $stSolicitud->execute();
+
+            $this->registrarInteraccion(
+                $codigoSolicitud,
+                $codigoSolicitante,
+                'solicitante',
+                'propuesta_aceptada',
+                'El solicitante aceptó la propuesta de coordinación.',
+                [
+                    'codigo_solicitud_servicio_propuesta' => (int)$propuesta['codigo_solicitud_servicio_propuesta'],
+                    'version' => (int)($propuesta['version'] ?? 1),
+                ]
+            );
+
+            $this->registrarNotificacionProveedor(
+                $solicitud,
+                'propuesta_aceptada',
+                'Tu propuesta fue aceptada',
+                'El solicitante aceptó tu propuesta para “' . (string)$solicitud['titulo_servicio'] . '”.',
+                [
+                    'codigo_solicitud_servicio_propuesta' => (int)$propuesta['codigo_solicitud_servicio_propuesta'],
+                ]
+            );
+
+            $this->dblink->commit();
+
+            return [
+                'ok' => true,
+                'mensaje' => 'La propuesta fue aceptada y la coordinación quedó confirmada.',
+                'estado' => 'coordinacion_confirmada',
+            ];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+
+            error_log('[EV][SolicitudServicio][aceptarPropuestaSolicitante] ' . $e->getMessage());
+            return [
+                'ok' => false,
+                'error' => 'ERROR_ACEPTAR_PROPUESTA',
+                'mensaje' => 'No se pudo aceptar la propuesta de coordinación.',
+            ];
+        }
+    }
+
+    public function solicitarAjusteSolicitante(int $codigoSolicitud, int $codigoSolicitante, string $mensaje): array
+    {
+        $mensaje = $this->textoLimpio($mensaje, 1500);
+
+        if ($codigoSolicitud <= 0 || $codigoSolicitante <= 0) {
+            return ['ok' => false, 'error' => 'PARAMETROS_INVALIDOS', 'mensaje' => 'No se pudo identificar la solicitud.'];
+        }
+
+        if (mb_strlen($mensaje, 'UTF-8') < 8) {
+            return [
+                'ok' => false,
+                'error' => 'MENSAJE_AJUSTE_REQUERIDO',
+                'mensaje' => 'Explica qué condición necesitas ajustar en la propuesta.',
+            ];
+        }
+
+        try {
+            $this->dblink->beginTransaction();
+            $this->sincronizarSolicitudesVencidasSolicitante($codigoSolicitante);
+
+            $solicitud = $this->obtenerSolicitudSolicitanteBloqueada($codigoSolicitud, $codigoSolicitante);
+            if (!$solicitud) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'SOLICITUD_NO_ENCONTRADA', 'mensaje' => 'La solicitud no existe o no te pertenece.'];
+            }
+
+            $estadoActual = (string)($solicitud['estado'] ?? '');
+            if (!$this->estadoPermiteAceptarPropuestaSolicitante($estadoActual)) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'ESTADO_NO_PERMITE_ACCION', 'mensaje' => 'La solicitud ya no permite pedir un ajuste.'];
+            }
+
+            $propuesta = $this->obtenerPropuestaVigenteBloqueada($codigoSolicitud);
+            if (!$propuesta) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'PROPUESTA_NO_ENCONTRADA', 'mensaje' => 'No se encontró una propuesta vigente para ajustar.'];
+            }
+
+            $sqlPropuesta = "
+                UPDATE solicitud_servicio_propuesta
+                SET
+                    estado = 'reemplazada',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio_propuesta = :codigo_solicitud_servicio_propuesta
+                  AND estado = 'vigente'
+            ";
+            $stPropuesta = $this->dblink->prepare($sqlPropuesta);
+            $stPropuesta->bindValue(':codigo_solicitud_servicio_propuesta', (int)$propuesta['codigo_solicitud_servicio_propuesta'], PDO::PARAM_INT);
+            $stPropuesta->execute();
+
+            $sqlSolicitud = "
+                UPDATE solicitud_servicio
+                SET
+                    estado = 'ajuste_solicitado',
+                    estado_anterior = :estado_anterior,
+                    motivo_estado = :motivo_estado,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :codigo_solicitud_servicio
+                  AND codigo_usuario_solicitante = :codigo_usuario_solicitante
+            ";
+            $stSolicitud = $this->dblink->prepare($sqlSolicitud);
+            $stSolicitud->bindValue(':estado_anterior', $estadoActual, PDO::PARAM_STR);
+            $stSolicitud->bindValue(':motivo_estado', $mensaje, PDO::PARAM_STR);
+            $stSolicitud->bindValue(':codigo_solicitud_servicio', $codigoSolicitud, PDO::PARAM_INT);
+            $stSolicitud->bindValue(':codigo_usuario_solicitante', $codigoSolicitante, PDO::PARAM_INT);
+            $stSolicitud->execute();
+
+            $this->registrarInteraccion(
+                $codigoSolicitud,
+                $codigoSolicitante,
+                'solicitante',
+                'ajuste_solicitado',
+                $mensaje,
+                [
+                    'codigo_solicitud_servicio_propuesta' => (int)$propuesta['codigo_solicitud_servicio_propuesta'],
+                    'version' => (int)($propuesta['version'] ?? 1),
+                ]
+            );
+
+            $this->registrarNotificacionProveedor(
+                $solicitud,
+                'ajuste_solicitado',
+                'El vecino solicitó un ajuste',
+                'El solicitante pidió ajustar la propuesta para “' . (string)$solicitud['titulo_servicio'] . '”.'
+            );
+
+            $this->dblink->commit();
+
+            return [
+                'ok' => true,
+                'mensaje' => 'Tu solicitud de ajuste fue enviada al proveedor.',
+                'estado' => 'ajuste_solicitado',
+            ];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+
+            error_log('[EV][SolicitudServicio][solicitarAjusteSolicitante] ' . $e->getMessage());
+            return [
+                'ok' => false,
+                'error' => 'ERROR_SOLICITAR_AJUSTE',
+                'mensaje' => 'No se pudo enviar la solicitud de ajuste.',
+            ];
+        }
+    }
+
+    public function cancelarSolicitudSolicitante(int $codigoSolicitud, int $codigoSolicitante, string $motivo): array
+    {
+        $motivo = $this->textoLimpio($motivo, 500);
+
+        if ($codigoSolicitud <= 0 || $codigoSolicitante <= 0) {
+            return ['ok' => false, 'error' => 'PARAMETROS_INVALIDOS', 'mensaje' => 'No se pudo identificar la solicitud.'];
+        }
+
+        if (mb_strlen($motivo, 'UTF-8') < 5) {
+            return [
+                'ok' => false,
+                'error' => 'MOTIVO_CANCELACION_REQUERIDO',
+                'mensaje' => 'Indica un motivo de cancelación claro y breve.',
+            ];
+        }
+
+        try {
+            $this->dblink->beginTransaction();
+            $this->sincronizarSolicitudesVencidasSolicitante($codigoSolicitante);
+
+            $solicitud = $this->obtenerSolicitudSolicitanteBloqueada($codigoSolicitud, $codigoSolicitante);
+            if (!$solicitud) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'SOLICITUD_NO_ENCONTRADA', 'mensaje' => 'La solicitud no existe o no te pertenece.'];
+            }
+
+            $estadoActual = (string)($solicitud['estado'] ?? '');
+            if (!$this->estadoPermiteCancelarSolicitante($estadoActual)) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'ESTADO_NO_PERMITE_ACCION', 'mensaje' => 'Esta solicitud ya no permite cancelación desde esta etapa.'];
+            }
+
+            $sqlPropuesta = "
+                UPDATE solicitud_servicio_propuesta
+                SET
+                    estado = 'cancelada_solicitante',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :codigo_solicitud_servicio
+                  AND estado = 'vigente'
+            ";
+            $stPropuesta = $this->dblink->prepare($sqlPropuesta);
+            $stPropuesta->bindValue(':codigo_solicitud_servicio', $codigoSolicitud, PDO::PARAM_INT);
+            $stPropuesta->execute();
+
+            $sqlSolicitud = "
+                UPDATE solicitud_servicio
+                SET
+                    estado = 'cancelada_solicitante',
+                    estado_anterior = :estado_anterior,
+                    motivo_estado = :motivo_estado,
+                    fecha_cancelacion = NOW(),
+                    fecha_cierre = NOW(),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :codigo_solicitud_servicio
+                  AND codigo_usuario_solicitante = :codigo_usuario_solicitante
+            ";
+            $stSolicitud = $this->dblink->prepare($sqlSolicitud);
+            $stSolicitud->bindValue(':estado_anterior', $estadoActual, PDO::PARAM_STR);
+            $stSolicitud->bindValue(':motivo_estado', $motivo, PDO::PARAM_STR);
+            $stSolicitud->bindValue(':codigo_solicitud_servicio', $codigoSolicitud, PDO::PARAM_INT);
+            $stSolicitud->bindValue(':codigo_usuario_solicitante', $codigoSolicitante, PDO::PARAM_INT);
+            $stSolicitud->execute();
+
+            $this->registrarInteraccion(
+                $codigoSolicitud,
+                $codigoSolicitante,
+                'solicitante',
+                'solicitud_cancelada',
+                $motivo,
+                ['estado_anterior' => $estadoActual]
+            );
+
+            $this->registrarNotificacionProveedor(
+                $solicitud,
+                'solicitud_cancelada',
+                'El vecino canceló la solicitud',
+                'El solicitante canceló la coordinación para “' . (string)$solicitud['titulo_servicio'] . '”.',
+                ['motivo_cancelacion' => $motivo]
+            );
+
+            $this->dblink->commit();
+
+            return [
+                'ok' => true,
+                'mensaje' => 'La solicitud de servicio fue cancelada.',
+                'estado' => 'cancelada_solicitante',
+            ];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+
+            error_log('[EV][SolicitudServicio][cancelarSolicitudSolicitante] ' . $e->getMessage());
+            return [
+                'ok' => false,
+                'error' => 'ERROR_CANCELAR_SOLICITUD',
+                'mensaje' => 'No se pudo cancelar la solicitud de servicio.',
+            ];
+        }
+    }
+
+
+
+    /* ==========================================================
+       PUNTO 10 — FLUJO FINAL DE COTIZACIÓN DE SERVICIOS
+       La negociación ocurre dentro de EV. Las cotizaciones son
+       documentos formales, versionados y vigentes por 72 horas.
+    ========================================================== */
+
+    private function normalizarCondicionPagoFinal($valor): string
+    {
+        $valor = strtolower(trim((string)$valor));
+        $permitidos = ['contra_entrega', 'adelanto_acordado'];
+
+        if (!in_array($valor, $permitidos, true)) {
+            throw new InvalidArgumentException('CONDICION_PAGO_REQUERIDA');
+        }
+
+        return $valor;
+    }
+
+    /**
+     * La hora es opcional porque no todos los servicios se prestan por franja
+     * horaria. Cuando se informa, se guarda con precisión HH:MM.
+     */
+    private function normalizarHoraCotizacion($valor, string $error): ?string
+    {
+        $hora = trim((string)$valor);
+        if ($hora === '') {
+            return null;
+        }
+
+        if (!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $hora)) {
+            throw new InvalidArgumentException($error);
+        }
+
+        return $hora . ':00';
+    }
+
+    private function normalizarMontoAdelanto($valor, string $condicionPago, float $montoTotal): ?float
+    {
+        if ($condicionPago !== 'adelanto_acordado') {
+            return null;
+        }
+
+        $raw = trim((string)$valor);
+        if ($raw === '' || !is_numeric($raw) || (float)$raw <= 0) {
+            throw new InvalidArgumentException('MONTO_ADELANTO_REQUERIDO');
+        }
+
+        $monto = round((float)$raw, 2);
+        if ($monto > $montoTotal) {
+            throw new InvalidArgumentException('MONTO_ADELANTO_SUPERA_TOTAL');
+        }
+
+        return $monto;
+    }
+
+    /**
+     * Cotización final simplificada:
+     * - El alcance incorpora el servicio incluido y todas las condiciones acordadas.
+     * - El precio total es definitivo e incluye movilidad, materiales, traslado,
+     *   instalación u otros conceptos que hubieran sido negociados.
+     * - Las horas son opcionales para cubrir servicios por entrega o plazo.
+     */
+    private function normalizarCotizacionFinal(array $data): array
+    {
+        $alcance = $this->textoLimpio($data['alcance_confirmado'] ?? '', 2500);
+        $duracion = $this->textoLimpio($data['duracion_estimada'] ?? '', 180);
+        $mensaje = $this->textoLimpio($data['mensaje_proveedor'] ?? '', 1500);
+
+        if (mb_strlen($alcance, 'UTF-8') < 8) {
+            throw new InvalidArgumentException('ALCANCE_REQUERIDO');
+        }
+
+        $montoRaw = trim((string)($data['monto_propuesto'] ?? ''));
+        if ($montoRaw === '' || !is_numeric($montoRaw) || (float)$montoRaw <= 0) {
+            throw new InvalidArgumentException('MONTO_PROPUESTA_REQUERIDO');
+        }
+
+        $monto = round((float)$montoRaw, 2);
+        if ($monto > 999999.99) {
+            throw new InvalidArgumentException('MONTO_PROPUESTA_INVALIDO');
+        }
+
+        $condicionPago = $this->normalizarCondicionPagoFinal($data['condicion_pago'] ?? '');
+        $montoAdelanto = $this->normalizarMontoAdelanto(
+            $data['monto_adelanto'] ?? '',
+            $condicionPago,
+            $monto
+        );
+
+        $fecha = $this->normalizarFechaPropuesta($data['fecha_propuesta'] ?? null);
+        if ($fecha === null) {
+            throw new InvalidArgumentException('FECHA_PROPUESTA_REQUERIDA');
+        }
+
+        $horaInicio = $this->normalizarHoraCotizacion($data['hora_inicio'] ?? '', 'HORA_INICIO_INVALIDA');
+        $horaFin = $this->normalizarHoraCotizacion($data['hora_fin'] ?? '', 'HORA_FIN_INVALIDA');
+
+        if ($horaInicio !== null && $horaFin !== null && $horaFin <= $horaInicio) {
+            throw new InvalidArgumentException('HORA_FIN_ANTERIOR_INICIO');
+        }
+
+        return [
+            // Compatibilidad con la tabla actual: columnas antiguas permanecen sin uso activo.
+            'modalidad' => 'a_coordinar',
+            'fecha_propuesta' => $fecha,
+            'hora_inicio' => $horaInicio,
+            'hora_fin' => $horaFin,
+            'horario_propuesto' => '',
+            'alcance_confirmado' => $alcance,
+            'monto_propuesto' => $monto,
+            'condicion_pago' => $condicionPago,
+            'monto_adelanto' => $montoAdelanto,
+            'duracion_estimada' => $duracion,
+            'requisitos' => '',
+            'mensaje_proveedor' => $mensaje,
+        ];
+    }
+
+    /**
+     * Vence únicamente la cotización vigente. La solicitud vuelve a un estado
+     * donde el proveedor puede emitir una nueva versión.
+     */
+    private function sincronizarCotizacionesVencidas(?int $codigoSolicitud = null, ?int $codigoUsuario = null, ?string $rol = null): void
+    {
+        $where = " p.estado = 'vigente'
+                   AND p.fecha_vencimiento IS NOT NULL
+                   AND p.fecha_vencimiento <= NOW()
+                   AND ss.estado = 'cotizacion_final_enviada' ";
+        $params = [];
+
+        if ($codigoSolicitud !== null && $codigoSolicitud > 0) {
+            $where .= ' AND ss.codigo_solicitud_servicio = :codigo_solicitud ';
+            $params[':codigo_solicitud'] = $codigoSolicitud;
+        }
+
+        if ($codigoUsuario !== null && $codigoUsuario > 0) {
+            if ($rol === 'proveedor') {
+                $where .= ' AND ss.codigo_usuario_proveedor = :codigo_usuario ';
+            } else {
+                $where .= ' AND ss.codigo_usuario_solicitante = :codigo_usuario ';
+            }
+            $params[':codigo_usuario'] = $codigoUsuario;
+        }
+
+        $sqlPropuesta = "
+            UPDATE solicitud_servicio_propuesta p
+            INNER JOIN solicitud_servicio ss
+              ON ss.codigo_solicitud_servicio = p.codigo_solicitud_servicio
+            SET p.estado = 'vencida',
+                p.motivo_estado = 'La cotización venció después de 72 horas sin respuesta.',
+                p.updated_at = CURRENT_TIMESTAMP
+            WHERE {$where}
+        ";
+        $st = $this->dblink->prepare($sqlPropuesta);
+        $st->execute($params);
+
+        $sqlSolicitud = "
+            UPDATE solicitud_servicio ss
+            INNER JOIN solicitud_servicio_propuesta p
+              ON p.codigo_solicitud_servicio = ss.codigo_solicitud_servicio
+            SET ss.estado = 'cotizacion_vencida',
+                ss.estado_anterior = 'cotizacion_final_enviada',
+                ss.motivo_estado = 'La cotización final venció luego de 72 horas sin respuesta.',
+                ss.updated_at = CURRENT_TIMESTAMP
+            WHERE p.estado = 'vencida'
+              AND ss.estado = 'cotizacion_final_enviada'
+        ";
+        if ($codigoSolicitud !== null && $codigoSolicitud > 0) {
+            $sqlSolicitud .= ' AND ss.codigo_solicitud_servicio = :codigo_solicitud ';
+        }
+        if ($codigoUsuario !== null && $codigoUsuario > 0) {
+            $sqlSolicitud .= ($rol === 'proveedor')
+                ? ' AND ss.codigo_usuario_proveedor = :codigo_usuario '
+                : ' AND ss.codigo_usuario_solicitante = :codigo_usuario ';
+        }
+        $st2 = $this->dblink->prepare($sqlSolicitud);
+        $st2->execute($params);
+    }
+
+    public function enviarCotizacionFinal(int $codigoSolicitud, int $codigoProveedor, array $data): array
+    {
+        if ($codigoSolicitud <= 0 || $codigoProveedor <= 0) {
+            return ['ok' => false, 'error' => 'PARAMETROS_INVALIDOS', 'mensaje' => 'No se pudo identificar la solicitud.'];
+        }
+
+        try {
+            $cotizacion = $this->normalizarCotizacionFinal($data);
+        } catch (InvalidArgumentException $e) {
+            $error = $e->getMessage();
+            $mensajes = [
+                'FECHA_PROPUESTA_INVALIDA' => 'La fecha acordada no tiene un formato válido.',
+                'FECHA_PROPUESTA_PASADA' => 'La fecha acordada no puede ser anterior a hoy.',
+                'FECHA_PROPUESTA_REQUERIDA' => 'Indica la fecha acordada.',
+                'ALCANCE_REQUERIDO' => 'Describe con precisión el servicio o alcance final que entregarás.',
+                'MONTO_PROPUESTA_REQUERIDO' => 'Indica el precio final total de la cotización.',
+                'MONTO_PROPUESTA_INVALIDO' => 'El precio final de la cotización no es válido.',
+                'CONDICION_PAGO_REQUERIDA' => 'Selecciona la condición de pago acordada.',
+                'MONTO_ADELANTO_REQUERIDO' => 'Indica el monto de adelanto acordado.',
+                'MONTO_ADELANTO_SUPERA_TOTAL' => 'El adelanto no puede superar el precio final total.',
+                'HORA_INICIO_INVALIDA' => 'La hora de inicio no tiene un formato válido.',
+                'HORA_FIN_INVALIDA' => 'La hora de fin no tiene un formato válido.',
+                'HORA_FIN_ANTERIOR_INICIO' => 'La hora de fin debe ser posterior a la hora de inicio.',
+            ];
+            return ['ok' => false, 'error' => $error, 'mensaje' => $mensajes[$error] ?? 'Revisa los datos de la cotización final.'];
+        }
+
+        try {
+            $this->sincronizarCotizacionesVencidas($codigoSolicitud);
+            $this->dblink->beginTransaction();
+
+            $solicitud = $this->obtenerSolicitudProveedorBloqueada($codigoSolicitud, $codigoProveedor);
+            if (!$solicitud) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'SOLICITUD_NO_ENCONTRADA', 'mensaje' => 'La solicitud no existe o no te pertenece.'];
+            }
+
+            $estadoActual = (string)($solicitud['estado'] ?? '');
+            $permitidos = ['pendiente_proveedor', 'ajuste_solicitado', 'ajuste_cotizacion_solicitado', 'cotizacion_vencida', 'informacion_adicional_solicitada'];
+            if (!in_array($estadoActual, $permitidos, true)) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'ESTADO_NO_PERMITE_ACCION', 'mensaje' => 'La solicitud no está disponible para emitir una cotización final.'];
+            }
+
+            $stPrevias = $this->dblink->prepare("
+                UPDATE solicitud_servicio_propuesta
+                SET estado = 'reemplazada', updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :solicitud
+                  AND estado IN ('vigente', 'requiere_actualizacion')
+            ");
+            $stPrevias->execute([':solicitud' => $codigoSolicitud]);
+
+            $stVersion = $this->dblink->prepare("
+                SELECT COALESCE(MAX(version), 0) + 1
+                FROM solicitud_servicio_propuesta
+                WHERE codigo_solicitud_servicio = :solicitud
+                FOR UPDATE
+            ");
+            $stVersion->execute([':solicitud' => $codigoSolicitud]);
+            $version = max(1, (int)$stVersion->fetchColumn());
+
+            $fechaVencimiento = (new DateTimeImmutable('now', new DateTimeZone('America/Lima')))
+                ->modify('+72 hours')
+                ->format('Y-m-d H:i:s');
+
+            $sql = "
+                INSERT INTO solicitud_servicio_propuesta
+                (
+                    codigo_solicitud_servicio, codigo_usuario_proveedor, version,
+                    modalidad, momento_tipo, fecha_propuesta, horario_propuesto,
+                    hora_inicio, hora_fin,
+                    alcance_confirmado, tipo_precio, monto_propuesto, unidad_precio,
+                    movilidad_tipo, monto_movilidad, condicion_pago, monto_adelanto, fecha_vencimiento,
+                    duracion_estimada, requisitos, mensaje_proveedor, estado
+                )
+                VALUES
+                (
+                    :solicitud, :proveedor, :version,
+                    'a_coordinar', 'fecha_hora', :fecha, NULL,
+                    :hora_inicio, :hora_fin,
+                    :alcance, 'fijo', :monto, NULL,
+                    'no_aplica', NULL, :condicion_pago, :monto_adelanto, :fecha_vencimiento,
+                    :duracion, NULL, :mensaje, 'vigente'
+                )
+            ";
+            $st = $this->dblink->prepare($sql);
+            $st->execute([
+                ':solicitud' => $codigoSolicitud,
+                ':proveedor' => $codigoProveedor,
+                ':version' => $version,
+                ':fecha' => $cotizacion['fecha_propuesta'],
+                ':hora_inicio' => $cotizacion['hora_inicio'],
+                ':hora_fin' => $cotizacion['hora_fin'],
+                ':alcance' => $cotizacion['alcance_confirmado'],
+                ':monto' => $cotizacion['monto_propuesto'],
+                ':condicion_pago' => $cotizacion['condicion_pago'],
+                ':monto_adelanto' => $cotizacion['monto_adelanto'],
+                ':fecha_vencimiento' => $fechaVencimiento,
+                ':duracion' => $cotizacion['duracion_estimada'] !== '' ? $cotizacion['duracion_estimada'] : null,
+                ':mensaje' => $cotizacion['mensaje_proveedor'] !== '' ? $cotizacion['mensaje_proveedor'] : null,
+            ]);
+            $codigoPropuesta = (int)$this->dblink->lastInsertId();
+
+            $stSolicitud = $this->dblink->prepare("
+                UPDATE solicitud_servicio
+                SET estado = 'cotizacion_final_enviada',
+                    estado_anterior = :anterior,
+                    motivo_estado = 'El proveedor emitió una cotización final válida por 72 horas. El precio total incluye todos los costos acordados.',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :solicitud
+                  AND codigo_usuario_proveedor = :proveedor
+            ");
+            $stSolicitud->execute([':anterior' => $estadoActual, ':solicitud' => $codigoSolicitud, ':proveedor' => $codigoProveedor]);
+
+            $this->registrarInteraccion(
+                $codigoSolicitud, $codigoProveedor, 'proveedor', 'cotizacion_final_enviada',
+                $cotizacion['mensaje_proveedor'] !== '' ? $cotizacion['mensaje_proveedor'] : 'El proveedor emitió una cotización final.',
+                array_merge($cotizacion, [
+                    'codigo_solicitud_servicio_propuesta' => $codigoPropuesta,
+                    'version' => $version,
+                    'fecha_vencimiento' => $fechaVencimiento,
+                    'vigencia_horas' => 72,
+                ])
+            );
+
+            $this->registrarNotificacionSolicitante(
+                $solicitud,
+                'cotizacion_final_enviada',
+                'Tienes una cotización final por revisar',
+                'El proveedor envió una cotización final para “' . (string)$solicitud['titulo_servicio'] . '”.',
+                ['codigo_solicitud_servicio_propuesta' => $codigoPropuesta, 'version' => $version]
+            );
+
+            $this->dblink->commit();
+            return [
+                'ok' => true,
+                'mensaje' => 'La cotización final fue enviada y estará vigente durante 72 horas.',
+                'data' => [
+                    'codigo_solicitud_servicio_propuesta' => $codigoPropuesta,
+                    'version' => $version,
+                    'fecha_vencimiento' => $fechaVencimiento,
+                ],
+                'estado' => 'cotizacion_final_enviada',
+            ];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) $this->dblink->rollBack();
+            error_log('[EV][SolicitudServicio][enviarCotizacionFinal] ' . $e->getMessage());
+            return ['ok' => false, 'error' => 'ERROR_ENVIAR_COTIZACION_FINAL', 'mensaje' => 'No se pudo enviar la cotización final.'];
+        }
+    }
+
+    public function aceptarCotizacionFinalSolicitante(int $codigoSolicitud, int $codigoSolicitante): array
+    {
+        if ($codigoSolicitud <= 0 || $codigoSolicitante <= 0) {
+            return ['ok' => false, 'error' => 'PARAMETROS_INVALIDOS', 'mensaje' => 'No se pudo identificar la solicitud.'];
+        }
+
+        try {
+            $this->sincronizarCotizacionesVencidas($codigoSolicitud);
+            $this->dblink->beginTransaction();
+
+            $solicitud = $this->obtenerSolicitudSolicitanteBloqueada($codigoSolicitud, $codigoSolicitante);
+            if (!$solicitud) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'SOLICITUD_NO_ENCONTRADA', 'mensaje' => 'La solicitud no existe o no te pertenece.'];
+            }
+            if ((string)$solicitud['estado'] !== 'cotizacion_final_enviada') {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'ESTADO_NO_PERMITE_ACCION', 'mensaje' => 'No hay una cotización final vigente para aceptar.'];
+            }
+
+            $propuesta = $this->obtenerPropuestaVigenteBloqueada($codigoSolicitud);
+            if (!$propuesta || (!empty($propuesta['fecha_vencimiento']) && strtotime((string)$propuesta['fecha_vencimiento']) <= time())) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'COTIZACION_VENCIDA', 'mensaje' => 'La cotización final venció. Solicita una versión actualizada al proveedor.'];
+            }
+
+            $stP = $this->dblink->prepare("
+                UPDATE solicitud_servicio_propuesta
+                SET estado = 'aceptada', updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio_propuesta = :propuesta
+                  AND estado = 'vigente'
+            ");
+            $stP->execute([':propuesta' => (int)$propuesta['codigo_solicitud_servicio_propuesta']]);
+
+            $stS = $this->dblink->prepare("
+                UPDATE solicitud_servicio
+                SET estado = 'coordinacion_confirmada',
+                    estado_anterior = 'cotizacion_final_enviada',
+                    motivo_estado = 'El comprador aceptó la cotización final.',
+                    fecha_aceptacion = NOW(),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :solicitud
+                  AND codigo_usuario_solicitante = :solicitante
+            ");
+            $stS->execute([':solicitud' => $codigoSolicitud, ':solicitante' => $codigoSolicitante]);
+
+            $this->registrarInteraccion(
+                $codigoSolicitud, $codigoSolicitante, 'solicitante', 'cotizacion_final_aceptada',
+                'El comprador aceptó la cotización final.',
+                ['codigo_solicitud_servicio_propuesta' => (int)$propuesta['codigo_solicitud_servicio_propuesta'], 'version' => (int)$propuesta['version']]
+            );
+            $this->registrarNotificacionProveedor(
+                $solicitud,
+                'cotizacion_final_aceptada',
+                'Tu cotización final fue aceptada',
+                'El comprador aceptó la cotización final para “' . (string)$solicitud['titulo_servicio'] . '”.'
+            );
+
+            $this->dblink->commit();
+            return ['ok' => true, 'mensaje' => 'La cotización final fue aceptada. La coordinación quedó confirmada.', 'estado' => 'coordinacion_confirmada'];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) $this->dblink->rollBack();
+            error_log('[EV][SolicitudServicio][aceptarCotizacionFinalSolicitante] ' . $e->getMessage());
+            return ['ok' => false, 'error' => 'ERROR_ACEPTAR_COTIZACION_FINAL', 'mensaje' => 'No se pudo aceptar la cotización final.'];
+        }
+    }
+
+    public function solicitarAjusteCotizacionFinal(int $codigoSolicitud, int $codigoSolicitante, string $mensaje): array
+    {
+        $mensaje = $this->textoLimpio($mensaje, 1500);
+        if (mb_strlen($mensaje, 'UTF-8') < 8) {
+            return ['ok' => false, 'error' => 'MENSAJE_AJUSTE_REQUERIDO', 'mensaje' => 'Explica qué necesitas ajustar en la cotización final.'];
+        }
+
+        try {
+            $this->dblink->beginTransaction();
+            $this->sincronizarCotizacionesVencidas($codigoSolicitud);
+            $solicitud = $this->obtenerSolicitudSolicitanteBloqueada($codigoSolicitud, $codigoSolicitante);
+            if (!$solicitud) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'SOLICITUD_NO_ENCONTRADA', 'mensaje' => 'La solicitud no existe o no te pertenece.'];
+            }
+            if ((string)$solicitud['estado'] !== 'cotizacion_final_enviada') {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'ESTADO_NO_PERMITE_ACCION', 'mensaje' => 'No hay una cotización final disponible para solicitar ajuste.'];
+            }
+            $propuesta = $this->obtenerPropuestaVigenteBloqueada($codigoSolicitud);
+            if (!$propuesta) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'PROPUESTA_NO_ENCONTRADA', 'mensaje' => 'No se encontró la cotización final vigente.'];
+            }
+
+            $stP = $this->dblink->prepare("
+                UPDATE solicitud_servicio_propuesta
+                SET estado = 'requiere_actualizacion',
+                    motivo_estado = :motivo,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio_propuesta = :propuesta
+                  AND estado = 'vigente'
+            ");
+            $stP->execute([':motivo' => $mensaje, ':propuesta' => (int)$propuesta['codigo_solicitud_servicio_propuesta']]);
+
+            $stS = $this->dblink->prepare("
+                UPDATE solicitud_servicio
+                SET estado = 'ajuste_cotizacion_solicitado',
+                    estado_anterior = 'cotizacion_final_enviada',
+                    motivo_estado = :motivo,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :solicitud
+            ");
+            $stS->execute([':motivo' => $mensaje, ':solicitud' => $codigoSolicitud]);
+
+            $this->registrarInteraccion(
+                $codigoSolicitud, $codigoSolicitante, 'solicitante', 'ajuste_cotizacion_solicitado', $mensaje,
+                ['codigo_solicitud_servicio_propuesta' => (int)$propuesta['codigo_solicitud_servicio_propuesta'], 'version' => (int)$propuesta['version']]
+            );
+            $this->registrarNotificacionProveedor(
+                $solicitud, 'ajuste_cotizacion_solicitado', 'El comprador solicitó un ajuste',
+                'El comprador solicitó ajustar la cotización final para “' . (string)$solicitud['titulo_servicio'] . '”.'
+            );
+            $this->dblink->commit();
+            return ['ok' => true, 'mensaje' => 'Tu solicitud de ajuste fue enviada al proveedor.', 'estado' => 'ajuste_cotizacion_solicitado'];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) $this->dblink->rollBack();
+            error_log('[EV][SolicitudServicio][solicitarAjusteCotizacionFinal] ' . $e->getMessage());
+            return ['ok' => false, 'error' => 'ERROR_SOLICITAR_AJUSTE_COTIZACION', 'mensaje' => 'No se pudo solicitar el ajuste de la cotización.'];
+        }
+    }
+
+    public function rechazarCotizacionFinalSolicitante(int $codigoSolicitud, int $codigoSolicitante, string $motivo): array
+    {
+        $motivo = $this->textoLimpio($motivo, 500);
+        if (mb_strlen($motivo, 'UTF-8') < 5) {
+            return ['ok' => false, 'error' => 'MOTIVO_RECHAZO_REQUERIDO', 'mensaje' => 'Indica un motivo breve para rechazar la cotización.'];
+        }
+
+        try {
+            $this->dblink->beginTransaction();
+            $this->sincronizarCotizacionesVencidas($codigoSolicitud);
+            $solicitud = $this->obtenerSolicitudSolicitanteBloqueada($codigoSolicitud, $codigoSolicitante);
+            if (!$solicitud) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'SOLICITUD_NO_ENCONTRADA', 'mensaje' => 'La solicitud no existe o no te pertenece.'];
+            }
+            if ((string)$solicitud['estado'] !== 'cotizacion_final_enviada') {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'ESTADO_NO_PERMITE_ACCION', 'mensaje' => 'No hay una cotización final vigente para rechazar.'];
+            }
+
+            $stP = $this->dblink->prepare("
+                UPDATE solicitud_servicio_propuesta
+                SET estado = 'rechazada_solicitante', motivo_estado = :motivo, updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :solicitud AND estado = 'vigente'
+            ");
+            $stP->execute([':motivo' => $motivo, ':solicitud' => $codigoSolicitud]);
+
+            $stS = $this->dblink->prepare("
+                UPDATE solicitud_servicio
+                SET estado = 'cotizacion_rechazada_solicitante',
+                    estado_anterior = 'cotizacion_final_enviada',
+                    motivo_estado = :motivo,
+                    fecha_cierre = NOW(),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :solicitud
+            ");
+            $stS->execute([':motivo' => $motivo, ':solicitud' => $codigoSolicitud]);
+
+            $this->registrarInteraccion($codigoSolicitud, $codigoSolicitante, 'solicitante', 'cotizacion_final_rechazada', $motivo, []);
+            $this->registrarNotificacionProveedor($solicitud, 'cotizacion_final_rechazada', 'La cotización final fue rechazada', 'El comprador rechazó la cotización para “' . (string)$solicitud['titulo_servicio'] . '”.');
+            $this->dblink->commit();
+            return ['ok' => true, 'mensaje' => 'La cotización final fue rechazada y la solicitud quedó cerrada.', 'estado' => 'cotizacion_rechazada_solicitante'];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) $this->dblink->rollBack();
+            error_log('[EV][SolicitudServicio][rechazarCotizacionFinalSolicitante] ' . $e->getMessage());
+            return ['ok' => false, 'error' => 'ERROR_RECHAZAR_COTIZACION_FINAL', 'mensaje' => 'No se pudo rechazar la cotización final.'];
+        }
+    }
+
+    public function cancelarSolicitudFlujoFinal(int $codigoSolicitud, int $codigoSolicitante, string $motivo): array
+    {
+        $motivo = $this->textoLimpio($motivo, 500);
+        if (mb_strlen($motivo, 'UTF-8') < 5) {
+            return ['ok' => false, 'error' => 'MOTIVO_CANCELACION_REQUERIDO', 'mensaje' => 'Indica un motivo claro para cancelar la coordinación.'];
+        }
+
+        try {
+            $this->dblink->beginTransaction();
+            $solicitud = $this->obtenerSolicitudSolicitanteBloqueada($codigoSolicitud, $codigoSolicitante);
+            if (!$solicitud) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'SOLICITUD_NO_ENCONTRADA', 'mensaje' => 'La solicitud no existe o no te pertenece.'];
+            }
+            $estado = (string)$solicitud['estado'];
+            $permitidos = ['pendiente_proveedor', 'ajuste_solicitado', 'ajuste_cotizacion_solicitado', 'cotizacion_final_enviada', 'cotizacion_vencida', 'coordinacion_confirmada'];
+            if (!in_array($estado, $permitidos, true)) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'ESTADO_NO_PERMITE_ACCION', 'mensaje' => 'Esta solicitud ya no permite cancelación desde su estado actual.'];
+            }
+            $stP = $this->dblink->prepare("
+                UPDATE solicitud_servicio_propuesta
+                SET estado = 'cancelada_solicitante', motivo_estado = :motivo, updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :solicitud
+                  AND estado IN ('vigente', 'aceptada', 'requiere_actualizacion')
+            ");
+            $stP->execute([':motivo' => $motivo, ':solicitud' => $codigoSolicitud]);
+
+            $stS = $this->dblink->prepare("
+                UPDATE solicitud_servicio
+                SET estado = 'cancelada_solicitante', estado_anterior = :anterior,
+                    motivo_estado = :motivo, fecha_cancelacion = NOW(), fecha_cierre = NOW(), updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :solicitud
+            ");
+            $stS->execute([':anterior' => $estado, ':motivo' => $motivo, ':solicitud' => $codigoSolicitud]);
+
+            $this->registrarInteraccion($codigoSolicitud, $codigoSolicitante, 'solicitante', 'solicitud_cancelada', $motivo, ['estado_anterior' => $estado]);
+            $this->registrarNotificacionProveedor($solicitud, 'solicitud_cancelada', 'El comprador canceló la coordinación', 'El comprador canceló la coordinación para “' . (string)$solicitud['titulo_servicio'] . '”.');
+            $this->dblink->commit();
+            return ['ok' => true, 'mensaje' => 'La coordinación fue cancelada y el proveedor fue notificado.', 'estado' => 'cancelada_solicitante'];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) $this->dblink->rollBack();
+            error_log('[EV][SolicitudServicio][cancelarSolicitudFlujoFinal] ' . $e->getMessage());
+            return ['ok' => false, 'error' => 'ERROR_CANCELAR_SOLICITUD', 'mensaje' => 'No se pudo cancelar la coordinación.'];
+        }
+    }
+
+    public function cancelarCoordinacionProveedor(int $codigoSolicitud, int $codigoProveedor, string $motivo): array
+    {
+        $motivo = $this->textoLimpio($motivo, 500);
+        if (mb_strlen($motivo, 'UTF-8') < 5) {
+            return ['ok' => false, 'error' => 'MOTIVO_CANCELACION_REQUERIDO', 'mensaje' => 'Indica un motivo claro para cancelar la coordinación.'];
+        }
+
+        try {
+            $this->dblink->beginTransaction();
+            $solicitud = $this->obtenerSolicitudProveedorBloqueada($codigoSolicitud, $codigoProveedor);
+            if (!$solicitud) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'SOLICITUD_NO_ENCONTRADA', 'mensaje' => 'La solicitud no existe o no te pertenece.'];
+            }
+            if ((string)$solicitud['estado'] !== 'coordinacion_confirmada') {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'ESTADO_NO_PERMITE_ACCION', 'mensaje' => 'El proveedor solo puede cancelar una coordinación ya aceptada.'];
+            }
+
+            $stP = $this->dblink->prepare("
+                UPDATE solicitud_servicio_propuesta
+                SET estado = 'cancelada_proveedor', motivo_estado = :motivo, updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :solicitud AND estado = 'aceptada'
+            ");
+            $stP->execute([':motivo' => $motivo, ':solicitud' => $codigoSolicitud]);
+
+            $stS = $this->dblink->prepare("
+                UPDATE solicitud_servicio
+                SET estado = 'cancelada_proveedor', estado_anterior = 'coordinacion_confirmada',
+                    motivo_estado = :motivo, fecha_cancelacion = NOW(), fecha_cierre = NOW(), updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :solicitud
+            ");
+            $stS->execute([':motivo' => $motivo, ':solicitud' => $codigoSolicitud]);
+
+            $this->registrarInteraccion($codigoSolicitud, $codigoProveedor, 'proveedor', 'coordinacion_cancelada_proveedor', $motivo, []);
+            $this->registrarNotificacionSolicitante($solicitud, 'coordinacion_cancelada_proveedor', 'El proveedor canceló la coordinación', 'El proveedor canceló la coordinación para “' . (string)$solicitud['titulo_servicio'] . '”.');
+            $this->dblink->commit();
+            return ['ok' => true, 'mensaje' => 'La coordinación fue cancelada y el comprador fue notificado.', 'estado' => 'cancelada_proveedor'];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) $this->dblink->rollBack();
+            error_log('[EV][SolicitudServicio][cancelarCoordinacionProveedor] ' . $e->getMessage());
+            return ['ok' => false, 'error' => 'ERROR_CANCELAR_COORDINACION', 'mensaje' => 'No se pudo cancelar la coordinación.'];
+        }
+    }
+
+    public function marcarServicioRealizadoProveedor(int $codigoSolicitud, int $codigoProveedor): array
+    {
+        try {
+            $this->dblink->beginTransaction();
+            $solicitud = $this->obtenerSolicitudProveedorBloqueada($codigoSolicitud, $codigoProveedor);
+            if (!$solicitud) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'SOLICITUD_NO_ENCONTRADA', 'mensaje' => 'No se encontró esta coordinación.'];
+            }
+            if ((string)$solicitud['estado'] !== 'coordinacion_confirmada') {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'ESTADO_NO_PERMITE_ACCION', 'mensaje' => 'La coordinación debe estar aceptada antes de marcar el servicio como realizado.'];
+            }
+            $st = $this->dblink->prepare("
+                UPDATE solicitud_servicio
+                SET estado = 'servicio_realizado_proveedor',
+                    estado_anterior = 'coordinacion_confirmada',
+                    motivo_estado = 'El proveedor indicó que el servicio fue realizado y espera confirmación.',
+                    fecha_realizado_proveedor = NOW(),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :solicitud
+            ");
+            $st->execute([':solicitud' => $codigoSolicitud]);
+            $this->registrarInteraccion($codigoSolicitud, $codigoProveedor, 'proveedor', 'servicio_marcado_realizado', 'El proveedor marcó el servicio como realizado.', []);
+            $this->registrarNotificacionSolicitante($solicitud, 'servicio_marcado_realizado', 'Confirma el servicio realizado', 'El proveedor marcó como realizado el servicio “' . (string)$solicitud['titulo_servicio'] . '”.');
+            $this->dblink->commit();
+            return ['ok' => true, 'mensaje' => 'El servicio fue marcado como realizado. Espera la confirmación del comprador.', 'estado' => 'servicio_realizado_proveedor'];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) $this->dblink->rollBack();
+            error_log('[EV][SolicitudServicio][marcarServicioRealizadoProveedor] ' . $e->getMessage());
+            return ['ok' => false, 'error' => 'ERROR_MARCAR_SERVICIO_REALIZADO', 'mensaje' => 'No se pudo marcar el servicio como realizado.'];
+        }
+    }
+
+    public function confirmarServicioRealizadoSolicitante(int $codigoSolicitud, int $codigoSolicitante): array
+    {
+        try {
+            $this->dblink->beginTransaction();
+            $solicitud = $this->obtenerSolicitudSolicitanteBloqueada($codigoSolicitud, $codigoSolicitante);
+            if (!$solicitud) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'SOLICITUD_NO_ENCONTRADA', 'mensaje' => 'No se encontró esta coordinación.'];
+            }
+            if ((string)$solicitud['estado'] !== 'servicio_realizado_proveedor') {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'ESTADO_NO_PERMITE_ACCION', 'mensaje' => 'El proveedor aún no marcó el servicio como realizado.'];
+            }
+            $st = $this->dblink->prepare("
+                UPDATE solicitud_servicio
+                SET estado = 'servicio_confirmado_solicitante',
+                    estado_anterior = 'servicio_realizado_proveedor',
+                    motivo_estado = 'El comprador confirmó que el servicio fue realizado.',
+                    fecha_confirmacion_solicitante = NOW(),
+                    fecha_cierre = NOW(),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :solicitud
+            ");
+            $st->execute([':solicitud' => $codigoSolicitud]);
+            $this->registrarInteraccion($codigoSolicitud, $codigoSolicitante, 'solicitante', 'servicio_confirmado', 'El comprador confirmó la realización del servicio.', []);
+            $this->registrarNotificacionProveedor($solicitud, 'servicio_confirmado', 'El servicio fue confirmado', 'El comprador confirmó el servicio “' . (string)$solicitud['titulo_servicio'] . '”.');
+            $this->dblink->commit();
+            return ['ok' => true, 'mensaje' => 'El servicio fue confirmado. La calificación se habilitará en el siguiente módulo.', 'estado' => 'servicio_confirmado_solicitante'];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) $this->dblink->rollBack();
+            error_log('[EV][SolicitudServicio][confirmarServicioRealizadoSolicitante] ' . $e->getMessage());
+            return ['ok' => false, 'error' => 'ERROR_CONFIRMAR_SERVICIO', 'mensaje' => 'No se pudo confirmar el servicio.'];
+        }
+    }
+
+    public function reportarObservacionServicio(int $codigoSolicitud, int $codigoSolicitante, string $mensaje): array
+    {
+        $mensaje = $this->textoLimpio($mensaje, 1500);
+        if (mb_strlen($mensaje, 'UTF-8') < 8) {
+            return ['ok' => false, 'error' => 'MENSAJE_OBSERVACION_REQUERIDO', 'mensaje' => 'Describe la observación para dejarla registrada.'];
+        }
+        try {
+            $this->dblink->beginTransaction();
+            $solicitud = $this->obtenerSolicitudSolicitanteBloqueada($codigoSolicitud, $codigoSolicitante);
+            if (!$solicitud) {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'SOLICITUD_NO_ENCONTRADA', 'mensaje' => 'No se encontró esta coordinación.'];
+            }
+            if ((string)$solicitud['estado'] !== 'servicio_realizado_proveedor') {
+                $this->dblink->rollBack();
+                return ['ok' => false, 'error' => 'ESTADO_NO_PERMITE_ACCION', 'mensaje' => 'Solo puedes reportar una observación después de que el proveedor marque el servicio como realizado.'];
+            }
+            $st = $this->dblink->prepare("
+                UPDATE solicitud_servicio
+                SET estado = 'observacion_reportada',
+                    estado_anterior = 'servicio_realizado_proveedor',
+                    motivo_estado = :mensaje,
+                    fecha_observacion = NOW(),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE codigo_solicitud_servicio = :solicitud
+            ");
+            $st->execute([':mensaje' => $mensaje, ':solicitud' => $codigoSolicitud]);
+            $this->registrarInteraccion($codigoSolicitud, $codigoSolicitante, 'solicitante', 'observacion_reportada', $mensaje, []);
+            $this->registrarNotificacionProveedor($solicitud, 'observacion_reportada', 'El comprador reportó una observación', 'El comprador registró una observación sobre “' . (string)$solicitud['titulo_servicio'] . '”.');
+            $this->dblink->commit();
+            return ['ok' => true, 'mensaje' => 'La observación fue registrada. El historial queda disponible para la revisión correspondiente.', 'estado' => 'observacion_reportada'];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) $this->dblink->rollBack();
+            error_log('[EV][SolicitudServicio][reportarObservacionServicio] ' . $e->getMessage());
+            return ['ok' => false, 'error' => 'ERROR_REPORTAR_OBSERVACION', 'mensaje' => 'No se pudo registrar la observación.'];
         }
     }
 

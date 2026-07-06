@@ -358,6 +358,28 @@
     if (el) el.setAttribute('placeholder', text);
   }
 
+  /*
+   * Prepara únicamente el texto que se muestra en la vista previa.
+   * No modifica el textarea ni la descripción enviada a la API.
+   */
+  function prepararDescripcionPreview(texto, limite = 190) {
+    const valor = String(texto ?? '').trim();
+
+    if (!valor) {
+      return 'La descripción aparecerá aquí.';
+    }
+
+    const resumen = valor.length > limite
+      ? `${valor.slice(0, limite).trimEnd()}…`
+      : valor;
+
+    /*
+     * Inserta un salto invisible cada 18 caracteres dentro de una palabra
+     * excesivamente larga. Así el card no se desborda sin tocar CSS.
+     */
+    return resumen.replace(/(\S{18})(?=\S)/g, '$1\u200B');
+  }
+
   function actualizarOpcionesTipoPublicacionVisual(modal, tipo) {
     if (!modal) return;
 
@@ -484,6 +506,69 @@
     dispararMetaPreviewLive(modal);
   }
 
+
+  /*
+   * Al cambiar Producto <-> Servicio durante la creación, el borrador
+   * anterior deja de ser válido: se limpian campos, imágenes y vista previa.
+   * No se aplica al modal de edición para no borrar información existente.
+   */
+  function limpiarBorradorAgregarPorCambioTipo(modal, tipoRaw) {
+    const form = document.getElementById('formAgregarPublicacion');
+    if (!modal || !form) return;
+
+    const tipo = normalizarTipoPublicacion(tipoRaw);
+
+    evClearFieldErrors(form);
+
+    const titulo = form.querySelector('input[name="titulo"]');
+    const precio = form.querySelector('input[name="precio"]');
+    const descripcion = form.querySelector('textarea[name="descripcion"]');
+    const estado = form.querySelector('select[name="estado"]');
+    const tipoAtencion = form.querySelector('#tipoAtencionProducto');
+    const comboTipo = form.querySelector('#comboTipo');
+    const comboCategoria = form.querySelector('#comboCategoria');
+
+    if (titulo) titulo.value = '';
+    if (precio) precio.value = '';
+    if (descripcion) descripcion.value = '';
+
+    if (estado) {
+      estado.disabled = tipo === 'servicio';
+      estado.value = tipo === 'servicio' ? 'NoAplica' : 'Nuevo';
+    }
+
+    if (tipoAtencion) {
+      tipoAtencion.value = 'no_requiere_preparacion';
+      tipoAtencion.dataset.evAutoTipoAtencion = 'no_requiere_preparacion';
+      tipoAtencion.disabled = true;
+    }
+
+    /*
+     * combo_tipo.js volverá a cargar el tipo automático y las categorías
+     * correctas luego del evento change del radio.
+     */
+    if (comboTipo) {
+      comboTipo.innerHTML = '<option value="" selected>-- Cargando tipo --</option>';
+      comboTipo.disabled = true;
+      comboTipo.dataset.valorRegistrado = '';
+    }
+
+    if (comboCategoria) {
+      comboCategoria.innerHTML = '<option value="" selected>-- Cargando categorías --</option>';
+      comboCategoria.disabled = true;
+      comboCategoria.dataset.valorRegistrado = '';
+    }
+
+    if (typeof window.evLimpiarImagenesAgregar === 'function') {
+      window.evLimpiarImagenesAgregar();
+    } else {
+      evPintarPreviewAgregar([]);
+    }
+
+    actualizarPreviewMetaTipo(modal, tipo);
+    dispararMetaPreviewLive(modal);
+  }
+
   function resetTipoPublicacionAgregarUI() {
     const modal = document.getElementById('modalAgregarPublicacion');
     const form = document.getElementById('formAgregarPublicacion');
@@ -501,7 +586,18 @@
     if (formAdd && !formAdd.dataset.evTipoPublicacionBound) {
       formAdd.dataset.evTipoPublicacionBound = '1';
       formAdd.querySelectorAll('input[name="tipo_publicacion"]').forEach((radio) => {
-        radio.addEventListener('change', () => aplicarTipoPublicacionUI(modalAdd, radio.value));
+        radio.addEventListener('change', () => {
+          if (!radio.checked) return;
+
+          const tipoNuevo = normalizarTipoPublicacion(radio.value);
+          const tipoAnterior = normalizarTipoPublicacion(modalAdd?.dataset?.evTipoPublicacion || 'producto');
+
+          if (tipoAnterior !== tipoNuevo) {
+            limpiarBorradorAgregarPorCambioTipo(modalAdd, tipoNuevo);
+          }
+
+          aplicarTipoPublicacionUI(modalAdd, tipoNuevo);
+        });
       });
     }
 
@@ -731,7 +827,7 @@
 
         evAddPreview.metaTitle.textContent = title;
         evAddPreview.metaPrice.textContent = `S/ ${precio}`;
-        evAddPreview.metaDesc.textContent  = desc;
+        evAddPreview.metaDesc.textContent = prepararDescripcionPreview(desc);
       };
 
       modal.querySelector('input[name="titulo"]')?.addEventListener('input', updateMetaLive);
@@ -895,6 +991,13 @@
       paint();
     }
 
+    /*
+     * API interna para producto.js: se utiliza al cambiar el modo de
+     * publicación para impedir que imágenes de un servicio se reutilicen
+     * accidentalmente en un producto, o viceversa.
+     */
+    window.evLimpiarImagenesAgregar = clearAll;
+
     function bindEvents() {
       if (state.inited || !els.modal) return;
 
@@ -1039,7 +1142,7 @@
 
         evEditPreview.metaTitle.textContent = title;
         evEditPreview.metaPrice.textContent = `S/ ${precio}`;
-        evEditPreview.metaDesc.textContent  = desc;
+        evEditPreview.metaDesc.textContent = prepararDescripcionPreview(desc);
       };
 
       modal.querySelector('#edit_titulo')?.addEventListener('input', updateMetaLive);
@@ -1067,7 +1170,7 @@
 
     st.metaTitle.textContent = titulo;
     st.metaPrice.textContent = `S/ ${precio}`;
-    st.metaDesc.textContent  = desc;
+    st.metaDesc.textContent = prepararDescripcionPreview(desc);
 
     const mainBox = st.mainImg?.closest('.ev-preview-main');
 

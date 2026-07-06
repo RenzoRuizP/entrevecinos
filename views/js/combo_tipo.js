@@ -1,4 +1,5 @@
-// combo_tipo.js (EV) — Tipo/Categoría filtrado por Producto/Servicio + preparación automática
+// combo_tipo.js (EV)
+// Tipo principal automático (Producto/Servicio) + categoría editable.
 (function () {
   if (window.__EV_TIPO_INITED__) return;
   window.__EV_TIPO_INITED__ = true;
@@ -21,6 +22,7 @@
     if (!selectEl) return;
     selectEl.innerHTML = `<option value="" selected disabled>-- ${placeholder} --</option>`;
     selectEl.disabled = !!disabled;
+    selectEl.removeAttribute("aria-readonly");
   };
 
   function unwrapArray(payload) {
@@ -34,7 +36,7 @@
 
   async function cargarJSON(url) {
     const res = await fetch(url, {
-      headers: { "Accept": "application/json" },
+      headers: { Accept: "application/json" },
       credentials: "same-origin"
     });
 
@@ -54,13 +56,21 @@
     }
 
     if (!res.ok) throw new Error(`HTTP ${res.status} al cargar ${url}`);
-    return await res.json();
+    return res.json();
   }
 
   function normalizarTipoPublicacion(valor, allowEmpty = false) {
     const v = String(valor ?? "").trim().toLowerCase();
     if (allowEmpty && v === "") return "";
     return v === "servicio" ? "servicio" : "producto";
+  }
+
+  function normalizarTexto(valor) {
+    return String(valor || "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
   }
 
   function getTipoPublicacionPar(comboTipo) {
@@ -80,41 +90,18 @@
     return name === "edit_tipo_publicacion" ? "edit" : "add";
   }
 
-  function normalizarTexto(v) {
-    return String(v || "")
-      .trim()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
-  }
-
   function reglaPreparacionFallback(tipoNombre, categoriaNombre) {
-    const tipo = normalizarTexto(tipoNombre);
-    const cat = normalizarTexto(categoriaNombre);
+    /*
+     * Esta regla se usa solo cuando la columna opcional
+     * requiere_preparacion_default no está disponible en la base.
+     */
+    if (normalizarTexto(tipoNombre) !== "producto") return false;
 
-    if (["comida preparada", "panaderia, reposteria y postres"].includes(tipo)) return true;
-
-    const preparadasPorTipo = {
-      "bebidas sin alcohol": [
-        "jugos", "refrescos caseros", "bebidas calientes", "cafe preparado", "infusiones",
-        "smoothies y batidos", "chicha, emoliente y bebidas tradicionales", "otras bebidas sin alcohol"
-      ],
-      "escolar, oficina y libros": [
-        "material didactico", "impresiones", "fotocopias", "anillados y plastificados", "manualidades escolares"
-      ],
-      "regalos, eventos y personalizados": [
-        "regalos personalizados", "cuadros personalizados", "invitaciones digitales", "stickers y etiquetas",
-        "souvenirs", "decoracion para eventos", "arreglos florales", "desayunos sorpresa",
-        "detalles para fechas especiales", "cumpleanos", "baby shower", "dia de la madre", "dia del padre",
-        "otros regalos y personalizados"
-      ],
-      "soporte tecnico y servicios digitales": [
-        "diseno grafico", "diseno para redes sociales", "edicion de documentos", "cv, cartas y presentaciones",
-        "servicios escolares digitales"
-      ]
-    };
-
-    return Array.isArray(preparadasPorTipo[tipo]) && preparadasPorTipo[tipo].includes(cat);
+    const categoria = normalizarTexto(categoriaNombre);
+    return [
+      "almuerzos y menus",
+      "postres y panes"
+    ].includes(categoria);
   }
 
   function getCampoTipoAtencion(comboCategoria) {
@@ -137,14 +124,15 @@
 
     const tipoPublicacion = getTipoPublicacionPar(comboTipo);
 
-    // Por ahora los servicios no usan preparación de producto.
     if (tipoPublicacion === "servicio") {
       campo.value = "no_requiere_preparacion";
       campo.dataset.evAutoTipoAtencion = "no_requiere_preparacion";
       campo.disabled = true;
 
       const hint = getHintTipoAtencion(comboCategoria);
-      if (hint) hint.textContent = "EV detectó que esta publicación es un servicio; no usa preparación de producto.";
+      if (hint) {
+        hint.textContent = "EV detectó que esta publicación es un servicio; no usa preparación de producto.";
+      }
       return;
     }
 
@@ -155,11 +143,11 @@
     let requiere = false;
     if (selected && selected.value) {
       const raw = selected.dataset.requierePreparacion;
-      if (raw === "1" || raw === "0") {
-        requiere = raw === "1";
-      } else {
-        requiere = reglaPreparacionFallback(tipoNombre, categoriaNombre);
-      }
+      requiere = raw === "1"
+        ? true
+        : raw === "0"
+          ? false
+          : reglaPreparacionFallback(tipoNombre, categoriaNombre);
     }
 
     const valor = requiere ? "requiere_preparacion" : "no_requiere_preparacion";
@@ -175,52 +163,59 @@
     }
   }
 
-  const renderCategorias = (comboTipo, comboCategoria, data, selectedValue = "") => {
+  function renderCategorias(comboTipo, comboCategoria, data, selectedValue = "") {
     if (!comboCategoria) return;
 
     resetSelect(comboCategoria, "Selecciona una categoría", false);
 
-    const grupos = {};
-    data.forEach(row => {
-      const g = row.grupo || row.nombre_grupo || "Categorías";
-      if (!grupos[g]) grupos[g] = [];
+    const grupos = new Map();
 
-      const categoriaNombre = row.categoria || row.nombre || "";
-      const tipoNombre = comboTipo?.selectedOptions?.[0]?.textContent || "";
+    data.forEach((row) => {
+      const nombreGrupo = String(row.grupo || row.nombre_grupo || "Categorías").trim() || "Categorías";
+      const categoriaNombre = String(row.categoria || row.nombre || "").trim();
+      if (!categoriaNombre || !row.codigo_categoria) return;
+
       const rawPreparacion = row.requiere_preparacion_default ?? row.requiere_preparacion ?? row.preparado ?? null;
       const requiere = rawPreparacion === null || rawPreparacion === undefined || rawPreparacion === ""
-        ? reglaPreparacionFallback(tipoNombre, categoriaNombre)
+        ? reglaPreparacionFallback(comboTipo?.selectedOptions?.[0]?.textContent || "", categoriaNombre)
         : Number(rawPreparacion) === 1;
 
-      grupos[g].push({
-        value: row.codigo_categoria,
+      if (!grupos.has(nombreGrupo)) grupos.set(nombreGrupo, []);
+      grupos.get(nombreGrupo).push({
+        value: String(row.codigo_categoria),
         text: categoriaNombre,
         requiere
       });
     });
 
-    Object.keys(grupos).forEach(nombreGrupo => {
-      const og = document.createElement("optgroup");
-      og.label = nombreGrupo;
-      grupos[nombreGrupo].forEach(it => {
-        const op = document.createElement("option");
-        op.value = it.value;
-        op.textContent = it.text;
-        op.dataset.requierePreparacion = it.requiere ? "1" : "0";
-        if (selectedValue && String(selectedValue) === String(op.value)) op.selected = true;
-        og.appendChild(op);
+    grupos.forEach((categorias, nombreGrupo) => {
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = nombreGrupo;
+
+      categorias.forEach((item) => {
+        const option = document.createElement("option");
+        option.value = item.value;
+        option.textContent = item.text;
+        option.dataset.requierePreparacion = item.requiere ? "1" : "0";
+
+        if (selectedValue && String(selectedValue) === item.value) {
+          option.selected = true;
+        }
+
+        optgroup.appendChild(option);
       });
-      comboCategoria.appendChild(og);
+
+      comboCategoria.appendChild(optgroup);
     });
 
     aplicarTipoAtencionAutomatico(comboTipo, comboCategoria);
-  };
+  }
 
   async function cargarCategoriasPorTipo(comboTipo, comboCategoria, codigoTipo, preselect = "") {
     const tipoPublicacion = getTipoPublicacionPar(comboTipo);
 
     if (!codigoTipo) {
-      resetSelect(comboCategoria, "Selecciona un tipo primero", true);
+      resetSelect(comboCategoria, "No se encontró el tipo", true);
       aplicarTipoAtencionAutomatico(comboTipo, comboCategoria);
       return;
     }
@@ -229,69 +224,118 @@
     aplicarTipoAtencionAutomatico(comboTipo, comboCategoria);
 
     try {
-      const payload = await cargarJSON(buildURL(`tipos/${encodeURIComponent(codigoTipo)}/categoria_grupo`, {
-        tipo_publicacion: tipoPublicacion
-      }));
-      const arr = unwrapArray(payload);
+      const payload = await cargarJSON(buildURL(
+        `tipos/${encodeURIComponent(codigoTipo)}/categoria_grupo`,
+        { tipo_publicacion: tipoPublicacion }
+      ));
+      const categorias = unwrapArray(payload);
 
-      if (!arr) {
-        console.error("Respuesta inválida categorías:", payload);
+      if (!categorias) {
+        console.error("[EV] Respuesta inválida de categorías:", payload);
         resetSelect(comboCategoria, "Respuesta inválida", true);
         return;
       }
 
-      if (!arr.length) {
-        resetSelect(comboCategoria, tipoPublicacion === "servicio" ? "Sin servicios para este tipo" : "Sin categorías para este tipo", true);
+      if (!categorias.length) {
+        resetSelect(
+          comboCategoria,
+          tipoPublicacion === "servicio" ? "Sin categorías de servicios" : "Sin categorías de productos",
+          true
+        );
         return;
       }
 
-      renderCategorias(comboTipo, comboCategoria, arr, preselect);
+      renderCategorias(comboTipo, comboCategoria, categorias, preselect);
       comboCategoria.disabled = false;
-    } catch (e) {
-      console.error("Error cargando Categorías:", e);
+    } catch (error) {
+      console.error("[EV] Error cargando categorías:", error);
       resetSelect(comboCategoria, "No se pudo cargar categorías", true);
     }
+  }
+
+  function resolverTipoAutomatico(tipos, tipoPublicacion, preselectTipo = "") {
+    const esperado = normalizarTexto(tipoPublicacion);
+    const preseleccionado = String(preselectTipo || "").trim();
+
+    const coincideModo = tipos.find((tipo) =>
+      normalizarTexto(tipo?.nombre) === esperado
+    );
+
+    /*
+     * Solo se usa la preselección cuando corresponde al modo actual.
+     * Esto evita que una publicación de servicio deje seleccionado Producto
+     * al cambiar el Paso 1.
+     */
+    if (
+      preseleccionado &&
+      coincideModo &&
+      String(coincideModo.codigo_tipo) === preseleccionado
+    ) {
+      return coincideModo;
+    }
+
+    return coincideModo || tipos[0] || null;
   }
 
   async function cargarTipos(comboTipo, comboCategoria, preselectTipo = "", preselectCategoria = "") {
     const tipoPublicacion = getTipoPublicacionPar(comboTipo);
 
-    resetSelect(comboTipo, "Cargando tipos...", true);
-    resetSelect(comboCategoria, "Selecciona un tipo primero", true);
+    resetSelect(comboTipo, "Cargando tipo...", true);
+    resetSelect(comboCategoria, "Cargando categorías...", true);
     aplicarTipoAtencionAutomatico(comboTipo, comboCategoria);
 
     try {
-      const payload = await cargarJSON(buildURL("tipos", { tipo_publicacion: tipoPublicacion }));
-      const arr = unwrapArray(payload);
+      const payload = await cargarJSON(buildURL("tipos", {
+        tipo_publicacion: tipoPublicacion
+      }));
+      const tipos = unwrapArray(payload);
 
-      if (!arr) {
-        console.error("Respuesta inválida tipos:", payload);
+      if (!tipos) {
+        console.error("[EV] Respuesta inválida de tipos:", payload);
         resetSelect(comboTipo, "Respuesta inválida", true);
         resetSelect(comboCategoria, "Respuesta inválida", true);
         return;
       }
 
-      comboTipo.innerHTML = `<option value="" selected disabled>-- Seleccione Tipos --</option>`;
-      arr.forEach(t => {
-        const op = document.createElement("option");
-        op.value = t.codigo_tipo;
-        op.textContent = t.nombre;
-        comboTipo.appendChild(op);
-      });
-      comboTipo.disabled = false;
+      const tipoAutomatico = resolverTipoAutomatico(tipos, tipoPublicacion, preselectTipo);
 
-      if (preselectTipo) comboTipo.value = String(preselectTipo);
-
-      if (comboTipo.value) {
-        await cargarCategoriasPorTipo(comboTipo, comboCategoria, comboTipo.value, preselectCategoria);
-      } else {
-        resetSelect(comboCategoria, "Selecciona un tipo primero", true);
-        aplicarTipoAtencionAutomatico(comboTipo, comboCategoria);
+      if (!tipoAutomatico?.codigo_tipo) {
+        resetSelect(
+          comboTipo,
+          tipoPublicacion === "servicio" ? "Servicio no configurado" : "Producto no configurado",
+          true
+        );
+        resetSelect(comboCategoria, "No se pudo identificar el tipo", true);
+        return;
       }
-    } catch (e) {
-      console.error("Error cargando Tipos:", e);
-      resetSelect(comboTipo, "Error al cargar Tipos", true);
-      resetSelect(comboCategoria, "Error al cargar", true);
+
+      /*
+       * Regla de negocio:
+       * El tipo se muestra, pero no es editable. Producto/Servicio se define
+       * exclusivamente por el Paso 1.
+       */
+      comboTipo.innerHTML = "";
+      const option = document.createElement("option");
+      option.value = String(tipoAutomatico.codigo_tipo);
+      option.textContent = String(tipoAutomatico.nombre || (
+        tipoPublicacion === "servicio" ? "Servicio" : "Producto"
+      ));
+      option.selected = true;
+      comboTipo.appendChild(option);
+      comboTipo.value = option.value;
+      comboTipo.disabled = true;
+      comboTipo.setAttribute("aria-readonly", "true");
+
+      await cargarCategoriasPorTipo(
+        comboTipo,
+        comboCategoria,
+        comboTipo.value,
+        preselectCategoria
+      );
+    } catch (error) {
+      console.error("[EV] Error cargando tipo:", error);
+      resetSelect(comboTipo, "Error al cargar tipo", true);
+      resetSelect(comboCategoria, "Error al cargar categorías", true);
     }
   }
 
@@ -308,6 +352,10 @@
     const valorRegistradoTipo = comboTipo.dataset.valorRegistrado || "";
     const valorRegistradoCategoria = comboCategoria.dataset.valorRegistrado || "";
 
+    /*
+     * El selector Tipo permanece bloqueado. Conservamos este listener por
+     * compatibilidad con el modo edición y scripts existentes.
+     */
     comboTipo.addEventListener("change", () => {
       comboCategoria.dataset.valorRegistrado = "";
       cargarCategoriasPorTipo(comboTipo, comboCategoria, comboTipo.value, "");
@@ -317,15 +365,22 @@
       aplicarTipoAtencionAutomatico(comboTipo, comboCategoria);
     });
 
-    await cargarTipos(comboTipo, comboCategoria, valorRegistradoTipo, valorRegistradoCategoria);
+    await cargarTipos(
+      comboTipo,
+      comboCategoria,
+      valorRegistradoTipo,
+      valorRegistradoCategoria
+    );
+
     return true;
   }
 
   function esperarPar(tipoId, categoriaId) {
     const intentar = async () => {
       const ok = await inicializarParTipoCategoria(tipoId, categoriaId);
-      if (!ok) setTimeout(intentar, 120);
+      if (!ok) window.setTimeout(intentar, 120);
     };
+
     intentar();
   }
 
@@ -335,10 +390,20 @@
     const comboCategoria = document.getElementById(ids.categoriaId);
     if (!comboTipo || !comboCategoria) return;
 
-    if (codTipo !== undefined && codTipo !== null) comboTipo.dataset.valorRegistrado = codTipo ? String(codTipo) : "";
-    if (codCategoria !== undefined && codCategoria !== null) comboCategoria.dataset.valorRegistrado = codCategoria ? String(codCategoria) : "";
+    /*
+     * codTipo se conserva para edición. En agregar, al cambiar Producto /
+     * Servicio, el endpoint y resolverTipoAutomatico determinan el tipo
+     * correcto automáticamente.
+     */
+    comboTipo.dataset.valorRegistrado = codTipo ? String(codTipo) : "";
+    comboCategoria.dataset.valorRegistrado = codCategoria ? String(codCategoria) : "";
 
-    await cargarTipos(comboTipo, comboCategoria, comboTipo.dataset.valorRegistrado || "", comboCategoria.dataset.valorRegistrado || "");
+    await cargarTipos(
+      comboTipo,
+      comboCategoria,
+      comboTipo.dataset.valorRegistrado,
+      comboCategoria.dataset.valorRegistrado
+    );
   };
 
   window.evInitComboTipoCategoriaEdit = function (codTipo, codCategoria) {
@@ -352,24 +417,30 @@
     window.evRecargarComboTipoCategoria("edit", codTipo, codCategoria);
   };
 
-  document.addEventListener("change", (e) => {
-    const t = e.target;
-    if (!t || !t.matches) return;
+  document.addEventListener("change", (event) => {
+    const target = event.target;
+    if (!target?.matches) return;
 
-    if (t.matches('input[name="tipo_publicacion"], input[name="edit_tipo_publicacion"]')) {
-      const modo = getModoByRadioName(t.name);
+    if (target.matches('input[name="tipo_publicacion"], input[name="edit_tipo_publicacion"]')) {
+      const modo = getModoByRadioName(target.name);
       window.evRecargarComboTipoCategoria(modo, "", "");
     }
   });
 
-  document.addEventListener("shown.bs.modal", (e) => {
-    if (e.target?.id === "modalAgregarPublicacion") {
+  document.addEventListener("shown.bs.modal", (event) => {
+    if (event.target?.id === "modalAgregarPublicacion") {
       window.evRecargarComboTipoCategoria("add", "", "");
     }
-    if (e.target?.id === "modalEditarPublicacion") {
+
+    if (event.target?.id === "modalEditarPublicacion") {
       const comboTipo = document.getElementById("edit_comboTipo");
       const comboCategoria = document.getElementById("edit_comboCategoria");
-      window.evRecargarComboTipoCategoria("edit", comboTipo?.dataset?.valorRegistrado || "", comboCategoria?.dataset?.valorRegistrado || "");
+
+      window.evRecargarComboTipoCategoria(
+        "edit",
+        comboTipo?.dataset?.valorRegistrado || "",
+        comboCategoria?.dataset?.valorRegistrado || ""
+      );
     }
   });
 

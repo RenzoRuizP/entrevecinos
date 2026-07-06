@@ -115,14 +115,18 @@ class Producto extends Conexion
     /**
      * Fuente de verdad para decidir si una publicación de producto requiere preparación.
      *
-     * También valida que la categoría pertenezca al grupo correcto:
-     *   producto => categoria.codigo_grupo = 1
-     *   servicio => categoria.codigo_grupo = 2
+     * La categoría se valida contra el tipo principal seleccionado:
+     *   Producto => categoria.codigo_tipo = código del tipo Producto
+     *   Servicio => categoria.codigo_tipo = código del tipo Servicio
+     *
+     * Importante: categoria.codigo_grupo representa el agrupador del catálogo
+     * (por ejemplo, Eventos y catering o Hogar y mantenimiento). No identifica
+     * si la publicación es producto o servicio, por lo que no debe usarse para
+     * esta validación.
      */
     public function resolverTipoAtencionPorCategoria(int $codigoCategoria, int $codigoTipo, string $tipoPublicacion = 'producto'): string
     {
         $tipoPublicacion = strtolower(trim($tipoPublicacion));
-        $codigoGrupoEsperado = ($tipoPublicacion === 'servicio') ? 2 : 1;
 
         if ($codigoCategoria <= 0 || $codigoTipo <= 0) {
             throw new InvalidArgumentException('Tipo o categoría inválida para resolver la publicación.');
@@ -130,12 +134,10 @@ class Producto extends Conexion
 
         $sql = "
             SELECT
-                c.requiere_preparacion_default,
-                c.codigo_grupo
+                c.requiere_preparacion_default
             FROM categoria c
             WHERE c.codigo_categoria = :codigo_categoria
               AND c.codigo_tipo = :codigo_tipo
-              AND c.codigo_grupo = :codigo_grupo
               AND c.estado = 1
             LIMIT 1
         ";
@@ -143,7 +145,6 @@ class Producto extends Conexion
         $stmt = $this->dblink->prepare($sql);
         $stmt->bindValue(':codigo_categoria', $codigoCategoria, PDO::PARAM_INT);
         $stmt->bindValue(':codigo_tipo', $codigoTipo, PDO::PARAM_INT);
-        $stmt->bindValue(':codigo_grupo', $codigoGrupoEsperado, PDO::PARAM_INT);
         $stmt->execute();
 
         $row = $stmt->fetch(PDO::FETCH_ASSOC);

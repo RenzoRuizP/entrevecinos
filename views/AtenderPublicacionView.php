@@ -40,7 +40,6 @@ require_once __DIR__ . '/../Config/config.php';
               </li>
             </ul>
           </div>
-
         </div>
       </div>
 
@@ -157,85 +156,149 @@ require_once __DIR__ . '/../Config/config.php';
       </div>
     </div>
   </div>
-
 </div>
 
-<!-- MODAL: REVISAR -->
-<div class="modal fade" id="modalPub" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-  <div class="modal-dialog modal-dialog-centered modal-xl">
-    <div class="modal-content ev-modal">
-      <div class="modal-header ev-modal-header">
-        <h5 class="modal-title"><i class="bi bi-clipboard-check me-2"></i> Revisar publicación</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+<!-- MODAL: REVISAR PUBLICACIÓN -->
+<div
+  class="modal fade ev-ap-modal"
+  id="modalPub"
+  tabindex="-1"
+  aria-hidden="true"
+  data-bs-backdrop="static"
+  data-bs-keyboard="false"
+>
+  <div class="modal-dialog modal-dialog-centered modal-xl ev-ap-modal-dialog">
+    <div class="modal-content ev-ap-modal-content">
+
+      <div class="modal-header ev-ap-modal-header">
+        <h5 class="modal-title ev-ap-modal-title">
+          <i class="bi bi-clipboard-check"></i>
+          <span>Revisar publicación</span>
+        </h5>
+
+        <button
+          type="button"
+          class="btn-close btn-close-white ev-ap-modal-close"
+          data-bs-dismiss="modal"
+          aria-label="Cerrar"
+        ></button>
       </div>
 
-      <div class="modal-body ev-modal-body">
-        <div class="row g-4">
-          <div class="col-12 col-lg-6">
-            <div class="ev-kv">
-              <div class="ev-kv-item"><span>Publicación:</span> <strong id="mTipoPublicacion">—</strong></div>
-              <div class="ev-kv-item"><span>Título:</span> <strong id="mTitulo">—</strong></div>
-              <div class="ev-kv-item"><span>Precio:</span> <strong id="mPrecio">—</strong></div>
-              <div class="ev-kv-item"><span>Estado:</span> <span id="mEstadoBadge" class="ev-badge ev-badge-pendiente">pendiente</span></div>
-              <div class="ev-kv-item"><span>Usuario:</span> <strong id="mUsuario">—</strong></div>
-              <div class="ev-kv-item"><span>Email:</span> <strong id="mEmail">—</strong></div>
+      <div class="ev-ap-modal-flex">
+        <div class="modal-body ev-ap-modal-body-scroll">
+          <div class="ev-ap-review-grid">
+
+            <!-- COLUMNA IZQUIERDA: REVISIÓN -->
+            <div class="ev-ap-review-form-col">
+
+              <section class="ev-ap-section ev-ap-data-section">
+                <span class="ev-ap-step-badge">Revisión</span>
+                <div class="ev-ap-section-heading">
+                  <h6 class="ev-ap-section-title">Datos principales</h6>
+                  <span id="mEstadoBadge" class="ev-badge ev-badge-pendiente">pendiente</span>
+                </div>
+
+                <div class="ev-ap-kv-list">
+                  <div class="ev-ap-kv-item">
+                    <span>Tipo</span>
+                    <strong id="mTipoPublicacion">—</strong>
+                  </div>
+                  <div class="ev-ap-kv-item">
+                    <span>Título</span>
+                    <strong id="mTitulo">—</strong>
+                  </div>
+                  <div class="ev-ap-kv-item">
+                    <span>Precio</span>
+                    <strong id="mPrecio">—</strong>
+                  </div>
+                  <div class="ev-ap-kv-item">
+                    <span>Usuario</span>
+                    <strong id="mUsuario">—</strong>
+                  </div>
+                  <div class="ev-ap-kv-item">
+                    <span>Email</span>
+                    <strong id="mEmail">—</strong>
+                  </div>
+                </div>
+              </section>
+
+              <section class="ev-ap-section">
+                <span class="ev-ap-step-badge">Comunicación</span>
+                <h6 class="ev-ap-section-title">Comentario para el vecino</h6>
+
+                <textarea
+                  class="form-control ev-ap-input"
+                  id="mComentario"
+                  rows="4"
+                  placeholder="Ej. Hola, revisamos tu publicación y necesitamos que corrijas la imagen principal porque no se aprecia bien."
+                ></textarea>
+
+                <div class="ev-ap-form-hint">
+                  Este mensaje se mostrará al vecino. Usa un tono claro, respetuoso y específico.
+                </div>
+              </section>
+
+              <section class="ev-ap-section">
+                <span class="ev-ap-step-badge">Contenido</span>
+                <h6 class="ev-ap-section-title">Descripción</h6>
+                <div class="ev-ap-content-box" id="mDescripcion">—</div>
+              </section>
+
+              <section class="ev-ap-section">
+                <span class="ev-ap-step-badge">Historial</span>
+                <h6 class="ev-ap-section-title">Último mensaje registrado</h6>
+                <div class="ev-ap-content-box ev-ap-content-box-soft" id="mUltimoComentario">
+                  Sin mensaje registrado.
+                </div>
+              </section>
             </div>
 
-            <div class="mt-3">
-              <label class="form-label">Comentario para el vecino</label>
-              <textarea
-                class="form-control ev-input"
-                id="mComentario"
-                rows="4"
-                placeholder="Ej. Hola, revisamos tu publicación y necesitamos que corrijas la imagen principal porque no se aprecia bien."
-              ></textarea>
-              <div class="form-text">
-                Este mensaje se mostrará al vecino. Usa un tono claro, respetuoso y específico.
+            <!-- COLUMNA DERECHA: IMÁGENES -->
+            <aside class="ev-ap-review-preview-col">
+              <div class="ev-ap-review-preview-sticky">
+                <section class="ev-ap-preview-panel">
+                  <div class="ev-ap-preview-panel-head">
+                    <div>
+                      <div class="ev-ap-preview-kicker">Vista previa</div>
+                      <div class="ev-ap-preview-heading">
+                        <i class="bi bi-image me-1"></i> Imágenes de la publicación
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="ev-ap-preview-area">
+                    <div id="mGaleria" class="ev-ap-galeria"></div>
+                    <div id="mNoImgs" class="ev-ap-proof-empty">No hay imágenes disponibles.</div>
+                  </div>
+
+                  <div class="ev-ap-preview-tip">
+                    <i class="bi bi-shield-check"></i>
+                    <span>
+                      Verifica que el contenido sea claro, corresponda a la publicación y cumpla las políticas de Entre Vecinos.
+                    </span>
+                  </div>
+                </section>
               </div>
-            </div>
-
-            <div class="mt-3">
-              <label class="form-label mb-1">Descripción</label>
-              <div class="ev-desc" id="mDescripcion">—</div>
-            </div>
-
-            <div class="mt-3">
-              <label class="form-label mb-1">Último mensaje registrado</label>
-              <div class="ev-desc ev-desc-soft" id="mUltimoComentario">Sin mensaje registrado.</div>
-            </div>
+            </aside>
           </div>
-
-          <div class="col-12 col-lg-6">
-            <div class="ev-proof">
-              <div class="ev-proof-title"><i class="bi bi-image me-2"></i> Imágenes</div>
-              <div class="ev-proof-box">
-                <div id="mGaleria" class="ev-galeria"></div>
-                <div id="mNoImgs" class="ev-proof-empty">No hay imágenes disponibles.</div>
-              </div>
-              <div class="ev-proof-hint">
-                Verifica que el contenido sea claro, corresponda a la publicación y cumpla las políticas de Entre Vecinos.
-              </div>
-            </div>
-          </div>
-
         </div>
-      </div>
 
-      <div class="modal-footer ev-modal-footer">
-        <button type="button" class="btn ev-btn-outline" data-bs-dismiss="modal">
-          <i class="bi bi-x-circle me-1"></i> Cerrar
-        </button>
+        <div class="modal-footer ev-ap-modal-footer">
+          <button type="button" class="btn ev-ap-btn-outline" data-bs-dismiss="modal">
+            <i class="bi bi-x-circle me-1"></i> Cerrar
+          </button>
 
-        <div class="ms-auto d-flex gap-2 flex-wrap">
-          <button type="button" class="btn ev-btn-danger" id="btnRechazar">
-            <i class="bi bi-x-circle me-1"></i> Rechazar
-          </button>
-          <button type="button" class="btn ev-btn-warning" id="btnObservar">
-            <i class="bi bi-exclamation-circle me-1"></i> Observar
-          </button>
-          <button type="button" class="btn ev-btn-success" id="btnAprobar">
-            <i class="bi bi-check-circle me-1"></i> Aprobar
-          </button>
+          <div class="ev-ap-modal-actions">
+            <button type="button" class="btn ev-ap-btn-danger" id="btnRechazar">
+              <i class="bi bi-x-circle me-1"></i> Rechazar
+            </button>
+            <button type="button" class="btn ev-ap-btn-warning" id="btnObservar">
+              <i class="bi bi-exclamation-circle me-1"></i> Observar
+            </button>
+            <button type="button" class="btn ev-ap-btn-success" id="btnAprobar">
+              <i class="bi bi-check-circle me-1"></i> Aprobar
+            </button>
+          </div>
         </div>
       </div>
     </div>

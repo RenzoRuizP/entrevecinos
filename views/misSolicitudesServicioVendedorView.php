@@ -19,7 +19,7 @@ require_once __DIR__ . '/../Config/config.php';
           <div class="ev-ssv-kicker">VENDER · SERVICIOS</div>
           <h2 class="ev-ssv-title">Solicitudes de servicio</h2>
           <p class="ev-ssv-subtitle">
-            Revisa los requerimientos de tus vecinos, solicita información cuando sea necesaria y envía propuestas claras para coordinar cada servicio.
+            Revisa las solicitudes, negocia exclusivamente dentro de EV y emite una cotización final cuando las condiciones estén acordadas.
           </p>
         </div>
       </div>
@@ -45,7 +45,7 @@ require_once __DIR__ . '/../Config/config.php';
     <header class="ev-ssv-panel-head">
       <div>
         <h5>Panel de coordinación</h5>
-        <p>Las propuestas no confirman un acuerdo todavía. El solicitante revisará y responderá en el siguiente paso del flujo.</p>
+        <p>La cotización final fija el alcance, precio, movilidad y condición de pago. El acuerdo se confirma solo cuando el comprador la acepta.</p>
       </div>
 
       <div class="ev-ssv-head-actions">

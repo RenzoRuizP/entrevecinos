@@ -24,6 +24,11 @@
     return s ? s : def;
   }
 
+  function textoContable(cantidad, singular, plural) {
+    const total = Math.max(0, Number(cantidad) || 0);
+    return `${total} ${total === 1 ? singular : plural}`;
+  }
+
   function escapeHtml(v) {
     return String(v ?? "")
       .replace(/&/g, "&amp;")
@@ -265,6 +270,7 @@
         mUltimoComentario: document.getElementById("mUltimoComentario"),
         mGaleria: document.getElementById("mGaleria"),
         mNoImgs: document.getElementById("mNoImgs"),
+        mCantidadImagenes: document.getElementById("mCantidadImagenes"),
       };
     }
 
@@ -452,6 +458,7 @@
         mUltimoComentario,
         mGaleria,
         mNoImgs,
+        mCantidadImagenes,
         mEstadoBadge,
         modalEl
       } = getModalEls();
@@ -464,8 +471,12 @@
       if (mDescripcion) mDescripcion.textContent = "—";
       if (mComentario) mComentario.value = "";
       if (mUltimoComentario) mUltimoComentario.textContent = "Sin mensaje registrado.";
-      if (mGaleria) mGaleria.innerHTML = "";
-      if (mNoImgs) mNoImgs.style.display = "block";
+      if (mGaleria) {
+        mGaleria.innerHTML = "";
+        mGaleria.dataset.count = "0";
+      }
+      if (mNoImgs) mNoImgs.style.display = "grid";
+      if (mCantidadImagenes) mCantidadImagenes.textContent = textoContable(0, "imagen", "imágenes");
 
       if (mEstadoBadge) {
         mEstadoBadge.textContent = "pendiente";
@@ -494,6 +505,7 @@
         mUltimoComentario,
         mGaleria,
         mNoImgs,
+        mCantidadImagenes,
         mEstadoBadge
       } = getModalEls();
 
@@ -550,21 +562,33 @@
         if (portada) urls.push(portada);
       }
 
-      if (mGaleria) mGaleria.innerHTML = "";
+      if (mGaleria) {
+        mGaleria.innerHTML = "";
+        mGaleria.dataset.count = String(urls.length);
+      }
+      if (mCantidadImagenes) {
+        mCantidadImagenes.textContent = textoContable(urls.length, "imagen", "imágenes");
+      }
 
       if (urls.length > 0) {
         if (mNoImgs) mNoImgs.style.display = "none";
 
-        for (const u of urls) {
-          const img = document.createElement("img");
+        urls.forEach((u, index) => {
           const src = u.startsWith("http") ? u : (u.startsWith("/") ? (baseUrl + u) : (baseUrl + "/" + u));
+          const figure = document.createElement("figure");
+          figure.className = "ev-galeria-item";
+
+          const img = document.createElement("img");
           img.src = src;
-          img.alt = "Imagen de la publicación";
+          img.alt = `Imagen ${index + 1} de la publicación`;
           img.loading = "lazy";
-          if (mGaleria) mGaleria.appendChild(img);
-        }
+          img.decoding = "async";
+
+          figure.appendChild(img);
+          if (mGaleria) mGaleria.appendChild(figure);
+        });
       } else {
-        if (mNoImgs) mNoImgs.style.display = "block";
+        if (mNoImgs) mNoImgs.style.display = "grid";
       }
     }
 
