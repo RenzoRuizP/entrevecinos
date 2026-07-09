@@ -246,41 +246,61 @@
   function propuestaHtml(propuesta) {
     if (!propuesta) return '';
 
-    let precio = propuesta.monto_propuesto !== null && propuesta.monto_propuesto !== undefined
+    const version = Number(propuesta.version || 1);
+    const estado = String(propuesta.estado || '').trim();
+    const precio = propuesta.monto_propuesto !== null && propuesta.monto_propuesto !== undefined
       ? formatMoney(propuesta.monto_propuesto)
-      : (propuesta.tipo_precio_texto || 'Por coordinar');
+      : 'Por coordinar';
 
-    if (propuesta.unidad_precio) {
-      precio += ` ${propuesta.unidad_precio}`;
-    }
+    const condicionPago = ({
+      contra_entrega: 'Pago contra entrega',
+      adelanto_acordado: 'Adelanto acordado'
+    }[String(propuesta.condicion_pago || '').trim()] || propuesta.condicion_pago_texto || 'No especificada');
+
+    const adelanto = Number(propuesta.monto_adelanto || 0);
+    const saldo = Number(propuesta.saldo_contra_entrega ?? Math.max(0, Number(propuesta.monto_propuesto || 0) - adelanto));
+    const tieneAdelanto = String(propuesta.condicion_pago || '') === 'adelanto_acordado' && adelanto > 0;
+
+    const inicio = String(propuesta.hora_inicio || '').slice(0, 5);
+    const fin = String(propuesta.hora_fin || '').slice(0, 5);
+    const horario = inicio && fin ? `${inicio} – ${fin}` : (inicio || fin || '');
 
     return `
-      <section class="ev-ssc-proposal">
+      <section class="ev-ssc-proposal ev-ssc-proposal-final">
         <div class="ev-ssc-proposal-title">
-          <i class="bi bi-file-earmark-text"></i>
-          Propuesta del proveedor · Versión ${Number(propuesta.version || 1)}
+          <i class="bi bi-file-earmark-check"></i>
+          Cotización final · Versión ${version}
+          ${estado ? `<span class="ev-ssc-proposal-status">${escapeHtml(estado)}</span>` : ''}
         </div>
+
         <div class="ev-ssc-proposal-grid">
-          <div class="ev-ssc-proposal-box">
-            <span>Modalidad</span>
-            <strong>${escapeHtml(propuesta.modalidad_texto || 'Por coordinar')}</strong>
-          </div>
-          <div class="ev-ssc-proposal-box">
-            <span>Momento</span>
-            <strong>${escapeHtml(propuesta.momento_texto || 'A coordinar')}</strong>
-          </div>
-          <div class="ev-ssc-proposal-box">
-            <span>Precio</span>
+          <div class="ev-ssc-proposal-box ev-ssc-proposal-box-total">
+            <span>Precio final total</span>
             <strong>${escapeHtml(precio)}</strong>
           </div>
           <div class="ev-ssc-proposal-box">
-            <span>Duración estimada</span>
-            <strong>${escapeHtml(propuesta.duracion_estimada || 'Por coordinar')}</strong>
+            <span>Condición de pago</span>
+            <strong>${escapeHtml(condicionPago)}</strong>
           </div>
+          ${tieneAdelanto ? `
+            <div class="ev-ssc-proposal-box">
+              <span>Adelanto acordado</span>
+              <strong>${escapeHtml(formatMoney(adelanto))}</strong>
+            </div>
+            <div class="ev-ssc-proposal-box">
+              <span>Saldo contra entrega</span>
+              <strong>${escapeHtml(formatMoney(saldo))}</strong>
+            </div>
+          ` : ''}
         </div>
-        ${propuesta.fecha_propuesta ? `<div class="ev-ssc-proposal-text"><strong>Fecha:</strong> ${escapeHtml(formatFecha(propuesta.fecha_propuesta))}${propuesta.horario_propuesto ? ` · ${escapeHtml(propuesta.horario_propuesto)}` : ''}</div>` : ''}
-        <div class="ev-ssc-proposal-text"><strong>Alcance:</strong> ${escapeHtml(propuesta.alcance_confirmado || '—')}</div>
-        ${propuesta.requisitos ? `<div class="ev-ssc-proposal-text"><strong>Requisitos:</strong> ${escapeHtml(propuesta.requisitos)}</div>` : ''}
+
+        <div class="ev-ssc-proposal-text">
+          <strong>Servicio incluido y condiciones acordadas:</strong>
+          ${escapeHtml(propuesta.alcance_confirmado || '—')}
+        </div>
+        ${propuesta.fecha_propuesta ? `<div class="ev-ssc-proposal-text"><strong>Fecha acordada:</strong> ${escapeHtml(formatFecha(propuesta.fecha_propuesta))}</div>` : ''}
+        ${horario ? `<div class="ev-ssc-proposal-text"><strong>Horario:</strong> ${escapeHtml(horario)}</div>` : ''}
+        ${propuesta.duracion_estimada ? `<div class="ev-ssc-proposal-text"><strong>Duración estimada:</strong> ${escapeHtml(propuesta.duracion_estimada)}</div>` : ''}
         ${propuesta.mensaje_proveedor ? `<div class="ev-ssc-proposal-text"><strong>Mensaje del proveedor:</strong> ${escapeHtml(propuesta.mensaje_proveedor)}</div>` : ''}
       </section>
     `;
@@ -313,8 +333,8 @@
     if (estado === 'propuesta_enviada_solicitante') {
       return `
         <div class="ev-ssc-state ev-ssc-state-pending">
-          <div class="ev-ssc-state-title">Tienes una propuesta por revisar</div>
-          <div class="ev-ssc-state-text">Revísala con calma. Puedes aceptarla o pedir un ajuste antes de confirmar la coordinación.</div>
+          <div class="ev-ssc-state-title">Tienes una cotización final por revisar</div>
+          <div class="ev-ssc-state-text">Revisa el alcance, precio final, condición de pago, fecha y horario antes de confirmar la coordinación.</div>
         </div>
       `;
     }
@@ -323,7 +343,7 @@
       return `
         <div class="ev-ssc-state ev-ssc-state-wait">
           <div class="ev-ssc-state-title">Ajuste enviado al proveedor</div>
-          <div class="ev-ssc-state-text">${escapeHtml(item?.motivo_estado || 'El proveedor revisará tu solicitud de ajuste y responderá con una nueva propuesta.')}</div>
+          <div class="ev-ssc-state-text">${escapeHtml(item?.motivo_estado || 'El proveedor revisará tu solicitud de ajuste y responderá con una nueva cotización final.')}</div>
         </div>
       `;
     }
@@ -332,7 +352,7 @@
       return `
         <div class="ev-ssc-state ev-ssc-state-success">
           <div class="ev-ssc-state-title">Coordinación confirmada</div>
-          <div class="ev-ssc-state-text">Ambos vecinos tienen una propuesta aceptada. La ejecución y confirmación final se trabajarán en el siguiente punto.</div>
+          <div class="ev-ssc-state-text">Ambos vecinos tienen una cotización final aceptada. La ejecución, confirmación u observación queda registrada en EV.</div>
         </div>
       `;
     }
@@ -357,7 +377,7 @@
   function actionsHtml(item) {
     const id = Number(item?.codigo_solicitud_servicio || 0);
     return `
-      <button type="button" class="btn ev-ssc-btn-accept" data-ssc-action="conversacion" data-id="${id}">
+      <button type="button" class="btn ev-ssc-btn-accept ev-ssc-btn-conversation" data-ssc-action="conversacion" data-id="${id}">
         <i class="bi bi-chat-square-text me-1"></i>Abrir conversación
       </button>
     `;
@@ -395,8 +415,8 @@
         <div class="ev-ssc-card-body">
           <div class="ev-ssc-card-data">
             <div class="ev-ssc-data">
-              <span>Fecha deseada</span>
-              <strong>${escapeHtml(etiquetaRango(item))}</strong>
+              <span>Coordinación</span>
+              <strong>Por conversación privada</strong>
             </div>
             <div class="ev-ssc-data ev-ssc-data-price">
               <span>Precio referencial</span>
@@ -409,12 +429,8 @@
               <span class="ev-ssc-line-label">Proveedor</span>
               <span class="ev-ssc-line-value">${escapeHtml(item?.nombre_proveedor || 'Vecino')}</span>
             </div>
-            <div class="ev-ssc-line">
-              <span class="ev-ssc-line-label">Ubicación</span>
-              <span class="ev-ssc-line-value">${Number(item?.ubicacion_compartida || 0) === 1 ? 'Compartida en conversación' : 'Se comparte solo cuando sea necesaria'}</span>
-            </div>
             <div class="ev-ssc-note">
-              <span class="ev-ssc-note-label">Tu solicitud</span>
+              <span class="ev-ssc-note-label">Tu solicitud inicial</span>
               <div class="ev-ssc-note-text">${escapeHtml(item?.mensaje_solicitante || 'Sin detalle adicional.')}</div>
             </div>
           </div>
@@ -630,7 +646,7 @@
       : (propuesta?.tipo_precio_texto || 'Por coordinar');
 
     const result = await Swal.fire(swalConfig({
-      title: 'Aceptar propuesta',
+      title: 'Aceptar cotización final',
       html: messageHtml(
         'warning',
         'Confirma solo si las condiciones son correctas',
@@ -639,7 +655,7 @@
         `${item?.titulo_servicio || 'Servicio'} · ${precio}`
       ),
       showCancelButton: true,
-      confirmButtonText: 'Sí, aceptar propuesta',
+      confirmButtonText: 'Aceptar cotización final',
       cancelButtonText: 'Revisar nuevamente'
     }));
 
@@ -657,7 +673,7 @@
       if (__authHandled) return;
 
       if (!resp.ok || json?.ok === false) {
-        await notify('error', 'No se pudo aceptar', 'La propuesta conserva su estado actual', json?.mensaje || 'Inténtalo nuevamente.', {
+        await notify('error', 'No se pudo aceptar', 'La cotización conserva su estado actual', json?.mensaje || 'Inténtalo nuevamente.', {
           cardLabel: 'Servicio',
           cardText: item.titulo_servicio
         });
@@ -665,7 +681,7 @@
         return;
       }
 
-      await notify('success', 'Coordinación confirmada', 'El proveedor fue notificado', json?.mensaje || 'La propuesta fue aceptada correctamente.', {
+      await notify('success', 'Coordinación confirmada', 'El proveedor fue notificado', json?.mensaje || 'La cotización final fue aceptada correctamente.', {
         cardLabel: 'Servicio',
         cardText: item.titulo_servicio
       });
@@ -722,7 +738,7 @@
       if (__authHandled) return;
 
       if (!resp.ok || json?.ok === false) {
-        await notify('error', 'No se pudo enviar', 'La propuesta conserva su estado actual', json?.mensaje || 'Inténtalo nuevamente.', {
+        await notify('error', 'No se pudo enviar', 'La cotización conserva su estado actual', json?.mensaje || 'Inténtalo nuevamente.', {
           cardLabel: 'Servicio',
           cardText: item.titulo_servicio
         });
@@ -845,8 +861,8 @@
             <strong>${escapeHtml(etiquetaRango(item))}</strong>
           </div>
           <div class="ev-ssc-detail-box">
-            <span>Ubicación</span>
-            <strong>${Number(item?.ubicacion_compartida || 0) === 1 ? 'Compartida dentro de la conversación' : 'Se comparte cuando sea necesaria para cotizar'}</strong>
+            <span>Negociación</span>
+            <strong>Registrada dentro de EV</strong>
           </div>
           <div class="ev-ssc-detail-box">
             <span>Estado</span>
@@ -969,6 +985,94 @@ ${propuesta.fecha_propuesta ? `<strong>Fecha:</strong> ${escapeHtml(formatFecha(
     }, POLLING_MS);
   }
 
+
+  function ensureMarketplaceAlignedStyles() {
+    const id = 'ev-servicios-solicitudes-marketplace-align';
+    if (document.getElementById(id)) return;
+
+    const style = document.createElement('style');
+    style.id = id;
+    style.textContent = `
+      .ev-ssc-card,.ev-ssv-card{
+        border-color:rgba(15,89,47,.10)!important;
+        box-shadow:0 14px 34px rgba(15,23,42,.09)!important;
+        transition:transform .22s ease, box-shadow .22s ease, border-color .22s ease, filter .22s ease!important;
+      }
+      .ev-ssc-card:hover,.ev-ssv-card:hover{
+        transform:translateY(-5px)!important;
+        box-shadow:0 22px 48px rgba(15,23,42,.14)!important;
+        border-color:#198754!important;
+      }
+      .ev-ssc-card-media,.ev-ssv-card-media{
+        border-color:rgba(15,89,47,.10)!important;
+        box-shadow:0 10px 24px rgba(15,23,42,.10)!important;
+      }
+      .ev-ssc-card-title,.ev-ssv-card-title{
+        letter-spacing:-.02em!important;
+      }
+      .ev-ssc-btn-conversation,.ev-ssv-btn-conversation,
+      .ev-ssc-actions .ev-ssc-btn-accept,.ev-ssv-actions .ev-ssv-btn-proposal{
+        border:none!important;
+        background:linear-gradient(135deg,#D97706,#EA7C12)!important;
+        color:#fff!important;
+        font-weight:900!important;
+        border-radius:999px!important;
+        min-height:40px!important;
+        padding:.72rem 1rem!important;
+        box-shadow:0 10px 24px rgba(217,119,6,.30)!important;
+        transition:transform .16s ease, box-shadow .16s ease, background .16s ease, filter .16s ease!important;
+      }
+      .ev-ssc-btn-conversation:hover,.ev-ssv-btn-conversation:hover,
+      .ev-ssc-actions .ev-ssc-btn-accept:hover,.ev-ssv-actions .ev-ssv-btn-proposal:hover{
+        transform:translateY(-2px)!important;
+        background:linear-gradient(135deg,#C46B05,#D46F0F)!important;
+        color:#fff!important;
+        box-shadow:0 12px 28px rgba(217,119,6,.40)!important;
+        filter:brightness(1.02)!important;
+      }
+      .ev-ssc-btn-conversation:active,.ev-ssv-btn-conversation:active,
+      .ev-ssc-actions .ev-ssc-btn-accept:active,.ev-ssv-actions .ev-ssv-btn-proposal:active{
+        transform:translateY(0)!important;
+      }
+      .ev-ssc-data-price,.ev-ssv-data-price{
+        background:linear-gradient(180deg,#F0FDF4,#fff)!important;
+        border-color:rgba(22,163,74,.18)!important;
+      }
+      .ev-ssc-data-price strong,.ev-ssv-data-price strong{
+        color:#00875A!important;
+        font-weight:950!important;
+      }
+      .ev-ssc-proposal-final,.ev-ssv-note-final{
+        border-color:rgba(234,124,18,.28)!important;
+        background:linear-gradient(180deg,#FFF9EF,#FFFFFF)!important;
+        box-shadow:0 10px 24px rgba(234,124,18,.08)!important;
+      }
+      .ev-ssc-proposal-title,.ev-ssv-note-final .ev-ssv-note-label{
+        color:#9A3412!important;
+      }
+      .ev-ssc-proposal-status{
+        margin-left:auto;
+        padding:3px 8px;
+        border-radius:999px;
+        border:1px solid rgba(234,124,18,.22);
+        background:#fff;
+        color:#9A3412;
+        font-size:.62rem;
+        font-weight:900;
+      }
+      .ev-ssc-line-value,.ev-ssv-line-value{
+        overflow-wrap:anywhere!important;
+      }
+      @media(max-width:767.98px){
+        .ev-ssc-btn-conversation,.ev-ssv-btn-conversation,
+        .ev-ssc-actions .ev-ssc-btn-accept,.ev-ssv-actions .ev-ssv-btn-proposal{
+          width:100%!important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   function init() {
     const refs = getRefs();
 
@@ -979,6 +1083,7 @@ ${propuesta.fecha_propuesta ? `<strong>Fecha:</strong> ${escapeHtml(formatFecha(
     }
 
     vistaActiva = true;
+    ensureMarketplaceAlignedStyles();
     bind();
     mostrarTab(refs, tabActiva);
     cargar();

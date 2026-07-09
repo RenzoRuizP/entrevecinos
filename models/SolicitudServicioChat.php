@@ -82,6 +82,44 @@ class SolicitudServicioChat extends Conexion
         && trim((string)($solicitud['direccion_atencion'] ?? '')) !== '';
     }
 
+    private function calcularDuracionCotizacion(?string $horaInicio, ?string $horaFin): string
+    {
+        $inicio = trim((string)$horaInicio);
+        $fin = trim((string)$horaFin);
+
+        if ($inicio === '' || $fin === '') {
+            return '';
+        }
+
+        $inicio = substr($inicio, 0, 5);
+        $fin = substr($fin, 0, 5);
+
+        if (!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $inicio) || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $fin)) {
+            return '';
+        }
+
+        [$h1, $m1] = array_map('intval', explode(':', $inicio));
+        [$h2, $m2] = array_map('intval', explode(':', $fin));
+        $minutos = ($h2 * 60 + $m2) - ($h1 * 60 + $m1);
+
+        if ($minutos <= 0) {
+            return '';
+        }
+
+        $horas = intdiv($minutos, 60);
+        $resto = $minutos % 60;
+
+        if ($horas > 0 && $resto > 0) {
+            return $horas . ' ' . ($horas === 1 ? 'hora' : 'horas') . ' ' . $resto . ' min';
+        }
+
+        if ($horas > 0) {
+            return $horas . ' ' . ($horas === 1 ? 'hora' : 'horas');
+        }
+
+        return $resto . ' min';
+    }
+
     private function obtenerSolicitudParticipante(int $codigoSolicitud, int $codigoUsuario, bool $forUpdate = false): ?array
     {
         $lock = $forUpdate ? ' FOR UPDATE' : '';
@@ -692,7 +730,9 @@ class SolicitudServicioChat extends Conexion
                         : null,
                     'fecha_vencimiento' => $p['fecha_vencimiento'] ?? null,
                     'motivo_estado' => (string)($p['motivo_estado'] ?? ''),
-                    'duracion_estimada' => (string)($p['duracion_estimada'] ?? ''),
+                    'duracion_estimada' => trim((string)($p['duracion_estimada'] ?? '')) !== ''
+                        ? (string)$p['duracion_estimada']
+                        : $this->calcularDuracionCotizacion($p['hora_inicio'] ?? null, $p['hora_fin'] ?? null),
                     'mensaje_proveedor' => (string)($p['mensaje_proveedor'] ?? ''),
                     'estado' => (string)$p['estado'],
                     'created_at' => $p['created_at'] ?? null,
@@ -712,6 +752,7 @@ class SolicitudServicioChat extends Conexion
                 'categoria_grupo_nombre' => (string)($solicitud['categoria_grupo_nombre'] ?? ''),
                 'imagen_portada' => (string)($solicitud['imagen_portada'] ?? ''),
                 'estado' => (string)$solicitud['estado'],
+                'motivo_estado' => (string)($solicitud['motivo_estado'] ?? ''),
                 'rol_actual' => $rol,
                 'nombre_solicitante' => trim((string)$solicitud['nombre_solicitante']) ?: 'Vecino',
                 'nombre_proveedor' => trim((string)$solicitud['nombre_proveedor']) ?: 'Vecino',

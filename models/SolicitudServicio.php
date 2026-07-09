@@ -2055,6 +2055,44 @@ class SolicitudServicio extends Conexion
         return $hora . ':00';
     }
 
+    private function calcularDuracionCotizacion(?string $horaInicio, ?string $horaFin): string
+    {
+        $inicio = trim((string)$horaInicio);
+        $fin = trim((string)$horaFin);
+
+        if ($inicio === '' || $fin === '') {
+            return '';
+        }
+
+        $inicio = substr($inicio, 0, 5);
+        $fin = substr($fin, 0, 5);
+
+        if (!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $inicio) || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $fin)) {
+            return '';
+        }
+
+        [$h1, $m1] = array_map('intval', explode(':', $inicio));
+        [$h2, $m2] = array_map('intval', explode(':', $fin));
+        $minutos = ($h2 * 60 + $m2) - ($h1 * 60 + $m1);
+
+        if ($minutos <= 0) {
+            return '';
+        }
+
+        $horas = intdiv($minutos, 60);
+        $resto = $minutos % 60;
+
+        if ($horas > 0 && $resto > 0) {
+            return $horas . ' ' . ($horas === 1 ? 'hora' : 'horas') . ' ' . $resto . ' min';
+        }
+
+        if ($horas > 0) {
+            return $horas . ' ' . ($horas === 1 ? 'hora' : 'horas');
+        }
+
+        return $resto . ' min';
+    }
+
     private function normalizarMontoAdelanto($valor, string $condicionPago, float $montoTotal): ?float
     {
         if ($condicionPago !== 'adelanto_acordado') {
@@ -2084,7 +2122,6 @@ class SolicitudServicio extends Conexion
     private function normalizarCotizacionFinal(array $data): array
     {
         $alcance = $this->textoLimpio($data['alcance_confirmado'] ?? '', 2500);
-        $duracion = $this->textoLimpio($data['duracion_estimada'] ?? '', 180);
         $mensaje = $this->textoLimpio($data['mensaje_proveedor'] ?? '', 1500);
 
         if (mb_strlen($alcance, 'UTF-8') < 8) {
@@ -2119,6 +2156,8 @@ class SolicitudServicio extends Conexion
         if ($horaInicio !== null && $horaFin !== null && $horaFin <= $horaInicio) {
             throw new InvalidArgumentException('HORA_FIN_ANTERIOR_INICIO');
         }
+
+        $duracion = $this->calcularDuracionCotizacion($horaInicio, $horaFin);
 
         return [
             // Compatibilidad con la tabla actual: columnas antiguas permanecen sin uso activo.

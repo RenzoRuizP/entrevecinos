@@ -185,15 +185,29 @@
 
   function propuestaHtml(propuesta) {
     if (!propuesta) return '';
-    const valor = propuesta.monto_propuesto !== null && propuesta.monto_propuesto !== undefined
-      ? `${formatMoney(propuesta.monto_propuesto)}${propuesta.unidad_precio ? ` ${escapeHtml(propuesta.unidad_precio)}` : ''}`
-      : escapeHtml(propuesta.tipo_precio_texto || 'Por coordinar');
+
+    const precio = propuesta.monto_propuesto !== null && propuesta.monto_propuesto !== undefined
+      ? formatMoney(propuesta.monto_propuesto)
+      : 'Por coordinar';
+
+    const condicionPago = ({
+      contra_entrega: 'Pago contra entrega',
+      adelanto_acordado: 'Adelanto acordado'
+    }[String(propuesta.condicion_pago || '').trim()] || propuesta.condicion_pago_texto || 'No especificada');
+
+    const inicio = String(propuesta.hora_inicio || '').slice(0, 5);
+    const fin = String(propuesta.hora_fin || '').slice(0, 5);
+    const horario = inicio && fin ? `${inicio} – ${fin}` : (inicio || fin || '');
+
     return `
-      <div class="ev-ssv-note">
-        <span class="ev-ssv-note-label">Última propuesta enviada</span>
+      <div class="ev-ssv-note ev-ssv-note-final">
+        <span class="ev-ssv-note-label">Cotización final enviada · Versión ${Number(propuesta.version || 1)}</span>
         <div class="ev-ssv-note-text">
-          ${escapeHtml(propuesta.modalidad_texto || 'Por coordinar')} · ${escapeHtml(propuesta.momento_texto || 'A coordinar')}<br>
-          <strong>${valor}</strong>
+          <strong>${escapeHtml(precio)}</strong> · ${escapeHtml(condicionPago)}
+          ${propuesta.fecha_propuesta ? `<br><strong>Fecha acordada:</strong> ${escapeHtml(formatFecha(propuesta.fecha_propuesta))}` : ''}
+          ${horario ? `<br><strong>Horario:</strong> ${escapeHtml(horario)}` : ''}
+          ${propuesta.alcance_confirmado ? `<br><strong>Servicio:</strong> ${escapeHtml(propuesta.alcance_confirmado)}` : ''}
+          ${propuesta.mensaje_proveedor ? `<br><strong>Mensaje:</strong> ${escapeHtml(propuesta.mensaje_proveedor)}` : ''}
         </div>
       </div>
     `;
@@ -206,22 +220,22 @@
       return `
         <div class="ev-ssv-state ev-ssv-state-pending">
           <div class="ev-ssv-state-title">Solicitud pendiente de tu respuesta</div>
-          <div class="ev-ssv-state-text">Revisa el detalle y responde con una propuesta, una solicitud de información o un rechazo cordial.</div>
+          <div class="ev-ssv-state-text">Revisa el detalle y responde desde la conversación con una cotización final, mensajes de precisión o un rechazo cordial.</div>
           ${restantes !== null && restantes !== undefined ? `<div class="ev-ssv-time"><i class="bi bi-clock-history"></i> ${escapeHtml(formatTiempo(restantes))} restantes</div>` : ''}
         </div>
       `;
     }
     if (estado === 'informacion_adicional_solicitada') {
-      return `<div class="ev-ssv-state ev-ssv-state-wait"><div class="ev-ssv-state-title">Información solicitada al vecino</div><div class="ev-ssv-state-text">Tu solicitud quedó registrada. En el punto 10 el vecino podrá responder con el detalle necesario.</div></div>`;
+      return `<div class="ev-ssv-state ev-ssv-state-wait"><div class="ev-ssv-state-title">Información solicitada al vecino</div><div class="ev-ssv-state-text">Tu solicitud quedó registrada. El vecino podrá responder dentro de la conversación privada.</div></div>`;
     }
     if (estado === 'propuesta_enviada_solicitante') {
-      return `<div class="ev-ssv-state ev-ssv-state-wait"><div class="ev-ssv-state-title">Esperando respuesta del solicitante</div><div class="ev-ssv-state-text">La propuesta fue enviada. La coordinación solo quedará confirmada cuando el vecino la acepte en su vista.</div></div>`;
+      return `<div class="ev-ssv-state ev-ssv-state-wait"><div class="ev-ssv-state-title">Esperando respuesta del comprador</div><div class="ev-ssv-state-text">La cotización final fue enviada. La coordinación solo quedará confirmada cuando el comprador la acepte.</div></div>`;
     }
     if (estado === 'ajuste_solicitado') {
-      return `<div class="ev-ssv-state ev-ssv-state-pending"><div class="ev-ssv-state-title">El solicitante pidió un ajuste</div><div class="ev-ssv-state-text">Revisa la solicitud y envía una propuesta actualizada.</div></div>`;
+      return `<div class="ev-ssv-state ev-ssv-state-pending"><div class="ev-ssv-state-title">El comprador pidió un ajuste</div><div class="ev-ssv-state-text">Revisa la solicitud y emite una nueva cotización final desde la conversación.</div></div>`;
     }
     if (estado === 'coordinacion_confirmada') {
-      return `<div class="ev-ssv-state ev-ssv-state-success"><div class="ev-ssv-state-title">Coordinación confirmada</div><div class="ev-ssv-state-text">Ambas partes ya tienen una propuesta registrada. La ejecución y confirmación final corresponden al punto 11.</div></div>`;
+      return `<div class="ev-ssv-state ev-ssv-state-success"><div class="ev-ssv-state-title">Coordinación confirmada</div><div class="ev-ssv-state-text">Ambas partes ya tienen una cotización final aceptada. La ejecución y confirmación quedan registradas en EV.</div></div>`;
     }
     return `<div class="ev-ssv-state ev-ssv-state-negative"><div class="ev-ssv-state-title">${escapeHtml(item?.estado_texto || 'Solicitud cerrada')}</div><div class="ev-ssv-state-text">${escapeHtml(item?.motivo_estado || 'Esta solicitud ya no requiere una acción de tu parte.')}</div></div>`;
   }
@@ -229,7 +243,7 @@
   function actionsHtml(item) {
     const id = Number(item?.codigo_solicitud_servicio || 0);
     return `
-      <button type="button" class="btn ev-ssv-btn-proposal" data-ssv-action="conversacion" data-id="${id}">
+      <button type="button" class="btn ev-ssv-btn-proposal ev-ssv-btn-conversation" data-ssv-action="conversacion" data-id="${id}">
         <i class="bi bi-chat-square-text me-1"></i>Abrir conversación
       </button>
     `;
@@ -259,11 +273,10 @@
         </div>
         <div class="ev-ssv-card-body">
           <div class="ev-ssv-card-data">
-            <div class="ev-ssv-data"><span>Fecha deseada</span><strong>${escapeHtml(rangoDeseado(item))}</strong></div>
+            <div class="ev-ssv-data"><span>Negociación</span><strong>Por conversación privada</strong></div>
             <div class="ev-ssv-data ev-ssv-data-price"><span>Precio referencial</span><strong>${escapeHtml(formatMoney(item?.precio_referencial))}</strong></div>
           </div>
           <div class="ev-ssv-info">
-            <div class="ev-ssv-line"><span class="ev-ssv-line-label">Ubicación</span><span class="ev-ssv-line-value">${Number(item?.ubicacion_compartida || 0) === 1 ? 'Compartida en conversación' : 'El vecino la compartirá cuando sea necesaria para cotizar'}</span></div>
             <div class="ev-ssv-note"><span class="ev-ssv-note-label">Lo que necesita el vecino</span><div class="ev-ssv-note-text">${escapeHtml(item?.mensaje_solicitante || 'Sin detalle adicional.')}</div></div>
             ${propuestaHtml(item?.propuesta)}
           </div>
@@ -438,11 +451,11 @@
 
     if (!window.Swal?.fire) return;
     const result = await Swal.fire(swalConfig({
-      title: 'Enviar propuesta',
+      title: 'Emitir cotización final',
       html: propuestaFormHtml(item),
       width: 760,
       showCancelButton: true,
-      confirmButtonText: 'Enviar propuesta',
+      confirmButtonText: 'Emitir cotización final',
       cancelButtonText: 'Cancelar',
       didOpen: () => {
         const popup = Swal.getPopup();
@@ -616,10 +629,99 @@
     }, POLLING_MS);
   }
 
+
+  function ensureMarketplaceAlignedStyles() {
+    const id = 'ev-servicios-solicitudes-marketplace-align';
+    if (document.getElementById(id)) return;
+
+    const style = document.createElement('style');
+    style.id = id;
+    style.textContent = `
+      .ev-ssc-card,.ev-ssv-card{
+        border-color:rgba(15,89,47,.10)!important;
+        box-shadow:0 14px 34px rgba(15,23,42,.09)!important;
+        transition:transform .22s ease, box-shadow .22s ease, border-color .22s ease, filter .22s ease!important;
+      }
+      .ev-ssc-card:hover,.ev-ssv-card:hover{
+        transform:translateY(-5px)!important;
+        box-shadow:0 22px 48px rgba(15,23,42,.14)!important;
+        border-color:#198754!important;
+      }
+      .ev-ssc-card-media,.ev-ssv-card-media{
+        border-color:rgba(15,89,47,.10)!important;
+        box-shadow:0 10px 24px rgba(15,23,42,.10)!important;
+      }
+      .ev-ssc-card-title,.ev-ssv-card-title{
+        letter-spacing:-.02em!important;
+      }
+      .ev-ssc-btn-conversation,.ev-ssv-btn-conversation,
+      .ev-ssc-actions .ev-ssc-btn-accept,.ev-ssv-actions .ev-ssv-btn-proposal{
+        border:none!important;
+        background:linear-gradient(135deg,#D97706,#EA7C12)!important;
+        color:#fff!important;
+        font-weight:900!important;
+        border-radius:999px!important;
+        min-height:40px!important;
+        padding:.72rem 1rem!important;
+        box-shadow:0 10px 24px rgba(217,119,6,.30)!important;
+        transition:transform .16s ease, box-shadow .16s ease, background .16s ease, filter .16s ease!important;
+      }
+      .ev-ssc-btn-conversation:hover,.ev-ssv-btn-conversation:hover,
+      .ev-ssc-actions .ev-ssc-btn-accept:hover,.ev-ssv-actions .ev-ssv-btn-proposal:hover{
+        transform:translateY(-2px)!important;
+        background:linear-gradient(135deg,#C46B05,#D46F0F)!important;
+        color:#fff!important;
+        box-shadow:0 12px 28px rgba(217,119,6,.40)!important;
+        filter:brightness(1.02)!important;
+      }
+      .ev-ssc-btn-conversation:active,.ev-ssv-btn-conversation:active,
+      .ev-ssc-actions .ev-ssc-btn-accept:active,.ev-ssv-actions .ev-ssv-btn-proposal:active{
+        transform:translateY(0)!important;
+      }
+      .ev-ssc-data-price,.ev-ssv-data-price{
+        background:linear-gradient(180deg,#F0FDF4,#fff)!important;
+        border-color:rgba(22,163,74,.18)!important;
+      }
+      .ev-ssc-data-price strong,.ev-ssv-data-price strong{
+        color:#00875A!important;
+        font-weight:950!important;
+      }
+      .ev-ssc-proposal-final,.ev-ssv-note-final{
+        border-color:rgba(234,124,18,.28)!important;
+        background:linear-gradient(180deg,#FFF9EF,#FFFFFF)!important;
+        box-shadow:0 10px 24px rgba(234,124,18,.08)!important;
+      }
+      .ev-ssc-proposal-title,.ev-ssv-note-final .ev-ssv-note-label{
+        color:#9A3412!important;
+      }
+      .ev-ssc-proposal-status{
+        margin-left:auto;
+        padding:3px 8px;
+        border-radius:999px;
+        border:1px solid rgba(234,124,18,.22);
+        background:#fff;
+        color:#9A3412;
+        font-size:.62rem;
+        font-weight:900;
+      }
+      .ev-ssc-line-value,.ev-ssv-line-value{
+        overflow-wrap:anywhere!important;
+      }
+      @media(max-width:767.98px){
+        .ev-ssc-btn-conversation,.ev-ssv-btn-conversation,
+        .ev-ssc-actions .ev-ssc-btn-accept,.ev-ssv-actions .ev-ssv-btn-proposal{
+          width:100%!important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   function init() {
     const refs = getRefs();
     if (!refs.root) { vistaActiva = false; stopPolling(); return; }
     vistaActiva = true;
+    ensureMarketplaceAlignedStyles();
     bind();
     mostrarTab(refs, tabActiva);
     cargar({ silent: false });

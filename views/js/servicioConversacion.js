@@ -82,6 +82,38 @@
     return '';
   };
 
+  const minutesFromTime = (value) => {
+    const raw = String(value || '').trim().slice(0, 5);
+    if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(raw)) return null;
+    const [h, m] = raw.split(':').map(Number);
+    return (h * 60) + m;
+  };
+
+  const durationTextFromMinutes = (minutes) => {
+    const total = Number(minutes || 0);
+    if (!Number.isFinite(total) || total <= 0) return '';
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    if (h > 0 && m > 0) return `${h} ${h === 1 ? 'hora' : 'horas'} ${m} min`;
+    if (h > 0) return `${h} ${h === 1 ? 'hora' : 'horas'}`;
+    return `${m} min`;
+  };
+
+  const durationFromTimes = (start, end) => {
+    const ini = minutesFromTime(start);
+    const fin = minutesFromTime(end);
+    if (ini === null || fin === null || fin <= ini) return '';
+    return durationTextFromMinutes(fin - ini);
+  };
+
+  const labelEstadoCotizacion = (estado) => ({
+    vigente: 'Vigente',
+    aceptada: 'Aceptada',
+    reemplazada: 'Reemplazada',
+    requiere_actualizacion: 'Requiere ajuste',
+    cancelada_solicitante: 'Cancelada'
+  }[String(estado || '')] || String(estado || 'Sin estado'));
+
 
   function ensure() {
     if (modal) return;
@@ -163,6 +195,7 @@
       #ev-sc-shell .ev-sc-form{display:grid;gap:9px}
       #ev-sc-shell .ev-sc-form label{display:grid;gap:4px;color:#475569;font-size:.72rem;font-weight:900}
       #ev-sc-shell .ev-sc-form input,#ev-sc-shell .ev-sc-form select,#ev-sc-shell .ev-sc-form textarea{width:100%;padding:9px;border:1px solid #DCE4EE;border-radius:10px;background:#fff;color:#1F2937;font:inherit;font-size:.8rem}
+      #ev-sc-shell .ev-sc-form input[readonly]{background:linear-gradient(180deg,#F0FDF4,#fff);border-color:rgba(22,163,74,.22);color:#0F592F;font-weight:900;cursor:not-allowed}
       #ev-sc-shell .ev-sc-form textarea{min-height:72px;resize:vertical}
       #ev-sc-shell .ev-sc-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
       #ev-sc-shell .ev-sc-form-note{padding:9px 10px;border:1px solid rgba(234,124,18,.24);border-radius:12px;color:#92400E;background:#FFF9ED;font-size:.72rem;line-height:1.42}
@@ -310,12 +343,13 @@
     const adelanto = Number(quote.monto_adelanto || 0);
     const tieneAdelanto = String(quote.condicion_pago || '') === 'adelanto_acordado' && adelanto > 0;
     const horas = quoteTimeRange(quote);
+    const duracion = String(quote.duracion_estimada || durationFromTimes(quote.hora_inicio, quote.hora_fin) || '').trim();
 
     return `
       <article class="ev-sc-proposal ${isCurrent ? 'is-current' : ''}">
         <div class="ev-sc-proposal-head">
           <h4><i class="bi bi-file-earmark-check"></i> Cotización final · Versión ${Number(quote.version || 1)}</h4>
-          <span class="ev-sc-proposal-state">${esc(String(quote.estado || ''))}</span>
+          <span class="ev-sc-proposal-state">${esc(labelEstadoCotizacion(quote.estado))}</span>
         </div>
         <div class="ev-sc-proposal-grid">
           <div class="ev-sc-proposal-box ev-sc-proposal-box-total"><span>Precio final total</span><b>${esc(money(quote.monto_propuesto))}</b></div>
@@ -326,7 +360,7 @@
         <p><b>Servicio incluido y condiciones acordadas:</b> ${esc(quote.alcance_confirmado || '—')}</p>
         ${quote.fecha_propuesta ? `<p><b>Fecha acordada:</b> ${esc(date(quote.fecha_propuesta))}</p>` : ''}
         ${horas ? `<p><b>Horario:</b> ${esc(horas)}</p>` : ''}
-        ${quote.duracion_estimada ? `<p><b>Duración estimada:</b> ${esc(quote.duracion_estimada)}</p>` : ''}
+        ${duracion ? `<p><b>Duración estimada:</b> ${esc(duracion)}</p>` : ''}
         ${quote.mensaje_proveedor ? `<p><b>Mensaje:</b> ${esc(quote.mensaje_proveedor)}</p>` : ''}
         ${quote.fecha_vencimiento && quote.estado === 'vigente' ? `<p><b>Vigencia:</b> hasta ${esc(expiry)}</p>` : ''}
         ${quote.motivo_estado ? `<p><b>Actualización:</b> ${esc(quote.motivo_estado)}</p>` : ''}
@@ -374,7 +408,8 @@
     const role = String(data.rol_actual || '');
     const actions = [];
     if (role === 'proveedor' && ['pendiente_proveedor', 'ajuste_solicitado', 'ajuste_cotizacion_solicitado', 'cotizacion_vencida'].includes(state)) {
-      actions.push(`<button type="button" class="ev-sc-action orange" data-sc-action="quote"><i class="bi bi-file-earmark-plus"></i> Emitir cotización final</button>`);
+      const textoBoton = state === 'ajuste_cotizacion_solicitado' ? 'Emitir nueva cotización final' : 'Emitir cotización final';
+      actions.push(`<button type="button" class="ev-sc-action orange" data-sc-action="quote"><i class="bi bi-file-earmark-plus"></i> ${textoBoton}</button>`);
     }
 
 
@@ -465,6 +500,7 @@
 
       <section class="ev-sc-card">
         <div class="ev-sc-kicker">Cotizaciones finales</div>
+        ${String(data.estado || '') === 'ajuste_cotizacion_solicitado' && data.motivo_estado ? `<div class="ev-sc-system"><strong>Ajuste solicitado por el comprador</strong><br>${esc(data.motivo_estado)}</div>` : ''}
         ${quotes.length ? quotes.map(quoteHtml).join('') : `<div class="ev-sc-helper">Aún no se emitió una cotización final. Primero conversen y aclaren las condiciones.</div>`}
         ${conversationActions(data)}
       </section>
@@ -718,7 +754,7 @@
               <label>Hora de inicio <input name="hora_inicio" type="time"></label>
               <label>Hora de fin <input name="hora_fin" type="time"></label>
             </div>
-            <label>Duración estimada <input name="duracion_estimada" maxlength="180"></label>
+            <label>Duración estimada <input name="duracion_estimada" id="evScDuracionEstimada" maxlength="180" readonly></label>
           </section>
 
           <section class="ev-sc-quote-section">
@@ -752,6 +788,14 @@
     const montoTotal = document.querySelector('#evScQuoteForm [name="monto_propuesto"]');
     const montoAdelanto = document.getElementById('evScMontoAdelanto');
     const saldo = document.getElementById('evScSaldoContraEntrega');
+    const horaInicio = document.querySelector('#evScQuoteForm [name="hora_inicio"]');
+    const horaFin = document.querySelector('#evScQuoteForm [name="hora_fin"]');
+    const duracion = document.getElementById('evScDuracionEstimada');
+
+    const actualizarDuracion = () => {
+      if (!duracion) return;
+      duracion.value = durationFromTimes(horaInicio?.value, horaFin?.value);
+    };
 
     const actualizarPago = () => {
       const esAdelanto = condicion?.value === 'adelanto_acordado';
@@ -766,6 +810,10 @@
     condicion?.addEventListener('change', actualizarPago);
     montoTotal?.addEventListener('input', actualizarPago);
     montoAdelanto?.addEventListener('input', actualizarPago);
+    horaInicio?.addEventListener('input', actualizarDuracion);
+    horaFin?.addEventListener('input', actualizarDuracion);
+    horaInicio?.addEventListener('change', actualizarDuracion);
+    horaFin?.addEventListener('change', actualizarDuracion);
 
     document.getElementById('evScQuoteAttachButton')?.addEventListener('click', () => {
       document.getElementById('evScQuoteAttach')?.click();
@@ -773,6 +821,7 @@
     document.getElementById('evScQuoteAttach')?.addEventListener('change', renderQuoteFiles);
 
     actualizarPago();
+    actualizarDuracion();
     renderQuoteFiles();
 
     document.getElementById('evScQuoteBack')?.addEventListener('click', () => render(currentData));
@@ -816,6 +865,7 @@
     const fecha = String(form.querySelector('[name="fecha_propuesta"]')?.value || '').trim();
     const horaInicio = String(form.querySelector('[name="hora_inicio"]')?.value || '').trim();
     const horaFin = String(form.querySelector('[name="hora_fin"]')?.value || '').trim();
+    const duracionCalculada = durationFromTimes(horaInicio, horaFin);
     const files = quoteSelectedFiles();
 
     if (alcance === '') {
@@ -850,8 +900,9 @@
     }
 
     const fd = new FormData();
-    ['alcance_confirmado', 'monto_propuesto', 'condicion_pago', 'monto_adelanto', 'fecha_propuesta', 'hora_inicio', 'hora_fin', 'duracion_estimada', 'mensaje_proveedor']
+    ['alcance_confirmado', 'monto_propuesto', 'condicion_pago', 'monto_adelanto', 'fecha_propuesta', 'hora_inicio', 'hora_fin', 'mensaje_proveedor']
       .forEach((name) => fd.append(name, String(form.querySelector(`[name="${name}"]`)?.value || '').trim()));
+    fd.append('duracion_estimada', duracionCalculada);
     files.forEach((file) => fd.append('adjuntos_propuesta[]', file));
 
     const codigoSolicitud = idSolicitudActivo();
