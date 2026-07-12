@@ -221,6 +221,29 @@ final class ServicioEjecucion extends Conexion
         );
     }
 
+    private function marcarNovedadesServicioRevisadas(int $codigoUsuario, int $codigoSolicitud): int
+    {
+        if ($codigoUsuario <= 0 || $codigoSolicitud <= 0) {
+            return 0;
+        }
+
+        $sql = "
+            UPDATE notificacion
+            SET estado = 'leida',
+                read_at = COALESCE(read_at, CURRENT_TIMESTAMP)
+            WHERE codigo_usuario = :codigo_usuario
+              AND categoria = 'servicio'
+              AND referencia_id = :codigo_solicitud
+              AND estado = 'no_leida'
+        ";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+        $st->bindValue(':codigo_solicitud', $codigoSolicitud, PDO::PARAM_INT);
+        $st->execute();
+
+        return (int)$st->rowCount();
+    }
+
     private function notificarSoporte(array $solicitud, int $codigoIncidencia): void
     {
         $sql = "
@@ -799,6 +822,11 @@ final class ServicioEjecucion extends Conexion
             }
 
             $rol = $this->rolUsuario($solicitud, $codigoUsuario);
+
+            // Abrir la gestión equivale a revisar las novedades operativas de este servicio.
+            // Solo se marcan como leídas las notificaciones de la persona autenticada.
+            $novedadesMarcadas = $this->marcarNovedadesServicioRevisadas($codigoUsuario, $codigoSolicitud);
+
             $reprogramaciones = $this->listarReprogramaciones($codigoSolicitud);
             $reprogramacion = null;
             foreach ($reprogramaciones as $item) {
@@ -872,6 +900,7 @@ final class ServicioEjecucion extends Conexion
                     'timeline' => $this->listarTimeline($codigoSolicitud),
                     'permisos' => $this->permisos($solicitud, $codigoUsuario, $reprogramacion, $incidencia, $calificacion),
                     'categorias_incidencia' => self::CATEGORIAS_INCIDENCIA,
+                    'novedades_marcadas_leidas' => $novedadesMarcadas,
                 ],
             ];
         } catch (Throwable $e) {

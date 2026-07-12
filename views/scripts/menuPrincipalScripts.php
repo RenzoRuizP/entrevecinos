@@ -47,6 +47,7 @@ function ev_js_src(string $file): string
 <script src="<?= htmlspecialchars(ev_js_src('js/evSweetAlert.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(ev_js_src('js/menuIzquierda.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(ev_js_src('js/menuArriba.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(ev_js_src('js/notificacionesGlobales.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(ev_js_src('js/menuPrincipal.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 
 <?php if ($rolUsuario === 'soporte' || $rolUsuario === 'admin'): ?>

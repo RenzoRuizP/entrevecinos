@@ -389,6 +389,70 @@
     `;
   }
 
+
+  function novedadMeta(item) {
+    if (Number(item?.novedad_pendiente || 0) !== 1 || Number(item?.novedades_no_leidas || 0) <= 0) {
+      return null;
+    }
+
+    const subcategoria = String(item?.novedad_subcategoria || '').trim().toLowerCase();
+    const mapa = {
+      nueva_solicitud: { texto: 'Nueva solicitud', icono: 'bi-inbox', tono: 'info' },
+      informacion_adicional: { texto: 'Información requerida', icono: 'bi-question-circle', tono: 'warning' },
+      informacion_adicional_respondida: { texto: 'Nueva información', icono: 'bi-chat-left-text', tono: 'info' },
+      cotizacion_final_enviada: { texto: 'Cotización por revisar', icono: 'bi-receipt', tono: 'warning' },
+      cotizacion_final_aceptada: { texto: 'Cotización aceptada', icono: 'bi-check2-circle', tono: 'success' },
+      cotizacion_final_rechazada: { texto: 'Cotización rechazada', icono: 'bi-x-circle', tono: 'danger' },
+      reprogramacion_propuesta: { texto: 'Reprogramación pendiente', icono: 'bi-calendar2-week', tono: 'warning' },
+      reprogramacion_aceptada: { texto: 'Nueva fecha confirmada', icono: 'bi-calendar2-check', tono: 'success' },
+      reprogramacion_rechazada: { texto: 'Reprogramación rechazada', icono: 'bi-calendar2-x', tono: 'danger' },
+      reprogramacion_cancelada: { texto: 'Reprogramación retirada', icono: 'bi-arrow-counterclockwise', tono: 'neutral' },
+      servicio_iniciado: { texto: 'Servicio iniciado', icono: 'bi-play-circle', tono: 'info' },
+      servicio_realizado: { texto: 'Confirmación requerida', icono: 'bi-clipboard2-check', tono: 'warning' },
+      servicio_marcado_realizado: { texto: 'Confirmación requerida', icono: 'bi-clipboard2-check', tono: 'warning' },
+      servicio_confirmado: { texto: 'Servicio confirmado', icono: 'bi-check2-circle', tono: 'success' },
+      problema_reportado: { texto: 'Problema reportado', icono: 'bi-exclamation-triangle', tono: 'danger' },
+      observacion_reportada: { texto: 'Observación reportada', icono: 'bi-exclamation-triangle', tono: 'danger' },
+      incidencia_respondida: { texto: 'Nueva respuesta', icono: 'bi-reply', tono: 'info' },
+      solucion_registrada: { texto: 'Revisa la solución', icono: 'bi-tools', tono: 'warning' },
+      solucion_confirmada: { texto: 'Solución confirmada', icono: 'bi-patch-check', tono: 'success' },
+      problema_persiste: { texto: 'El problema continúa', icono: 'bi-exclamation-octagon', tono: 'danger' },
+      revision_soporte_solicitada: { texto: 'Actualización de soporte', icono: 'bi-headset', tono: 'info' },
+      revision_soporte_sugerida: { texto: 'Revisión requerida', icono: 'bi-headset', tono: 'warning' },
+      resolucion_soporte: { texto: 'Resolución de soporte', icono: 'bi-shield-check', tono: 'success' },
+      actualizacion_soporte: { texto: 'Actualización de soporte', icono: 'bi-headset', tono: 'info' },
+      calificacion_habilitada: { texto: 'Calificación disponible', icono: 'bi-star', tono: 'success' },
+      servicio_cancelado: { texto: 'Coordinación cancelada', icono: 'bi-x-octagon', tono: 'danger' },
+      solicitud_cancelada: { texto: 'Coordinación cancelada', icono: 'bi-x-octagon', tono: 'danger' },
+      coordinacion_cancelada_proveedor: { texto: 'Coordinación cancelada', icono: 'bi-x-octagon', tono: 'danger' }
+    };
+
+    const meta = mapa[subcategoria] || {
+      texto: 'Nueva actualización',
+      icono: 'bi-bell',
+      tono: 'info'
+    };
+
+    return {
+      ...meta,
+      cantidad: Math.max(1, Number(item?.novedades_no_leidas || 1)),
+      detalle: String(item?.novedad_mensaje || item?.novedad_titulo || 'Tienes una novedad pendiente de revisar.').trim()
+    };
+  }
+
+  function novedadHtml(item) {
+    const meta = novedadMeta(item);
+    if (!meta) return '';
+
+    return `
+      <div class="ev-ssc-update-alert is-${escapeHtml(meta.tono)}" title="${escapeHtml(meta.detalle)}">
+        <i class="bi ${escapeHtml(meta.icono)}" aria-hidden="true"></i>
+        <span>${escapeHtml(meta.texto)}</span>
+        ${meta.cantidad > 1 ? `<strong>${meta.cantidad > 9 ? '9+' : meta.cantidad}</strong>` : ''}
+      </div>
+    `;
+  }
+
   function actionsHtml(item) {
     const id = Number(item?.codigo_solicitud_servicio || 0);
     const estado = String(item?.estado || '').trim();
@@ -435,6 +499,8 @@
               <span class="ev-ssc-pill"><i class="bi bi-person"></i>${escapeHtml(item?.nombre_proveedor || 'Vecino')}</span>
               ${item?.categoria_nombre ? `<span class="ev-ssc-pill"><i class="bi bi-tags"></i>${escapeHtml(item.categoria_nombre)}</span>` : ''}
             </div>
+
+            ${novedadHtml(item)}
           </div>
         </div>
 
@@ -1146,6 +1212,10 @@ ${propuesta.fecha_propuesta ? `<strong>Fecha:</strong> ${escapeHtml(formatFecha(
 
   document.addEventListener('click', manejarClick);
   document.addEventListener('ev:servicio-operacion-updated', () => {
+    if (document.querySelector('.ev-ssc-page')) cargar();
+  });
+
+  document.addEventListener('ev:servicio-novedad-revisada', () => {
     if (document.querySelector('.ev-ssc-page')) cargar();
   });
 

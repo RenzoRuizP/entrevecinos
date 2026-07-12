@@ -93,6 +93,13 @@ final class Notificacion extends Conexion
         $st->execute();
         $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
+        foreach ($rows as &$row) {
+            $payloadRaw = trim((string)($row['payload_json'] ?? ''));
+            $payload = $payloadRaw !== '' ? json_decode($payloadRaw, true) : [];
+            $row['payload'] = is_array($payload) ? $payload : [];
+        }
+        unset($row);
+
         return [
             'ok' => true,
             'data' => $rows,
@@ -120,14 +127,26 @@ final class Notificacion extends Conexion
     public function contarNoLeidas(int $codigoUsuario, string $categoria = 'residencia'): int
     {
         $categoria = strtolower(trim($categoria));
-        $sql = "SELECT COUNT(*) AS c
-                FROM notificacion
-                WHERE codigo_usuario = :u
-                  AND estado = 'no_leida'
-                  AND (:cat = 'all' OR categoria = :cat)";
+        $categoria = $categoria !== '' ? $categoria : 'all';
+
+        $sql = "
+            SELECT COUNT(*) AS c
+            FROM notificacion
+            WHERE codigo_usuario = :u
+              AND estado = 'no_leida'
+        ";
+
+        if ($categoria !== 'all') {
+            $sql .= " AND categoria = :cat";
+        }
+
         $st = $this->dblink->prepare($sql);
         $st->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
-        $st->bindValue(':cat', $categoria !== '' ? $categoria : 'all', PDO::PARAM_STR);
+
+        if ($categoria !== 'all') {
+            $st->bindValue(':cat', $categoria, PDO::PARAM_STR);
+        }
+
         $st->execute();
         return (int)($st->fetch(PDO::FETCH_ASSOC)['c'] ?? 0);
     }

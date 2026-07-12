@@ -219,12 +219,26 @@
       </section>`;
     document.body.appendChild(shell);
     shell.querySelector('[data-ev-so-close]')?.addEventListener('click', close);
+
+    /*
+     * El modal operativo contiene información y acciones críticas del servicio.
+     * No debe cerrarse por un clic accidental sobre el fondo ni con Escape.
+     * El cierre se realiza únicamente desde el botón X del encabezado.
+     */
     shell.addEventListener('click', (e) => {
-      if (e.target === shell && !actionRunning) close();
+      if (e.target === shell) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     });
+
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && shell?.classList.contains('is-open') && !actionRunning) close();
+      if (e.key === 'Escape' && shell?.classList.contains('is-open')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     });
+
     shell.addEventListener('click', handleShellClick);
   }
 

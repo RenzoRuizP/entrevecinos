@@ -82,7 +82,49 @@ $homeUrl = $baseUrl . '/MenuPrincipal';
       hidden
     >
 
-    <ul class="navbar-nav align-items-center">
+    <ul class="navbar-nav align-items-center ev-topbar-user-tools">
+      <li class="nav-item dropdown ev-notification-menu position-relative" id="evNotificationMenu">
+        <button
+          type="button"
+          class="nav-link ev-notification-trigger"
+          id="evNotificationButton"
+          data-bs-toggle="dropdown"
+          data-bs-auto-close="outside"
+          aria-expanded="false"
+          aria-label="Abrir notificaciones"
+          title="Notificaciones">
+          <i class="bi bi-bell" aria-hidden="true"></i>
+          <span class="ev-notification-count d-none" id="evNotificationCount" aria-label="0 notificaciones no leídas">0</span>
+        </button>
+
+        <div class="dropdown-menu dropdown-menu-end ev-notification-dropdown" aria-labelledby="evNotificationButton">
+          <div class="ev-notification-head">
+            <div>
+              <span class="ev-notification-kicker">ENTRE VECINOS</span>
+              <h6>Notificaciones</h6>
+            </div>
+            <button type="button" class="ev-notification-refresh" id="evNotificationRefresh" aria-label="Actualizar notificaciones" title="Actualizar">
+              <i class="bi bi-arrow-clockwise"></i>
+            </button>
+          </div>
+
+          <div class="ev-notification-summary" id="evNotificationSummary">
+            No tienes notificaciones pendientes.
+          </div>
+
+          <div class="ev-notification-list" id="evNotificationList" aria-live="polite">
+            <div class="ev-notification-loading">
+              <span class="ev-notification-spinner" aria-hidden="true"></span>
+              <span>Cargando notificaciones...</span>
+            </div>
+          </div>
+
+          <div class="ev-notification-foot">
+            <span>Las novedades revisadas se marcan automáticamente como leídas.</span>
+          </div>
+        </div>
+      </li>
+
       <li class="nav-item dropdown user-menu position-relative">
         <a href="#"
            class="nav-link dropdown-toggle d-flex align-items-center text-white ev-user-topbar-link"

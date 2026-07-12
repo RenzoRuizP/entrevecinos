@@ -949,6 +949,13 @@ class SolicitudServicio extends Conexion
             'fecha_cierre' => $row['fecha_cierre'] ?? null,
             'created_at' => $row['created_at'] ?? null,
             'updated_at' => $row['updated_at'] ?? null,
+            'novedad_pendiente' => (int)($row['novedades_no_leidas'] ?? 0) > 0 ? 1 : 0,
+            'novedades_no_leidas' => (int)($row['novedades_no_leidas'] ?? 0),
+            'novedad_codigo_notificacion' => isset($row['novedad_codigo_notificacion']) ? (int)$row['novedad_codigo_notificacion'] : null,
+            'novedad_subcategoria' => (string)($row['novedad_subcategoria'] ?? ''),
+            'novedad_titulo' => (string)($row['novedad_titulo'] ?? ''),
+            'novedad_mensaje' => (string)($row['novedad_mensaje'] ?? ''),
+            'novedad_fecha' => $row['novedad_fecha'] ?? null,
             'propuesta' => $propuesta,
         ];
     }
@@ -987,7 +994,13 @@ class SolicitudServicio extends Conexion
                     pr.duracion_estimada,
                     pr.requisitos,
                     pr.mensaje_proveedor,
-                    pr.created_at AS propuesta_created_at
+                    pr.created_at AS propuesta_created_at,
+                    COALESCE(nsn.novedades_no_leidas, 0) AS novedades_no_leidas,
+                    nsu.codigo_notificacion AS novedad_codigo_notificacion,
+                    nsu.subcategoria AS novedad_subcategoria,
+                    nsu.titulo AS novedad_titulo,
+                    nsu.mensaje AS novedad_mensaje,
+                    nsu.created_at AS novedad_fecha
                 FROM solicitud_servicio ss
                 INNER JOIN producto p
                     ON p.codigo_producto = ss.codigo_producto
@@ -1000,6 +1013,21 @@ class SolicitudServicio extends Conexion
                 LEFT JOIN solicitud_servicio_propuesta pr
                     ON pr.codigo_solicitud_servicio = ss.codigo_solicitud_servicio
                    AND pr.estado IN ('vigente', 'aceptada', 'requiere_actualizacion')
+                LEFT JOIN (
+                    SELECT
+                        codigo_usuario,
+                        referencia_id,
+                        COUNT(*) AS novedades_no_leidas,
+                        MAX(codigo_notificacion) AS ultima_notificacion_id
+                    FROM notificacion
+                    WHERE categoria = 'servicio'
+                      AND estado = 'no_leida'
+                    GROUP BY codigo_usuario, referencia_id
+                ) nsn
+                    ON nsn.codigo_usuario = ss.codigo_usuario_proveedor
+                   AND nsn.referencia_id = ss.codigo_solicitud_servicio
+                LEFT JOIN notificacion nsu
+                    ON nsu.codigo_notificacion = nsn.ultima_notificacion_id
                 WHERE ss.codigo_usuario_proveedor = :codigo_usuario_proveedor
                 ORDER BY
                     CASE ss.estado
@@ -1558,7 +1586,13 @@ class SolicitudServicio extends Conexion
                     pr.duracion_estimada,
                     pr.requisitos,
                     pr.mensaje_proveedor,
-                    pr.created_at AS propuesta_created_at
+                    pr.created_at AS propuesta_created_at,
+                    COALESCE(nsn.novedades_no_leidas, 0) AS novedades_no_leidas,
+                    nsu.codigo_notificacion AS novedad_codigo_notificacion,
+                    nsu.subcategoria AS novedad_subcategoria,
+                    nsu.titulo AS novedad_titulo,
+                    nsu.mensaje AS novedad_mensaje,
+                    nsu.created_at AS novedad_fecha
                 FROM solicitud_servicio ss
                 INNER JOIN producto p
                     ON p.codigo_producto = ss.codigo_producto
@@ -1571,6 +1605,21 @@ class SolicitudServicio extends Conexion
                 LEFT JOIN solicitud_servicio_propuesta pr
                     ON pr.codigo_solicitud_servicio = ss.codigo_solicitud_servicio
                    AND pr.estado IN ('vigente', 'aceptada', 'requiere_actualizacion')
+                LEFT JOIN (
+                    SELECT
+                        codigo_usuario,
+                        referencia_id,
+                        COUNT(*) AS novedades_no_leidas,
+                        MAX(codigo_notificacion) AS ultima_notificacion_id
+                    FROM notificacion
+                    WHERE categoria = 'servicio'
+                      AND estado = 'no_leida'
+                    GROUP BY codigo_usuario, referencia_id
+                ) nsn
+                    ON nsn.codigo_usuario = ss.codigo_usuario_solicitante
+                   AND nsn.referencia_id = ss.codigo_solicitud_servicio
+                LEFT JOIN notificacion nsu
+                    ON nsu.codigo_notificacion = nsn.ultima_notificacion_id
                 WHERE ss.codigo_usuario_solicitante = :codigo_usuario_solicitante
                 ORDER BY
                     CASE ss.estado

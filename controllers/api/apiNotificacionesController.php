@@ -75,6 +75,7 @@ final class apiNotificacionesController
         $this->json(200, [
             'ok' => true,
             'data' => [
+                'total'      => $m->contarNoLeidas($u, 'all'),
                 'residencia' => $m->contarNoLeidas($u, 'residencia'),
                 // futuro:
                 'soporte'    => $m->contarNoLeidas($u, 'soporte'),
