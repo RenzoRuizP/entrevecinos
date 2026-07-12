@@ -171,10 +171,10 @@
 
   function badge(item) {
     const estado = String(item?.estado || '').trim();
-    if (['pendiente_proveedor', 'ajuste_solicitado', 'ajuste_cotizacion_solicitado', 'cotizacion_vencida'].includes(estado)) return { cls: 'ev-ssv-badge ev-ssv-badge-pending', text: item.estado_texto || 'Pendiente' };
-    if (['informacion_adicional_solicitada', 'propuesta_enviada_solicitante', 'cotizacion_final_enviada', 'servicio_realizado_proveedor'].includes(estado)) return { cls: 'ev-ssv-badge ev-ssv-badge-wait', text: item.estado_texto || 'Esperando respuesta' };
+    if (['pendiente_proveedor', 'ajuste_solicitado', 'ajuste_cotizacion_solicitado', 'cotizacion_vencida', 'solucion_pendiente_confirmacion'].includes(estado)) return { cls: 'ev-ssv-badge ev-ssv-badge-pending', text: item.estado_texto || 'Pendiente' };
+    if (['informacion_adicional_solicitada', 'propuesta_enviada_solicitante', 'cotizacion_final_enviada', 'servicio_realizado_proveedor', 'servicio_en_ejecucion'].includes(estado)) return { cls: 'ev-ssv-badge ev-ssv-badge-wait', text: item.estado_texto || 'En proceso' };
     if (['coordinacion_confirmada', 'servicio_confirmado_solicitante'].includes(estado)) return { cls: 'ev-ssv-badge ev-ssv-badge-success', text: item.estado_texto || 'Confirmada' };
-    return { cls: 'ev-ssv-badge ev-ssv-badge-negative', text: item.estado_texto || 'Cerrada' };
+    return { cls: 'ev-ssv-badge ev-ssv-badge-negative', text: item.estado_texto || 'Requiere atención' };
   }
 
   function rangoDeseado(item) {
@@ -235,17 +235,42 @@
       return `<div class="ev-ssv-state ev-ssv-state-pending"><div class="ev-ssv-state-title">El comprador pidió un ajuste</div><div class="ev-ssv-state-text">Revisa la solicitud y emite una nueva cotización final desde la conversación.</div></div>`;
     }
     if (estado === 'coordinacion_confirmada') {
-      return `<div class="ev-ssv-state ev-ssv-state-success"><div class="ev-ssv-state-title">Coordinación confirmada</div><div class="ev-ssv-state-text">Ambas partes ya tienen una cotización final aceptada. La ejecución y confirmación quedan registradas en EV.</div></div>`;
+      return `<div class="ev-ssv-state ev-ssv-state-success"><div class="ev-ssv-state-title">Pendiente de ejecución</div><div class="ev-ssv-state-text">La cotización fue aceptada. Abre la gestión para iniciar, reprogramar o registrar la ejecución del servicio.</div></div>`;
+    }
+    if (estado === 'servicio_en_ejecucion') {
+      return `<div class="ev-ssv-state ev-ssv-state-wait"><div class="ev-ssv-state-title">Servicio en ejecución</div><div class="ev-ssv-state-text">El inicio quedó registrado. Cuando termines, marca el servicio como realizado.</div></div>`;
+    }
+    if (estado === 'servicio_realizado_proveedor') {
+      return `<div class="ev-ssv-state ev-ssv-state-wait"><div class="ev-ssv-state-title">Esperando confirmación del comprador</div><div class="ev-ssv-state-text">El comprador debe confirmar el servicio o reportar un problema.</div></div>`;
+    }
+    if (['incidencia_abierta', 'incidencia_en_atencion', 'revision_soporte'].includes(estado)) {
+      return `<div class="ev-ssv-state ev-ssv-state-negative"><div class="ev-ssv-state-title">${escapeHtml(item?.estado_texto || 'Problema reportado')}</div><div class="ev-ssv-state-text">${escapeHtml(item?.motivo_estado || 'Revisa el problema y registra una respuesta o solución desde la gestión del servicio.')}</div></div>`;
+    }
+    if (estado === 'solucion_pendiente_confirmacion') {
+      return `<div class="ev-ssv-state ev-ssv-state-pending"><div class="ev-ssv-state-title">Solución pendiente de confirmación</div><div class="ev-ssv-state-text">El comprador revisará la solución registrada y confirmará si el problema quedó resuelto.</div></div>`;
+    }
+    if (estado === 'servicio_confirmado_solicitante') {
+      return `<div class="ev-ssv-state ev-ssv-state-success"><div class="ev-ssv-state-title">Servicio completado</div><div class="ev-ssv-state-text">La calificación quedó habilitada para comprador y proveedor.</div></div>`;
     }
     return `<div class="ev-ssv-state ev-ssv-state-negative"><div class="ev-ssv-state-title">${escapeHtml(item?.estado_texto || 'Solicitud cerrada')}</div><div class="ev-ssv-state-text">${escapeHtml(item?.motivo_estado || 'Esta solicitud ya no requiere una acción de tu parte.')}</div></div>`;
   }
 
   function actionsHtml(item) {
     const id = Number(item?.codigo_solicitud_servicio || 0);
+    const estado = String(item?.estado || '').trim();
+    const estadosGestion = [
+      'coordinacion_confirmada', 'servicio_en_ejecucion', 'servicio_realizado_proveedor',
+      'incidencia_abierta', 'incidencia_en_atencion', 'solucion_pendiente_confirmacion',
+      'revision_soporte', 'servicio_confirmado_solicitante'
+    ];
     return `
       <button type="button" class="btn ev-ssv-btn-proposal ev-ssv-btn-conversation" data-ssv-action="conversacion" data-id="${id}">
         <i class="bi bi-chat-square-text me-1"></i>Abrir conversación
       </button>
+      ${estadosGestion.includes(estado) ? `
+        <button type="button" class="btn ev-ssv-btn-outline" data-ssv-action="gestion" data-id="${id}">
+          <i class="bi bi-clipboard2-check me-1"></i>Gestionar servicio
+        </button>` : ''}
     `;
   }
 
@@ -582,6 +607,33 @@
     return !!window.EVServicioConversacion?.open;
   }
 
+  async function asegurarOperacionServicio() {
+    if (window.EVServicioOperacion?.open) return true;
+    const id = 'ev-servicio-operacion-script';
+    let script = document.getElementById(id);
+    if (!script) {
+      script = document.createElement('script');
+      script.id = id;
+      script.src = `${BASE}/views/js/servicioOperacion.js`;
+      document.head.appendChild(script);
+    }
+    await new Promise((resolve) => {
+      if (window.EVServicioOperacion?.open) return resolve();
+      script.addEventListener('load', resolve, { once: true });
+      script.addEventListener('error', resolve, { once: true });
+      window.setTimeout(resolve, 3500);
+    });
+    return !!window.EVServicioOperacion?.open;
+  }
+
+  async function abrirGestion(item) {
+    if (await asegurarOperacionServicio()) {
+      window.EVServicioOperacion.open(Number(item?.codigo_solicitud_servicio || 0));
+      return;
+    }
+    await notify('error', 'No se pudo abrir', 'No se pudo cargar la gestión del servicio.');
+  }
+
   async function detalle(item) {
     if (await asegurarConversacionServicio()) {
       window.EVServicioConversacion.open(Number(item?.codigo_solicitud_servicio || 0));
@@ -602,6 +654,7 @@
     const item = cache.get(id);
     if (!id || !item) return;
     if (action === 'conversacion' || action === 'detalle') await detalle(item);
+    if (action === 'gestion') await abrirGestion(item);
     if (action === 'informacion') await pedirInformacion(item);
     if (action === 'propuesta') await abrirPropuesta(item);
     if (action === 'rechazar') await rechazar(item);
@@ -729,6 +782,9 @@
   }
 
   document.addEventListener('click', manejarClick);
+  document.addEventListener('ev:servicio-operacion-updated', () => {
+    if (document.querySelector('.ev-ssv-page')) cargar({ silent: true });
+  });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && document.querySelector('.ev-ssv-page')) cargar({ silent: true }); });
   document.addEventListener('ev:content-loaded', () => { if (document.querySelector('.ev-ssv-page')) init(); else { vistaActiva = false; stopPolling(); } });
 

@@ -16,8 +16,8 @@ final class SoporteDashboard extends Conexion
 
     /**
      * Devuelve resumen dashboard soporte:
-     * - KPIs: cuentas, publicaciones, recargas
-     * - Atender ahora: mezcla cuentas + publicaciones + recargas
+     * - KPIs: cuentas, publicaciones, recargas e incidencias de servicios
+     * - Atender ahora: mezcla cuentas + publicaciones + recargas + servicios
      */
     public function resumen(string $tiempo = 'hoy', int $limit = 10): array
     {
@@ -29,6 +29,7 @@ final class SoporteDashboard extends Conexion
             'cuentas'       => $this->kpiCuentas($desde),
             'publicaciones' => $this->kpiPublicaciones($desde),
             'recargas'      => $this->kpiRecargas($desde),
+            'servicios'     => $this->kpiServicios($desde),
         ];
 
         $atender = $this->atenderAhora($desde, $limit);
@@ -277,6 +278,46 @@ final class SoporteDashboard extends Conexion
         ];
     }
 
+    private function kpiServicios(\DateTimeImmutable $desde): array
+    {
+        if (!$this->tableExists('solicitud_servicio_incidencia')) {
+            return [
+                'abiertas' => 0,
+                'esperando_informacion' => 0,
+                'resueltas_hoy' => 0,
+            ];
+        }
+
+        $abiertas = $this->countSql("
+            SELECT COUNT(*)
+            FROM `solicitud_servicio_incidencia`
+            WHERE requiere_soporte = 1
+              AND estado IN ('revision_soporte', 'esperando_informacion', 'abierta', 'en_atencion', 'persiste', 'solucion_pendiente_confirmacion')
+        ");
+
+        $esperando = $this->countSql("
+            SELECT COUNT(*)
+            FROM `solicitud_servicio_incidencia`
+            WHERE requiere_soporte = 1
+              AND estado = 'esperando_informacion'
+        ");
+
+        $resueltasHoy = $this->countSql("
+            SELECT COUNT(*)
+            FROM `solicitud_servicio_incidencia`
+            WHERE requiere_soporte = 1
+              AND estado IN ('resuelta', 'cerrada', 'cancelada')
+              AND fecha_resolucion_soporte IS NOT NULL
+              AND DATE(fecha_resolucion_soporte) = CURDATE()
+        ");
+
+        return [
+            'abiertas' => $abiertas,
+            'esperando_informacion' => $esperando,
+            'resueltas_hoy' => $resueltasHoy,
+        ];
+    }
+
     // ------------------------------------------------------------
     // ATENDER AHORA
     // ------------------------------------------------------------
@@ -288,6 +329,7 @@ final class SoporteDashboard extends Conexion
         $items = array_merge($items, $this->atenderCuentasEnRevision($desde, $limit));
         $items = array_merge($items, $this->atenderRecargasPendientes($desde, $limit));
         $items = array_merge($items, $this->atenderPublicacionesPendientes($desde, $limit));
+        $items = array_merge($items, $this->atenderServiciosPendientes($desde, $limit));
 
         usort($items, function (array $a, array $b): int {
             $pa = $this->pesoPrioridad((string)($a['prioridad'] ?? ''));
@@ -784,6 +826,88 @@ final class SoporteDashboard extends Conexion
                 'detalle'         => (string)($r['descripcion'] ?? ''),
                 'url'             => '/atender-publicacion',
                 '_ts'             => $this->tsFecha($fechaRaw),
+            ];
+        }
+
+        return $out;
+    }
+
+    private function atenderServiciosPendientes(\DateTimeImmutable $desde, int $limit): array
+    {
+        if (
+            !$this->tableExists('solicitud_servicio_incidencia')
+            || !$this->tableExists('solicitud_servicio')
+            || !$this->tableExists('producto')
+        ) {
+            return [];
+        }
+
+        $sql = "
+            SELECT
+                i.codigo_incidencia,
+                i.codigo_solicitud_servicio,
+                i.categoria,
+                i.descripcion,
+                i.estado,
+                i.created_at,
+                i.updated_at,
+                p.titulo AS titulo_servicio,
+                ur.nombre AS nombre_reporta
+            FROM solicitud_servicio_incidencia i
+            INNER JOIN solicitud_servicio ss
+                    ON ss.codigo_solicitud_servicio = i.codigo_solicitud_servicio
+            INNER JOIN producto p
+                    ON p.codigo_producto = ss.codigo_producto
+            INNER JOIN usuario ur
+                    ON ur.codigo_usuario = i.codigo_usuario_reporta
+            WHERE i.requiere_soporte = 1
+              AND i.estado IN ('revision_soporte', 'esperando_informacion', 'abierta', 'en_atencion', 'persiste', 'solucion_pendiente_confirmacion')
+            ORDER BY
+                CASE i.estado
+                    WHEN 'revision_soporte' THEN 1
+                    WHEN 'persiste' THEN 2
+                    WHEN 'esperando_informacion' THEN 3
+                    ELSE 4
+                END,
+                i.updated_at ASC
+            LIMIT :limit
+        ";
+
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':limit', $limit, \PDO::PARAM_INT);
+        $st->execute();
+        $rows = $st->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+        $out = [];
+
+        $categorias = [
+            'servicio_incompleto' => 'Servicio incompleto',
+            'resultado_diferente' => 'Resultado diferente a lo acordado',
+            'problema_calidad' => 'Problema de calidad',
+            'incumplimiento_fecha_hora' => 'Incumplimiento de fecha u hora',
+            'servicio_no_realizado' => 'Servicio no realizado / inasistencia',
+            'problema_comunicacion_trato' => 'Problema de comunicación o trato',
+            'monto_condicion_diferente' => 'Monto o condición diferente a la cotización',
+            'dano_durante_servicio' => 'Daño durante el servicio',
+            'otro' => 'Otro',
+        ];
+
+        foreach ($rows as $row) {
+            $estado = (string)($row['estado'] ?? '');
+            $prioridad = in_array($estado, ['revision_soporte', 'persiste'], true) ? 'Alta' : 'Media';
+            $fechaRaw = $row['updated_at'] ?? $row['created_at'] ?? null;
+            $categoria = (string)($row['categoria'] ?? 'otro');
+
+            $out[] = [
+                'fecha' => $this->fmtFecha($fechaRaw),
+                'tipo' => 'Incidencia de servicio',
+                'prioridad' => $prioridad,
+                'codigo_incidencia' => (int)($row['codigo_incidencia'] ?? 0),
+                'codigo_solicitud_servicio' => (int)($row['codigo_solicitud_servicio'] ?? 0),
+                'nombre' => (string)($row['titulo_servicio'] ?? 'Servicio'),
+                'email' => '',
+                'detalle' => ($categorias[$categoria] ?? 'Problema en servicio') . ' · Reportado por ' . (string)($row['nombre_reporta'] ?? 'Vecino'),
+                'url' => '/atender-servicios',
+                '_ts' => $this->tsFecha($fechaRaw),
             ];
         }
 

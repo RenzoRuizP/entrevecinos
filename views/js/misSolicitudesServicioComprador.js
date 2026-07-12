@@ -83,9 +83,14 @@
       ajuste_cotizacion_solicitado: 'Nueva cotización requerida',
       cotizacion_final_enviada: 'Cotización final por revisar',
       cotizacion_vencida: 'Cotización vencida',
-      coordinacion_confirmada: 'Coordinación confirmada',
+      coordinacion_confirmada: 'Pendiente de ejecución',
+      servicio_en_ejecucion: 'Servicio en ejecución',
       servicio_realizado_proveedor: 'Pendiente de tu confirmación',
-      servicio_confirmado_solicitante: 'Servicio confirmado',
+      incidencia_abierta: 'Problema reportado',
+      incidencia_en_atencion: 'Problema en atención',
+      solucion_pendiente_confirmacion: 'Solución pendiente de confirmación',
+      revision_soporte: 'En revisión por soporte',
+      servicio_confirmado_solicitante: 'Servicio completado',
       observacion_reportada: 'Observación reportada',
       cotizacion_rechazada_solicitante: 'Cotización rechazada',
       rechazada_proveedor: 'Rechazada por proveedor',
@@ -106,16 +111,20 @@
   function badge(item) {
     const estado = String(item?.estado || '').trim();
 
-    if (estado === 'informacion_adicional_solicitada' || estado === 'propuesta_enviada_solicitante' || estado === 'cotizacion_final_enviada' || estado === 'servicio_realizado_proveedor') {
+    if (['informacion_adicional_solicitada', 'propuesta_enviada_solicitante', 'cotizacion_final_enviada', 'servicio_realizado_proveedor', 'solucion_pendiente_confirmacion'].includes(estado)) {
       return { cls: 'ev-ssc-badge ev-ssc-badge-pending', text: estadoLegible(estado) };
     }
 
-    if (estado === 'pendiente_proveedor' || estado === 'ajuste_solicitado' || estado === 'ajuste_cotizacion_solicitado' || estado === 'cotizacion_vencida') {
+    if (['pendiente_proveedor', 'ajuste_solicitado', 'ajuste_cotizacion_solicitado', 'cotizacion_vencida', 'servicio_en_ejecucion'].includes(estado)) {
       return { cls: 'ev-ssc-badge ev-ssc-badge-wait', text: estadoLegible(estado) };
     }
 
-    if (estado === 'coordinacion_confirmada' || estado === 'servicio_confirmado_solicitante') {
+    if (['coordinacion_confirmada', 'servicio_confirmado_solicitante'].includes(estado)) {
       return { cls: 'ev-ssc-badge ev-ssc-badge-success', text: estadoLegible(estado) };
+    }
+
+    if (['incidencia_abierta', 'incidencia_en_atencion', 'revision_soporte'].includes(estado)) {
+      return { cls: 'ev-ssc-badge ev-ssc-badge-negative', text: estadoLegible(estado) };
     }
 
     return { cls: 'ev-ssc-badge ev-ssc-badge-negative', text: estadoLegible(estado) };
@@ -349,21 +358,27 @@
     }
 
     if (estado === 'coordinacion_confirmada') {
-      return `
-        <div class="ev-ssc-state ev-ssc-state-success">
-          <div class="ev-ssc-state-title">Coordinación confirmada</div>
-          <div class="ev-ssc-state-text">Ambos vecinos tienen una cotización final aceptada. La ejecución, confirmación u observación queda registrada en EV.</div>
-        </div>
-      `;
+      return `<div class="ev-ssc-state ev-ssc-state-success"><div class="ev-ssc-state-title">Pendiente de ejecución</div><div class="ev-ssc-state-text">La cotización fue aceptada. Desde la gestión del servicio podrás reprogramar, reportar un problema o seguir su ejecución.</div></div>`;
+    }
+
+    if (estado === 'servicio_en_ejecucion') {
+      return `<div class="ev-ssc-state ev-ssc-state-wait"><div class="ev-ssc-state-title">Servicio en ejecución</div><div class="ev-ssc-state-text">El proveedor registró el inicio del servicio. La coordinación operativa continúa dentro de EV.</div></div>`;
     }
 
     if (estado === 'servicio_realizado_proveedor') {
-      return `
-        <div class="ev-ssc-state ev-ssc-state-success">
-          <div class="ev-ssc-state-title">Servicio marcado como realizado</div>
-          <div class="ev-ssc-state-text">${escapeHtml(item?.motivo_estado || 'El proveedor marcó la atención como realizada.')}</div>
-        </div>
-      `;
+      return `<div class="ev-ssc-state ev-ssc-state-pending"><div class="ev-ssc-state-title">Pendiente de tu confirmación</div><div class="ev-ssc-state-text">${escapeHtml(item?.motivo_estado || 'Confirma que el servicio terminó correctamente o reporta un problema.')}</div></div>`;
+    }
+
+    if (['incidencia_abierta', 'incidencia_en_atencion', 'revision_soporte'].includes(estado)) {
+      return `<div class="ev-ssc-state ev-ssc-state-negative"><div class="ev-ssc-state-title">${escapeHtml(estadoLegible(estado))}</div><div class="ev-ssc-state-text">${escapeHtml(item?.motivo_estado || 'Existe un problema registrado que debe atenderse antes de completar y calificar el servicio.')}</div></div>`;
+    }
+
+    if (estado === 'solucion_pendiente_confirmacion') {
+      return `<div class="ev-ssc-state ev-ssc-state-pending"><div class="ev-ssc-state-title">Solución pendiente de tu confirmación</div><div class="ev-ssc-state-text">Revisa la solución registrada por el proveedor e indica si el problema quedó resuelto.</div></div>`;
+    }
+
+    if (estado === 'servicio_confirmado_solicitante') {
+      return `<div class="ev-ssc-state ev-ssc-state-success"><div class="ev-ssc-state-title">Servicio completado</div><div class="ev-ssc-state-text">El servicio finalizó. La calificación está disponible para comprador y proveedor.</div></div>`;
     }
 
     return `
@@ -376,10 +391,21 @@
 
   function actionsHtml(item) {
     const id = Number(item?.codigo_solicitud_servicio || 0);
+    const estado = String(item?.estado || '').trim();
+    const estadosGestion = [
+      'coordinacion_confirmada', 'servicio_en_ejecucion', 'servicio_realizado_proveedor',
+      'incidencia_abierta', 'incidencia_en_atencion', 'solucion_pendiente_confirmacion',
+      'revision_soporte', 'servicio_confirmado_solicitante'
+    ];
+
     return `
       <button type="button" class="btn ev-ssc-btn-accept ev-ssc-btn-conversation" data-ssc-action="conversacion" data-id="${id}">
         <i class="bi bi-chat-square-text me-1"></i>Abrir conversación
       </button>
+      ${estadosGestion.includes(estado) ? `
+        <button type="button" class="btn ev-ssc-btn-outline" data-ssc-action="gestion" data-id="${id}">
+          <i class="bi bi-clipboard2-check me-1"></i>Gestionar servicio
+        </button>` : ''}
     `;
   }
 
@@ -915,6 +941,33 @@ ${propuesta.fecha_propuesta ? `<strong>Fecha:</strong> ${escapeHtml(formatFecha(
     return !!window.EVServicioConversacion?.open;
   }
 
+  async function asegurarOperacionServicio() {
+    if (window.EVServicioOperacion?.open) return true;
+    const id = 'ev-servicio-operacion-script';
+    let script = document.getElementById(id);
+    if (!script) {
+      script = document.createElement('script');
+      script.id = id;
+      script.src = `${BASE}/views/js/servicioOperacion.js`;
+      document.head.appendChild(script);
+    }
+    await new Promise((resolve) => {
+      if (window.EVServicioOperacion?.open) return resolve();
+      script.addEventListener('load', resolve, { once: true });
+      script.addEventListener('error', resolve, { once: true });
+      window.setTimeout(resolve, 3500);
+    });
+    return !!window.EVServicioOperacion?.open;
+  }
+
+  async function abrirGestion(item) {
+    if (await asegurarOperacionServicio()) {
+      window.EVServicioOperacion.open(Number(item?.codigo_solicitud_servicio || 0));
+      return;
+    }
+    await notify('error', 'No se pudo abrir', 'Gestión no disponible', 'No se pudo cargar la gestión del servicio.');
+  }
+
   async function detalle(item) {
     if (await asegurarConversacionServicio()) {
       window.EVServicioConversacion.open(Number(item?.codigo_solicitud_servicio || 0));
@@ -945,6 +998,7 @@ ${propuesta.fecha_propuesta ? `<strong>Fecha:</strong> ${escapeHtml(formatFecha(
     if (!id || !item) return;
 
     if (action === 'conversacion' || action === 'detalle') await detalle(item);
+    if (action === 'gestion') await abrirGestion(item);
     if (action === 'responder-informacion') await responderInformacion(item);
     if (action === 'aceptar-propuesta') await aceptarPropuesta(item);
     if (action === 'solicitar-ajuste') await solicitarAjuste(item);
@@ -1091,6 +1145,9 @@ ${propuesta.fecha_propuesta ? `<strong>Fecha:</strong> ${escapeHtml(formatFecha(
   }
 
   document.addEventListener('click', manejarClick);
+  document.addEventListener('ev:servicio-operacion-updated', () => {
+    if (document.querySelector('.ev-ssc-page')) cargar();
+  });
 
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && document.querySelector('.ev-ssc-page')) {

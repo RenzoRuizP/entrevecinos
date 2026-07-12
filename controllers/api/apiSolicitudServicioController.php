@@ -6,6 +6,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/SolicitudServicio.php';
 require_once __DIR__ . '/../../models/SolicitudServicioChat.php';
+require_once __DIR__ . '/../../models/ServicioEjecucion.php';
 
 
 class apiSolicitudServicioController
@@ -74,13 +75,20 @@ class apiSolicitudServicioController
             'MAX_ADJUNTOS_EXCEDIDO','ADJUNTO_INVALIDO','ADJUNTO_PESO_INVALIDO','ADJUNTO_FORMATO_INVALIDO',
             'DIRECCION_COMPARTIR_REQUERIDA','CONDICION_PAGO_REQUERIDA','MONTO_ADELANTO_REQUERIDO',
             'MONTO_ADELANTO_SUPERA_TOTAL','HORA_INICIO_INVALIDA','HORA_FIN_INVALIDA',
-            'HORA_FIN_ANTERIOR_INICIO','MENSAJE_OBSERVACION_REQUERIDO','COTIZACION_VENCIDA' => 400,
+            'HORA_FIN_ANTERIOR_INICIO','MENSAJE_OBSERVACION_REQUERIDO','COTIZACION_VENCIDA',
+            'FECHA_REPROGRAMACION_INVALIDA','HORA_REPROGRAMACION_INVALIDA','FECHA_REPROGRAMACION_PASADA',
+            'MOTIVO_REPROGRAMACION_REQUERIDO','CATEGORIA_INCIDENCIA_INVALIDA','DESCRIPCION_INCIDENCIA_REQUERIDA',
+            'RESPUESTA_INCIDENCIA_REQUERIDA','SOLUCION_REQUERIDA','DETALLE_REQUERIDO','MOTIVO_SOPORTE_REQUERIDO',
+            'COMENTARIO_REQUERIDO','COMENTARIO_DEMASIADO_LARGO' => 400,
 
-            'SERVICIO_NO_ENCONTRADO','SOLICITUD_NO_ENCONTRADA','PROPUESTA_NO_ENCONTRADA' => 404,
+            'SERVICIO_NO_ENCONTRADO','SOLICITUD_NO_ENCONTRADA','PROPUESTA_NO_ENCONTRADA',
+            'REPROGRAMACION_NO_ENCONTRADA','INCIDENCIA_NO_ENCONTRADA' => 404,
 
             'SIN_RESIDENCIA_ACTIVA','PUBLICACION_NO_ES_SERVICIO','SERVICIO_PROPIO','SERVICIO_NO_DISPONIBLE',
             'PROVEEDOR_NO_HABILITADO','SERVICIO_FUERA_DE_RESIDENCIA','SOLICITUD_ACTIVA_EXISTENTE',
-            'ESTADO_NO_PERMITE_ACCION' => 409,
+            'ESTADO_NO_PERMITE_ACCION','REPROGRAMACION_PENDIENTE_EXISTENTE','REPROGRAMACION_NO_DISPONIBLE',
+            'REPROGRAMACION_DESACTUALIZADA','NO_PUEDE_RESPONDER_PROPIA_PROPUESTA','INCIDENCIA_ACTIVA_EXISTENTE',
+            'RESPUESTA_NO_PERMITIDA','SOPORTE_YA_SOLICITADO' => 409,
             'ROL_NO_AUTORIZADO' => 403,
             default => 500,
         };
@@ -159,6 +167,7 @@ class apiSolicitudServicioController
         if (!$this->validarMetodo('GET')) return;
         try {
             $codigoProveedor = $this->exigirRolVecino();
+            (new ServicioEjecucion())->sincronizarRecordatoriosUsuario($codigoProveedor);
             $this->responderResultado((new SolicitudServicio())->listarSolicitudesProveedor($codigoProveedor));
         } catch (Throwable $e) {
             error_log('[EV][apiSolicitudServicioController][listarProveedor] ' . $e->getMessage());
@@ -172,6 +181,7 @@ class apiSolicitudServicioController
         if (!$this->validarMetodo('GET')) return;
         try {
             $codigoSolicitante = $this->exigirRolVecino();
+            (new ServicioEjecucion())->sincronizarRecordatoriosUsuario($codigoSolicitante);
             $this->responderResultado((new SolicitudServicio())->listarSolicitudesSolicitante($codigoSolicitante));
         } catch (Throwable $e) {
             error_log('[EV][apiSolicitudServicioController][listarSolicitante] ' . $e->getMessage());
@@ -295,15 +305,34 @@ class apiSolicitudServicioController
         if (!$this->validarMetodo('POST')) return;
         try {
             $input = $this->leerInput();
-            $resultado = (new SolicitudServicio())->cancelarSolicitudFlujoFinal(
+            $codigoUsuario = $this->exigirRolVecino();
+            $motivo = (string)($input['motivo_cancelacion'] ?? $input['motivo'] ?? '');
+
+            /*
+             * Punto 11 atiende la cancelación posterior a la aceptación y los casos
+             * operativos de inasistencia/incumplimiento. Si la solicitud todavía está
+             * en negociación, se conserva el flujo del punto 10 para no romper las
+             * cancelaciones previas a la cotización aceptada.
+             */
+            $resultado = (new ServicioEjecucion())->cancelarServicio(
                 $codigoSolicitud,
-                $this->exigirRolVecino(),
-                (string)($input['motivo_cancelacion'] ?? $input['motivo'] ?? '')
+                $codigoUsuario,
+                $motivo
             );
+
+            if (($resultado['ok'] ?? false) !== true
+                && (string)($resultado['error'] ?? '') === 'ESTADO_NO_PERMITE_ACCION') {
+                $resultado = (new SolicitudServicio())->cancelarSolicitudFlujoFinal(
+                    $codigoSolicitud,
+                    $codigoUsuario,
+                    $motivo
+                );
+            }
+
             $this->responderResultado($resultado);
         } catch (Throwable $e) {
             error_log('[EV][apiSolicitudServicioController][cancelar] ' . $e->getMessage());
-            $this->json(500, ['ok' => false, 'error' => 'SERVER_ERROR', 'mensaje' => 'No se pudo cancelar la coordinación.']);
+            $this->json(500, ['ok'=>false,'error'=>'SERVER_ERROR','mensaje'=>'No se pudo cancelar la coordinación.']);
         }
     }
 
@@ -395,19 +424,7 @@ class apiSolicitudServicioController
     /** POST /api/servicios/solicitudes/{id}/cancelar-proveedor */
     public function cancelarProveedor(int $codigoSolicitud): void
     {
-        if (!$this->validarMetodo('POST')) return;
-        try {
-            $input = $this->leerInput();
-            $resultado = (new SolicitudServicio())->cancelarCoordinacionProveedor(
-                $codigoSolicitud,
-                $this->exigirRolVecino(),
-                (string)($input['motivo_cancelacion'] ?? $input['motivo'] ?? '')
-            );
-            $this->responderResultado($resultado);
-        } catch (Throwable $e) {
-            error_log('[EV][apiSolicitudServicioController][cancelarProveedor] ' . $e->getMessage());
-            $this->json(500, ['ok' => false, 'error' => 'SERVER_ERROR', 'mensaje' => 'No se pudo cancelar la coordinación.']);
-        }
+        $this->cancelar($codigoSolicitud);
     }
 
     /** POST /api/servicios/solicitudes/{id}/marcar-realizado */
@@ -415,14 +432,10 @@ class apiSolicitudServicioController
     {
         if (!$this->validarMetodo('POST')) return;
         try {
-            $resultado = (new SolicitudServicio())->marcarServicioRealizadoProveedor(
-                $codigoSolicitud,
-                $this->exigirRolVecino()
-            );
-            $this->responderResultado($resultado);
+            $this->responderResultado((new ServicioEjecucion())->marcarRealizado($codigoSolicitud, $this->exigirRolVecino()));
         } catch (Throwable $e) {
             error_log('[EV][apiSolicitudServicioController][marcarRealizado] ' . $e->getMessage());
-            $this->json(500, ['ok' => false, 'error' => 'SERVER_ERROR', 'mensaje' => 'No se pudo marcar el servicio como realizado.']);
+            $this->json(500,['ok'=>false,'error'=>'SERVER_ERROR','mensaje'=>'No se pudo marcar el servicio como realizado.']);
         }
     }
 
@@ -431,32 +444,213 @@ class apiSolicitudServicioController
     {
         if (!$this->validarMetodo('POST')) return;
         try {
-            $resultado = (new SolicitudServicio())->confirmarServicioRealizadoSolicitante(
-                $codigoSolicitud,
-                $this->exigirRolVecino()
-            );
-            $this->responderResultado($resultado);
+            $this->responderResultado((new ServicioEjecucion())->confirmarRealizado($codigoSolicitud, $this->exigirRolVecino()));
         } catch (Throwable $e) {
             error_log('[EV][apiSolicitudServicioController][confirmarRealizado] ' . $e->getMessage());
-            $this->json(500, ['ok' => false, 'error' => 'SERVER_ERROR', 'mensaje' => 'No se pudo confirmar el servicio.']);
+            $this->json(500,['ok'=>false,'error'=>'SERVER_ERROR','mensaje'=>'No se pudo confirmar el servicio.']);
         }
     }
 
-    /** POST /api/servicios/solicitudes/{id}/reportar-observacion */
+    /** POST /api/servicios/solicitudes/{id}/reportar-observacion
+     *  Compatibilidad: convierte la observación antigua en una incidencia de tipo "otro".
+     */
     public function reportarObservacion(int $codigoSolicitud): void
     {
         if (!$this->validarMetodo('POST')) return;
         try {
             $input = $this->leerInput();
-            $resultado = (new SolicitudServicio())->reportarObservacionServicio(
+            $resultado = (new ServicioEjecucion())->reportarProblema(
                 $codigoSolicitud,
                 $this->exigirRolVecino(),
-                (string)($input['mensaje'] ?? $input['observacion'] ?? '')
+                [
+                    'categoria' => 'otro',
+                    'descripcion' => (string)($input['mensaje'] ?? $input['observacion'] ?? ''),
+                ],
+                $_FILES
             );
             $this->responderResultado($resultado);
         } catch (Throwable $e) {
             error_log('[EV][apiSolicitudServicioController][reportarObservacion] ' . $e->getMessage());
-            $this->json(500, ['ok' => false, 'error' => 'SERVER_ERROR', 'mensaje' => 'No se pudo registrar la observación.']);
+            $this->json(500,['ok'=>false,'error'=>'SERVER_ERROR','mensaje'=>'No se pudo registrar el problema.']);
+        }
+    }
+
+    /** GET /api/servicios/solicitudes/{id}/operacion */
+    public function obtenerOperacion(int $codigoSolicitud): void
+    {
+        if (!$this->validarMetodo('GET')) return;
+        try {
+            $this->responderResultado((new ServicioEjecucion())->obtenerOperacion($codigoSolicitud, $this->exigirRolVecino()));
+        } catch (Throwable $e) {
+            error_log('[EV][apiSolicitudServicioController][obtenerOperacion] ' . $e->getMessage());
+            $this->json(500,['ok'=>false,'error'=>'SERVER_ERROR','mensaje'=>'No se pudo cargar la gestión del servicio.']);
+        }
+    }
+
+    /** POST /api/servicios/solicitudes/{id}/iniciar */
+    public function iniciarServicio(int $codigoSolicitud): void
+    {
+        if (!$this->validarMetodo('POST')) return;
+        try {
+            $this->responderResultado((new ServicioEjecucion())->iniciarServicio($codigoSolicitud, $this->exigirRolVecino()));
+        } catch (Throwable $e) {
+            error_log('[EV][apiSolicitudServicioController][iniciarServicio] ' . $e->getMessage());
+            $this->json(500,['ok'=>false,'error'=>'SERVER_ERROR','mensaje'=>'No se pudo iniciar el servicio.']);
+        }
+    }
+
+    /** POST /api/servicios/solicitudes/{id}/reprogramaciones */
+    public function proponerReprogramacion(int $codigoSolicitud): void
+    {
+        if (!$this->validarMetodo('POST')) return;
+        try {
+            $this->responderResultado((new ServicioEjecucion())->proponerReprogramacion(
+                $codigoSolicitud,
+                $this->exigirRolVecino(),
+                $this->leerInput()
+            ), 201);
+        } catch (Throwable $e) {
+            error_log('[EV][apiSolicitudServicioController][proponerReprogramacion] ' . $e->getMessage());
+            $this->json(500,['ok'=>false,'error'=>'SERVER_ERROR','mensaje'=>'No se pudo proponer la reprogramación.']);
+        }
+    }
+
+    /** POST /api/servicios/solicitudes/{id}/reprogramaciones/{rid}/responder */
+    public function responderReprogramacion(int $codigoSolicitud, int $codigoReprogramacion): void
+    {
+        if (!$this->validarMetodo('POST')) return;
+        try {
+            $input = $this->leerInput();
+            $accion = strtolower(trim((string)($input['accion'] ?? '')));
+            if (!in_array($accion, ['aceptar','rechazar'], true)) {
+                $this->json(400,['ok'=>false,'error'=>'ACCION_INVALIDA','mensaje'=>'Indica si aceptas o rechazas la reprogramación.']);
+                return;
+            }
+            $this->responderResultado((new ServicioEjecucion())->responderReprogramacion(
+                $codigoSolicitud,
+                $codigoReprogramacion,
+                $this->exigirRolVecino(),
+                $accion === 'aceptar',
+                (string)($input['comentario'] ?? '')
+            ));
+        } catch (Throwable $e) {
+            error_log('[EV][apiSolicitudServicioController][responderReprogramacion] ' . $e->getMessage());
+            $this->json(500,['ok'=>false,'error'=>'SERVER_ERROR','mensaje'=>'No se pudo responder la reprogramación.']);
+        }
+    }
+
+    /** POST /api/servicios/solicitudes/{id}/reprogramaciones/{rid}/cancelar */
+    public function cancelarReprogramacion(int $codigoSolicitud, int $codigoReprogramacion): void
+    {
+        if (!$this->validarMetodo('POST')) return;
+        try {
+            $this->responderResultado((new ServicioEjecucion())->cancelarReprogramacion(
+                $codigoSolicitud,
+                $codigoReprogramacion,
+                $this->exigirRolVecino()
+            ));
+        } catch (Throwable $e) {
+            error_log('[EV][apiSolicitudServicioController][cancelarReprogramacion] ' . $e->getMessage());
+            $this->json(500,['ok'=>false,'error'=>'SERVER_ERROR','mensaje'=>'No se pudo retirar la reprogramación.']);
+        }
+    }
+
+    /** POST multipart /api/servicios/solicitudes/{id}/incidencias */
+    public function reportarProblema(int $codigoSolicitud): void
+    {
+        if (!$this->validarMetodo('POST')) return;
+        try {
+            $this->responderResultado((new ServicioEjecucion())->reportarProblema(
+                $codigoSolicitud,
+                $this->exigirRolVecino(),
+                $this->leerInput(),
+                $_FILES
+            ), 201);
+        } catch (Throwable $e) {
+            error_log('[EV][apiSolicitudServicioController][reportarProblema] ' . $e->getMessage());
+            $this->json(500,['ok'=>false,'error'=>'SERVER_ERROR','mensaje'=>'No se pudo registrar el problema.']);
+        }
+    }
+
+    /** POST multipart /api/servicios/solicitudes/{id}/incidencias/responder */
+    public function responderIncidencia(int $codigoSolicitud): void
+    {
+        if (!$this->validarMetodo('POST')) return;
+        try {
+            $input = $this->leerInput();
+            $this->responderResultado((new ServicioEjecucion())->responderIncidencia(
+                $codigoSolicitud,
+                $this->exigirRolVecino(),
+                (string)($input['respuesta'] ?? $input['mensaje'] ?? ''),
+                $_FILES
+            ));
+        } catch (Throwable $e) {
+            error_log('[EV][apiSolicitudServicioController][responderIncidencia] ' . $e->getMessage());
+            $this->json(500,['ok'=>false,'error'=>'SERVER_ERROR','mensaje'=>'No se pudo registrar la respuesta.']);
+        }
+    }
+
+    /** POST multipart /api/servicios/solicitudes/{id}/incidencias/solucion */
+    public function registrarSolucion(int $codigoSolicitud): void
+    {
+        if (!$this->validarMetodo('POST')) return;
+        try {
+            $input = $this->leerInput();
+            $this->responderResultado((new ServicioEjecucion())->registrarSolucion(
+                $codigoSolicitud,
+                $this->exigirRolVecino(),
+                (string)($input['solucion'] ?? $input['mensaje'] ?? ''),
+                $_FILES
+            ));
+        } catch (Throwable $e) {
+            error_log('[EV][apiSolicitudServicioController][registrarSolucion] ' . $e->getMessage());
+            $this->json(500,['ok'=>false,'error'=>'SERVER_ERROR','mensaje'=>'No se pudo registrar la solución.']);
+        }
+    }
+
+    /** POST /api/servicios/solicitudes/{id}/incidencias/confirmar-solucion */
+    public function confirmarSolucion(int $codigoSolicitud): void
+    {
+        if (!$this->validarMetodo('POST')) return;
+        try {
+            $this->responderResultado((new ServicioEjecucion())->confirmarSolucion($codigoSolicitud, $this->exigirRolVecino()));
+        } catch (Throwable $e) {
+            error_log('[EV][apiSolicitudServicioController][confirmarSolucion] ' . $e->getMessage());
+            $this->json(500,['ok'=>false,'error'=>'SERVER_ERROR','mensaje'=>'No se pudo confirmar la solución.']);
+        }
+    }
+
+    /** POST /api/servicios/solicitudes/{id}/incidencias/persiste */
+    public function problemaPersiste(int $codigoSolicitud): void
+    {
+        if (!$this->validarMetodo('POST')) return;
+        try {
+            $input = $this->leerInput();
+            $this->responderResultado((new ServicioEjecucion())->problemaPersiste(
+                $codigoSolicitud,
+                $this->exigirRolVecino(),
+                (string)($input['detalle'] ?? $input['mensaje'] ?? '')
+            ));
+        } catch (Throwable $e) {
+            error_log('[EV][apiSolicitudServicioController][problemaPersiste] ' . $e->getMessage());
+            $this->json(500,['ok'=>false,'error'=>'SERVER_ERROR','mensaje'=>'No se pudo actualizar el problema.']);
+        }
+    }
+
+    /** POST /api/servicios/solicitudes/{id}/incidencias/solicitar-soporte */
+    public function solicitarSoporte(int $codigoSolicitud): void
+    {
+        if (!$this->validarMetodo('POST')) return;
+        try {
+            $input = $this->leerInput();
+            $this->responderResultado((new ServicioEjecucion())->solicitarSoporte(
+                $codigoSolicitud,
+                $this->exigirRolVecino(),
+                (string)($input['motivo'] ?? $input['mensaje'] ?? '')
+            ));
+        } catch (Throwable $e) {
+            error_log('[EV][apiSolicitudServicioController][solicitarSoporte] ' . $e->getMessage());
+            $this->json(500,['ok'=>false,'error'=>'SERVER_ERROR','mensaje'=>'No se pudo solicitar soporte.']);
         }
     }
 

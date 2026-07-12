@@ -195,7 +195,12 @@ class SolicitudServicio extends Conexion
                     'propuesta_enviada_solicitante',
                     'ajuste_solicitado',
                     'coordinacion_confirmada',
-                    'servicio_realizado_proveedor'
+                    'servicio_en_ejecucion',
+                    'servicio_realizado_proveedor',
+                    'incidencia_abierta',
+                    'incidencia_en_atencion',
+                    'solucion_pendiente_confirmacion',
+                    'revision_soporte'
               )
             ORDER BY codigo_solicitud_servicio DESC
             LIMIT 1
@@ -526,10 +531,16 @@ class SolicitudServicio extends Conexion
             'informacion_adicional_solicitada' => 'Información solicitada',
             'propuesta_enviada_solicitante' => 'Propuesta enviada',
             'ajuste_solicitado' => 'Ajuste solicitado',
-            'coordinacion_confirmada' => 'Coordinación confirmada',
+            'coordinacion_confirmada' => 'Pendiente de ejecución',
+            'servicio_en_ejecucion' => 'Servicio en ejecución',
             'servicio_realizado_proveedor' => 'Pendiente de confirmación del comprador',
-            'servicio_confirmado_solicitante' => 'Servicio confirmado',
+            'servicio_confirmado_solicitante' => 'Servicio completado',
             'observacion_reportada' => 'Observación reportada',
+            'incidencia_abierta' => 'Problema reportado',
+            'incidencia_en_atencion' => 'Problema en atención',
+            'solucion_pendiente_confirmacion' => 'Solución pendiente de confirmación',
+            'revision_soporte' => 'En revisión por soporte',
+            'cancelada_soporte' => 'Cancelada por soporte',
             'cotizacion_final_enviada' => 'Cotización final enviada',
             'ajuste_cotizacion_solicitado' => 'Ajuste de cotización solicitado',
             'cotizacion_vencida' => 'Cotización vencida',
@@ -925,6 +936,16 @@ class SolicitudServicio extends Conexion
             'fecha_limite_respuesta' => $row['fecha_limite_respuesta'] ?? null,
             'segundos_restantes' => $segundos,
             'fecha_rechazo' => $row['fecha_rechazo'] ?? null,
+            'fecha_ejecucion_original' => $row['fecha_ejecucion_original'] ?? null,
+            'hora_inicio_original' => $row['hora_inicio_original'] ?? null,
+            'hora_fin_original' => $row['hora_fin_original'] ?? null,
+            'fecha_ejecucion_vigente' => $row['fecha_ejecucion_vigente'] ?? null,
+            'hora_inicio_vigente' => $row['hora_inicio_vigente'] ?? null,
+            'hora_fin_vigente' => $row['hora_fin_vigente'] ?? null,
+            'version_operativa' => (int)($row['version_operativa'] ?? 1),
+            'fecha_inicio_servicio' => $row['fecha_inicio_servicio'] ?? null,
+            'fecha_realizado_proveedor' => $row['fecha_realizado_proveedor'] ?? null,
+            'fecha_limite_confirmacion' => $row['fecha_limite_confirmacion'] ?? null,
             'fecha_cierre' => $row['fecha_cierre'] ?? null,
             'created_at' => $row['created_at'] ?? null,
             'updated_at' => $row['updated_at'] ?? null,
@@ -1006,7 +1027,7 @@ class SolicitudServicio extends Conexion
 
                 if (in_array($estado, ['pendiente_proveedor', 'ajuste_solicitado', 'ajuste_cotizacion_solicitado', 'cotizacion_vencida'], true)) {
                     $pendientes[] = $item;
-                } elseif (in_array($estado, ['informacion_adicional_solicitada', 'propuesta_enviada_solicitante', 'cotizacion_final_enviada', 'coordinacion_confirmada', 'servicio_realizado_proveedor'], true)) {
+                } elseif (in_array($estado, ['informacion_adicional_solicitada', 'propuesta_enviada_solicitante', 'cotizacion_final_enviada', 'coordinacion_confirmada', 'servicio_en_ejecucion', 'servicio_realizado_proveedor', 'incidencia_abierta', 'incidencia_en_atencion', 'solucion_pendiente_confirmacion', 'revision_soporte'], true)) {
                     $esperando[] = $item;
                 } else {
                     $cerradas[] = $item;
@@ -1577,7 +1598,7 @@ class SolicitudServicio extends Conexion
                 $item = $this->mapearSolicitudSalida($row);
                 $estado = (string)$item['estado'];
 
-                if (in_array($estado, ['informacion_adicional_solicitada', 'propuesta_enviada_solicitante', 'cotizacion_final_enviada', 'servicio_realizado_proveedor'], true)) {
+                if (in_array($estado, ['informacion_adicional_solicitada', 'propuesta_enviada_solicitante', 'cotizacion_final_enviada', 'servicio_realizado_proveedor', 'solucion_pendiente_confirmacion'], true)) {
                     $porResponder[] = $item;
                 } elseif (in_array($estado, [
                     'pendiente_proveedor',
@@ -1585,6 +1606,10 @@ class SolicitudServicio extends Conexion
                     'ajuste_cotizacion_solicitado',
                     'cotizacion_vencida',
                     'coordinacion_confirmada',
+                    'servicio_en_ejecucion',
+                    'incidencia_abierta',
+                    'incidencia_en_atencion',
+                    'revision_soporte',
                 ], true)) {
                     $enCoordinacion[] = $item;
                 } else {
@@ -1754,14 +1779,30 @@ class SolicitudServicio extends Conexion
                 SET
                     estado = 'coordinacion_confirmada',
                     estado_anterior = :estado_anterior,
-                    motivo_estado = 'El solicitante aceptó la propuesta de coordinación.',
+                    motivo_estado = 'El solicitante aceptó la propuesta de coordinación. El servicio queda pendiente de ejecución.',
                     fecha_aceptacion = NOW(),
+                    fecha_ejecucion_original = DATE(:fecha_original),
+                    hora_inicio_original = :hora_inicio_original,
+                    hora_fin_original = :hora_fin_original,
+                    fecha_ejecucion_vigente = DATE(:fecha_vigente),
+                    hora_inicio_vigente = :hora_inicio_vigente,
+                    hora_fin_vigente = :hora_fin_vigente,
+                    version_operativa = 1,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE codigo_solicitud_servicio = :codigo_solicitud_servicio
                   AND codigo_usuario_solicitante = :codigo_usuario_solicitante
             ";
             $stSolicitud = $this->dblink->prepare($sqlSolicitud);
+            $fechaCotizada = $propuesta['fecha_propuesta'] ?? null;
+            $horaInicioCotizada = $propuesta['hora_inicio'] ?? null;
+            $horaFinCotizada = $propuesta['hora_fin'] ?? null;
             $stSolicitud->bindValue(':estado_anterior', $estadoActual, PDO::PARAM_STR);
+            $stSolicitud->bindValue(':fecha_original', $fechaCotizada, $fechaCotizada !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+            $stSolicitud->bindValue(':hora_inicio_original', $horaInicioCotizada, $horaInicioCotizada !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+            $stSolicitud->bindValue(':hora_fin_original', $horaFinCotizada, $horaFinCotizada !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+            $stSolicitud->bindValue(':fecha_vigente', $fechaCotizada, $fechaCotizada !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+            $stSolicitud->bindValue(':hora_inicio_vigente', $horaInicioCotizada, $horaInicioCotizada !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+            $stSolicitud->bindValue(':hora_fin_vigente', $horaFinCotizada, $horaFinCotizada !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
             $stSolicitud->bindValue(':codigo_solicitud_servicio', $codigoSolicitud, PDO::PARAM_INT);
             $stSolicitud->bindValue(':codigo_usuario_solicitante', $codigoSolicitante, PDO::PARAM_INT);
             $stSolicitud->execute();
@@ -2426,13 +2467,31 @@ class SolicitudServicio extends Conexion
                 UPDATE solicitud_servicio
                 SET estado = 'coordinacion_confirmada',
                     estado_anterior = 'cotizacion_final_enviada',
-                    motivo_estado = 'El comprador aceptó la cotización final.',
+                    motivo_estado = 'El comprador aceptó la cotización final. El servicio queda pendiente de ejecución.',
                     fecha_aceptacion = NOW(),
+                    fecha_ejecucion_original = DATE(:fecha_original),
+                    hora_inicio_original = :hora_inicio_original,
+                    hora_fin_original = :hora_fin_original,
+                    fecha_ejecucion_vigente = DATE(:fecha_vigente),
+                    hora_inicio_vigente = :hora_inicio_vigente,
+                    hora_fin_vigente = :hora_fin_vigente,
+                    version_operativa = 1,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE codigo_solicitud_servicio = :solicitud
                   AND codigo_usuario_solicitante = :solicitante
             ");
-            $stS->execute([':solicitud' => $codigoSolicitud, ':solicitante' => $codigoSolicitante]);
+            $fechaCotizada = $propuesta['fecha_propuesta'] ?? null;
+            $horaInicioCotizada = $propuesta['hora_inicio'] ?? null;
+            $horaFinCotizada = $propuesta['hora_fin'] ?? null;
+            $stS->bindValue(':fecha_original', $fechaCotizada, $fechaCotizada !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+            $stS->bindValue(':hora_inicio_original', $horaInicioCotizada, $horaInicioCotizada !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+            $stS->bindValue(':hora_fin_original', $horaFinCotizada, $horaFinCotizada !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+            $stS->bindValue(':fecha_vigente', $fechaCotizada, $fechaCotizada !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+            $stS->bindValue(':hora_inicio_vigente', $horaInicioCotizada, $horaInicioCotizada !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+            $stS->bindValue(':hora_fin_vigente', $horaFinCotizada, $horaFinCotizada !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
+            $stS->bindValue(':solicitud', $codigoSolicitud, PDO::PARAM_INT);
+            $stS->bindValue(':solicitante', $codigoSolicitante, PDO::PARAM_INT);
+            $stS->execute();
 
             $this->registrarInteraccion(
                 $codigoSolicitud, $codigoSolicitante, 'solicitante', 'cotizacion_final_aceptada',

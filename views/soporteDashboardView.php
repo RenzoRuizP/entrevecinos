@@ -51,7 +51,7 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
   <div class="row g-4 mb-4">
 
     <!-- Cuentas -->
-    <div class="col-12 col-lg-4">
+    <div class="col-12 col-md-6 col-xl-3">
       <div class="ev-card p-3 h-100">
         <div class="d-flex align-items-center justify-content-between mb-2">
           <div class="d-flex align-items-center gap-2">
@@ -90,7 +90,7 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
     </div>
 
     <!-- Publicaciones -->
-    <div class="col-12 col-lg-4">
+    <div class="col-12 col-md-6 col-xl-3">
       <div class="ev-card p-3 h-100">
         <div class="d-flex align-items-center justify-content-between mb-2">
           <div class="d-flex align-items-center gap-2">
@@ -129,7 +129,7 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
     </div>
 
     <!-- Recargas -->
-    <div class="col-12 col-lg-4">
+    <div class="col-12 col-md-6 col-xl-3">
       <div class="ev-card p-3 h-100">
         <div class="d-flex align-items-center justify-content-between mb-2">
           <div class="d-flex align-items-center gap-2">
@@ -162,6 +162,45 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
         <div class="mt-3">
           <a data-ev-nav="1" class="ev-btn-orange w-100 text-center d-block" href="<?= $baseUrl ?>/atender-recargas">
             Ver solicitudes
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Servicios -->
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="ev-card p-3 h-100">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <div class="d-flex align-items-center gap-2">
+            <span class="ev-kpi-ico" aria-hidden="true">
+              <i class="bi bi-clipboard2-pulse"></i>
+            </span>
+            <h6 class="ev-card-title mb-0">Servicios</h6>
+          </div>
+
+          <a data-ev-nav="1" href="<?= $baseUrl ?>/atender-servicios" class="ev-icon-btn" aria-label="Ir a Atención de servicios">
+            <i class="bi bi-arrow-right"></i>
+          </a>
+        </div>
+
+        <div class="d-flex flex-column gap-2">
+          <div class="d-flex align-items-center justify-content-between">
+            <small class="text-muted"><i class="bi bi-exclamation-triangle me-2"></i>Incidencias abiertas</small>
+            <span class="fw-bold ev-num ev-num-bad" id="kpiServiciosAbiertas">0</span>
+          </div>
+          <div class="d-flex align-items-center justify-content-between">
+            <small class="text-muted"><i class="bi bi-chat-left-dots me-2"></i>Esperando información</small>
+            <span class="fw-bold ev-num ev-num-warn" id="kpiServiciosEsperando">0</span>
+          </div>
+          <div class="d-flex align-items-center justify-content-between">
+            <small class="text-muted"><i class="bi bi-check2-circle me-2"></i>Resueltas hoy</small>
+            <span class="fw-bold ev-num ev-num-ok" id="kpiServiciosResueltas">0</span>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <a data-ev-nav="1" class="ev-btn-orange w-100 text-center d-block" href="<?= $baseUrl ?>/atender-servicios">
+            Ver incidencias
           </a>
         </div>
       </div>
@@ -243,11 +282,11 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
       </div>
 
       <div class="col-12 col-md-6 col-lg-3">
-        <a data-ev-nav="1" class="ev-quick" href="<?= $baseUrl ?>/notificaciones-residencia">
-          <span class="ev-quick-ico" aria-hidden="true"><i class="bi bi-bell"></i></span>
+        <a data-ev-nav="1" class="ev-quick" href="<?= $baseUrl ?>/atender-servicios">
+          <span class="ev-quick-ico" aria-hidden="true"><i class="bi bi-clipboard2-pulse"></i></span>
           <div>
-            <div class="ev-quick-title">Notificaciones</div>
-            <small class="text-muted">Solicitudes de residencia</small>
+            <div class="ev-quick-title">At. Servicios</div>
+            <small class="text-muted">Incidencias y soluciones</small>
           </div>
         </a>
       </div>

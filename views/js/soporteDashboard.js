@@ -221,6 +221,7 @@
     if (t.includes("recarg")) return "/atender-recargas";
     if (t.includes("public")) return "/atender-publicacion";
     if (t.includes("resid")) return "/notificaciones-residencia";
+    if (t.includes("servicio") || t.includes("incidencia")) return "/atender-servicios";
 
     return "/atender-cuentas";
   }
@@ -281,6 +282,7 @@
     const cuentas = kpis.cuentas || {};
     const publicaciones = kpis.publicaciones || {};
     const recargas = kpis.recargas || {};
+    const servicios = kpis.servicios || {};
 
     setText("kpiCuentasPend", cuentas.pendientes, { animar: animarCambios });
     setText("kpiCuentasAprob", cuentas.aprobadas_hoy, { animar: animarCambios });
@@ -293,6 +295,10 @@
     setText("kpiRecPend", recargas.pendientes, { animar: animarCambios });
     setText("kpiRecVal", recargas.validadas_hoy, { animar: animarCambios });
     setText("kpiRecObs", recargas.observadas, { animar: animarCambios });
+
+    setText("kpiServiciosAbiertas", servicios.abiertas, { animar: animarCambios });
+    setText("kpiServiciosEsperando", servicios.esperando_informacion, { animar: animarCambios });
+    setText("kpiServiciosResueltas", servicios.resueltas_hoy, { animar: animarCambios });
   }
 
   function renderAtender(items, animarCambios) {

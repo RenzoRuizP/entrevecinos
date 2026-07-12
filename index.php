@@ -640,6 +640,9 @@ safeRequire(__DIR__ . '/models/Dashboard.php');
 safeRequire(__DIR__ . '/controllers/api/apiDashboardController.php');
 safeRequire(__DIR__ . '/controllers/api/apiPedidoController.php');
 safeRequire(__DIR__ . '/controllers/api/apiSolicitudServicioController.php');
+safeRequire(__DIR__ . '/controllers/api/apiCalificacionServicioController.php');
+safeRequire(__DIR__ . '/models/CalificacionServicio.php');
+safeRequire(__DIR__ . '/models/ServicioEjecucion.php');
 safeRequire(__DIR__ . '/models/Calificacion.php');
 safeRequire(__DIR__ . '/controllers/api/apiCalificacionController.php');
 safeRequire(__DIR__ . '/controllers/api/apiSoporteRecargasController.php');
@@ -654,6 +657,9 @@ safeRequire(__DIR__ . '/models/Notificacion.php');
 
 safeRequire(__DIR__ . '/controllers/api/apiSoporteDashboardController.php');
 safeRequire(__DIR__ . '/models/SoporteDashboard.php');
+safeRequire(__DIR__ . '/controllers/atenderServiciosController.php');
+safeRequire(__DIR__ . '/controllers/api/apiSoporteServiciosController.php');
+safeRequire(__DIR__ . '/models/ServicioSoporte.php');
 
 safeRequire(__DIR__ . '/controllers/api/apiDisponibilidadPedidosController.php');
 safeRequire(__DIR__ . '/controllers/api/apiComunidadController.php');
@@ -779,6 +785,7 @@ $routes = [
     ['GET', '#^/atender-publicacion$#', [atenderPublicacionController::class, 'index'], 'html'],
     ['GET', '#^/atender-cuentas$#', [atenderCuentasUsuarioController::class, 'index'], 'html'],
     ['GET', '#^/atender-cuentas-usuario$#', [atenderCuentasUsuarioController::class, 'index'], 'html'],
+    ['GET', '#^/atender-servicios$#', [atenderServiciosController::class, 'index'], 'html'],
 
     // ---------------------------
     // COMUNIDAD - GESTIÓN Y MODERACIÓN
@@ -868,6 +875,24 @@ $routes = [
     ['POST', '#^/api/servicios/solicitudes/(\d+)/confirmar-realizado$#', [apiSolicitudServicioController::class, 'confirmarRealizado'], 'json'],
     ['POST', '#^/api/servicios/solicitudes/(\d+)/reportar-observacion$#', [apiSolicitudServicioController::class, 'reportarObservacion'], 'json'],
 
+    // Punto 11: ejecución, reprogramación, incidencias y calificación.
+    ['GET',  '#^/api/servicios/solicitudes/(\d+)/operacion$#', [apiSolicitudServicioController::class, 'obtenerOperacion'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/iniciar$#', [apiSolicitudServicioController::class, 'iniciarServicio'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/reprogramaciones$#', [apiSolicitudServicioController::class, 'proponerReprogramacion'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/reprogramaciones/(\d+)/responder$#', [apiSolicitudServicioController::class, 'responderReprogramacion'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/reprogramaciones/(\d+)/cancelar$#', [apiSolicitudServicioController::class, 'cancelarReprogramacion'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/incidencias$#', [apiSolicitudServicioController::class, 'reportarProblema'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/incidencias/responder$#', [apiSolicitudServicioController::class, 'responderIncidencia'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/incidencias/solucion$#', [apiSolicitudServicioController::class, 'registrarSolucion'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/incidencias/confirmar-solucion$#', [apiSolicitudServicioController::class, 'confirmarSolucion'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/incidencias/persiste$#', [apiSolicitudServicioController::class, 'problemaPersiste'], 'json'],
+    ['POST', '#^/api/servicios/solicitudes/(\d+)/incidencias/solicitar-soporte$#', [apiSolicitudServicioController::class, 'solicitarSoporte'], 'json'],
+
+    ['GET',  '#^/api/calificaciones-servicio/pendientes$#', [apiCalificacionServicioController::class, 'listarPendientes'], 'json'],
+    ['GET',  '#^/api/calificaciones-servicio/solicitud/(\d+)$#', [apiCalificacionServicioController::class, 'obtenerPorSolicitud'], 'json'],
+    ['POST', '#^/api/calificaciones-servicio/(\d+)/enviar$#', [apiCalificacionServicioController::class, 'enviar'], 'json'],
+
+
     // ---------------------------
     // BILLETERA
     // ---------------------------
@@ -945,6 +970,10 @@ $routes = [
     ['POST', '#^/api/soporte/residencias/(\d+)/estado$#', [apiSoporteResidenciasController::class, 'actualizarEstado'], 'json'],
 
     ['GET', '#^/api/soporte/dashboard$#', [apiSoporteDashboardController::class, 'resumen'], 'json'],
+    ['GET', '#^/api/soporte/servicios$#', [apiSoporteServiciosController::class, 'listar'], 'json'],
+    ['GET', '#^/api/soporte/servicios/resumen$#', [apiSoporteServiciosController::class, 'resumen'], 'json'],
+    ['GET', '#^/api/soporte/servicios/(\d+)$#', [apiSoporteServiciosController::class, 'detalle'], 'json'],
+    ['POST', '#^/api/soporte/servicios/(\d+)/resolver$#', [apiSoporteServiciosController::class, 'resolver'], 'json'],
 
     // ---------------------------
     // RECARGAS

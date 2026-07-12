@@ -19,7 +19,7 @@ require_once __DIR__ . '/../Config/config.php';
           <div class="ev-ssc-kicker">COMPRAR · SERVICIOS</div>
           <h2 class="ev-ssc-title">Mis solicitudes de servicio</h2>
           <p class="ev-ssc-subtitle">
-            Mantén toda la negociación dentro de EV, revisa la cotización final y confirma solo cuando las condiciones estén claras.
+            Coordina, ejecuta, reprograma, confirma y califica tus servicios con toda la trazabilidad dentro de EV.
           </p>
         </div>
       </div>
@@ -45,7 +45,7 @@ require_once __DIR__ . '/../Config/config.php';
     <header class="ev-ssc-panel-head">
       <div>
         <h5>Panel de coordinación</h5>
-        <p>La conversación, ubicación, ajustes y cotización final se registran dentro de EV. Abre cada solicitud para continuar la coordinación.</p>
+        <p>La conversación conserva la negociación y el botón Gestionar servicio concentra la ejecución, reprogramaciones, problemas, soluciones y calificaciones.</p>
       </div>
 
       <div class="ev-ssc-head-actions">

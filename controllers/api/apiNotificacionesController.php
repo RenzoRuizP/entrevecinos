@@ -79,6 +79,7 @@ final class apiNotificacionesController
                 // futuro:
                 'soporte'    => $m->contarNoLeidas($u, 'soporte'),
                 'pedidos'    => $m->contarNoLeidas($u, 'pedidos'),
+                'servicio'   => $m->contarNoLeidas($u, 'servicio'),
             ]
         ]);
     }

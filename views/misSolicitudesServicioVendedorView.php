@@ -19,7 +19,7 @@ require_once __DIR__ . '/../Config/config.php';
           <div class="ev-ssv-kicker">VENDER · SERVICIOS</div>
           <h2 class="ev-ssv-title">Solicitudes de servicio</h2>
           <p class="ev-ssv-subtitle">
-            Revisa las solicitudes, negocia exclusivamente dentro de EV y emite una cotización final cuando las condiciones estén acordadas.
+            Atiende solicitudes, emite cotizaciones y gestiona la ejecución, reprogramaciones, incidencias y calificaciones dentro de EV.
           </p>
         </div>
       </div>
@@ -45,7 +45,7 @@ require_once __DIR__ . '/../Config/config.php';
     <header class="ev-ssv-panel-head">
       <div>
         <h5>Panel de coordinación</h5>
-        <p>La cotización final fija el alcance, precio, movilidad y condición de pago. El acuerdo se confirma solo cuando el comprador la acepta.</p>
+        <p>La cotización aceptada fija el acuerdo comercial. La ejecución y sus novedades se administran desde Gestionar servicio con trazabilidad completa.</p>
       </div>
 
       <div class="ev-ssv-head-actions">

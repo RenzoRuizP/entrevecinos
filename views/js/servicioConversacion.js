@@ -52,9 +52,14 @@
     ajuste_cotizacion_solicitado: 'Nueva cotización requerida',
     cotizacion_final_enviada: 'Cotización final por revisar',
     cotizacion_vencida: 'Cotización vencida',
-    coordinacion_confirmada: 'Coordinación confirmada',
-    servicio_realizado_proveedor: 'Pendiente de tu confirmación',
-    servicio_confirmado_solicitante: 'Servicio confirmado',
+    coordinacion_confirmada: 'Pendiente de ejecución',
+    servicio_en_ejecucion: 'Servicio en ejecución',
+    servicio_realizado_proveedor: 'Pendiente de confirmación',
+    incidencia_abierta: 'Problema reportado',
+    incidencia_en_atencion: 'Problema en atención',
+    solucion_pendiente_confirmacion: 'Solución pendiente de confirmación',
+    revision_soporte: 'En revisión por soporte',
+    servicio_confirmado_solicitante: 'Servicio completado',
     observacion_reportada: 'Observación reportada',
     cotizacion_rechazada_solicitante: 'Cotización rechazada',
     cancelada_solicitante: 'Cancelada por comprador',
@@ -418,16 +423,18 @@
       actions.push(`<button type="button" class="ev-sc-action blue" data-sc-action="adjust"><i class="bi bi-pencil-square"></i> Solicitar ajuste</button>`);
       actions.push(`<button type="button" class="ev-sc-action danger" data-sc-action="reject"><i class="bi bi-x-circle"></i> Rechazar cotización</button>`);
     }
-    if (role === 'proveedor' && state === 'coordinacion_confirmada') {
-      actions.push(`<button type="button" class="ev-sc-action" data-sc-action="completed"><i class="bi bi-check2-all"></i> Marcar servicio realizado</button>`);
-      actions.push(`<button type="button" class="ev-sc-action danger" data-sc-action="cancel-provider"><i class="bi bi-x-circle"></i> Cancelar coordinación</button>`);
-    }
-    if (role === 'solicitante' && state === 'coordinacion_confirmada') {
-      actions.push(`<button type="button" class="ev-sc-action danger" data-sc-action="cancel-buyer"><i class="bi bi-x-circle"></i> Cancelar coordinación</button>`);
-    }
-    if (role === 'solicitante' && state === 'servicio_realizado_proveedor') {
-      actions.push(`<button type="button" class="ev-sc-action" data-sc-action="confirm-completed"><i class="bi bi-check2-circle"></i> Confirmar servicio realizado</button>`);
-      actions.push(`<button type="button" class="ev-sc-action danger" data-sc-action="issue"><i class="bi bi-exclamation-triangle"></i> Reportar observación</button>`);
+    const estadosOperacion = [
+      'coordinacion_confirmada',
+      'servicio_en_ejecucion',
+      'servicio_realizado_proveedor',
+      'incidencia_abierta',
+      'incidencia_en_atencion',
+      'solucion_pendiente_confirmacion',
+      'revision_soporte',
+      'servicio_confirmado_solicitante'
+    ];
+    if (estadosOperacion.includes(state)) {
+      actions.push(`<button type="button" class="ev-sc-action orange" data-sc-action="manage"><i class="bi bi-clipboard2-check"></i> Gestionar servicio</button>`);
     }
     if (role === 'solicitante' && ['pendiente_proveedor', 'ajuste_solicitado', 'ajuste_cotizacion_solicitado', 'cotizacion_vencida'].includes(state)) {
       actions.push(`<button type="button" class="ev-sc-action danger" data-sc-action="cancel-buyer"><i class="bi bi-x-circle"></i> Cancelar solicitud</button>`);
@@ -1029,6 +1036,36 @@
     });
   }
 
+  async function openServiceOperation() {
+    const idSolicitud = Number(currentId || 0);
+    if (!idSolicitud) return;
+
+    if (!window.EVServicioOperacion?.open) {
+      const id = 'ev-servicio-operacion-script';
+      let script = document.getElementById(id);
+      if (!script) {
+        script = document.createElement('script');
+        script.id = id;
+        script.src = `${BASE}/views/js/servicioOperacion.js`;
+        document.head.appendChild(script);
+      }
+      await new Promise((resolve) => {
+        if (window.EVServicioOperacion?.open) return resolve();
+        script.addEventListener('load', resolve, { once: true });
+        script.addEventListener('error', resolve, { once: true });
+        window.setTimeout(resolve, 3500);
+      });
+    }
+
+    if (!window.EVServicioOperacion?.open) {
+      await toast('error', 'No se pudo cargar la gestión del servicio.');
+      return;
+    }
+
+    close();
+    window.EVServicioOperacion.open(idSolicitud);
+  }
+
   function bindControls() {
     document.getElementById('evScAttachButton')?.addEventListener('click', () => document.getElementById('evScAttach')?.click());
     document.getElementById('evScAttach')?.addEventListener('change', renderFiles);
@@ -1049,6 +1086,7 @@
     document.querySelector('[data-sc-action="completed"]')?.addEventListener('click', () => markCompleted().catch((error) => toast('error', error.message)));
     document.querySelector('[data-sc-action="confirm-completed"]')?.addEventListener('click', () => confirmCompleted().catch((error) => toast('error', error.message)));
     document.querySelector('[data-sc-action="issue"]')?.addEventListener('click', () => reportIssue().catch((error) => toast('error', error.message)));
+    document.querySelector('[data-sc-action="manage"]')?.addEventListener('click', () => openServiceOperation().catch((error) => toast('error', error.message)));
   }
 
   function editing() {

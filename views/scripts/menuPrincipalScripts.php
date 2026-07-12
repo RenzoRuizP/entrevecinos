@@ -56,6 +56,7 @@ function ev_js_src(string $file): string
   <script src="<?= htmlspecialchars(ev_js_src('js/atenderCuentasUsuario.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/atenderRecargas.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/atenderPublicacion.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+  <script src="<?= htmlspecialchars(ev_js_src('js/atenderServicios.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 
 <?php elseif ($rolUsuario === 'administrador_comunidad'): ?>
 
@@ -78,6 +79,7 @@ function ev_js_src(string $file): string
   <script src="<?= htmlspecialchars(ev_js_src('js/billetera.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/publicacionPublicarWallet.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/menuPrincipalContenido.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+  <script src="<?= htmlspecialchars(ev_js_src('js/servicioOperacion.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/publicacionDestacar.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/credenciales.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 

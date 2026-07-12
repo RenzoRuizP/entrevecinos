@@ -68,8 +68,12 @@ class SolicitudServicioChat extends Conexion
     {
         return in_array($estado, [
             'rechazada_proveedor',
+            'cotizacion_rechazada_solicitante',
             'cancelada_solicitante',
+            'cancelada_proveedor',
+            'cancelada_soporte',
             'sin_respuesta_proveedor',
+            'servicio_confirmado_solicitante',
         ], true);
     }
 
@@ -77,7 +81,12 @@ class SolicitudServicioChat extends Conexion
     {
         return in_array((string)($solicitud['estado'] ?? ''), [
             'coordinacion_confirmada',
+            'servicio_en_ejecucion',
             'servicio_realizado_proveedor',
+            'incidencia_abierta',
+            'incidencia_en_atencion',
+            'solucion_pendiente_confirmacion',
+            'revision_soporte',
         ], true)
         && trim((string)($solicitud['direccion_atencion'] ?? '')) !== '';
     }
@@ -356,7 +365,14 @@ class SolicitudServicioChat extends Conexion
         return $guardados;
     }
 
-    private function notificar(int $destino, int $codigoSolicitud, string $subcategoria, string $titulo, string $mensaje): void
+    private function notificar(
+        int $destino,
+        int $codigoSolicitud,
+        string $subcategoria,
+        string $titulo,
+        string $mensaje,
+        string $ruta
+    ): void
     {
         if ($destino <= 0) return;
         $sql = "
@@ -370,11 +386,11 @@ class SolicitudServicioChat extends Conexion
             ':usuario' => $destino,
             ':subcategoria' => $subcategoria,
             ':referencia' => $codigoSolicitud,
-            ':titulo' => mb_substr($titulo, 0, 180, 'UTF-8'),
+            ':titulo' => mb_substr($titulo, 0, 160, 'UTF-8'),
             ':mensaje' => $mensaje,
             ':payload' => $this->jsonEncode([
                 'codigo_solicitud_servicio' => $codigoSolicitud,
-                'ruta' => '/mis-solicitudes-servicio-comprador',
+                'ruta' => $ruta,
             ]),
         ]);
     }
@@ -487,7 +503,10 @@ class SolicitudServicioChat extends Conexion
                 $codigoSolicitud,
                 'mensaje_conversacion',
                 'Nuevo mensaje sobre un servicio',
-                'Tienes un nuevo mensaje sobre “' . (string)$solicitud['titulo_servicio'] . '”.'
+                'Tienes un nuevo mensaje sobre “' . (string)$solicitud['titulo_servicio'] . '”.',
+                $rol === 'solicitante'
+                    ? '/mis-solicitudes-servicio-vendedor'
+                    : '/mis-solicitudes-servicio-comprador'
             );
 
             $this->dblink->commit();
@@ -572,7 +591,8 @@ class SolicitudServicioChat extends Conexion
                 $codigoSolicitud,
                 'ubicacion_solicitada_para_cotizar',
                 'Ubicación solicitada para cotizar',
-                'El proveedor solicitó la ubicación para precisar la cotización de “' . (string)$solicitud['titulo_servicio'] . '”.'
+                'El proveedor solicitó la ubicación para precisar la cotización de “' . (string)$solicitud['titulo_servicio'] . '”.',
+                '/mis-solicitudes-servicio-comprador'
             );
             $this->dblink->commit();
             return ['ok' => true, 'mensaje' => 'Se solicitó la ubicación al comprador.'];
@@ -624,7 +644,14 @@ class SolicitudServicioChat extends Conexion
                 []
             );
             $this->actualizarUltimaInteraccion($codigoSolicitud);
-            $this->notificar((int)$solicitud['codigo_usuario_proveedor'], $codigoSolicitud, 'ubicacion_compartida_para_cotizar', 'Punto de atención disponible', 'El comprador compartió el punto de atención para “' . (string)$solicitud['titulo_servicio'] . '”.');
+            $this->notificar(
+                (int)$solicitud['codigo_usuario_proveedor'],
+                $codigoSolicitud,
+                'ubicacion_compartida_para_cotizar',
+                'Punto de atención disponible',
+                'El comprador compartió el punto de atención para “' . (string)$solicitud['titulo_servicio'] . '”.',
+                '/mis-solicitudes-servicio-vendedor'
+            );
             $this->dblink->commit();
             return ['ok' => true, 'mensaje' => 'El punto exacto de atención fue compartido con el proveedor.'];
         } catch (Throwable $e) {
