@@ -56,7 +56,8 @@
       count: document.getElementById('evNotificationCount'),
       list: document.getElementById('evNotificationList'),
       summary: document.getElementById('evNotificationSummary'),
-      refresh: document.getElementById('evNotificationRefresh')
+      refresh: document.getElementById('evNotificationRefresh'),
+      viewAll: document.querySelector('[data-ev-notification-all="1"]')
     };
   }
 
@@ -495,6 +496,23 @@
     window.setTimeout(() => refresh({ silent: true }), 250);
   }
 
+  async function irCentroNotificaciones(event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    cerrarDropdown();
+    const ruta = '/notificaciones';
+
+    if (window.EVNav && typeof window.EVNav.loadPage === 'function') {
+      await window.EVNav.loadPage(ruta, { pushState: true, replaceState: false });
+      return;
+    }
+
+    window.location.href = `${BASE}/MenuPrincipal?ev_goto=${encodeURIComponent(ruta)}`;
+  }
+
   function bind() {
     const r = refs();
     if (!r.button || r.button.dataset.evNotificationsBound === '1') return;
@@ -510,6 +528,8 @@
       event.stopPropagation();
       refresh({ silent: false });
     });
+
+    r.viewAll?.addEventListener('click', irCentroNotificaciones);
 
     r.list?.addEventListener('click', onNotificationClick);
   }

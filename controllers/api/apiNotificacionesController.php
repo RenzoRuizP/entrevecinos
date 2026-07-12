@@ -62,6 +62,46 @@ final class apiNotificacionesController
         ]);
     }
 
+    public function marcarTodasLeidas(): void
+    {
+        $u = $this->codigoUsuarioAuth();
+        if ($u <= 0) {
+            $this->json(401, ['ok' => false, 'mensaje' => 'No autenticado.']);
+            return;
+        }
+
+        $categoria = 'all';
+        if (!empty($_POST['categoria'])) {
+            $categoria = strtolower(trim((string)$_POST['categoria']));
+        } else {
+            $raw = file_get_contents('php://input');
+            if (is_string($raw) && trim($raw) !== '') {
+                $json = json_decode($raw, true);
+                if (is_array($json) && isset($json['categoria'])) {
+                    $categoria = strtolower(trim((string)$json['categoria']));
+                }
+            }
+        }
+
+        $permitidas = ['all', 'residencia', 'soporte', 'pedidos', 'pedido', 'servicio', 'comunidad'];
+        if (!in_array($categoria, $permitidas, true)) {
+            $categoria = 'all';
+        }
+
+        // Normalización defensiva: si el sistema antiguo usa pedido/pedidos, se respeta el valor recibido.
+        $m = new Notificacion();
+        $total = $m->marcarTodasLeidas($u, $categoria);
+
+        $this->json(200, [
+            'ok' => true,
+            'mensaje' => 'Notificaciones marcadas como leídas.',
+            'data' => [
+                'actualizadas' => $total,
+                'categoria' => $categoria,
+            ],
+        ]);
+    }
+
     public function counts(): void
     {
         $u = $this->codigoUsuarioAuth();

@@ -46,8 +46,12 @@ final class Notificacion extends Conexion
         $params = [':u' => $codigoUsuario];
 
         if ($categoria !== 'all' && $categoria !== '') {
-            $where[] = "categoria = :cat";
-            $params[':cat'] = $categoria;
+            if ($categoria === 'pedidos' || $categoria === 'pedido') {
+                $where[] = "categoria IN ('pedido', 'pedidos')";
+            } else {
+                $where[] = "categoria = :cat";
+                $params[':cat'] = $categoria;
+            }
         }
 
         if ($estado !== 'all' && in_array($estado, ['no_leida','leida'], true)) {
@@ -137,18 +141,53 @@ final class Notificacion extends Conexion
         ";
 
         if ($categoria !== 'all') {
-            $sql .= " AND categoria = :cat";
+            if ($categoria === 'pedidos' || $categoria === 'pedido') {
+                $sql .= " AND categoria IN ('pedido', 'pedidos')";
+            } else {
+                $sql .= " AND categoria = :cat";
+            }
         }
 
         $st = $this->dblink->prepare($sql);
         $st->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
 
-        if ($categoria !== 'all') {
+        if ($categoria !== 'all' && $categoria !== 'pedidos' && $categoria !== 'pedido') {
             $st->bindValue(':cat', $categoria, PDO::PARAM_STR);
         }
 
         $st->execute();
         return (int)($st->fetch(PDO::FETCH_ASSOC)['c'] ?? 0);
+    }
+
+    public function marcarTodasLeidas(int $codigoUsuario, string $categoria = 'all'): int
+    {
+        $categoria = strtolower(trim($categoria));
+        $categoria = $categoria !== '' ? $categoria : 'all';
+
+        $sql = "
+            UPDATE notificacion
+            SET estado = 'leida', read_at = CURRENT_TIMESTAMP
+            WHERE codigo_usuario = :u
+              AND estado = 'no_leida'
+        ";
+
+        if ($categoria !== 'all') {
+            if ($categoria === 'pedidos' || $categoria === 'pedido') {
+                $sql .= " AND categoria IN ('pedido', 'pedidos')";
+            } else {
+                $sql .= " AND categoria = :cat";
+            }
+        }
+
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
+
+        if ($categoria !== 'all' && $categoria !== 'pedidos' && $categoria !== 'pedido') {
+            $st->bindValue(':cat', $categoria, PDO::PARAM_STR);
+        }
+
+        $st->execute();
+        return (int)$st->rowCount();
     }
 
     /**

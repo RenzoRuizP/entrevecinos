@@ -627,6 +627,7 @@ safeRequire(__DIR__ . '/controllers/atenderRecargasController.php');
 safeRequire(__DIR__ . '/controllers/atenderPublicacionController.php');
 safeRequire(__DIR__ . '/controllers/atenderCuentasUsuarioController.php');
 safeRequire(__DIR__ . '/controllers/notificacionesResidenciaController.php');
+safeRequire(__DIR__ . '/controllers/notificacionesController.php');
 safeRequire(__DIR__ . '/controllers/comunidadGestionController.php');
 safeRequire(__DIR__ . '/controllers/comunidadModeracionController.php');
 safeRequire(__DIR__ . '/controllers/comunidadVecinoController.php');
@@ -985,10 +986,12 @@ $routes = [
     // ---------------------------
     // NOTIFICACIONES
     // ---------------------------
+    ['GET', '#^/notificaciones$#', [notificacionesController::class, 'index'], 'html'],
     ['GET', '#^/notificaciones-residencia$#', [notificacionesResidenciaController::class, 'index'], 'html'],
 
     ['GET',  '#^/api/notificaciones$#', [apiNotificacionesController::class, 'listar'], 'json'],
     ['GET',  '#^/api/notificaciones/counts$#', [apiNotificacionesController::class, 'counts'], 'json'],
+    ['POST', '#^/api/notificaciones/marcar-todas-leidas$#', [apiNotificacionesController::class, 'marcarTodasLeidas'], 'json'],
     ['POST', '#^/api/notificaciones/(\d+)/leida$#', [apiNotificacionesController::class, 'marcarLeida'], 'json'],
 
     ['POST', '#^/api/notificaciones/residencia/(\d+)/reenviar$#', [apiNotificacionesResidenciaController::class, 'reenviar'], 'json'],

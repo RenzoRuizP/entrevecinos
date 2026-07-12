@@ -121,6 +121,12 @@ $homeUrl = $baseUrl . '/MenuPrincipal';
 
           <div class="ev-notification-foot">
             <span>Las novedades revisadas se marcan automáticamente como leídas.</span>
+            <a href="<?= htmlspecialchars($baseUrl . '/notificaciones', ENT_QUOTES, 'UTF-8') ?>"
+               data-ev-notification-all="1"
+               class="ev-notification-view-all">
+              Ver todas
+              <i class="bi bi-arrow-right"></i>
+            </a>
           </div>
         </div>
       </li>
