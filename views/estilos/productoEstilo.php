@@ -2256,4 +2256,581 @@
   }
 }
 
+
+/* ==========================================================
+   18. AJUSTE UX/UI — ESTADOS, FILTROS Y LISTADO
+   Un selector de estado, filtros jerarquizados y filas alineadas.
+========================================================== */
+.ev-mp-hero-bottom{
+  display:grid;
+  grid-template-columns:minmax(230px,auto) minmax(390px,1fr) auto;
+  align-items:center;
+  gap:14px;
+}
+
+.ev-summary-pill{
+  min-height:72px;
+  padding:11px 13px;
+  border-radius:17px;
+  background:linear-gradient(135deg,rgba(236,253,245,.98),rgba(255,255,255,.96));
+  box-shadow:0 12px 26px rgba(15,23,42,.06);
+}
+
+.ev-summary-icon,
+.ev-status-filter-icon,
+.ev-filter-heading-icon,
+.ev-filter-secondary-icon{
+  flex:0 0 auto;
+  display:grid;
+  place-items:center;
+  color:var(--ev-verde-oscuro);
+  background:linear-gradient(145deg,#ECFDF5,#DCFCE7);
+  border:1px solid rgba(22,163,74,.18);
+}
+
+.ev-summary-icon{
+  width:40px;
+  height:40px;
+  border-radius:13px;
+}
+
+.ev-summary-copy,
+.ev-status-filter-copy{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+}
+
+.ev-summary-label,
+.ev-status-filter-label{
+  font-weight:850;
+  color:var(--ev-verde-oscuro);
+  line-height:1.15;
+}
+
+.ev-summary-help,
+.ev-status-filter-help{
+  color:var(--ev-gris-500);
+  font-size:.75rem;
+  line-height:1.2;
+  margin-top:3px;
+}
+
+.ev-status-filter{
+  min-height:72px;
+  display:grid;
+  grid-template-columns:42px minmax(170px,1fr) minmax(190px,245px);
+  align-items:center;
+  gap:12px;
+  padding:11px 13px;
+  border:1px solid rgba(148,163,184,.22);
+  border-radius:17px;
+  background:#fff;
+  box-shadow:0 12px 26px rgba(15,23,42,.06);
+}
+
+.ev-status-filter-icon{
+  width:42px;
+  height:42px;
+  border-radius:14px;
+}
+
+.ev-status-select{
+  min-height:44px;
+  border-radius:13px;
+  border:1px solid rgba(22,163,74,.25);
+  color:#173D29;
+  font-weight:750;
+  background-color:#fff;
+  box-shadow:0 8px 18px rgba(15,23,42,.04);
+}
+
+.ev-status-select:hover{
+  border-color:rgba(234,124,18,.50);
+}
+
+.ev-status-select:focus{
+  border-color:var(--ev-verde);
+  box-shadow:0 0 0 3px rgba(22,163,74,.14);
+}
+
+.ev-result-summary{
+  justify-self:end;
+  color:var(--ev-gris-600);
+  font-size:.86rem;
+  font-weight:700;
+  white-space:nowrap;
+}
+
+.ev-filter-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:15px 16px;
+  border-bottom:1px solid var(--ev-gris-200);
+  background:linear-gradient(180deg,#fff 0%,#FCFDFC 100%);
+}
+
+.ev-filter-heading{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:0;
+}
+
+.ev-filter-heading-icon{
+  width:42px;
+  height:42px;
+  border-radius:14px;
+}
+
+.ev-filter-description{
+  color:var(--ev-gris-500);
+  font-size:.86rem;
+  line-height:1.35;
+}
+
+.ev-filter-body{
+  padding:16px;
+}
+
+.ev-filter-form{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+
+.ev-filter-primary{
+  display:grid;
+  grid-template-columns:minmax(280px,1.65fr) repeat(3,minmax(170px,1fr));
+  gap:12px;
+  align-items:end;
+}
+
+.ev-filter-secondary{
+  display:grid;
+  grid-template-columns:minmax(150px,.7fr) minmax(330px,1.25fr) minmax(190px,.7fr) auto;
+  align-items:end;
+  gap:12px;
+  padding:13px;
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:16px;
+  background:linear-gradient(135deg,rgba(249,250,251,.92),rgba(255,255,255,.98));
+}
+
+.ev-filter-secondary-heading{
+  align-self:center;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+}
+
+.ev-filter-secondary-icon{
+  width:38px;
+  height:38px;
+  border-radius:12px;
+}
+
+.ev-filter-secondary-heading div{
+  display:flex;
+  flex-direction:column;
+}
+
+.ev-filter-secondary-heading strong{
+  color:var(--ev-verde-oscuro);
+  font-size:.88rem;
+}
+
+.ev-filter-secondary-heading span{
+  color:var(--ev-gris-500);
+  font-size:.73rem;
+}
+
+.ev-filter-price-range{
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  align-items:end;
+  gap:8px;
+}
+
+.ev-filter-range-separator{
+  padding-bottom:12px;
+  color:var(--ev-gris-400);
+  font-weight:800;
+}
+
+.ev-filter-field{
+  min-width:0;
+}
+
+.ev-filter-field .form-label{
+  margin-bottom:6px;
+  color:#26352D;
+  font-size:.82rem;
+  font-weight:800;
+}
+
+.ev-filter-field .ev-input{
+  min-height:44px;
+  background-color:#fff;
+  box-shadow:0 7px 18px rgba(15,23,42,.035);
+}
+
+.ev-filter-field .ev-input:hover:not(:disabled){
+  border-color:rgba(234,124,18,.46);
+}
+
+.ev-filter-field .ev-input:disabled{
+  color:#8B95A7;
+  background:#F7F9F8;
+  cursor:not-allowed;
+}
+
+.ev-filter-submit{
+  min-height:44px;
+  white-space:nowrap;
+}
+
+.ev-filter-feedback{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  margin-top:12px;
+  color:var(--ev-gris-500);
+  font-size:.79rem;
+}
+
+.ev-filter-feedback i{
+  color:var(--ev-naranja);
+}
+
+.ev-publications-card .ev-card-header{
+  align-items:center;
+}
+
+.ev-publications-card .ev-table-frame{
+  overflow:hidden;
+}
+
+.ev-publications-card .table-responsive{
+  overflow-x:auto;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(15,89,47,.35) transparent;
+}
+
+.ev-publications-card .ev-table{
+  min-width:1420px;
+  table-layout:fixed;
+}
+
+.ev-publications-card .ev-table thead th{
+  padding:13px 11px !important;
+  font-size:.82rem;
+  letter-spacing:.005em;
+}
+
+.ev-publications-card .ev-table tbody td{
+  padding:13px 12px !important;
+  line-height:1.38;
+}
+
+.ev-publications-card .ev-table th + th,
+.ev-publications-card .ev-table td + td{
+  border-left:1px solid rgba(229,231,235,.42);
+}
+
+.ev-col-codigo{ width:82px; }
+.ev-col-publicacion{ width:112px; }
+.ev-col-titulo{ width:196px; }
+.ev-col-precio{ width:96px; }
+.ev-col-tipo{ width:112px; }
+.ev-col-categoria{ width:122px; }
+.ev-col-desc{ width:190px; }
+.ev-col-mensaje{ width:218px; }
+.ev-col-estado-publicacion{ width:154px; }
+.ev-col-acciones{ width:190px; }
+
+.ev-publication-badge{
+  width:100%;
+  max-width:106px;
+  min-width:0 !important;
+  box-sizing:border-box;
+  padding:.43rem .55rem;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.ev-cell-title,
+.ev-cell-description,
+.ev-cell-type,
+.ev-cell-category{
+  text-align:left !important;
+  color:#17211B;
+  overflow-wrap:anywhere;
+}
+
+.ev-cell-primary-text{
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+  font-weight:750;
+  line-height:1.35;
+}
+
+.ev-cell-description > span{
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+  color:var(--ev-gris-600);
+  line-height:1.38;
+}
+
+.ev-cell-price{
+  white-space:nowrap;
+  font-weight:800;
+  color:#1D3426;
+}
+
+.ev-cell-publication{
+  overflow:hidden;
+}
+
+.ev-publications-card .ev-actions{
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:7px;
+}
+
+.ev-publications-card .ev-actions .ev-chip{
+  min-width:76px;
+  padding:.43rem .70rem;
+}
+
+@media (max-width:1199.98px){
+  .ev-mp-hero-bottom{
+    grid-template-columns:minmax(220px,.75fr) minmax(360px,1.25fr);
+  }
+
+  .ev-result-summary{
+    grid-column:1 / -1;
+    justify-self:end;
+  }
+
+  .ev-filter-primary{
+    grid-template-columns:minmax(260px,1.4fr) repeat(2,minmax(170px,1fr));
+  }
+
+  .ev-filter-primary .ev-filter-field:last-child{
+    grid-column:2 / 4;
+  }
+
+  .ev-filter-secondary{
+    grid-template-columns:minmax(140px,.7fr) minmax(300px,1.35fr) minmax(180px,.8fr);
+  }
+
+  .ev-filter-submit{
+    grid-column:3;
+  }
+}
+
+@media (max-width:991.98px){
+  .ev-mp-hero-bottom{
+    grid-template-columns:1fr;
+  }
+
+  .ev-status-filter{
+    grid-template-columns:42px 1fr minmax(180px,240px);
+  }
+
+  .ev-result-summary{
+    grid-column:auto;
+    justify-self:start;
+  }
+
+  .ev-filter-primary{
+    grid-template-columns:1fr 1fr;
+  }
+
+  .ev-filter-primary .ev-filter-search-field{
+    grid-column:1 / -1;
+  }
+
+  .ev-filter-primary .ev-filter-field:last-child{
+    grid-column:auto;
+  }
+
+  .ev-filter-secondary{
+    grid-template-columns:1fr 1fr;
+  }
+
+  .ev-filter-secondary-heading{
+    grid-column:1 / -1;
+  }
+
+  .ev-filter-price-range{
+    grid-column:1 / -1;
+  }
+
+  .ev-filter-submit{
+    grid-column:auto;
+  }
+}
+
+@media (max-width:768px){
+  .ev-mp-hero-bottom{
+    gap:10px;
+  }
+
+  .ev-summary-pill,
+  .ev-status-filter{
+    width:100%;
+  }
+
+  .ev-status-filter{
+    grid-template-columns:40px 1fr;
+    padding:11px;
+  }
+
+  .ev-status-select{
+    grid-column:1 / -1;
+    width:100%;
+  }
+
+  .ev-filter-header{
+    align-items:flex-start;
+  }
+
+  .ev-filter-heading-icon{
+    width:38px;
+    height:38px;
+  }
+
+  .ev-filter-primary,
+  .ev-filter-secondary{
+    grid-template-columns:1fr;
+  }
+
+  .ev-filter-primary .ev-filter-search-field,
+  .ev-filter-primary .ev-filter-field:last-child,
+  .ev-filter-secondary-heading,
+  .ev-filter-price-range,
+  .ev-filter-submit{
+    grid-column:auto;
+  }
+
+  .ev-filter-price-range{
+    grid-template-columns:1fr 1fr;
+  }
+
+  .ev-filter-range-separator{
+    display:none;
+  }
+
+  .ev-filter-submit{
+    width:100%;
+  }
+
+  .ev-publications-card .ev-table{
+    min-width:0;
+  }
+
+  .ev-publications-card .ev-table tbody tr{
+    display:grid !important;
+    grid-template-columns:1fr 1fr;
+    margin:10px 8px 14px;
+    border-radius:18px;
+    overflow:hidden;
+  }
+
+  .ev-publications-card .ev-table tbody td{
+    display:block !important;
+    width:auto !important;
+    min-width:0;
+    padding:12px 13px !important;
+  }
+
+  .ev-publications-card .ev-table tbody td[data-label="Título"],
+  .ev-publications-card .ev-table tbody td[data-label="Descripción"],
+  .ev-publications-card .ev-table tbody td[data-label="Mensaje de soporte"],
+  .ev-publications-card .ev-table tbody td[data-label="Estado de publicación"],
+  .ev-publications-card .ev-table tbody td[data-label="Acciones"]{
+    grid-column:1 / -1;
+  }
+
+  .ev-publications-card .ev-table tbody td[data-label="Precio"]{
+    text-align:right !important;
+  }
+
+  .ev-publications-card .ev-table tbody td[data-label="Precio"]::before{
+    text-align:right;
+  }
+
+  .ev-publications-card .ev-table tbody td[data-label="Publicación"]{
+    text-align:left !important;
+  }
+
+  .ev-publication-badge{
+    width:auto;
+    max-width:100%;
+    min-width:112px !important;
+  }
+
+  .ev-cell-primary-text,
+  .ev-cell-description > span{
+    -webkit-line-clamp:unset;
+  }
+
+  .ev-publications-card .ev-actions{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    align-items:stretch;
+  }
+
+  .ev-publications-card .ev-actions .ev-chip{
+    width:100%;
+    min-width:0;
+  }
+
+  .ev-publications-card .ev-actions > :only-child{
+    grid-column:1 / -1;
+  }
+}
+
+@media (max-width:575.98px){
+  .ev-filter-header{
+    flex-direction:column;
+  }
+
+  .ev-filter-header .ev-btn-outline{
+    width:100%;
+  }
+
+  .ev-filter-description{
+    font-size:.80rem;
+  }
+
+  .ev-filter-price-range{
+    grid-template-columns:1fr;
+  }
+
+  .ev-filter-feedback{
+    align-items:flex-start;
+  }
+
+  .ev-publications-card .ev-table tbody tr{
+    grid-template-columns:1fr 1fr;
+    margin-left:6px;
+    margin-right:6px;
+  }
+
+  .ev-publications-card .ev-table tbody td[data-label="Código"],
+  .ev-publications-card .ev-table tbody td[data-label="Publicación"]{
+    min-height:82px;
+  }
+}
+
 </style>

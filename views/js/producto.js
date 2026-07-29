@@ -1,4 +1,4 @@
-/* producto.js – EV (Publicaciones: productos/servicios + filtros + tabs + responsive + no rompe menú) */
+/* producto.js – EV (Publicaciones: productos/servicios + filtros por estado + responsive + no rompe menú) */
 
 (() => {
   'use strict';
@@ -649,7 +649,7 @@
     if (!data || !data.ok || !Array.isArray(data.data)) return;
 
     const prev = String(window.evProductosFiltro?.tipo || '');
-    selTipo.innerHTML = `<option value="">Todos</option>`;
+    selTipo.innerHTML = `<option value="">Todos los tipos</option>`;
 
     data.data.forEach(r => {
       const m = mapIdNombre(r, ['codigo_tipo', 'id', 'codigo'], ['nombre', 'tipo', 'descripcion']);
@@ -667,7 +667,7 @@
     const selCat = document.getElementById('fCategoria');
     if (!selCat) return;
 
-    selCat.innerHTML = `<option value="">Todas</option>`;
+    selCat.innerHTML = `<option value="">Todas las categorías</option>`;
     selCat.disabled = true;
 
     const tid = String(tipoId || '').trim();
@@ -726,6 +726,7 @@
     };
 
     setVal('fTexto', '');
+    setVal('fEstadoPublicacion', 'all');
     setVal('fTipoPublicacion', '');
     setVal('fTipo', '');
     setVal('fPrecioMin', '');
@@ -734,7 +735,7 @@
 
     const selCat = document.getElementById('fCategoria');
     if (selCat) {
-      selCat.innerHTML = `<option value="">Todas</option>`;
+      selCat.innerHTML = `<option value="">Todas las categorías</option>`;
       selCat.value = '';
       selCat.disabled = true;
     }
@@ -2007,21 +2008,23 @@
       if (el) el.textContent = String(val ?? 0);
     };
 
+    const setOption = (id, label, val) => {
+      const option = document.getElementById(id);
+      if (option) option.textContent = `${label} (${Number(val ?? 0)})`;
+    };
+
     set('evTabCountAll', counts.all);
-    set('evTabCountAll2', counts.all);
-    set('evTabCountAprobado', counts.aprobado);
-    set('evTabCountObservado', counts.observado);
-    set('evTabCountRechazado', counts.rechazado);
-    set('evTabCountPendiente', counts.pendiente);
-    set('evTabCountBorrador', counts.borrador);
-    set('evTabCountAnulado', counts.anulado);
+    setOption('evStatusOptionAll', 'Todos', counts.all);
+    setOption('evStatusOptionAprobado', 'Aprobados', counts.aprobado);
+    setOption('evStatusOptionPendiente', 'Pendientes', counts.pendiente);
+    setOption('evStatusOptionObservado', 'Observados', counts.observado);
+    setOption('evStatusOptionRechazado', 'Rechazados', counts.rechazado);
+    setOption('evStatusOptionBorrador', 'Borradores', counts.borrador);
+    setOption('evStatusOptionAnulado', 'Anulados', counts.anulado);
 
     const tab = String(window.evProductosFiltro?.tab || 'all');
-    document.querySelectorAll('.ev-tab[data-tab]').forEach(btn => {
-      const isActive = btn.getAttribute('data-tab') === tab;
-      btn.classList.toggle('active', isActive);
-      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
-    });
+    const statusSelect = document.getElementById('fEstadoPublicacion');
+    if (statusSelect && statusSelect.value !== tab) statusSelect.value = tab;
   }
 
   function filtrarItems(items) {
@@ -2201,12 +2204,12 @@
         return `
           <tr ${trStyle}>
             <td data-label="Código" class="text-center"><span class="ev-code">${cod}</span></td>
-            <td data-label="Publicación" class="text-center"><span class="${tipoPublicacionCls}">${tipoPublicacionTxt}</span></td>
-            <td data-label="Título" class="td-trunc" title="${titulo}">${titulo || '-'}</td>
-            <td data-label="Precio" class="text-end">S/ ${precio}</td>
-            <td data-label="Tipo" class="td-trunc" title="${tipo}">${tipo}</td>
-            <td data-label="Categoría" class="td-trunc" title="${categoria}">${categoria}</td>
-            <td data-label="Descripción" class="td-trunc" title="${escAttr(descFull)}">${descSafe}</td>
+            <td data-label="Publicación" class="text-center ev-cell-publication"><span class="${tipoPublicacionCls} ev-publication-badge">${tipoPublicacionTxt}</span></td>
+            <td data-label="Título" class="ev-cell-title" title="${titulo}"><span class="ev-cell-primary-text">${titulo || '-'}</span></td>
+            <td data-label="Precio" class="text-end ev-cell-price"><span>S/ ${precio}</span></td>
+            <td data-label="Tipo" class="ev-cell-type" title="${tipo}">${tipo}</td>
+            <td data-label="Categoría" class="ev-cell-category" title="${categoria}">${categoria}</td>
+            <td data-label="Descripción" class="ev-cell-description" title="${escAttr(descFull)}"><span>${descSafe}</span></td>
             <td data-label="Mensaje de soporte">${mensajeHtml}</td>
             <td data-label="Estado de publicación" class="text-center">
               <span class="${visUI.cls}">${visUI.text}</span>
@@ -2252,13 +2255,6 @@
 
     document.addEventListener('click', (e) => {
       if (window.__EV_AUTH_REDIRECTING__ === true) return;
-
-      const tabBtn = e.target.closest('.ev-tab[data-tab]');
-      if (tabBtn) {
-        window.evProductosFiltro.tab = tabBtn.getAttribute('data-tab') || 'all';
-        window.evCargarProductos?.();
-        return;
-      }
 
       if (e.target.closest('#btnAgregarPublicacion')) {
         const modal = evGetStaticModal('modalAgregarPublicacion');
@@ -2324,6 +2320,12 @@
         return;
       }
 
+      if (e.target && e.target.id === 'fEstadoPublicacion') {
+        window.evProductosFiltro.tab = String(e.target.value || 'all');
+        window.evCargarProductos?.();
+        return;
+      }
+
       if (e.target && e.target.id === 'fTipoPublicacion') {
         (async () => {
           syncFiltrosFromUI();
@@ -2335,7 +2337,7 @@
 
           const selCat = document.getElementById('fCategoria');
           if (selCat) {
-            selCat.innerHTML = `<option value="">Todas</option>`;
+            selCat.innerHTML = `<option value="">Todas las categorías</option>`;
             selCat.value = '';
             selCat.disabled = true;
           }
@@ -2443,6 +2445,9 @@
     bindOnceGlobalEvents();
     evMountAllModalsToBody();
     bindTipoPublicacionUI();
+
+    const estadoSel = document.getElementById('fEstadoPublicacion');
+    if (estadoSel) estadoSel.value = String(window.evProductosFiltro?.tab || 'all');
 
     const tipoSel = document.getElementById('fTipo');
     if (tipoSel && !tipoSel.dataset.evLoaded) {

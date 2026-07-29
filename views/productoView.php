@@ -42,138 +42,140 @@ require_once __DIR__ . '/../Config/config.php';
       </div>
 
       <div class="ev-mp-hero-bottom">
-        <div class="ev-summary-pill">
-          <span class="ev-summary-label">Total:</span>
+        <div class="ev-summary-pill" aria-label="Total de publicaciones">
+          <span class="ev-summary-icon"><i class="bi bi-collection"></i></span>
+          <span class="ev-summary-copy">
+            <span class="ev-summary-label">Total de publicaciones</span>
+            <span class="ev-summary-help">Registradas en tu cuenta</span>
+          </span>
           <span class="ev-summary-count" id="evTabCountAll">0</span>
         </div>
 
-        <div class="ev-mp-tabs" role="tablist" aria-label="Estados de publicaciones">
-          <button type="button" class="btn ev-tab ev-btn-light btn-sm active" data-tab="all" aria-selected="true">
-            <i class="bi bi-grid-3x3-gap me-1"></i> Todos <span class="ev-pill" id="evTabCountAll2">0</span>
-          </button>
-
-          <button type="button" class="btn ev-tab ev-btn-light btn-sm" data-tab="aprobado" aria-selected="false">
-            <i class="bi bi-check-circle me-1"></i> Aprobados <span class="ev-pill" id="evTabCountAprobado">0</span>
-          </button>
-
-          <button type="button" class="btn ev-tab ev-btn-light btn-sm" data-tab="pendiente" aria-selected="false">
-            <i class="bi bi-hourglass-split me-1"></i> Pendientes <span class="ev-pill" id="evTabCountPendiente">0</span>
-          </button>
-
-          <button type="button" class="btn ev-tab ev-btn-light btn-sm" data-tab="observado" aria-selected="false">
-            <i class="bi bi-exclamation-circle me-1"></i> Observados <span class="ev-pill" id="evTabCountObservado">0</span>
-          </button>
-
-          <button type="button" class="btn ev-tab ev-btn-light btn-sm" data-tab="rechazado" aria-selected="false">
-            <i class="bi bi-x-circle me-1"></i> Rechazados <span class="ev-pill" id="evTabCountRechazado">0</span>
-          </button>
-
-          <button type="button" class="btn ev-tab ev-btn-light btn-sm" data-tab="borrador" aria-selected="false">
-            <i class="bi bi-pencil-square me-1"></i> Borradores <span class="ev-pill" id="evTabCountBorrador">0</span>
-          </button>
-
-          <button type="button" class="btn ev-tab ev-btn-light btn-sm" data-tab="anulado" aria-selected="false">
-            <i class="bi bi-slash-circle me-1"></i> Anulados <span class="ev-pill" id="evTabCountAnulado">0</span>
-          </button>
+        <div class="ev-status-filter" aria-label="Filtrar por estado">
+          <span class="ev-status-filter-icon"><i class="bi bi-sliders2"></i></span>
+          <label class="ev-status-filter-copy" for="fEstadoPublicacion">
+            <span class="ev-status-filter-label">Estado</span>
+            <span class="ev-status-filter-help">Selecciona un estado para ver sus publicaciones</span>
+          </label>
+          <select class="form-select ev-status-select" id="fEstadoPublicacion" aria-label="Estado de publicación">
+            <option value="all" id="evStatusOptionAll">Todos (0)</option>
+            <option value="aprobado" id="evStatusOptionAprobado">Aprobados (0)</option>
+            <option value="pendiente" id="evStatusOptionPendiente">Pendientes (0)</option>
+            <option value="observado" id="evStatusOptionObservado">Observados (0)</option>
+            <option value="rechazado" id="evStatusOptionRechazado">Rechazados (0)</option>
+            <option value="borrador" id="evStatusOptionBorrador">Borradores (0)</option>
+            <option value="anulado" id="evStatusOptionAnulado">Anulados (0)</option>
+          </select>
         </div>
-      </div>
 
-      <div class="ev-mp-meta-row">
-        <div class="ev-table-meta" id="evLblMeta">Mostrando 0 registros</div>
+        <div class="ev-result-summary" id="evLblMeta" aria-live="polite">Mostrando 0 registros</div>
       </div>
 
     </div>
   </div>
 
   <div class="ev-card ev-filters mb-3 collapse show" id="evFiltrosWrap">
-    <div class="ev-card-header">
-      <div class="ev-card-header-row">
-        <h2 class="ev-card-title mb-0">Filtros</h2>
-        <div class="d-flex align-items-center gap-2">
-          <button type="button" class="btn ev-btn-outline btn-sm" id="btnLimpiarFiltros">
-            <i class="bi bi-eraser me-1"></i> Limpiar
-          </button>
+    <div class="ev-filter-header">
+      <div class="ev-filter-heading">
+        <span class="ev-filter-heading-icon"><i class="bi bi-funnel"></i></span>
+        <div>
+          <h2 class="ev-card-title mb-1">Filtrar publicaciones</h2>
+          <p class="ev-filter-description mb-0">Encuentra rápidamente una publicación por texto, clasificación, precio u orden.</p>
         </div>
       </div>
+      <button type="button" class="btn ev-btn-outline btn-sm" id="btnLimpiarFiltros">
+        <i class="bi bi-eraser me-1"></i> Limpiar filtros
+      </button>
     </div>
 
-    <div class="ev-card-body">
-      <form id="formFiltrosMisProductos" class="row g-3 align-items-end">
+    <div class="ev-card-body ev-filter-body">
+      <form id="formFiltrosMisProductos" class="ev-filter-form">
+        <div class="ev-filter-primary">
+          <div class="ev-filter-field ev-filter-search-field">
+            <label class="form-label" for="fTexto">Buscar</label>
+            <div class="position-relative">
+              <i class="bi bi-search ev-input-icon"></i>
+              <input
+                type="text"
+                class="form-control ev-input ps-5"
+                id="fTexto"
+                name="q"
+                placeholder="Título, descripción, tipo o categoría"
+                autocomplete="off"
+              />
+            </div>
+          </div>
 
-        <div class="col-12 col-lg-3">
-          <label class="form-label">Buscar</label>
-          <div class="position-relative">
-            <i class="bi bi-search ev-input-icon"></i>
-            <input
-              type="text"
-              class="form-control ev-input ps-5"
-              id="fTexto"
-              name="q"
-              placeholder="Buscar por título, descripción, tipo o categoría..."
-              autocomplete="off"
-            />
+          <div class="ev-filter-field">
+            <label class="form-label" for="fTipoPublicacion">Publicación</label>
+            <select class="form-select ev-input" id="fTipoPublicacion" name="tipo_publicacion">
+              <option value="">Productos y servicios</option>
+              <option value="producto">Solo productos</option>
+              <option value="servicio">Solo servicios</option>
+            </select>
+          </div>
+
+          <div class="ev-filter-field">
+            <label class="form-label" for="fTipo">Tipo</label>
+            <select class="form-select ev-input" id="fTipo" name="tipo">
+              <option value="">Todos los tipos</option>
+            </select>
+          </div>
+
+          <div class="ev-filter-field">
+            <label class="form-label" for="fCategoria">Categoría</label>
+            <select class="form-select ev-input" id="fCategoria" name="categoria" disabled>
+              <option value="">Todas las categorías</option>
+            </select>
           </div>
         </div>
 
-        <div class="col-12 col-sm-6 col-lg-2">
-          <label class="form-label">Publicación</label>
-          <select class="form-select ev-input" id="fTipoPublicacion" name="tipo_publicacion">
-            <option value="">Todas</option>
-            <option value="producto">Productos</option>
-            <option value="servicio">Servicios</option>
-          </select>
-        </div>
+        <div class="ev-filter-secondary">
+          <div class="ev-filter-secondary-heading">
+            <span class="ev-filter-secondary-icon"><i class="bi bi-cash-stack"></i></span>
+            <div>
+              <strong>Precio y orden</strong>
+              <span>Opcional</span>
+            </div>
+          </div>
 
-        <div class="col-12 col-sm-6 col-lg-2">
-          <label class="form-label">Tipo</label>
-          <select class="form-select ev-input" id="fTipo" name="tipo">
-            <option value="">Todos</option>
-          </select>
-        </div>
+          <div class="ev-filter-price-range">
+            <div class="ev-filter-field">
+              <label class="form-label" for="fPrecioMin">Precio mínimo (S/)</label>
+              <input type="number" step="0.01" min="0" class="form-control ev-input" id="fPrecioMin" name="min" placeholder="0.00">
+            </div>
+            <span class="ev-filter-range-separator" aria-hidden="true">—</span>
+            <div class="ev-filter-field">
+              <label class="form-label" for="fPrecioMax">Precio máximo (S/)</label>
+              <input type="number" step="0.01" min="0" class="form-control ev-input" id="fPrecioMax" name="max" placeholder="999.99">
+            </div>
+          </div>
 
-        <div class="col-12 col-sm-6 col-lg-2">
-          <label class="form-label">Categoría</label>
-          <select class="form-select ev-input" id="fCategoria" name="categoria" disabled>
-            <option value="">Todas</option>
-          </select>
-        </div>
+          <div class="ev-filter-field ev-filter-order-field">
+            <label class="form-label" for="fOrden">Ordenar resultados</label>
+            <select class="form-select ev-input" id="fOrden" name="orden">
+              <option value="recientes" selected>Más recientes</option>
+              <option value="precio_asc">Menor precio</option>
+              <option value="precio_desc">Mayor precio</option>
+              <option value="titulo_asc">Título A → Z</option>
+              <option value="titulo_desc">Título Z → A</option>
+            </select>
+          </div>
 
-        <div class="col-6 col-lg-1">
-          <label class="form-label">Min (S/)</label>
-          <input type="number" step="0.01" min="0" class="form-control ev-input" id="fPrecioMin" name="min" placeholder="0.00">
-        </div>
-
-        <div class="col-6 col-lg-1">
-          <label class="form-label">Max (S/)</label>
-          <input type="number" step="0.01" min="0" class="form-control ev-input" id="fPrecioMax" name="max" placeholder="999.99">
-        </div>
-
-        <div class="col-12 col-lg-1">
-          <label class="form-label">Ordenar</label>
-          <select class="form-select ev-input" id="fOrden" name="orden">
-            <option value="recientes" selected>Recientes</option>
-            <option value="precio_asc">Precio ↑</option>
-            <option value="precio_desc">Precio ↓</option>
-            <option value="titulo_asc">A → Z</option>
-            <option value="titulo_desc">Z → A</option>
-          </select>
-        </div>
-
-        <div class="col-12 d-grid d-lg-none">
-          <button class="btn ev-btn-orange" type="submit">
-            <i class="bi bi-search me-1"></i> Aplicar filtros
+          <button class="btn ev-btn-orange ev-filter-submit" type="submit">
+            <i class="bi bi-search"></i> Aplicar filtros
           </button>
         </div>
-
       </form>
 
-      <div class="ev-hint mt-2">
-        Tip: Combina <strong>tabs</strong> + <strong>filtros</strong> para encontrar publicaciones en segundos.
+      <div class="ev-filter-feedback" aria-live="polite">
+        <i class="bi bi-lightning-charge"></i>
+        <span>Los resultados se actualizan automáticamente. También puedes usar “Aplicar filtros” para confirmar la selección.</span>
       </div>
     </div>
   </div>
 
-  <div class="ev-card">
+  <div class="ev-card ev-publications-card">
     <div class="ev-card-header ev-card-header-row">
       <h2 class="ev-card-title mb-0">Publicaciones</h2>
       <div class="ev-table-meta" id="evLblFooterLeft">Mostrando 0 de 0</div>
