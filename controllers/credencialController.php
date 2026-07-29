@@ -31,7 +31,7 @@ class credencialController
 
             // 3) Devolver siempre vista parcial para inyectar en #contenido-principal
             header('X-Partial-Ok: 1');
-            require __DIR__ . '/../views/CredencialesView.php';
+            require __DIR__ . '/../views/credencialesView.php';
             return;
 
         } catch (Throwable $e) {
@@ -47,7 +47,7 @@ class credencialController
                 return;
             }
 
-            header("Location: /entrevecinos/?error=credencial_error");
+            header('Location: ' . rtrim(BASE_URL, '/') . '/?error=credencial_error');
             return;
         }
     }
@@ -78,7 +78,7 @@ class credencialController
             echo json_encode(['error' => 'No autorizado', 'motivo' => $motivo]);
             return;
         }
-        header("Location: /entrevecinos/?error={$motivo}");
+        header('Location: ' . rtrim(BASE_URL, '/') . '/?error=' . rawurlencode($motivo));
         return;
     }
 }

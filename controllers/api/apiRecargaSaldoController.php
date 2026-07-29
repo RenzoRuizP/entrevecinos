@@ -5,11 +5,14 @@ require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/User.php';
 require_once __DIR__ . '/../../models/RecargaSaldo.php';
+require_once __DIR__ . '/../../models/ConfiguracionPlataforma.php';
+require_once __DIR__ . '/../../middleware/FuncionalidadGuard.php';
 
 class apiRecargaSaldoController
 {
     public function registrar()
     {
+        FuncionalidadGuard::exigirMonetizacionBooleanaJson(ConfiguracionPlataforma::MON_RECARGAS);
         header('Content-Type: application/json; charset=utf-8');
 
         try {
@@ -145,6 +148,7 @@ class apiRecargaSaldoController
 
     public function subsanar($codigo_recarga)
     {
+        FuncionalidadGuard::exigirMonetizacionBooleanaJson(ConfiguracionPlataforma::MON_RECARGAS);
         header('Content-Type: application/json; charset=utf-8');
 
         try {
@@ -320,6 +324,7 @@ class apiRecargaSaldoController
 
     public function mis()
     {
+        FuncionalidadGuard::exigirMonetizacionBooleanaJson(ConfiguracionPlataforma::MON_RECARGAS);
         header('Content-Type: application/json; charset=utf-8');
 
         try {

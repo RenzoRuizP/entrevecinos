@@ -10,7 +10,7 @@
   }
   window.__EV_MIS_PEDIDOS_COMPRADOR_V6__ = true;
 
-  const BASE = (window.BASE_URL || '').replace(/\/+$/, '');
+  const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/+$/, '');
   const PLACEHOLDER = `${BASE}/public/img/placeholder-ev.png`;
   const POLLING_MS = 8000;
 

@@ -10,7 +10,7 @@
   }
   window.__EV_MIS_PEDIDOS_VENDEDOR_V17__ = true;
 
-  const BASE = (window.BASE_URL || '').replace(/\/+$/, '');
+  const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/+$/, '');
   const POLLING_MS = 5000;
   const PLACEHOLDER = `${BASE}/public/img/placeholder-ev.png`;
 
@@ -245,6 +245,52 @@
         box-shadow: 0 8px 18px rgba(15,23,42,.06) !important;
       }
 
+      .ev-mpv-swal-popup-premium .swal2-textarea,
+      .ev-mpv-swal-input{
+        box-sizing: border-box !important;
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: 138px !important;
+        margin: 16px 0 0 !important;
+        padding: 14px 16px !important;
+        border: 1.5px solid rgba(22,163,74,.34) !important;
+        border-radius: 18px !important;
+        color: #1F2937 !important;
+        background: #fff !important;
+        font: inherit !important;
+        font-size: .97rem !important;
+        line-height: 1.5 !important;
+        resize: vertical !important;
+        box-shadow: inset 0 1px 2px rgba(15,23,42,.03) !important;
+      }
+
+      .ev-mpv-swal-popup-premium .swal2-textarea:focus,
+      .ev-mpv-swal-input:focus{
+        outline: none !important;
+        border-color: #16A34A !important;
+        box-shadow: 0 0 0 4px rgba(22,163,74,.14) !important;
+      }
+
+      .ev-mpv-swal-popup-premium .swal2-textarea::placeholder,
+      .ev-mpv-swal-input::placeholder{
+        color: #9CA3AF !important;
+        opacity: 1 !important;
+      }
+
+      .ev-mpv-swal-popup-premium .swal2-actions{
+        width: 100% !important;
+        gap: 12px !important;
+        margin: 18px 0 0 !important;
+      }
+
+      .ev-mpv-swal-popup-premium .swal2-validation-message{
+        width: 100% !important;
+        margin: 10px 0 0 !important;
+        border-radius: 12px !important;
+        font-size: .82rem !important;
+      }
+
       .ev-mpv-swal-loader{
         width: 62px;
         height: 62px;
@@ -370,6 +416,22 @@
         .ev-mpv-swal-cancel{
           width: 100% !important;
           min-width: 0 !important;
+          margin: 0 !important;
+        }
+
+        .ev-mpv-swal-popup-premium .swal2-textarea,
+        .ev-mpv-swal-input{
+          min-height: 150px !important;
+          margin-top: 14px !important;
+          padding: 13px 14px !important;
+          border-radius: 16px !important;
+          font-size: .92rem !important;
+        }
+
+        .ev-mpv-swal-popup-premium .swal2-actions{
+          display: grid !important;
+          grid-template-columns: 1fr !important;
+          gap: 10px !important;
         }
       }
     `;
@@ -425,7 +487,8 @@
         title: 'ev-mpv-swal-title',
         htmlContainer: 'ev-mpv-swal-html',
         confirmButton: 'ev-mpv-swal-confirm',
-        cancelButton: 'ev-mpv-swal-cancel'
+        cancelButton: 'ev-mpv-swal-cancel',
+        input: 'ev-mpv-swal-input'
       }
     }, opts || {});
   }

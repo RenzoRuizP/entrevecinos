@@ -1895,4 +1895,31 @@
   }
 }
 
+
+/* Punto 13 EV: aviso interno opcional al publicar en Comunidad. */
+.ev-com-notify-switch{
+  margin-top:12px;
+}
+.ev-com-notify-switch.is-required{
+  border-color:rgba(234,124,18,.62);
+  background:#FFF7ED;
+  box-shadow:0 0 0 3px rgba(234,124,18,.10);
+}
+.ev-com-notify-switch.is-required strong::after{
+  content:" · Obligatorio por prioridad urgente";
+  color:#C46B05;
+  font-weight:700;
+}
+.ev-com-notify-switch.is-sent{
+  opacity:.76;
+  cursor:default;
+}
+.ev-com-notify-switch.is-sent small::after{
+  content:" La notificación de esta publicación ya fue enviada.";
+  color:#0E7A43;
+  font-weight:600;
+}
+.ev-com-notify-switch input:disabled + .ev-com-switch-control{
+  cursor:not-allowed;
+}
 </style>

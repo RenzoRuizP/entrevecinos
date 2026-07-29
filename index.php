@@ -118,6 +118,7 @@ function evRenderSecurityAlertPage(
     <!doctype html>
     <html lang="es">
     <head>
+  <link rel="icon" type="image/png" href="<?= rtrim(BASE_URL, '/') ?>/resources/images/logo/logo_ev_transparente_corregido_recortado.png">
         <meta charset="utf-8" />
         <title><?php echo htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8'); ?></title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -379,7 +380,7 @@ function evDataTokenFirmadoSinValidarExp(?string $token): ?array
         return null;
     }
 
-    $secret = (string)($_ENV['JWT_SECRET_KEY'] ?? '');
+    $secret = (string)ev_env('JWT_SECRET_KEY', '');
     if ($secret === '') {
         return null;
     }
@@ -447,7 +448,7 @@ function evEliminarCookiesAuthIndex(): void
                 'path'     => $path,
                 'secure'   => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
                 'httponly' => true,
-                'samesite' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'None' : 'Lax',
+                'samesite' => 'Lax',
             ]);
             unset($_COOKIE['jwt_token']);
         }
@@ -587,8 +588,45 @@ function evRutaPermitidaEnObservacion(string $uri): bool
         || str_starts_with($uri, '/api/cuenta-observada')
         || str_starts_with($uri, '/api/notificaciones')
         || str_starts_with($uri, '/api/usuario')
+        || $uri === '/aceptacion-legal'
+        || str_starts_with($uri, '/api/documentos-legales')
         || $uri === '/logout'
     );
+}
+
+/**
+ * Rutas permitidas mientras existe una aceptación legal pendiente.
+ * Los documentos públicos se resuelven como rutas públicas; se incluyen aquí
+ * por claridad y para soportar futuras llamadas autenticadas.
+ */
+function evRutaPermitidaSinAceptacionLegal(string $uri): bool
+{
+    return (
+        $uri === '/aceptacion-legal'
+        || str_starts_with($uri, '/api/documentos-legales')
+        || str_starts_with($uri, '/legal/')
+        || $uri === '/logout'
+    );
+}
+
+/**
+ * Verifica si el usuario debe aceptar la versión legal vigente.
+ * Ante un problema de instalación se registra el error y no se bloquea todo EV;
+ * la guía de instalación exige ejecutar primero la migración del punto 12.
+ */
+function evUsuarioTieneAceptacionLegalPendiente(int $codigoUsuario): bool
+{
+    if ($codigoUsuario <= 0 || !class_exists('DocumentoLegal')) {
+        return false;
+    }
+
+    try {
+        $model = new DocumentoLegal();
+        return $model->tienePendientesUsuario($codigoUsuario);
+    } catch (Throwable $e) {
+        error_log('[EV][INDEX][evUsuarioTieneAceptacionLegalPendiente] ' . $e->getMessage());
+        return false;
+    }
 }
 
 // ============================================================
@@ -610,7 +648,7 @@ if (!defined('EV_ADMIN_COMUNIDAD_ROLE_ID')) {
     define('EV_ADMIN_COMUNIDAD_ROLE_ID', 4);
 }
 
-safeRequire(__DIR__ . '/controllers/AuthController.php');
+safeRequire(__DIR__ . '/controllers/authController.php');
 safeRequire(__DIR__ . '/controllers/MenuPrincipalController.php');
 safeRequire(__DIR__ . '/controllers/CondominioController.php');
 safeRequire(__DIR__ . '/controllers/UrbanizacionController.php');
@@ -628,9 +666,13 @@ safeRequire(__DIR__ . '/controllers/atenderPublicacionController.php');
 safeRequire(__DIR__ . '/controllers/atenderCuentasUsuarioController.php');
 safeRequire(__DIR__ . '/controllers/notificacionesResidenciaController.php');
 safeRequire(__DIR__ . '/controllers/notificacionesController.php');
+safeRequire(__DIR__ . '/models/DocumentoLegal.php');
+safeRequire(__DIR__ . '/controllers/documentosLegalesController.php');
+safeRequire(__DIR__ . '/controllers/api/apiDocumentosLegalesController.php');
 safeRequire(__DIR__ . '/controllers/comunidadGestionController.php');
 safeRequire(__DIR__ . '/controllers/comunidadModeracionController.php');
 safeRequire(__DIR__ . '/controllers/comunidadVecinoController.php');
+safeRequire(__DIR__ . '/controllers/configuracionPlataformaController.php');
 
 safeRequire(__DIR__ . '/controllers/cuentaObservadaController.php');
 safeRequire(__DIR__ . '/controllers/api/apiCuentaObservadaController.php');
@@ -662,9 +704,15 @@ safeRequire(__DIR__ . '/controllers/atenderServiciosController.php');
 safeRequire(__DIR__ . '/controllers/api/apiSoporteServiciosController.php');
 safeRequire(__DIR__ . '/models/ServicioSoporte.php');
 
+// Libro de Reclamaciones Virtual - gestión interna de soporte
+safeRequire(__DIR__ . '/models/LibroReclamacion.php');
+safeRequire(__DIR__ . '/controllers/atenderLibroReclamacionesController.php');
+safeRequire(__DIR__ . '/controllers/api/apiSoporteLibroReclamacionesController.php');
+
 safeRequire(__DIR__ . '/controllers/api/apiDisponibilidadPedidosController.php');
 safeRequire(__DIR__ . '/controllers/api/apiComunidadController.php');
 safeRequire(__DIR__ . '/controllers/api/apiComunidadVecinoController.php');
+safeRequire(__DIR__ . '/controllers/api/apiConfiguracionPlataformaController.php');
 
 safeRequire(__DIR__ . '/controllers/misPedidosCompradorController.php');
 safeRequire(__DIR__ . '/controllers/misPedidosVendedorController.php');
@@ -703,6 +751,8 @@ $publicRoutes = [
     '#^/$#',
     '#^/login$#',
     '#^/usuarios/registrar$#',
+    '#^/legal/terminos-y-condiciones$#',
+    '#^/legal/politica-de-privacidad$#',
 
     '#^/condominios$#',
     '#^/urbanizaciones$#',
@@ -731,6 +781,15 @@ $routes = [
 
     ['GET',  '#^/logout$#', [AuthController::class, 'logout'], 'html'],
     ['POST', '#^/logout$#', [AuthController::class, 'logout'], 'json'],
+
+    // ---------------------------
+    // PUNTO 12 - DOCUMENTOS LEGALES Y CONSENTIMIENTOS
+    // ---------------------------
+    ['GET', '#^/legal/terminos-y-condiciones$#', [DocumentosLegalesController::class, 'terminos'], 'html'],
+    ['GET', '#^/legal/politica-de-privacidad$#', [DocumentosLegalesController::class, 'privacidad'], 'html'],
+    ['GET', '#^/aceptacion-legal$#', [DocumentosLegalesController::class, 'aceptacion'], 'html'],
+    ['GET', '#^/api/documentos-legales/pendientes$#', [apiDocumentosLegalesController::class, 'pendientes'], 'json'],
+    ['POST', '#^/api/documentos-legales/aceptar-vigentes$#', [apiDocumentosLegalesController::class, 'aceptarVigentes'], 'json'],
 
     // ---------------------------
     // CUENTA OBSERVADA
@@ -787,12 +846,18 @@ $routes = [
     ['GET', '#^/atender-cuentas$#', [atenderCuentasUsuarioController::class, 'index'], 'html'],
     ['GET', '#^/atender-cuentas-usuario$#', [atenderCuentasUsuarioController::class, 'index'], 'html'],
     ['GET', '#^/atender-servicios$#', [atenderServiciosController::class, 'index'], 'html'],
+    ['GET', '#^/atender-libro-reclamaciones$#', [atenderLibroReclamacionesController::class, 'index'], 'html'],
 
     // ---------------------------
     // COMUNIDAD - GESTIÓN Y MODERACIÓN
     // ---------------------------
     ['GET', '#^/comunidad/gestionar$#', [comunidadGestionController::class, 'index'], 'html'],
     ['GET', '#^/comunidad/moderacion$#', [comunidadModeracionController::class, 'index'], 'html'],
+
+    // ---------------------------
+    // ADMINISTRACIÓN - CONFIGURACIÓN DE PLATAFORMA
+    // ---------------------------
+    ['GET', '#^/configuracion-plataforma$#', [configuracionPlataformaController::class, 'index'], 'html'],
 
     // ---------------------------
     // COMUNIDAD - API GESTIÓN INSTITUCIONAL
@@ -812,6 +877,15 @@ $routes = [
     // ---------------------------
     ['GET', '#^/api/comunidad/vecino/publicaciones$#', [apiComunidadVecinoController::class, 'listar'], 'json'],
     ['GET', '#^/api/comunidad/vecino/publicaciones/(\d+)$#', [apiComunidadVecinoController::class, 'detalle'], 'json'],
+
+    // ---------------------------
+    // ADMINISTRACIÓN - CONTROL DE FUNCIONALIDADES Y MONETIZACIÓN
+    // ---------------------------
+    ['GET',  '#^/api/admin/configuracion-plataforma$#', [apiConfiguracionPlataformaController::class, 'obtener'], 'json'],
+    ['GET',  '#^/api/admin/configuracion-plataforma/alcances$#', [apiConfiguracionPlataformaController::class, 'buscarAlcances'], 'json'],
+    ['POST', '#^/api/admin/configuracion-plataforma/funcionalidad$#', [apiConfiguracionPlataformaController::class, 'guardarFuncionalidad'], 'json'],
+    ['POST', '#^/api/admin/configuracion-plataforma/monetizacion$#', [apiConfiguracionPlataformaController::class, 'guardarMonetizacion'], 'json'],
+    ['POST', '#^/api/admin/configuracion-plataforma/aplicar-piloto$#', [apiConfiguracionPlataformaController::class, 'aplicarPiloto'], 'json'],
 
     // ---------------------------
     // USUARIO
@@ -977,6 +1051,14 @@ $routes = [
     ['POST', '#^/api/soporte/servicios/(\d+)/resolver$#', [apiSoporteServiciosController::class, 'resolver'], 'json'],
 
     // ---------------------------
+    // SOPORTE - LIBRO DE RECLAMACIONES
+    // ---------------------------
+    ['GET',  '#^/api/soporte/libro-reclamaciones$#', [apiSoporteLibroReclamacionesController::class, 'listar'], 'json'],
+    ['GET',  '#^/api/soporte/libro-reclamaciones/resumen$#', [apiSoporteLibroReclamacionesController::class, 'resumen'], 'json'],
+    ['GET',  '#^/api/soporte/libro-reclamaciones/(\d+)$#', [apiSoporteLibroReclamacionesController::class, 'detalle'], 'json'],
+    ['POST', '#^/api/soporte/libro-reclamaciones/(\d+)/atender$#', [apiSoporteLibroReclamacionesController::class, 'atender'], 'json'],
+
+    // ---------------------------
     // RECARGAS
     // ---------------------------
     ['POST', '#^/api/recargas/registrar$#', [apiRecargaSaldoController::class, 'registrar'], 'json'],
@@ -986,12 +1068,13 @@ $routes = [
     // ---------------------------
     // NOTIFICACIONES
     // ---------------------------
-    ['GET', '#^/notificaciones$#', [notificacionesController::class, 'index'], 'html'],
     ['GET', '#^/notificaciones-residencia$#', [notificacionesResidenciaController::class, 'index'], 'html'],
+    ['GET', '#^/notificaciones$#', [notificacionesController::class, 'index'], 'html'],
 
     ['GET',  '#^/api/notificaciones$#', [apiNotificacionesController::class, 'listar'], 'json'],
     ['GET',  '#^/api/notificaciones/counts$#', [apiNotificacionesController::class, 'counts'], 'json'],
-    ['POST', '#^/api/notificaciones/marcar-todas-leidas$#', [apiNotificacionesController::class, 'marcarTodasLeidas'], 'json'],
+    ['GET',  '#^/api/notificaciones/resumen$#', [apiNotificacionesController::class, 'resumen'], 'json'],
+    ['POST', '#^/api/notificaciones/leer-todas$#', [apiNotificacionesController::class, 'marcarTodasLeidas'], 'json'],
     ['POST', '#^/api/notificaciones/(\d+)/leida$#', [apiNotificacionesController::class, 'marcarLeida'], 'json'],
 
     ['POST', '#^/api/notificaciones/residencia/(\d+)/reenviar$#', [apiNotificacionesResidenciaController::class, 'reenviar'], 'json'],
@@ -1108,6 +1191,33 @@ foreach ($routes as $r) {
         }
 
         /*
+         * Punto 12 - aceptación legal obligatoria:
+         * aplica a todo usuario autenticado (vecino, soporte y administradores).
+         * Los usuarios nuevos aceptan durante el registro. Los usuarios ya
+         * existentes deben aceptar una sola vez al iniciar sesión después de
+         * instalar el módulo, y nuevamente cuando cambie la versión/hash vigente.
+         */
+        if (
+            $codigoUsuario > 0
+            && !evRutaPermitidaSinAceptacionLegal($uri)
+            && evUsuarioTieneAceptacionLegalPendiente($codigoUsuario)
+        ) {
+            $redirectLegal = rtrim($baseUrl, '/') . '/aceptacion-legal';
+
+            if (esPeticionParcial() || $type === 'json' || str_starts_with($uri, '/api/')) {
+                evJsonResponse(428, [
+                    'ok'       => false,
+                    'error'    => 'ACEPTACION_LEGAL_REQUERIDA',
+                    'mensaje'  => 'Debes revisar y aceptar los documentos legales vigentes para continuar.',
+                    'redirect' => $redirectLegal
+                ]);
+            }
+
+            header('Location: ' . $redirectLegal, true, 302);
+            exit;
+        }
+
+        /*
          * Observaciones de residencia y disponibilidad de pedidos:
          * aplican únicamente al rol vecino. La administración de comunidad
          * se autoriza mediante administrador_comunidad, no por residencia.
@@ -1157,11 +1267,13 @@ foreach ($routes as $r) {
         && $uri !== '/login'
         && $uri !== '/'
         && $uri !== '/cuenta-observada'
+        && $uri !== '/aceptacion-legal'
     ) {
         $target = rtrim($baseUrl, '/') . '/MenuPrincipal?ev_goto=' . urlencode($uri);
         header('Location: ' . $target, true, 302);
         exit;
     }
+
 
     [$controllerClass, $action] = $handler;
 

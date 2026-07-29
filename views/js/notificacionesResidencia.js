@@ -18,7 +18,7 @@
     state.controller = new AbortController();
     const { signal } = state.controller;
 
-    const base = (window.BASE_URL || window.EV_BASE_URL || "").toString().replace(/\/+$/, "");
+    const base = (window.EV?.baseUrl ?? window.BASE_URL ?? window.EV_BASE_URL ?? "").toString().replace(/\/+$/, "");
     const buildURL = (p) => base + "/" + String(p || "").replace(/^\/+/, "");
     const $ = (id) => document.getElementById(id);
 

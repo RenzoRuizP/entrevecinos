@@ -12,11 +12,56 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.__EV_NAV_INIT__ === true) return;
   window.__EV_NAV_INIT__ = true;
 
-  const BASE = (window.BASE_URL || '/entrevecinos').toString().replace(/\/+$/, '');
+  const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? window.EV_BASE_URL ?? '').toString().replace(/\/+$/, '');
   const SHELL_URL = `${BASE}/MenuPrincipal`;
 
   const main = document.getElementById('contenido-principal');
   const sidebar = document.getElementById('sidebar');
+
+  async function abrirAyudaEV() {
+    const telefonoVisible = '996 524 992';
+    const whatsappUrl = 'https://wa.me/51996524992';
+
+    if (!window.Swal?.fire) {
+      alert(`Ayuda EV\n\nEntre Vecinos te permite comprar, vender, solicitar servicios y mantener la coordinación dentro de tu comunidad.\n\nSoporte exclusivo por WhatsApp: ${telefonoVisible}`);
+      return;
+    }
+
+    await Swal.fire({
+      title: 'Ayuda EV',
+      html: `
+        <div class="ev-help-content">
+          <div class="ev-help-icon" aria-hidden="true"><i class="bi bi-question-circle"></i></div>
+          <h3>¿Cómo podemos ayudarte?</h3>
+          <p class="ev-help-intro">Entre Vecinos te permite comprar, vender, solicitar servicios y mantener la coordinación con tus vecinos desde un mismo lugar.</p>
+
+          <div class="ev-help-support">
+            <span class="ev-help-support-icon"><i class="bi bi-whatsapp"></i></span>
+            <div>
+              <small>Soporte EV · Solo WhatsApp</small>
+              <strong>${telefonoVisible}</strong>
+            </div>
+            <a href="${whatsappUrl}" target="_blank" rel="noopener noreferrer">Escribir</a>
+          </div>
+        </div>
+      `,
+      confirmButtonText: 'Aceptar',
+      buttonsStyling: false,
+      showCloseButton: false,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      focusConfirm: false,
+      customClass: {
+        container: 'ev-help-swal-container',
+        popup: 'ev-help-swal-popup',
+        title: 'ev-help-swal-title',
+        htmlContainer: 'ev-help-swal-html',
+        confirmButton: 'ev-help-swal-confirm'
+      }
+    });
+  }
+
+  window.EVAyudaEV = Object.assign(window.EVAyudaEV || {}, { abrir: abrirAyudaEV });
 
   if (!main) {
     console.warn('[EV][NAV] Falta #contenido-principal. No se inicializa navegación AJAX.');
@@ -755,16 +800,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const ayuda = e.target.closest('#btnEvAyudaSidebar');
     if (ayuda) {
       e.preventDefault();
-      if (window.Swal?.fire) {
-        Swal.fire({
-          icon: 'info',
-          title: 'Ayuda EV',
-          text: 'La vista de ayuda y reglas de uso se implementará en una próxima fase.',
-          confirmButtonColor: '#EA7C12'
-        });
-      } else {
-        alert('La vista de ayuda y reglas de uso se implementará en una próxima fase.');
-      }
+      abrirAyudaEV();
       return;
     }
 

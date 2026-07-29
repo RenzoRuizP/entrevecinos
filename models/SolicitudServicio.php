@@ -4,6 +4,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../database/Conexion.php';
+require_once __DIR__ . '/Notificacion.php';
 
 class SolicitudServicio extends Conexion
 {
@@ -219,68 +220,38 @@ class SolicitudServicio extends Conexion
     {
         $codigoProveedor = (int)($solicitud['codigo_usuario_proveedor'] ?? 0);
         $codigoSolicitud = (int)($solicitud['codigo_solicitud_servicio'] ?? 0);
-
-        if ($codigoProveedor <= 0 || $codigoSolicitud <= 0) {
-            return;
-        }
+        if ($codigoProveedor <= 0 || $codigoSolicitud <= 0) return;
 
         $tituloServicio = trim((string)($solicitud['titulo_servicio'] ?? 'Servicio'));
         $fechaDeseada = trim((string)($solicitud['fecha_deseada'] ?? ''));
         $rango = $this->etiquetaRangoHorario((string)($solicitud['rango_horario'] ?? 'a_coordinar'));
-
         $mensaje = 'Un vecino solicitó coordinación para tu servicio “' . $tituloServicio . '”.';
         if ($fechaDeseada !== '') {
             $mensaje .= ' Fecha deseada: ' . $fechaDeseada . ' · ' . $rango . '.';
         }
 
-        $payload = [
-            'codigo_solicitud_servicio' => $codigoSolicitud,
-            'codigo_producto' => (int)($solicitud['codigo_producto'] ?? 0),
-            'titulo_servicio' => $tituloServicio,
-            'rol_destino' => 'proveedor',
-            'ruta' => '/mis-solicitudes-servicio-vendedor',
-        ];
-
-        $sql = "
-            INSERT INTO notificacion
-            (
-                codigo_usuario,
-                canal,
-                categoria,
-                subcategoria,
-                referencia_id,
-                titulo,
-                mensaje,
-                payload_json,
-                estado
-            )
-            VALUES
-            (
-                :codigo_usuario,
-                'app',
-                'servicio',
-                'nueva_solicitud',
-                :referencia_id,
-                :titulo,
-                :mensaje,
-                :payload_json,
-                'no_leida'
-            )
-        ";
-
-        $st = $this->dblink->prepare($sql);
-        $st->bindValue(':codigo_usuario', $codigoProveedor, PDO::PARAM_INT);
-        $st->bindValue(':referencia_id', $codigoSolicitud, PDO::PARAM_INT);
-        $st->bindValue(':titulo', mb_substr('Nueva solicitud de servicio', 0, 180, 'UTF-8'), PDO::PARAM_STR);
-        $st->bindValue(':mensaje', $mensaje, PDO::PARAM_STR);
-        $st->bindValue(':payload_json', json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), PDO::PARAM_STR);
-        $st->execute();
+        try {
+            $notif = new Notificacion($this->dblink);
+            $notif->crearOActualizarNoLeida([
+                'codigo_usuario' => $codigoProveedor,
+                'categoria' => Notificacion::CAT_SERVICIO,
+                'subcategoria' => 'nueva_solicitud',
+                'referencia_id' => $codigoSolicitud,
+                'titulo' => 'Nueva solicitud de servicio',
+                'mensaje' => $mensaje,
+                'payload' => [
+                    'codigo_solicitud_servicio' => $codigoSolicitud,
+                    'codigo_producto' => (int)($solicitud['codigo_producto'] ?? 0),
+                    'titulo_servicio' => $tituloServicio,
+                    'rol_destino' => 'proveedor',
+                    'ruta' => '/mis-solicitudes-servicio-vendedor',
+                ],
+            ]);
+        } catch (Throwable $e) {
+            error_log('[EV][SolicitudServicio::registrarNotificacionNuevaSolicitud] ' . $e->getMessage());
+        }
     }
 
-    /**
-     * Registra una solicitud de coordinación para un servicio publicado.
-     * Este flujo no usa pedido, cola, stock, billetera ni disponibilidad_pedidos.
-     */
     public function registrarSolicitud(array $data): array
     {
         $codigoProducto = (int)($data['codigo_producto'] ?? 0);
@@ -779,10 +750,7 @@ class SolicitudServicio extends Conexion
     ): void {
         $codigoSolicitante = (int)($solicitud['codigo_usuario_solicitante'] ?? 0);
         $codigoSolicitud = (int)($solicitud['codigo_solicitud_servicio'] ?? 0);
-
-        if ($codigoSolicitante <= 0 || $codigoSolicitud <= 0) {
-            return;
-        }
+        if ($codigoSolicitante <= 0 || $codigoSolicitud <= 0) return;
 
         $payload = array_merge([
             'codigo_solicitud_servicio' => $codigoSolicitud,
@@ -792,41 +760,20 @@ class SolicitudServicio extends Conexion
             'ruta' => '/mis-solicitudes-servicio-comprador',
         ], $payloadExtra);
 
-        $sql = "
-            INSERT INTO notificacion
-            (
-                codigo_usuario,
-                canal,
-                categoria,
-                subcategoria,
-                referencia_id,
-                titulo,
-                mensaje,
-                payload_json,
-                estado
-            )
-            VALUES
-            (
-                :codigo_usuario,
-                'app',
-                'servicio',
-                :subcategoria,
-                :referencia_id,
-                :titulo,
-                :mensaje,
-                :payload_json,
-                'no_leida'
-            )
-        ";
-
-        $st = $this->dblink->prepare($sql);
-        $st->bindValue(':codigo_usuario', $codigoSolicitante, PDO::PARAM_INT);
-        $st->bindValue(':subcategoria', $subcategoria, PDO::PARAM_STR);
-        $st->bindValue(':referencia_id', $codigoSolicitud, PDO::PARAM_INT);
-        $st->bindValue(':titulo', mb_substr($titulo, 0, 180, 'UTF-8'), PDO::PARAM_STR);
-        $st->bindValue(':mensaje', $mensaje, PDO::PARAM_STR);
-        $st->bindValue(':payload_json', json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), PDO::PARAM_STR);
-        $st->execute();
+        try {
+            $notif = new Notificacion($this->dblink);
+            $notif->crear([
+                'codigo_usuario' => $codigoSolicitante,
+                'categoria' => Notificacion::CAT_SERVICIO,
+                'subcategoria' => $subcategoria,
+                'referencia_id' => $codigoSolicitud,
+                'titulo' => $titulo,
+                'mensaje' => $mensaje,
+                'payload' => $payload,
+            ]);
+        } catch (Throwable $e) {
+            error_log('[EV][SolicitudServicio::registrarNotificacionSolicitante] ' . $e->getMessage());
+        }
     }
 
     private function obtenerSolicitudProveedorBloqueada(int $codigoSolicitud, int $codigoProveedor): ?array
@@ -1425,10 +1372,7 @@ class SolicitudServicio extends Conexion
     ): void {
         $codigoProveedor = (int)($solicitud['codigo_usuario_proveedor'] ?? 0);
         $codigoSolicitud = (int)($solicitud['codigo_solicitud_servicio'] ?? 0);
-
-        if ($codigoProveedor <= 0 || $codigoSolicitud <= 0) {
-            return;
-        }
+        if ($codigoProveedor <= 0 || $codigoSolicitud <= 0) return;
 
         $payload = array_merge([
             'codigo_solicitud_servicio' => $codigoSolicitud,
@@ -1438,41 +1382,20 @@ class SolicitudServicio extends Conexion
             'ruta' => '/mis-solicitudes-servicio-vendedor',
         ], $payloadExtra);
 
-        $sql = "
-            INSERT INTO notificacion
-            (
-                codigo_usuario,
-                canal,
-                categoria,
-                subcategoria,
-                referencia_id,
-                titulo,
-                mensaje,
-                payload_json,
-                estado
-            )
-            VALUES
-            (
-                :codigo_usuario,
-                'app',
-                'servicio',
-                :subcategoria,
-                :referencia_id,
-                :titulo,
-                :mensaje,
-                :payload_json,
-                'no_leida'
-            )
-        ";
-
-        $st = $this->dblink->prepare($sql);
-        $st->bindValue(':codigo_usuario', $codigoProveedor, PDO::PARAM_INT);
-        $st->bindValue(':subcategoria', $subcategoria, PDO::PARAM_STR);
-        $st->bindValue(':referencia_id', $codigoSolicitud, PDO::PARAM_INT);
-        $st->bindValue(':titulo', mb_substr($titulo, 0, 180, 'UTF-8'), PDO::PARAM_STR);
-        $st->bindValue(':mensaje', $mensaje, PDO::PARAM_STR);
-        $st->bindValue(':payload_json', json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), PDO::PARAM_STR);
-        $st->execute();
+        try {
+            $notif = new Notificacion($this->dblink);
+            $notif->crear([
+                'codigo_usuario' => $codigoProveedor,
+                'categoria' => Notificacion::CAT_SERVICIO,
+                'subcategoria' => $subcategoria,
+                'referencia_id' => $codigoSolicitud,
+                'titulo' => $titulo,
+                'mensaje' => $mensaje,
+                'payload' => $payload,
+            ]);
+        } catch (Throwable $e) {
+            error_log('[EV][SolicitudServicio::registrarNotificacionProveedor] ' . $e->getMessage());
+        }
     }
 
     private function obtenerSolicitudSolicitanteBloqueada(int $codigoSolicitud, int $codigoSolicitante): ?array

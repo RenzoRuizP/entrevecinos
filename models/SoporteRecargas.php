@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../database/Conexion.php';
+require_once __DIR__ . '/Notificacion.php';
 
 final class SoporteRecargas extends Conexion
 {
@@ -404,6 +405,46 @@ final class SoporteRecargas extends Conexion
                 ':soporte'    => $codigoSoporte,
                 ':id'         => $codigoRecarga
             ]);
+
+            if ($estadoActual !== $nuevoEstado && in_array($nuevoEstado, ['observada', 'aprobada', 'rechazada'], true)) {
+                try {
+                    $titulos = [
+                        'observada' => 'Tu recarga fue observada',
+                        'aprobada' => 'Tu recarga fue aprobada',
+                        'rechazada' => 'Tu recarga fue rechazada',
+                    ];
+                    $mensajes = [
+                        'observada' => trim((string)$comentario) !== ''
+                            ? trim((string)$comentario)
+                            : 'Revisa el detalle de tu recarga y vuelve a enviar la información solicitada.',
+                        'aprobada' => 'Se acreditaron S/ ' . number_format($monto, 2) . ' en tu billetera EV.',
+                        'rechazada' => trim((string)$comentario) !== ''
+                            ? trim((string)$comentario)
+                            : 'La recarga no pudo ser validada por soporte.',
+                    ];
+
+                    $notif = new Notificacion($this->dblink);
+                    $notif->crearOActualizarNoLeida([
+                        'codigo_usuario' => $codigoUsuario,
+                        'categoria' => Notificacion::CAT_BILLETERA,
+                        'subcategoria' => 'recarga_' . $nuevoEstado,
+                        'referencia_id' => $codigoRecarga,
+                        'titulo' => $titulos[$nuevoEstado],
+                        'mensaje' => $mensajes[$nuevoEstado],
+                        'payload' => [
+                            'codigo_recarga' => $codigoRecarga,
+                            'monto' => $monto,
+                            'metodo' => $metodo,
+                            'estado' => $nuevoEstado,
+                            'comentario_soporte' => trim((string)$comentario),
+                            'saldo_actualizado' => (float)($sync['saldo_nuevo'] ?? $saldoActual),
+                            'ruta' => '/billetera',
+                        ],
+                    ]);
+                } catch (Throwable $eNotif) {
+                    error_log('[EV][SoporteRecargas::actualizarEstado][notificacion] ' . $eNotif->getMessage());
+                }
+            }
 
             $this->dblink->commit();
 

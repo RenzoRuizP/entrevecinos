@@ -3,11 +3,17 @@
 
 require_once __DIR__ . '/../models/SesionJWT.php';
 require_once __DIR__ . '/../models/User.php';
+require_once __DIR__ . '/../middleware/FuncionalidadGuard.php';
+require_once __DIR__ . '/../models/ConfiguracionPlataforma.php';
 
 class atenderRecargasController
 {
     public function index()
     {
+        if (!FuncionalidadGuard::exigirMonetizacionBooleanaHtml(ConfiguracionPlataforma::MON_RECARGAS, true)) {
+            return;
+        }
+
         try {
             $token = $_COOKIE['auth_token'] ?? null;
             if (!$token) {
@@ -27,7 +33,7 @@ class atenderRecargasController
                     echo "<div class='alert alert-warning m-3'>Acceso restringido (solo Soporte/Admin).</div>";
                     return;
                 }
-                header("Location: /entrevecinos/?error=forbidden");
+                header('Location: ' . rtrim(BASE_URL, '/') . '/?error=forbidden');
                 return;
             }
 
@@ -56,7 +62,7 @@ class atenderRecargasController
                 return;
             }
 
-            header("Location: /entrevecinos/?error=token_error");
+            header('Location: ' . rtrim(BASE_URL, '/') . '/?error=token_error');
             return;
         }
     }
@@ -70,7 +76,7 @@ class atenderRecargasController
             return;
         }
 
-        header("Location: /entrevecinos/?error={$motivo}");
+        header('Location: ' . rtrim(BASE_URL, '/') . '/?error=' . rawurlencode($motivo));
         return;
     }
 

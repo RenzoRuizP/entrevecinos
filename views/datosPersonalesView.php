@@ -1,5 +1,17 @@
 <?php
 require_once __DIR__ . '/../Config/config.php';
+
+$legalConfigPerfil = require __DIR__ . '/../Config/documentos_legales.php';
+$enlacesLegalesPerfil = is_array($legalConfigPerfil['enlaces'] ?? null)
+    ? $legalConfigPerfil['enlaces']
+    : [];
+
+$urlTerminosPerfil = (string)($enlacesLegalesPerfil['terminos_condiciones']
+    ?? 'https://www.entrevecinos.pe/legal/terminos-y-condiciones.php');
+$urlPrivacidadPerfil = (string)($enlacesLegalesPerfil['politica_privacidad']
+    ?? 'https://www.entrevecinos.pe/legal/politica-de-privacidad.php');
+$urlLibroPerfil = (string)($enlacesLegalesPerfil['libro_reclamaciones']
+    ?? 'https://www.entrevecinos.pe/libro-de-reclamaciones/');
 ?>
 
 <?php include_once __DIR__ . '/estilos/DatosPersonalesEstilo.php'; ?>
@@ -360,6 +372,83 @@ require_once __DIR__ . '/../Config/config.php';
         </div>
 
       </form>
+
+      <section class="ev-profile-legal mt-4" aria-labelledby="evProfileLegalTitle">
+        <div class="ev-profile-legal__header">
+          <span class="ev-profile-legal__icon" aria-hidden="true">
+            <i class="bi bi-shield-check"></i>
+          </span>
+          <div>
+            <span class="ev-profile-legal__eyebrow">INFORMACIÓN Y ATENCIÓN</span>
+            <h3 id="evProfileLegalTitle">Documentos legales</h3>
+            <p>Consulta los documentos vigentes de EV o accede al Libro de Reclamaciones Virtual.</p>
+          </div>
+        </div>
+
+        <div class="ev-profile-legal__grid">
+          <a
+            class="ev-profile-legal__card"
+            href="<?= htmlspecialchars($urlTerminosPerfil, ENT_QUOTES, 'UTF-8'); ?>"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Abrir Términos y Condiciones de Uso"
+          >
+            <span class="ev-profile-legal__card-icon ev-profile-legal__card-icon--green" aria-hidden="true">
+              <i class="bi bi-file-earmark-text"></i>
+            </span>
+            <span class="ev-profile-legal__card-copy">
+              <strong>Términos y Condiciones</strong>
+              <small>Conoce las reglas de uso de Entre Vecinos.</small>
+            </span>
+            <span class="ev-profile-legal__open" aria-hidden="true">
+              <i class="bi bi-box-arrow-up-right"></i>
+            </span>
+          </a>
+
+          <a
+            class="ev-profile-legal__card"
+            href="<?= htmlspecialchars($urlPrivacidadPerfil, ENT_QUOTES, 'UTF-8'); ?>"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Abrir Política de Privacidad y Tratamiento de Datos Personales"
+          >
+            <span class="ev-profile-legal__card-icon ev-profile-legal__card-icon--green" aria-hidden="true">
+              <i class="bi bi-shield-lock"></i>
+            </span>
+            <span class="ev-profile-legal__card-copy">
+              <strong>Privacidad y datos personales</strong>
+              <small>Revisa cómo EV utiliza y protege tus datos.</small>
+            </span>
+            <span class="ev-profile-legal__open" aria-hidden="true">
+              <i class="bi bi-box-arrow-up-right"></i>
+            </span>
+          </a>
+
+          <a
+            class="ev-profile-legal__card ev-profile-legal__card--book"
+            href="<?= htmlspecialchars($urlLibroPerfil, ENT_QUOTES, 'UTF-8'); ?>"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Abrir Libro de Reclamaciones Virtual"
+          >
+            <span class="ev-profile-legal__card-icon ev-profile-legal__card-icon--orange" aria-hidden="true">
+              <i class="bi bi-journal-check"></i>
+            </span>
+            <span class="ev-profile-legal__card-copy">
+              <strong>Libro de Reclamaciones</strong>
+              <small>Registra formalmente un reclamo o una queja sobre EV.</small>
+            </span>
+            <span class="ev-profile-legal__open" aria-hidden="true">
+              <i class="bi bi-box-arrow-up-right"></i>
+            </span>
+          </a>
+        </div>
+
+        <div class="ev-profile-legal__note">
+          <i class="bi bi-info-circle" aria-hidden="true"></i>
+          <span>El Libro de Reclamaciones es único para EV. Tanto la página pública como la app acceden al mismo formulario oficial.</span>
+        </div>
+      </section>
 
     </div>
   </div>

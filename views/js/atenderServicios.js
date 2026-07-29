@@ -5,7 +5,7 @@
   if (window[KEY]) { window.EVAtenderServicios?.init?.(); return; }
   window[KEY] = true;
 
-  const BASE = String(window.BASE_URL || '').replace(/\/+$/, '');
+  const BASE = String(window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/+$/, '');
   let estado = 'abiertas';
   let timer = null;
   let loading = false;

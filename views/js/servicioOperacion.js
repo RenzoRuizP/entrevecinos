@@ -5,7 +5,7 @@
 
   if (window.EVServicioOperacion) return;
 
-  const BASE = String(window.BASE_URL || window.EV_BASE_URL || '').replace(/\/+$/, '');
+  const BASE = String(window.EV?.baseUrl ?? window.BASE_URL ?? window.EV_BASE_URL ?? '').replace(/\/+$/, '');
   const MAX_FILES = 5;
   const MAX_BYTES = 8 * 1024 * 1024;
   const FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];

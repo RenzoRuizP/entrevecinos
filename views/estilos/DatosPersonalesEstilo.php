@@ -391,6 +391,186 @@
   pointer-events: none;
 }
 
+
+
+/* ===================================================
+   INFORMACIÓN LEGAL Y LIBRO DE RECLAMACIONES
+=================================================== */
+.ev-profile-legal{
+  border:1px solid rgba(15,89,47,.14);
+  border-radius:20px;
+  padding:20px;
+  background:
+    radial-gradient(circle at 92% 8%, rgba(22,163,74,.10), transparent 30%),
+    linear-gradient(180deg,#FFFFFF 0%,#F8FCF9 100%);
+  box-shadow:var(--ev-shadow-soft);
+}
+
+.ev-profile-legal__header{
+  display:flex;
+  align-items:flex-start;
+  gap:14px;
+  margin-bottom:16px;
+}
+
+.ev-profile-legal__icon{
+  width:46px;
+  height:46px;
+  min-width:46px;
+  display:grid;
+  place-items:center;
+  border-radius:15px;
+  color:#fff;
+  background:linear-gradient(135deg,var(--ev-verde-oscuro),var(--ev-verde));
+  box-shadow:0 12px 24px rgba(15,89,47,.18);
+  font-size:1.08rem;
+}
+
+.ev-profile-legal__eyebrow{
+  display:block;
+  margin-bottom:3px;
+  color:var(--ev-naranja-oscuro);
+  font-size:.72rem;
+  font-weight:900;
+  letter-spacing:.09em;
+}
+
+.ev-profile-legal__header h3{
+  margin:0;
+  color:var(--ev-verde-oscuro);
+  font-size:1.2rem;
+  font-weight:900;
+  letter-spacing:-.02em;
+}
+
+.ev-profile-legal__header p{
+  margin:4px 0 0;
+  color:var(--ev-gris-500);
+  font-size:.9rem;
+  line-height:1.45;
+}
+
+.ev-profile-legal__grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
+
+.ev-profile-legal__card{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:15px;
+  border:1px solid rgba(15,89,47,.13);
+  border-radius:16px;
+  background:#fff;
+  color:inherit;
+  text-decoration:none !important;
+  box-shadow:0 10px 24px rgba(15,23,42,.045);
+  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,background .18s ease;
+}
+
+.ev-profile-legal__card:hover{
+  transform:translateY(-2px);
+  border-color:rgba(22,163,74,.38);
+  background:#FBFFFC;
+  box-shadow:0 16px 30px rgba(15,89,47,.10);
+}
+
+.ev-profile-legal__card:focus-visible{
+  outline:0;
+  box-shadow:0 0 0 4px rgba(22,163,74,.18),0 16px 30px rgba(15,89,47,.10);
+}
+
+.ev-profile-legal__card--book{
+  border-color:rgba(234,124,18,.22);
+}
+
+.ev-profile-legal__card--book:hover{
+  border-color:rgba(234,124,18,.48);
+  background:#FFFCF7;
+  box-shadow:0 16px 30px rgba(196,107,5,.11);
+}
+
+.ev-profile-legal__card-icon{
+  width:42px;
+  height:42px;
+  min-width:42px;
+  display:grid;
+  place-items:center;
+  border-radius:13px;
+  font-size:1rem;
+}
+
+.ev-profile-legal__card-icon--green{
+  color:var(--ev-verde-oscuro);
+  background:#F0FDF4;
+  border:1px solid #BBF7D0;
+}
+
+.ev-profile-legal__card-icon--orange{
+  color:var(--ev-naranja-oscuro);
+  background:#FFF7ED;
+  border:1px solid #FED7AA;
+}
+
+.ev-profile-legal__card-copy{
+  min-width:0;
+  flex:1 1 auto;
+}
+
+.ev-profile-legal__card-copy strong{
+  display:block;
+  color:#163B26;
+  font-size:.91rem;
+  font-weight:900;
+  line-height:1.25;
+}
+
+.ev-profile-legal__card-copy small{
+  display:block;
+  margin-top:4px;
+  color:var(--ev-gris-500);
+  font-size:.78rem;
+  line-height:1.35;
+}
+
+.ev-profile-legal__open{
+  color:#6B7280;
+  font-size:.94rem;
+  transition:color .18s ease,transform .18s ease;
+}
+
+.ev-profile-legal__card:hover .ev-profile-legal__open{
+  color:var(--ev-verde-oscuro);
+  transform:translate(1px,-1px);
+}
+
+.ev-profile-legal__card--book:hover .ev-profile-legal__open{
+  color:var(--ev-naranja-oscuro);
+}
+
+.ev-profile-legal__note{
+  display:flex;
+  align-items:flex-start;
+  gap:9px;
+  margin-top:14px;
+  padding:11px 13px;
+  border-radius:13px;
+  color:#365344;
+  background:rgba(240,253,244,.82);
+  border:1px solid rgba(187,247,208,.82);
+  font-size:.8rem;
+  line-height:1.42;
+}
+
+.ev-profile-legal__note i{
+  color:var(--ev-verde-oscuro);
+  margin-top:1px;
+}
+
+
 /* ===================================================
    RESPONSIVO
 =================================================== */
@@ -472,4 +652,43 @@
     width: auto;
   }
 }
+
+@media (max-width: 1100px){
+  .ev-profile-legal__grid{
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width: 576px){
+  .ev-profile-legal{
+    padding:15px 13px;
+    border-radius:17px;
+  }
+
+  .ev-profile-legal__header{
+    gap:11px;
+  }
+
+  .ev-profile-legal__icon{
+    width:42px;
+    height:42px;
+    min-width:42px;
+    border-radius:13px;
+  }
+
+  .ev-profile-legal__header h3{
+    font-size:1.08rem;
+  }
+
+  .ev-profile-legal__card{
+    padding:13px 12px;
+  }
+
+  .ev-profile-legal__card-icon{
+    width:39px;
+    height:39px;
+    min-width:39px;
+  }
+}
+
 </style>

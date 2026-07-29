@@ -33,22 +33,55 @@ class UserController
 
     private function normalizeDocumento(string $doc): string
     {
-        $doc = trim($doc);
-        $doc = preg_replace('/\s+/', '', $doc);
-        return $doc;
+        $doc = strtoupper(trim($doc));
+        $doc = preg_replace('/[^A-Z0-9]/', '', $doc);
+        return substr($doc, 0, 20);
+    }
+
+    private function normalizeTelefono(string $telefono): string
+    {
+        return substr((string)preg_replace('/\D+/', '', trim($telefono)), 0, 9);
     }
 
     private function validarEmail(string $email): bool
     {
-        return (bool)filter_var($email, FILTER_VALIDATE_EMAIL);
+        return strlen($email) <= 254 && (bool)filter_var($email, FILTER_VALIDATE_EMAIL);
     }
 
     private function validarDocumento(string $doc): bool
     {
-        // DNI (8) / CE (hasta 12 alfanum). Ajusta si manejas RUC u otros.
-        $doc = trim($doc);
-        if ($doc === '') return false;
-        return (bool)preg_match('/^[0-9A-Za-z]{8,12}$/', $doc);
+        // Regla inclusiva para DNI, carné de extranjería, pasaporte u otro documento válido.
+        // Se admiten entre 6 y 20 caracteres alfanuméricos, sin espacios ni símbolos.
+        return (bool)preg_match('/^[A-Z0-9]{6,20}$/', $doc);
+    }
+
+    private function validarTelefono(string $telefono): bool
+    {
+        return (bool)preg_match('/^9\d{8}$/', $telefono);
+    }
+
+    private function validarClave(string $clave): bool
+    {
+        return strlen($clave) >= 8
+            && strlen($clave) <= 72
+            && (bool)preg_match('/[A-Z]/', $clave)
+            && (bool)preg_match('/\d/', $clave)
+            && (bool)preg_match('/[^A-Za-z0-9]/', $clave);
+    }
+
+    private function toBool($value): bool
+    {
+        if (is_bool($value)) return $value;
+        if (is_int($value)) return $value === 1;
+
+        $value = strtolower(trim((string)$value));
+        return in_array($value, ['1', 'true', 'on', 'si', 'sí', 'yes'], true);
+    }
+
+    private function clientIp(): ?string
+    {
+        $ip = trim((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+        return $ip !== '' ? substr($ip, 0, 45) : null;
     }
 
     private function friendlyConflictMessage(string $errorCode): array
@@ -103,15 +136,19 @@ class UserController
                 $data = [
                     'nombre' => trim($_POST['nombre'] ?? ''),
                     'documento' => $this->normalizeDocumento((string)($_POST['documento'] ?? '')),
-                    'telefono' => trim($_POST['telefono'] ?? ''),
+                    'telefono' => $this->normalizeTelefono((string)($_POST['telefono'] ?? '')),
                     'email' => $this->normalizeEmail((string)($_POST['email'] ?? '')),
                     'clave' => (string)($_POST['clave'] ?? ''),
+                    'confirmar_clave' => (string)($_POST['confirmar_clave'] ?? ''),
                     'codigo_rol' => (int)($_POST['codigo_rol'] ?? 2),
 
                     'tipo_conjunto' => trim($_POST['tipo_conjunto'] ?? ''),
                     'codigo_condominio' => $this->normalizeIntOrNull($_POST['codigo_condominio'] ?? null),
                     'codigo_urbanizacion' => $this->normalizeIntOrNull($_POST['codigo_urbanizacion'] ?? null),
                     'direccion' => trim($_POST['direccion'] ?? ''),
+
+                    'acepta_terminos' => $this->toBool($_POST['acepta_terminos'] ?? false),
+                    'acepta_privacidad' => $this->toBool($_POST['acepta_privacidad'] ?? false),
                 ];
             } else {
                 $json = json_decode(file_get_contents("php://input"), true);
@@ -122,19 +159,76 @@ class UserController
                 }
                 $data['email'] = $this->normalizeEmail((string)($data['email'] ?? ''));
                 $data['documento'] = $this->normalizeDocumento((string)($data['documento'] ?? ''));
+                $data['telefono'] = $this->normalizeTelefono((string)($data['telefono'] ?? ''));
+                $data['confirmar_clave'] = (string)($data['confirmar_clave'] ?? '');
+                $data['acepta_terminos'] = $this->toBool($data['acepta_terminos'] ?? false);
+                $data['acepta_privacidad'] = $this->toBool($data['acepta_privacidad'] ?? false);
             }
 
-            // 2) Validaciones mínimas server-side (email/documento obligatorios)
+            // Evidencia técnica de la aceptación. El backend no confía solo en el navegador.
+            $data['ip_aceptacion'] = $this->clientIp();
+            $data['user_agent_aceptacion'] = substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500);
+            $data['origen_aceptacion'] = 'registro';
+
+            // 2) Validaciones server-side del registro
+            $nombre = trim((string)($data['nombre'] ?? ''));
             $email = (string)($data['email'] ?? '');
             $documento = (string)($data['documento'] ?? '');
+            $telefono = (string)($data['telefono'] ?? '');
+            $clave = (string)($data['clave'] ?? '');
+            $confirmarClave = (string)($data['confirmar_clave'] ?? '');
 
-            if (!$this->validarEmail($email)) {
-                $this->jsonResponse(422, ["success" => false, "message" => "Correo electrónico inválido"]);
+            if (strlen($nombre) < 3 || strlen($nombre) > 120) {
+                $this->jsonResponse(422, ["success" => false, "message" => "Ingresa un nombre completo válido"]);
                 return;
             }
 
             if (!$this->validarDocumento($documento)) {
-                $this->jsonResponse(422, ["success" => false, "message" => "Documento de identidad inválido"]);
+                $this->jsonResponse(422, [
+                    "success" => false,
+                    "message" => "Ingresa un documento válido de 6 a 20 caracteres usando solo letras y números"
+                ]);
+                return;
+            }
+
+            if (!$this->validarTelefono($telefono)) {
+                $this->jsonResponse(422, [
+                    "success" => false,
+                    "message" => "Ingresa un celular peruano válido de 9 dígitos que comience con 9"
+                ]);
+                return;
+            }
+
+            if (!$this->validarEmail($email)) {
+                $this->jsonResponse(422, ["success" => false, "message" => "Ingresa un correo electrónico válido"]);
+                return;
+            }
+
+            if (!$this->validarClave($clave)) {
+                $this->jsonResponse(422, [
+                    "success" => false,
+                    "message" => "La contraseña debe tener mínimo 8 caracteres, una mayúscula, un número y un símbolo"
+                ]);
+                return;
+            }
+
+            if ($clave !== $confirmarClave) {
+                $this->jsonResponse(422, ["success" => false, "message" => "Las contraseñas no coinciden"]);
+                return;
+            }
+
+            // Mantener los valores normalizados que serán enviados al modelo.
+            $data['nombre'] = $nombre;
+            $data['documento'] = $documento;
+            $data['telefono'] = $telefono;
+            $data['email'] = $email;
+
+            if (empty($data['acepta_terminos']) || empty($data['acepta_privacidad'])) {
+                $this->jsonResponse(422, [
+                    "success" => false,
+                    "error" => "CONSENTIMIENTOS_REQUERIDOS",
+                    "message" => "Debes aceptar los Términos y Condiciones y la Política de Privacidad para registrarte."
+                ]);
                 return;
             }
 

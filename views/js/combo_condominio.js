@@ -1,12 +1,13 @@
 // views/js/combo_condominio.js  (EV) — SOLO Condominio (sin torre/departamento)
 (function () {
   function buildURL(path) {
-    if (!window.BASE_URL) {
-      console.error("window.BASE_URL no está definido");
-      return path;
-    }
-    return window.BASE_URL.replace(/\/+$/, "") + "/" + path.replace(/^\/+/, "");
-  }
+  const base = (window.EV?.baseUrl ?? window.BASE_URL ?? window.EV_BASE_URL ?? '')
+    .toString()
+    .replace(/\/+$/, '');
+
+  const cleanPath = String(path || '').replace(/^\/+/, '');
+  return `${base}/${cleanPath}`;
+}
 
   async function cargarCombo(url, combo, placeholder, mapFn, valorSeleccionado = null) {
     try {

@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const BASE = (window.BASE_URL || '').replace(/\/$/, '');
+  const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/$/, '');
   const LOG_PREFIX = '[BILLETERA]';
 
   const BC_NAME = 'EV_CHANNEL';
@@ -814,8 +814,22 @@
 
     if (refs.btnRefrescarRecargas && refs.btnRefrescarRecargas.dataset.evWalletRefreshHooked !== '1') {
       refs.btnRefrescarRecargas.dataset.evWalletRefreshHooked = '1';
-      refs.btnRefrescarRecargas.addEventListener('click', () => {
-        cargarMisRecargas();
+      refs.btnRefrescarRecargas.addEventListener('click', async () => {
+        if (refs.btnRefrescarRecargas.disabled) return;
+
+        refs.btnRefrescarRecargas.disabled = true;
+        refs.btnRefrescarRecargas.classList.add('is-loading');
+
+        try {
+          await Promise.all([
+            cargarSaldo(),
+            cargarMovimientos(),
+            cargarMisRecargas()
+          ]);
+        } finally {
+          refs.btnRefrescarRecargas.disabled = false;
+          refs.btnRefrescarRecargas.classList.remove('is-loading');
+        }
       });
     }
 

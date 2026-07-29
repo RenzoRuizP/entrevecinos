@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const userDropdown = document.getElementById('userDropdown');
   const dropdownMenu = userDropdown?.nextElementSibling || null;
 
-  const baseUrl = String(window.BASE_URL || window.EV_BASE_URL || '/entrevecinos').replace(/\/+$/, '');
+  const baseUrl = String(window.EV?.baseUrl ?? window.BASE_URL ?? window.EV_BASE_URL ?? '').replace(/\/+$/, '');
   const mediaMobile = window.matchMedia('(max-width: 991.98px)');
 
   const AVATAR_ENDPOINT = `${baseUrl}/api/usuario/foto-perfil`;

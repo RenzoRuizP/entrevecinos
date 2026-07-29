@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../models/ProductoSoporte.php';
+require_once __DIR__ . '/../../models/Notificacion.php';
 
 class apiSoporteProductosController
 {
@@ -212,6 +213,7 @@ class apiSoporteProductosController
             }
 
             $m = new ProductoSoporte();
+            $detalleProducto = $m->obtenerDetalle($id);
             $estadoAnterior = $m->obtenerVisibleActual($id);
 
             if ($estadoAnterior === null) {
@@ -273,6 +275,47 @@ class apiSoporteProductosController
                 'rechazar' => 'Publicación rechazada.',
                 default => 'Publicación observada. Se notificará el comentario al usuario.',
             };
+
+            $codigoPropietario = (int)($detalleProducto['codigo_usuario'] ?? 0);
+            if ($codigoPropietario > 0) {
+                try {
+                    $tipoPublicacion = strtolower(trim((string)($detalleProducto['tipo_publicacion'] ?? 'producto')));
+                    $tituloProducto = trim((string)($detalleProducto['titulo'] ?? 'tu publicación'));
+                    $subcategoria = 'publicacion_' . match ($accion) {
+                        'aprobar' => 'aprobada',
+                        'rechazar' => 'rechazada',
+                        default => 'observada',
+                    };
+                    $mensajeUsuario = match ($accion) {
+                        'aprobar' => 'Tu publicación “' . $tituloProducto . '” fue aprobada y ya está disponible según las reglas de EV.',
+                        'rechazar' => $comentario !== '' ? $comentario : 'Tu publicación no superó la revisión de soporte.',
+                        default => $comentario !== '' ? $comentario : 'Tu publicación necesita una corrección antes de continuar.',
+                    };
+
+                    $notif = new Notificacion($m->getDblink());
+                    $notif->crearOActualizarNoLeida([
+                        'codigo_usuario' => $codigoPropietario,
+                        'categoria' => Notificacion::CAT_PUBLICACION,
+                        'subcategoria' => $subcategoria,
+                        'referencia_id' => $id,
+                        'titulo' => match ($accion) {
+                            'aprobar' => 'Tu publicación fue aprobada',
+                            'rechazar' => 'Tu publicación fue rechazada',
+                            default => 'Tu publicación fue observada',
+                        },
+                        'mensaje' => $mensajeUsuario,
+                        'payload' => [
+                            'codigo_producto' => $id,
+                            'tipo_publicacion' => $tipoPublicacion,
+                            'titulo_producto' => $tituloProducto,
+                            'comentario_soporte' => $comentario,
+                            'ruta' => '/publicacion',
+                        ],
+                    ]);
+                } catch (Throwable $eNotif) {
+                    error_log('[EV][apiSoporteProductosController::revisar][notificacion] ' . $eNotif->getMessage());
+                }
+            }
 
             $this->json(200, [
                 'ok' => true,

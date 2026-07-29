@@ -7,6 +7,7 @@ require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/UsuarioRevision.php';
 require_once __DIR__ . '/../../models/CuentaObservada.php';
 require_once __DIR__ . '/../../models/Usuario.php';
+require_once __DIR__ . '/../../models/Notificacion.php';
 
 final class apiCuentaObservadaController
 {
@@ -131,6 +132,25 @@ final class apiCuentaObservadaController
                 }
             } catch (Throwable $e2) {
                 error_log('[EV][apiCuentaObservadaController::observar] No se pudo actualizar usuario.estado=1: ' . $e2->getMessage());
+            }
+
+            try {
+                $notif = new Notificacion();
+                $notif->crearOActualizarNoLeida([
+                    'codigo_usuario' => $codigoUsuario,
+                    'categoria' => Notificacion::CAT_CUENTA,
+                    'subcategoria' => 'cuenta_observada',
+                    'referencia_id' => $codigoUsuario,
+                    'titulo' => 'Tu cuenta necesita una corrección',
+                    'mensaje' => $mensaje,
+                    'payload' => [
+                        'codigo_usuario' => $codigoUsuario,
+                        'estado_revision' => 3,
+                        'ruta' => '/cuenta-observada',
+                    ],
+                ]);
+            } catch (Throwable $e2) {
+                error_log('[EV][apiCuentaObservadaController::observar][notificacion] ' . $e2->getMessage());
             }
 
             $this->json(200, [

@@ -5,7 +5,7 @@
   if (window.__EV_MENU_PRINCIPAL_INIT__ === true) return;
   window.__EV_MENU_PRINCIPAL_INIT__ = true;
 
-  const BASE = (window.BASE_URL || '').replace(/\/+$/, '');
+  const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/+$/, '');
   const ROL = String(window.EV_ROL_USUARIO || '').trim().toLowerCase();
   const params = new URLSearchParams(window.location.search);
 

@@ -44,7 +44,7 @@ class AuthController
             'path'     => $this->cookiePath(),
             'secure'   => $isHttps,
             'httponly' => true,
-            'samesite' => $isHttps ? 'None' : 'Lax',
+            'samesite' => 'Lax',
         ];
     }
 
@@ -188,7 +188,7 @@ class AuthController
                         $this->desactivarDisponibilidadPedidos($codigoUsuario, 'login');
                     }
 
-                    $expiraEn = (int)($_ENV['JWT_EXPIRATION_SECONDS'] ?? 3600);
+                    $expiraEn = (int)ev_env('JWT_EXPIRATION_SECONDS', 3600);
                     if ($expiraEn <= 0) {
                         $expiraEn = 3600;
                     }

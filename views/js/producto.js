@@ -3,8 +3,7 @@
 (() => {
   'use strict';
 
-  const EV_API_BASE = (window.BASE_URL || '').replace(/\/$/, '');
-  if (!EV_API_BASE) return;
+  const EV_API_BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/$/, '');
 
   window.evProductosCache  = window.evProductosCache  || [];
   window.evProductosFiltro = window.evProductosFiltro || {
@@ -2461,7 +2460,13 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => { initIfNeeded(); });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initIfNeeded, { once: true });
+  } else {
+    initIfNeeded();
+  }
+
+  document.addEventListener('ev:content-loaded', initIfNeeded);
 
   const target = document.getElementById('contenido-principal') || document.body;
   const obs = new MutationObserver(() => { initIfNeeded(); });

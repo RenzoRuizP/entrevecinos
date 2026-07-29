@@ -3,6 +3,8 @@
 
 require_once __DIR__ . '/../models/SesionJWT.php';
 require_once __DIR__ . '/../models/User.php';
+require_once __DIR__ . '/../models/ConfiguracionPlataforma.php';
+require_once __DIR__ . '/../middleware/FuncionalidadGuard.php';
 
 class productoController
 {
@@ -30,6 +32,21 @@ class productoController
                 return $this->resolverNoAutorizado('usuario_no_encontrado');
             }
 
+            $configuracion = new ConfiguracionPlataforma();
+            $evPuedePublicarProductos = $configuracion->funcionalidadHabilitada(
+                ConfiguracionPlataforma::FUNC_PUBLICAR_PRODUCTOS,
+                $datosToken
+            );
+            $evPuedePublicarServicios = $configuracion->funcionalidadHabilitada(
+                ConfiguracionPlataforma::FUNC_PUBLICAR_SERVICIOS,
+                $datosToken
+            );
+
+            if (!$evPuedePublicarProductos && !$evPuedePublicarServicios) {
+                FuncionalidadGuard::exigirHtml(ConfiguracionPlataforma::FUNC_PUBLICAR_PRODUCTOS);
+                return;
+            }
+
             // 3) SIEMPRE devolver el parcial (evitamos redirecciones al panel)
             //    La vista usa $datosUsuario y BASE_URL para renderizar el formulario
             header('X-Partial-Ok: 1');
@@ -51,7 +68,7 @@ class productoController
             }
 
             // Acceso directo: redirigir al login
-            header("Location: /entrevecinos/?error=token_error");
+            header('Location: ' . rtrim(BASE_URL, '/') . '/?error=token_error');
             return;
         }
     }
@@ -82,7 +99,7 @@ class productoController
             echo json_encode(['error' => 'No autorizado', 'motivo' => $motivo]);
             return;
         }
-        header("Location: /entrevecinos/?error={$motivo}");
+        header('Location: ' . rtrim(BASE_URL, '/') . '/?error=' . rawurlencode($motivo));
         return;
     }
 }

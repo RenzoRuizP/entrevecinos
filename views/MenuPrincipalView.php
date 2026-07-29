@@ -24,6 +24,9 @@ $baseHref = rtrim(BASE_URL, '/') . '/';
 
 $baseUrl = rtrim(BASE_URL, '/');
 
+$evFuncionalidades = is_array($evFuncionalidades ?? null) ? $evFuncionalidades : [];
+$evMonetizacion = is_array($evMonetizacion ?? null) ? $evMonetizacion : [];
+
 /**
  * Normaliza ev_goto para evitar que el shell /MenuPrincipal
  * se cargue dentro de sí mismo como vista parcial.
@@ -75,6 +78,7 @@ function ev_ver($pathAbs) {
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <link rel="icon" type="image/png" href="<?= rtrim(BASE_URL, '/') ?>/resources/images/logo/logo_ev_transparente_corregido_recortado.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Entre Vecinos - Inicio</title>
@@ -473,9 +477,19 @@ function ev_ver($pathAbs) {
   <div id="sidebar-backdrop"></div>
 
   <script>
-    window.BASE_URL = <?php echo json_encode(rtrim(BASE_URL, '/')); ?>;
-    window.EV_BASE_URL = window.BASE_URL;
+    window.EV_CONFIG = Object.freeze({
+      environment: <?php echo json_encode(defined('EV_APP_ENV') ? EV_APP_ENV : 'production'); ?>,
+      baseUrl: <?php echo json_encode(rtrim(BASE_URL, '/')); ?>,
+      appVersion: <?php echo json_encode(defined('EV_APP_VER') ? EV_APP_VER : '1.0.0'); ?>
+    });
+    window.BASE_URL = window.EV_CONFIG.baseUrl;
+    window.EV_BASE_URL = window.EV_CONFIG.baseUrl;
     window.EV_ROL_USUARIO = <?php echo json_encode($rolUsuarioRaw); ?>;
+  </script>
+
+  <script>
+    window.EV_FUNCIONALIDADES = Object.freeze(<?= json_encode($evFuncionalidades, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);
+    window.EV_MONETIZACION = Object.freeze(<?= json_encode($evMonetizacion, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);
   </script>
 
   <?php include_once __DIR__ . '/scripts/menuPrincipalScripts.php'; ?>

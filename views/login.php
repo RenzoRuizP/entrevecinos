@@ -1,5 +1,11 @@
 <?php
 require_once __DIR__ . '/../Config/config.php';
+
+$evLegalConfig = require __DIR__ . '/../Config/documentos_legales.php';
+$evTerminosConfig = $evLegalConfig['documentos']['terminos_condiciones'] ?? [];
+$evPrivacidadConfig = $evLegalConfig['documentos']['politica_privacidad'] ?? [];
+$evResponsableLegal = $evLegalConfig['responsable'] ?? [];
+$evOperacionLegal = $evLegalConfig['operacion'] ?? [];
 ?>
 
 <!doctype html>
@@ -158,6 +164,11 @@ require_once __DIR__ . '/../Config/config.php';
         <small>
           &copy; <?= date('Y'); ?> <strong>Entre Vecinos</strong>. Todos los derechos reservados.
         </small>
+        <div class="login-legal-links" aria-label="Documentos legales">
+          <a href="<?= BASE_URL ?>legal/terminos-y-condiciones" target="_blank" rel="noopener">Términos y Condiciones</a>
+          <span aria-hidden="true">·</span>
+          <a href="<?= BASE_URL ?>legal/politica-de-privacidad" target="_blank" rel="noopener">Política de Privacidad</a>
+        </div>
       </footer>
     </section>
   </div>
@@ -213,8 +224,8 @@ require_once __DIR__ . '/../Config/config.php';
 
   <!-- MODAL CREAR USUARIO -->
   <div class="modal fade" id="crear_usuario" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-      <div class="modal-content shadow-lg border-0 rounded-3">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+      <div class="modal-content shadow-lg border-0 ev-register-modal">
         <div class="modal-header bg-success text-white">
           <h5 class="modal-title">
             <i class="bi bi-person-plus me-2" aria-hidden="true"></i>
@@ -224,13 +235,14 @@ require_once __DIR__ . '/../Config/config.php';
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
 
-        <form id="formCrearUsuario">
+        <form id="formCrearUsuario" novalidate>
           <div class="modal-body">
 
-            <div class="progress mb-4">
-              <div class="progress-bar bg-success fw-bold" id="step1" style="width: 33%;">1. DATOS PERSONALES</div>
-              <div class="progress-bar bg-secondary fw-bold" id="step2" style="width: 33%;">2. RESIDENCIA</div>
-              <div class="progress-bar bg-secondary fw-bold" id="step3" style="width: 34%;">3. CUENTA</div>
+            <div class="progress mb-4" aria-label="Progreso del registro">
+              <div class="progress-bar bg-success fw-bold" id="step1" style="width: 25%;">1. DATOS</div>
+              <div class="progress-bar bg-secondary fw-bold" id="step2" style="width: 25%;">2. RESIDENCIA</div>
+              <div class="progress-bar bg-secondary fw-bold" id="step3" style="width: 25%;">3. CUENTA</div>
+              <div class="progress-bar bg-secondary fw-bold" id="step4" style="width: 25%;">4. LEGAL</div>
             </div>
 
             <!-- Paso 1 -->
@@ -243,17 +255,60 @@ require_once __DIR__ . '/../Config/config.php';
               <div class="row g-3 mb-4">
                 <div class="col-md-6">
                   <label for="nombre" class="form-label">Nombre completo</label>
-                  <input type="text" class="form-control" id="nombre" name="nombre" required>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="nombre"
+                    name="nombre"
+                    maxlength="120"
+                    autocomplete="name"
+                    required>
+                  <div class="invalid-feedback">Ingresa tu nombre completo.</div>
                 </div>
 
                 <div class="col-md-6">
                   <label for="documento" class="form-label">Documento de identidad</label>
-                  <input type="text" class="form-control" id="documento" name="documento" required>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="documento"
+                    name="documento"
+                    minlength="6"
+                    maxlength="20"
+                    autocomplete="off"
+                    autocapitalize="characters"
+                    spellcheck="false"
+                    aria-describedby="documentoAyuda documentoError"
+                    required>
+                  <div class="form-text" id="documentoAyuda">
+                    DNI, carné de extranjería, pasaporte u otro documento. Usa solo letras y números.
+                  </div>
+                  <div class="invalid-feedback" id="documentoError">
+                    Ingresa un documento válido de 6 a 20 caracteres usando solo letras y números.
+                  </div>
                 </div>
 
                 <div class="col-md-6">
-                  <label for="telefono" class="form-label">Teléfono</label>
-                  <input type="tel" class="form-control" id="telefono" name="telefono" required>
+                  <label for="telefono" class="form-label">Número de celular</label>
+                  <input
+                    type="tel"
+                    class="form-control"
+                    id="telefono"
+                    name="telefono"
+                    inputmode="numeric"
+                    pattern="9[0-9]{8}"
+                    minlength="9"
+                    maxlength="9"
+                    autocomplete="tel"
+                    placeholder="Ej. 987654321"
+                    aria-describedby="telefonoAyuda telefonoError"
+                    required>
+                  <div class="form-text" id="telefonoAyuda">
+                    Debe tener 9 dígitos y comenzar con 9.
+                  </div>
+                  <div class="invalid-feedback" id="telefonoError">
+                    Ingresa un celular peruano válido de 9 dígitos que comience con 9.
+                  </div>
                 </div>
               </div>
             </div>
@@ -273,6 +328,7 @@ require_once __DIR__ . '/../Config/config.php';
                   <select class="form-select" id="comboDepartamento" name="comboDepartamento" required>
                     <option value="">Cargando...</option>
                   </select>
+                  <div class="invalid-feedback">Selecciona un departamento.</div>
                 </div>
 
                 <div class="col-md-4">
@@ -280,6 +336,7 @@ require_once __DIR__ . '/../Config/config.php';
                   <select class="form-select" id="comboProvincia" name="comboProvincia" required disabled>
                     <option value="">Selecciona provincia</option>
                   </select>
+                  <div class="invalid-feedback">Selecciona una provincia.</div>
                 </div>
 
                 <div class="col-md-4">
@@ -287,6 +344,7 @@ require_once __DIR__ . '/../Config/config.php';
                   <select class="form-select" id="comboDistrito" name="comboDistrito" required disabled>
                     <option value="">Selecciona distrito</option>
                   </select>
+                  <div class="invalid-feedback">Selecciona un distrito.</div>
                 </div>
 
                 <!-- Conjunto Residencial -->
@@ -298,6 +356,7 @@ require_once __DIR__ . '/../Config/config.php';
                     <option value="urbanizacion">Urbanización</option>
                   </select>
                   <div class="form-text">Primero selecciona el distrito, luego el tipo de conjunto.</div>
+                  <div class="invalid-feedback">Selecciona el tipo de conjunto residencial.</div>
                 </div>
 
                 <div class="col-md-6 d-none" id="wrapCondominio">
@@ -305,6 +364,7 @@ require_once __DIR__ . '/../Config/config.php';
                   <select class="form-select" id="comboCondominio" name="comboCondominio" disabled>
                     <option value="">Selecciona condominio</option>
                   </select>
+                  <div class="invalid-feedback">Selecciona un condominio.</div>
                 </div>
 
                 <div class="col-md-6 d-none" id="wrapUrbanizacion">
@@ -312,6 +372,7 @@ require_once __DIR__ . '/../Config/config.php';
                   <select class="form-select" id="comboUrbanizacion" name="comboUrbanizacion" disabled>
                     <option value="">Selecciona urbanización</option>
                   </select>
+                  <div class="invalid-feedback">Selecciona una urbanización.</div>
                 </div>
 
                 <!-- Dirección + Comprobante -->
@@ -332,10 +393,15 @@ require_once __DIR__ . '/../Config/config.php';
                     class="form-control"
                     id="comprobante_domicilio"
                     name="comprobante_domicilio"
-                    accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf">
+                    accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                    aria-describedby="comprobanteAyuda comprobanteError"
+                    required>
 
-                  <div class="form-text">
+                  <div class="form-text" id="comprobanteAyuda">
                     Formatos: JPG, PNG o PDF. Tamaño máximo: 2 MB.
+                  </div>
+                  <div class="invalid-feedback" id="comprobanteError">
+                    Adjunta un comprobante de domicilio en formato JPG, PNG o PDF.
                   </div>
                 </div>
 
@@ -352,19 +418,151 @@ require_once __DIR__ . '/../Config/config.php';
               <div class="row g-3 mb-4">
                 <div class="col-md-6">
                   <label for="rEmail" class="form-label">Correo electrónico</label>
-                  <input type="email" class="form-control" id="rEmail" name="rEmail" required>
+                  <input
+                    type="email"
+                    class="form-control"
+                    id="rEmail"
+                    name="rEmail"
+                    inputmode="email"
+                    maxlength="254"
+                    autocomplete="email"
+                    placeholder="nombre@correo.com"
+                    aria-describedby="emailError"
+                    required>
+                  <div class="invalid-feedback" id="emailError">
+                    Ingresa un correo electrónico válido.
+                  </div>
                 </div>
 
                 <div class="col-md-6">
                   <label for="rClave" class="form-label">Contraseña</label>
-                  <input type="password" class="form-control" id="rClave" name="rClave" required>
-                  <div class="form-text">Mínimo 8 caracteres, con mayúscula, número y símbolo.</div>
+                  <input
+                    type="password"
+                    class="form-control"
+                    id="rClave"
+                    name="rClave"
+                    minlength="8"
+                    maxlength="72"
+                    autocomplete="new-password"
+                    aria-describedby="claveAyuda claveError"
+                    required>
+                  <div class="form-text" id="claveAyuda">
+                    Mínimo 8 caracteres, con mayúscula, número y símbolo.
+                  </div>
+                  <div class="invalid-feedback" id="claveError">
+                    La contraseña debe tener mínimo 8 caracteres, una mayúscula, un número y un símbolo.
+                  </div>
                 </div>
 
                 <div class="col-md-6">
                   <label for="confirmar_clave" class="form-label">Confirmar contraseña</label>
-                  <input type="password" class="form-control" id="confirmar_clave" name="confirmar_clave" required>
+                  <input
+                    type="password"
+                    class="form-control"
+                    id="confirmar_clave"
+                    name="confirmar_clave"
+                    minlength="8"
+                    maxlength="72"
+                    autocomplete="new-password"
+                    aria-describedby="confirmarClaveError"
+                    required>
+                  <div class="invalid-feedback" id="confirmarClaveError">
+                    Las contraseñas no coinciden. Verifica ambos campos.
+                  </div>
                 </div>
+              </div>
+            </div>
+
+            <!-- Paso 4 -->
+            <div class="step d-none" id="formStep4">
+              <div class="ev-register-legal">
+                <div class="ev-register-legal__heading">
+                  <div class="ev-register-legal__icon">
+                    <i class="bi bi-shield-check" aria-hidden="true"></i>
+                  </div>
+                  <div>
+                    <span class="ev-register-legal__eyebrow">Último paso</span>
+                    <h6 class="fw-bold text-success mb-1">Revisa y acepta</h6>
+                    <p class="mb-0">Lee los documentos vigentes y confirma las dos aceptaciones para enviar tu solicitud.</p>
+                  </div>
+                </div>
+
+                <section class="ev-register-legal__review" aria-labelledby="evLegalReviewTitle">
+                  <div class="ev-register-legal__section-title">
+                    <div>
+                      <span class="ev-register-legal__section-kicker">Documentos</span>
+                      <h6 id="evLegalReviewTitle">Información que debes revisar</h6>
+                    </div>
+                    <span class="ev-register-legal__section-badge">Versión vigente</span>
+                  </div>
+
+                  <div class="ev-register-legal__docs">
+                    <a class="ev-register-legal__doc" href="<?= BASE_URL ?>legal/terminos-y-condiciones" target="_blank" rel="noopener">
+                      <span class="ev-register-legal__doc-icon"><i class="bi bi-file-text"></i></span>
+                      <span>
+                        <strong>Términos y Condiciones de Uso</strong>
+                        <small>Versión <?= htmlspecialchars((string)($evTerminosConfig['version'] ?? '1.0'), ENT_QUOTES, 'UTF-8') ?></small>
+                      </span>
+                      <span class="ev-register-legal__doc-action">Revisar <i class="bi bi-arrow-up-right" aria-hidden="true"></i></span>
+                    </a>
+
+                    <a class="ev-register-legal__doc" href="<?= BASE_URL ?>legal/politica-de-privacidad" target="_blank" rel="noopener">
+                      <span class="ev-register-legal__doc-icon"><i class="bi bi-shield-lock"></i></span>
+                      <span>
+                        <strong>Política de Privacidad y Tratamiento de Datos Personales</strong>
+                        <small>Versión <?= htmlspecialchars((string)($evPrivacidadConfig['version'] ?? '1.0'), ENT_QUOTES, 'UTF-8') ?></small>
+                      </span>
+                      <span class="ev-register-legal__doc-action">Revisar <i class="bi bi-arrow-up-right" aria-hidden="true"></i></span>
+                    </a>
+                  </div>
+
+                  <details class="ev-register-legal__privacy-summary">
+                    <summary>
+                      <span><i class="bi bi-info-circle" aria-hidden="true"></i> Ver aviso breve de privacidad</span>
+                      <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                    </summary>
+                    <div>
+                      <p><strong>Responsable:</strong> <?= htmlspecialchars((string)($evResponsableLegal['nombre_legal'] ?? ''), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars((string)($evResponsableLegal['documento_tributario'] ?? ''), ENT_QUOTES, 'UTF-8') ?>.</p>
+                      <p><strong>Finalidades principales:</strong> crear y proteger tu cuenta, validar que perteneces a la comunidad, permitir compras, ventas y servicios, enviar avisos operativos, brindar soporte y mantener la seguridad y trazabilidad de EV.</p>
+                      <p><strong>Alojamiento:</strong> la infraestructura principal se encuentra en <?= htmlspecialchars((string)($evOperacionLegal['ubicacion_alojamiento'] ?? 'São Paulo, Brasil'), ENT_QUOTES, 'UTF-8') ?>, por lo que existe un flujo internacional de datos.</p>
+                      <p><strong>Tus derechos:</strong> puedes solicitar información, acceso, rectificación, actualización, cancelación u oposición escribiendo a <a href="mailto:<?= htmlspecialchars((string)($evResponsableLegal['correo_privacidad'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($evResponsableLegal['correo_privacidad'] ?? ''), ENT_QUOTES, 'UTF-8') ?></a>.</p>
+                      <p class="mb-0">La Política completa detalla los datos obligatorios y opcionales, destinatarios, conservación, seguridad y forma de ejercer tus derechos.</p>
+                    </div>
+                  </details>
+                </section>
+
+                <section class="ev-register-legal__consent-panel" aria-labelledby="evConsentTitle">
+                  <div class="ev-register-legal__consent-heading">
+                    <span class="ev-register-legal__consent-icon"><i class="bi bi-check2-square" aria-hidden="true"></i></span>
+                    <div>
+                      <h6 id="evConsentTitle">Tus aceptaciones</h6>
+                      <p>Marca ambas casillas. Son independientes y obligatorias.</p>
+                    </div>
+                  </div>
+
+                  <div class="ev-register-legal__consents">
+                    <div class="ev-register-legal__check" id="wrapAceptaTerminosRegistro">
+                      <input class="form-check-input" type="checkbox" id="acepta_terminos" name="acepta_terminos" value="1" required>
+                      <label for="acepta_terminos">
+                        <?= htmlspecialchars((string)($evTerminosConfig['texto_consentimiento'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                        <a href="<?= BASE_URL ?>legal/terminos-y-condiciones" target="_blank" rel="noopener">Leer Términos</a>.
+                      </label>
+                    </div>
+
+                    <div class="ev-register-legal__check" id="wrapAceptaPrivacidadRegistro">
+                      <input class="form-check-input" type="checkbox" id="acepta_privacidad" name="acepta_privacidad" value="1" required>
+                      <label for="acepta_privacidad">
+                        <?= htmlspecialchars((string)($evPrivacidadConfig['texto_consentimiento'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                        <a href="<?= BASE_URL ?>legal/politica-de-privacidad" target="_blank" rel="noopener">Leer Política</a>.
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="ev-register-legal__note" role="note">
+                    <i class="bi bi-lock" aria-hidden="true"></i>
+                    <span>El botón <strong>Registrar</strong> se habilitará cuando aceptes ambos documentos.</span>
+                  </div>
+                </section>
               </div>
             </div>
 
@@ -381,7 +579,7 @@ require_once __DIR__ . '/../Config/config.php';
               <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i>
             </button>
 
-            <button type="submit" class="btn btn-success d-none" id="btnRegistrar">
+            <button type="submit" class="btn btn-success d-none" id="btnRegistrar" disabled>
               <i class="bi bi-check-circle me-1" aria-hidden="true"></i>
               Registrar
             </button>

@@ -8,8 +8,7 @@
 (function () {
   'use strict';
 
-  const BASE = (window.BASE_URL || window.EV_BASE_URL || '').toString().replace(/\/+$/, '');
-  if (!BASE) return;
+  const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? window.EV_BASE_URL ?? '').toString().replace(/\/+$/, '');
 
   const FETCH_TIMEOUT_MS = 6500;
 
@@ -280,17 +279,12 @@
       btnAyuda.addEventListener('click', async (e) => {
         e.preventDefault();
 
-        if (window.Swal?.fire) {
-          await Swal.fire({
-            icon: 'info',
-            title: 'Ayuda EV',
-            text: 'La vista de ayuda y reglas de uso se implementará en una próxima fase.',
-            confirmButtonColor: '#EA7C12'
-          });
+        if (typeof window.EVAyudaEV?.abrir === 'function') {
+          await window.EVAyudaEV.abrir();
           return;
         }
 
-        alert('La vista de ayuda y reglas de uso se implementará en una próxima fase.');
+        alert('Ayuda EV\n\nSoporte exclusivo por WhatsApp: 996 524 992');
       });
     }
   }

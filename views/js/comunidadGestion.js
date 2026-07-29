@@ -8,8 +8,7 @@
   if (!window[NS]) window[NS] = { bound: false };
   const shared = window[NS];
 
-  const BASE = String(window.BASE_URL || window.EV_BASE_URL || '').replace(/\/+$/, '');
-  if (!BASE) return;
+  const BASE = String(window.EV?.baseUrl ?? window.BASE_URL ?? window.EV_BASE_URL ?? '').replace(/\/+$/, '');
 
   const $ = (selector, root = document) => root.querySelector(selector);
 
@@ -243,7 +242,8 @@
       dirty: false,
       suspendDirty: false,
       previewObjectUrl: null,
-      scrollDestacadoAntes: null
+      scrollDestacadoAntes: null,
+      notificacionEnviada: false
     };
 
     const form = $('#formComunidadPublicacion', root);
@@ -268,6 +268,8 @@
     const contenidoInput = $('#contenidoCom', root);
     const destacadoInput = $('#destacadoCom', root);
     const destacadoSwitch = destacadoInput?.closest('.ev-com-highlight-switch') || null;
+    const notificarInput = $('#notificarVecinosCom', root);
+    const notificarSwitch = $('#notificarVecinosSwitchCom', root);
     const editorScroll = $('.ev-com-editor-scroll', root);
     const zonaPortada = $('#zonaPortadaCom', root);
     const pasoPortada = zonaPortada?.closest('.ev-com-step-card') || null;
@@ -421,6 +423,22 @@
       actualizarVistaPrevia();
     }
 
+    function sincronizarNotificacionUrgente() {
+      if (!notificarInput) return;
+
+      const urgente = String(prioridadInput?.value || 'normal') === 'urgente';
+      if (urgente) {
+        notificarInput.checked = true;
+        notificarInput.disabled = true;
+        notificarSwitch?.classList.add('is-required');
+      } else {
+        notificarInput.disabled = state.notificacionEnviada;
+        notificarSwitch?.classList.remove('is-required');
+      }
+
+      notificarSwitch?.classList.toggle('is-sent', state.notificacionEnviada);
+    }
+
     function actualizarContadores() {
       tituloChars.textContent = String(tituloInput.value.length);
       resumenChars.textContent = String(resumenInput.value.length);
@@ -458,6 +476,12 @@
       mostrarImagenEnVistas('', '');
       imagenInput.value = '';
       state.scrollDestacadoAntes = null;
+      state.notificacionEnviada = false;
+      if (notificarInput) {
+        notificarInput.checked = false;
+        notificarInput.disabled = false;
+      }
+      sincronizarNotificacionUrgente();
       state.dirty = false;
       state.suspendDirty = false;
     }
@@ -647,6 +671,11 @@
         $('#fechaEventoFinCom', root).value = aDatetimeLocal(item.fecha_evento_fin);
         $('#ubicacionEventoCom', root).value = item.ubicacion_evento || '';
         $('#destacadoCom', root).checked = Number(item.destacado_dashboard || 0) === 1;
+        state.notificacionEnviada = Boolean(item.fecha_notificacion);
+        if (notificarInput) {
+          notificarInput.checked = Number(item.notificar_vecinos || 0) === 1 || state.notificacionEnviada;
+        }
+        sincronizarNotificacionUrgente();
 
         if (esAdminSistema && destinoSelect) {
           const codigo = item.tipo_conjunto === 'urbanizacion' ? item.codigo_urbanizacion : item.codigo_condominio;
@@ -680,8 +709,12 @@
       }
 
       if (accion === 'publicar') {
+        const enviaraNotificacion = Boolean(notificarInput?.checked) || String(prioridadInput?.value || '') === 'urgente';
+        const detallePublicacion = enviaraNotificacion
+          ? `El contenido será visible para los vecinos de ${comunidadDestinoActual()} y se enviará una notificación interna.`
+          : `El contenido será visible para los vecinos de ${comunidadDestinoActual()}.`;
         const confirmado = await confirmar(
-          `El contenido será visible para los vecinos de ${comunidadDestinoActual()}.`,
+          detallePublicacion,
           'Sí, publicar',
           'Publicar contenido'
         );
@@ -690,6 +723,7 @@
 
       const fd = new FormData(form);
       fd.set('destacado_dashboard', $('#destacadoCom', root).checked ? '1' : '0');
+      fd.set('notificar_vecinos', notificarInput?.checked ? '1' : '0');
       fd.set('accion', accion);
       fd.set('tipo_conjunto', tipoConjuntoInput.value);
       fd.set('codigo_comunidad', codigoComunidadInput.value);
@@ -825,7 +859,10 @@
     tituloInput.addEventListener('input', actualizarContadores);
     resumenInput.addEventListener('input', actualizarContadores);
     contenidoInput.addEventListener('input', actualizarVistaPrevia);
-    prioridadInput.addEventListener('change', actualizarVistaPrevia);
+    prioridadInput.addEventListener('change', () => {
+      sincronizarNotificacionUrgente();
+      actualizarVistaPrevia();
+    });
 
     /*
        El switch conserva su posición visual dentro del panel izquierdo.

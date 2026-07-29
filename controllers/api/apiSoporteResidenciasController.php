@@ -90,35 +90,44 @@ class apiSoporteResidenciasController
 
         $ok = $model->actualizarEstadoSoporte($id, $estado, $comentario);
 
-        if ($ok && in_array($estado, ['observada','rechazada'], true)) {
+        if ($ok && in_array($estado, ['observada', 'aprobada', 'rechazada'], true)) {
             $codigoUsuario = (int)($sol['codigo_usuario'] ?? 0);
 
             if ($codigoUsuario > 0) {
-                $titulo = $estado === 'observada'
-                    ? 'Tu solicitud de residencia fue observada'
-                    : 'Tu solicitud de residencia fue rechazada';
+                $titulos = [
+                    'observada' => 'Tu solicitud de residencia fue observada',
+                    'aprobada' => 'Tu nueva residencia fue aprobada',
+                    'rechazada' => 'Tu solicitud de residencia fue rechazada',
+                ];
+                $mensajes = [
+                    'observada' => $comentario !== ''
+                        ? $comentario
+                        : 'Revisa el detalle y reenvía el comprobante con la corrección solicitada.',
+                    'aprobada' => 'Tu cambio de residencia fue validado correctamente en Entre Vecinos.',
+                    'rechazada' => $comentario !== ''
+                        ? $comentario
+                        : 'Revisa el detalle de la solicitud y, si corresponde, registra una nueva solicitud.',
+                ];
 
-                $msg = $comentario !== ''
-                    ? $comentario
-                    : 'Revisa el detalle para reenviar tu solicitud con la corrección solicitada.';
-
-                $payload = json_encode([
-                    'codigo_solicitud' => $id,
-                    'estado' => $estado,
-                    'comentario_admin' => $comentario,
-                ], JSON_UNESCAPED_UNICODE);
-
-                $notif = new Notificacion();
-                $notif->crear([
-                    'codigo_usuario' => $codigoUsuario,
-                    'canal' => 'app',
-                    'categoria' => 'residencia',
-                    'subcategoria' => 'residencia_cambio',
-                    'referencia_id' => $id,
-                    'titulo' => $titulo,
-                    'mensaje' => $msg,
-                    'payload_json' => $payload,
-                ]);
+                try {
+                    $notif = new Notificacion($model->getDblink());
+                    $notif->crearOActualizarNoLeida([
+                        'codigo_usuario' => $codigoUsuario,
+                        'categoria' => Notificacion::CAT_RESIDENCIA,
+                        'subcategoria' => 'residencia_' . $estado,
+                        'referencia_id' => $id,
+                        'titulo' => $titulos[$estado],
+                        'mensaje' => $mensajes[$estado],
+                        'payload' => [
+                            'codigo_solicitud' => $id,
+                            'estado' => $estado,
+                            'comentario_admin' => $comentario,
+                            'ruta' => '/notificaciones-residencia',
+                        ],
+                    ]);
+                } catch (Throwable $eNotif) {
+                    error_log('[EV][apiSoporteResidenciasController::actualizarEstado][notificacion] ' . $eNotif->getMessage());
+                }
             }
         }
 

@@ -340,7 +340,7 @@ class SesionJWT extends Conexion
             return ['ok' => false, 'error' => 'TOKEN_AUSENTE', 'data' => null];
         }
 
-        $claveSecreta = $_ENV['JWT_SECRET_KEY'] ?? '';
+        $claveSecreta = (string)ev_env('JWT_SECRET_KEY', '');
 
         if ($claveSecreta === '') {
             return ['ok' => false, 'error' => 'JWT_SECRET_NO_CONFIGURADO', 'data' => null];
@@ -402,7 +402,7 @@ class SesionJWT extends Conexion
             'path'     => self::cookiePath(),
             'secure'   => self::cookieSecure(),
             'httponly' => true,
-            'samesite' => self::cookieSecure() ? 'None' : 'Lax',
+            'samesite' => 'Lax',
         ];
 
         setcookie('auth_token', '', $params);

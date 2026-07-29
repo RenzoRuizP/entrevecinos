@@ -3,6 +3,8 @@
 
 require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/Billetera.php';
+require_once __DIR__ . '/../../models/ConfiguracionPlataforma.php';
+require_once __DIR__ . '/../../middleware/FuncionalidadGuard.php';
 
 class apiBilleteraController
 {
@@ -47,6 +49,8 @@ class apiBilleteraController
      */
     public function obtenerSaldo()
     {
+        FuncionalidadGuard::exigirJson(ConfiguracionPlataforma::FUNC_BILLETERA);
+        FuncionalidadGuard::exigirMonetizacionBooleanaJson(ConfiguracionPlataforma::MON_BILLETERA_VISIBLE);
         if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
             return $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
         }
@@ -84,6 +88,8 @@ class apiBilleteraController
      */
     public function obtenerMovimientos()
     {
+        FuncionalidadGuard::exigirJson(ConfiguracionPlataforma::FUNC_BILLETERA);
+        FuncionalidadGuard::exigirMonetizacionBooleanaJson(ConfiguracionPlataforma::MON_BILLETERA_VISIBLE);
         if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
             return $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
         }
@@ -123,6 +129,8 @@ class apiBilleteraController
      */
     public function debitarPublicacion()
     {
+        FuncionalidadGuard::exigirJson(ConfiguracionPlataforma::FUNC_BILLETERA);
+        FuncionalidadGuard::exigirMonetizacionBooleanaJson(ConfiguracionPlataforma::MON_DESTACADAS);
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             return $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
         }
@@ -171,6 +179,8 @@ class apiBilleteraController
      */
     public function debitarProducto()
     {
+        FuncionalidadGuard::exigirJson(ConfiguracionPlataforma::FUNC_BILLETERA);
+        FuncionalidadGuard::exigirMonetizacionBooleanaJson(ConfiguracionPlataforma::MON_DESTACADAS);
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             return $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
         }

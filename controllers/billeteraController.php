@@ -5,11 +5,18 @@ require_once __DIR__ . '/../Config/config.php';
 require_once __DIR__ . '/../models/SesionJWT.php';
 require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../models/Producto.php';
+require_once __DIR__ . '/../middleware/FuncionalidadGuard.php';
+require_once __DIR__ . '/../models/ConfiguracionPlataforma.php';
 
 class billeteraController
 {
     public function index()
     {
+        if (!FuncionalidadGuard::exigirHtml(ConfiguracionPlataforma::FUNC_BILLETERA)
+            || !FuncionalidadGuard::exigirMonetizacionBooleanaHtml(ConfiguracionPlataforma::MON_BILLETERA_VISIBLE)) {
+            return;
+        }
+
         try {
             // 1) Validación de token (refuerzo, además del router)
             $token = $_COOKIE['auth_token'] ?? null;

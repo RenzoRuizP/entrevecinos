@@ -9,7 +9,7 @@
   }
   window[MODULE_KEY] = true;
 
-  const BASE = (window.BASE_URL || '').toString().replace(/\/+$/, '');
+  const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').toString().replace(/\/+$/, '');
   const POLLING_MS = 10000;
   const PLACEHOLDER = `${BASE}/public/img/placeholder-ev.png`;
 

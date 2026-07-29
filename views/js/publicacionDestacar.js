@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const BASE = (window.BASE_URL || '').replace(/\/+$/, '');
+  const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/+$/, '');
   const LOG_PREFIX = '[PRODUCTO_DESTACAR]';
 
   function warn() { if (console?.warn) console.warn(LOG_PREFIX, ...arguments); }

@@ -2,8 +2,7 @@
 (function () {
   "use strict";
 
-  const baseUrl = (window.BASE_URL || "").replace(/\/+$/, "");
-  if (!baseUrl) return;
+  const baseUrl = (window.EV?.baseUrl ?? window.BASE_URL ?? "").replace(/\/+$/, "");
 
   let observer = null;
   let modalInstance = null;

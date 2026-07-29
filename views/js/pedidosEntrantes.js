@@ -1,7 +1,7 @@
 // views/js/pedidosEntrantes.js
 
 document.addEventListener('DOMContentLoaded', () => {
-  const BASE_URL = window.BASE_URL || '';
+  const BASE_URL = window.EV?.baseUrl ?? window.BASE_URL ?? '';
 
   const toggle = document.getElementById('toggleRecibirPedidos');
   const listaPedidos = document.getElementById('evPedidosLista');

@@ -10,11 +10,8 @@
 (function () {
   'use strict';
 
-  const BASE = String(window.BASE_URL || window.EV_BASE_URL || '').replace(/\/+$/, '');
+  const BASE = String(window.EV?.baseUrl ?? window.BASE_URL ?? window.EV_BASE_URL ?? '').replace(/\/+$/, '');
 
-  if (!BASE) {
-    return;
-  }
 
   const STORAGE_ID = 'ev_comunidad_publicacion_seleccionada';
   const STORAGE_AT = 'ev_comunidad_publicacion_seleccionada_at';

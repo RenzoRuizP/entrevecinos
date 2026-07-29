@@ -277,6 +277,10 @@ final class apiComunidadController
         $prioridad = strtolower(trim((string)($_POST['prioridad'] ?? 'normal')));
         $accion = strtolower(trim((string)($_POST['accion'] ?? 'guardar_borrador')));
         $destacado = ((string)($_POST['destacado_dashboard'] ?? '0') === '1') ? 1 : 0;
+        $notificarVecinos = ((string)($_POST['notificar_vecinos'] ?? '0') === '1') ? 1 : 0;
+        if ($prioridad === 'urgente') {
+            $notificarVecinos = 1;
+        }
 
         if (!in_array($tipo, ['comunicado', 'noticia', 'evento'], true)) {
             throw new InvalidArgumentException('Selecciona un tipo de publicación válido.');
@@ -332,6 +336,7 @@ final class apiComunidadController
             'contenido' => $contenido,
             'prioridad' => $prioridad,
             'destacado_dashboard' => $destacado,
+            'notificar_vecinos' => $notificarVecinos,
             'accion' => $accion,
             'tipo_conjunto' => strtolower(trim((string)($_POST['tipo_conjunto'] ?? ''))),
             'codigo_comunidad' => (int)($_POST['codigo_comunidad'] ?? 0),

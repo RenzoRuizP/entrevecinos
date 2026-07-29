@@ -8,6 +8,8 @@ require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/Producto.php';
 require_once __DIR__ . '/../../models/ProductoSoporte.php';
+require_once __DIR__ . '/../../models/ConfiguracionPlataforma.php';
+require_once __DIR__ . '/../../middleware/FuncionalidadGuard.php';
 
 class apiProductoController
 {
@@ -60,6 +62,15 @@ class apiProductoController
     {
         $v = strtolower(trim((string)$valor));
         return in_array($v, ['producto', 'servicio'], true) ? $v : 'producto';
+    }
+
+    private function exigirPublicacionHabilitada(string $tipoPublicacion): void
+    {
+        $clave = $tipoPublicacion === 'servicio'
+            ? ConfiguracionPlataforma::FUNC_PUBLICAR_SERVICIOS
+            : ConfiguracionPlataforma::FUNC_PUBLICAR_PRODUCTOS;
+
+        FuncionalidadGuard::exigirJson($clave);
     }
 
     private function etiquetaPublicacion(string $tipoPublicacion): string
@@ -354,6 +365,7 @@ class apiProductoController
             $codigoUsuario = $this->obtenerUsuarioAuth();
 
             $tipoPublicacion = $this->normalizarTipoPublicacion($_POST['tipo_publicacion'] ?? 'producto');
+            $this->exigirPublicacionHabilitada($tipoPublicacion);
             $label = $this->etiquetaPublicacion($tipoPublicacion);
 
             $titulo      = trim((string)($_POST['titulo'] ?? ''));
@@ -497,6 +509,7 @@ class apiProductoController
 
             $visibleActual = (int)($detalle['visible'] ?? -1);
             $tipoPublicacion = $this->normalizarTipoPublicacion($detalle['tipo_publicacion'] ?? 'producto');
+            $this->exigirPublicacionHabilitada($tipoPublicacion);
             $label = $this->etiquetaPublicacion($tipoPublicacion);
 
             if ($visibleActual !== 0) {
@@ -688,6 +701,7 @@ class apiProductoController
             $tipoPublicacion = $this->normalizarTipoPublicacion(
                 $_POST['tipo_publicacion'] ?? ($detalle['tipo_publicacion'] ?? 'producto')
             );
+            $this->exigirPublicacionHabilitada($tipoPublicacion);
 
             $titulo      = trim((string)($_POST['titulo'] ?? ''));
             $descripcion = trim((string)($_POST['descripcion'] ?? ''));
@@ -883,6 +897,8 @@ class apiProductoController
     ====================================================================================== */
     public function listarMarketplace(): void
     {
+        FuncionalidadGuard::exigirJson(ConfiguracionPlataforma::FUNC_MARKETPLACE);
+
         if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
             $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
             return;
@@ -965,6 +981,8 @@ class apiProductoController
 
     public function obtenerDetalleMarketplace($id): void
     {
+        FuncionalidadGuard::exigirJson(ConfiguracionPlataforma::FUNC_MARKETPLACE);
+
         try {
             if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
                 $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);

@@ -120,13 +120,14 @@ $homeUrl = $baseUrl . '/MenuPrincipal';
           </div>
 
           <div class="ev-notification-foot">
-            <span>Las novedades revisadas se marcan automáticamente como leídas.</span>
-            <a href="<?= htmlspecialchars($baseUrl . '/notificaciones', ENT_QUOTES, 'UTF-8') ?>"
-               data-ev-notification-all="1"
-               class="ev-notification-view-all">
-              Ver todas
+            <a
+              href="<?= htmlspecialchars($baseUrl . '/notificaciones', ENT_QUOTES, 'UTF-8') ?>"
+              class="ev-notification-view-all"
+              id="evNotificationViewAll">
+              <span>Ver todas las notificaciones</span>
               <i class="bi bi-arrow-right"></i>
             </a>
+            <small>Las novedades revisadas se marcan automáticamente como leídas.</small>
           </div>
         </div>
       </li>
@@ -185,6 +186,29 @@ $homeUrl = $baseUrl . '/MenuPrincipal';
               <i class="bi bi-camera"></i>
               <span>Haz clic en tu foto para actualizarla.</span>
             </div>
+          </li>
+
+          <li class="ev-user-dropdown-legal">
+            <span class="ev-user-dropdown-legal-title">
+              <i class="bi bi-shield-check" aria-hidden="true"></i>
+              Documentos legales
+            </span>
+
+            <a href="<?= htmlspecialchars($baseUrl . '/legal/terminos-y-condiciones', ENT_QUOTES, 'UTF-8') ?>"
+               target="_blank"
+               rel="noopener"
+               class="ev-user-dropdown-legal-link">
+              <span>Términos y Condiciones</span>
+              <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+            </a>
+
+            <a href="<?= htmlspecialchars($baseUrl . '/legal/politica-de-privacidad', ENT_QUOTES, 'UTF-8') ?>"
+               target="_blank"
+               rel="noopener"
+               class="ev-user-dropdown-legal-link">
+              <span>Política de Privacidad</span>
+              <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+            </a>
           </li>
         </ul>
       </li>

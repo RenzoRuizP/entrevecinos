@@ -77,7 +77,7 @@ function evLogoutEliminarCookies(): void
             'path'     => evLogoutCookiePath(),
             'secure'   => evLogoutCookieSecure(),
             'httponly' => true,
-            'samesite' => evLogoutCookieSecure() ? 'None' : 'Lax',
+            'samesite' => 'Lax',
         ]);
         unset($_COOKIE['jwt_token']);
     }

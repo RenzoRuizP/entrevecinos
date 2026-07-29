@@ -5,6 +5,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../database/Conexion.php';
+require_once __DIR__ . '/Notificacion.php';
 
 final class ServicioSoporte extends Conexion
 {
@@ -40,25 +41,26 @@ final class ServicioSoporte extends Conexion
 
     private function notificar(int $usuario, int $solicitud, string $subcategoria, string $titulo, string $mensaje, string $ruta, string $rol): void
     {
-        $payload = json_encode([
-            'codigo_solicitud_servicio' => $solicitud,
-            'ruta' => $ruta,
-            'rol_destino' => $rol,
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($usuario <= 0 || $solicitud <= 0) return;
 
-        $st = $this->dblink->prepare("
-            INSERT INTO notificacion
-            (codigo_usuario, canal, categoria, subcategoria, referencia_id, titulo, mensaje, payload_json, estado)
-            VALUES (:usuario, 'app', 'servicio', :subcategoria, :referencia, :titulo, :mensaje, :payload, 'no_leida')
-        ");
-        $st->execute([
-            ':usuario' => $usuario,
-            ':subcategoria' => $subcategoria,
-            ':referencia' => $solicitud,
-            ':titulo' => mb_substr($titulo, 0, 160, 'UTF-8'),
-            ':mensaje' => mb_substr($mensaje, 0, 1000, 'UTF-8'),
-            ':payload' => $payload,
-        ]);
+        try {
+            $notif = new Notificacion($this->dblink);
+            $notif->crear([
+                'codigo_usuario' => $usuario,
+                'categoria' => Notificacion::CAT_SERVICIO,
+                'subcategoria' => $subcategoria,
+                'referencia_id' => $solicitud,
+                'titulo' => $titulo,
+                'mensaje' => $mensaje,
+                'payload' => [
+                    'codigo_solicitud_servicio' => $solicitud,
+                    'ruta' => $ruta,
+                    'rol_destino' => $rol,
+                ],
+            ]);
+        } catch (Throwable $e) {
+            error_log('[EV][ServicioSoporte::notificar] ' . $e->getMessage());
+        }
     }
 
     private function crearCalificaciones(array $row): void

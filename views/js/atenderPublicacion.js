@@ -2,8 +2,7 @@
 (function () {
   "use strict";
 
-  const baseUrl = (window.BASE_URL || "").replace(/\/+$/, "");
-  if (!baseUrl) return;
+  const baseUrl = (window.EV?.baseUrl ?? window.BASE_URL ?? "").replace(/\/+$/, "");
 
   const BOOT_KEY = "EV_BOOT_ATENDER_PUBLICACION";
   if (window[BOOT_KEY]) return;
@@ -276,6 +275,72 @@
 
     let modalInstance = null;
     let currentId = null;
+    let lightboxUrls = [];
+    let lightboxIndex = 0;
+    let lightboxTrigger = null;
+    let lightboxTouchStartX = null;
+
+    function getLightboxEls() {
+      return {
+        shell: document.getElementById('evApLightbox'),
+        image: document.getElementById('evApLightboxImage'),
+        counter: document.getElementById('evApLightboxCounter'),
+        prev: document.getElementById('evApLightboxPrev'),
+        next: document.getElementById('evApLightboxNext'),
+        close: document.getElementById('evApLightboxClose')
+      };
+    }
+
+    function renderLightbox() {
+      const { shell, image, counter, prev, next } = getLightboxEls();
+      if (!shell || !image || lightboxUrls.length === 0) return;
+
+      lightboxIndex = Math.max(0, Math.min(lightboxUrls.length - 1, lightboxIndex));
+      image.src = lightboxUrls[lightboxIndex];
+      image.alt = `Imagen ${lightboxIndex + 1} de ${lightboxUrls.length} de la publicación`;
+      if (counter) counter.textContent = `${lightboxIndex + 1} de ${lightboxUrls.length}`;
+
+      const multiple = lightboxUrls.length > 1;
+      if (prev) prev.hidden = !multiple;
+      if (next) next.hidden = !multiple;
+    }
+
+    function abrirLightbox(index, trigger = null) {
+      const { shell, close } = getLightboxEls();
+      if (!shell || lightboxUrls.length === 0) return;
+
+      lightboxIndex = Math.max(0, Math.min(lightboxUrls.length - 1, Number(index) || 0));
+      lightboxTrigger = trigger instanceof HTMLElement ? trigger : null;
+      renderLightbox();
+
+      shell.hidden = false;
+      shell.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('ev-ap-lightbox-open');
+      window.requestAnimationFrame(() => shell.classList.add('is-open'));
+      window.setTimeout(() => close?.focus(), 30);
+    }
+
+    function cerrarLightbox() {
+      const { shell, image } = getLightboxEls();
+      if (!shell || shell.hidden) return;
+
+      shell.classList.remove('is-open');
+      shell.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('ev-ap-lightbox-open');
+
+      window.setTimeout(() => {
+        shell.hidden = true;
+        if (image) image.removeAttribute('src');
+        lightboxTrigger?.focus?.();
+        lightboxTrigger = null;
+      }, 170);
+    }
+
+    function moverLightbox(delta) {
+      if (lightboxUrls.length <= 1) return;
+      lightboxIndex = (lightboxIndex + delta + lightboxUrls.length) % lightboxUrls.length;
+      renderLightbox();
+    }
 
     if (!elBody) return;
     if (elEstado && elEstado.value) estado = String(elEstado.value).toLowerCase();
@@ -341,13 +406,13 @@
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${escapeHtml(fecha)}</td>
-          <td><span class="${tipoPublicacionBadgeClass(it)}">${escapeHtml(tipoPub)}</span></td>
-          <td>${escapeHtml(titulo)}</td>
-          <td class="text-end">${escapeHtml(precio)}</td>
-          <td>${escapeHtml(usuario)}</td>
-          <td><span class="${badgeClass(it)}">${escapeHtml(estTxt)}</span></td>
-          <td class="text-end">
+          <td class="ev-cell-fecha">${escapeHtml(fecha)}</td>
+          <td class="ev-cell-publicacion"><span class="${tipoPublicacionBadgeClass(it)}">${escapeHtml(tipoPub)}</span></td>
+          <td class="ev-cell-titulo" title="${escapeHtml(titulo)}"><span class="ev-table-title">${escapeHtml(titulo)}</span></td>
+          <td class="text-end ev-cell-precio">${escapeHtml(precio)}</td>
+          <td class="ev-cell-usuario" title="${escapeHtml(usuario)}">${escapeHtml(usuario)}</td>
+          <td class="ev-cell-estado"><span class="${badgeClass(it)}">${escapeHtml(estTxt)}</span></td>
+          <td class="text-end ev-cell-acciones">
             <button type="button" class="btn btn-sm btn-outline-success js-revisar" data-id="${String(id)}">
               Revisar
             </button>
@@ -471,6 +536,10 @@
       if (mDescripcion) mDescripcion.textContent = "—";
       if (mComentario) mComentario.value = "";
       if (mUltimoComentario) mUltimoComentario.textContent = "Sin mensaje registrado.";
+      lightboxUrls = [];
+      lightboxIndex = 0;
+      cerrarLightbox();
+
       if (mGaleria) {
         mGaleria.innerHTML = "";
         mGaleria.dataset.count = "0";
@@ -573,10 +642,20 @@
       if (urls.length > 0) {
         if (mNoImgs) mNoImgs.style.display = "none";
 
-        urls.forEach((u, index) => {
-          const src = u.startsWith("http") ? u : (u.startsWith("/") ? (baseUrl + u) : (baseUrl + "/" + u));
+        lightboxUrls = urls.map((u) => (
+          u.startsWith("http") ? u : (u.startsWith("/") ? (baseUrl + u) : (baseUrl + "/" + u))
+        ));
+
+        lightboxUrls.forEach((src, index) => {
           const figure = document.createElement("figure");
-          figure.className = "ev-galeria-item";
+          figure.className = "ev-galeria-item ev-ap-galeria-item";
+
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "ev-ap-image-button";
+          button.dataset.evApImageIndex = String(index);
+          button.setAttribute("aria-label", `Ampliar imagen ${index + 1} de ${lightboxUrls.length}`);
+          button.title = "Ver imagen ampliada";
 
           const img = document.createElement("img");
           img.src = src;
@@ -584,7 +663,13 @@
           img.loading = "lazy";
           img.decoding = "async";
 
-          figure.appendChild(img);
+          const zoom = document.createElement("span");
+          zoom.className = "ev-ap-image-zoom";
+          zoom.setAttribute("aria-hidden", "true");
+          zoom.innerHTML = '<i class="bi bi-arrows-fullscreen"></i><small>Ampliar</small>';
+
+          button.append(img, zoom);
+          figure.appendChild(button);
           if (mGaleria) mGaleria.appendChild(figure);
         });
       } else {
@@ -775,6 +860,31 @@
       const t = ev.target;
       if (!t || !t.closest) return;
 
+      const imageButton = t.closest('[data-ev-ap-image-index]');
+      if (imageButton) {
+        ev.preventDefault();
+        abrirLightbox(Number(imageButton.dataset.evApImageIndex || 0), imageButton);
+        return;
+      }
+
+      if (t.closest('#evApLightboxClose') || t.closest('[data-ev-ap-lightbox-close="1"]')) {
+        ev.preventDefault();
+        cerrarLightbox();
+        return;
+      }
+
+      if (t.closest('#evApLightboxPrev')) {
+        ev.preventDefault();
+        moverLightbox(-1);
+        return;
+      }
+
+      if (t.closest('#evApLightboxNext')) {
+        ev.preventDefault();
+        moverLightbox(1);
+        return;
+      }
+
       if (t.closest("#btnAprobar")) {
         ev.preventDefault();
         enviarRevision("aprobar");
@@ -793,6 +903,37 @@
         return;
       }
     }, true);
+
+    document.addEventListener('keydown', function (ev) {
+      const shell = document.getElementById('evApLightbox');
+      if (!shell || shell.hidden) return;
+
+      if (ev.key === 'Escape') {
+        ev.preventDefault();
+        cerrarLightbox();
+      } else if (ev.key === 'ArrowLeft') {
+        ev.preventDefault();
+        moverLightbox(-1);
+      } else if (ev.key === 'ArrowRight') {
+        ev.preventDefault();
+        moverLightbox(1);
+      }
+    });
+
+    const lightboxStage = document.querySelector('#evApLightbox .ev-ap-lightbox-stage');
+    lightboxStage?.addEventListener('touchstart', (ev) => {
+      lightboxTouchStartX = ev.touches?.[0]?.clientX ?? null;
+    }, { passive: true });
+    lightboxStage?.addEventListener('touchend', (ev) => {
+      if (lightboxTouchStartX === null) return;
+      const endX = ev.changedTouches?.[0]?.clientX ?? lightboxTouchStartX;
+      const delta = endX - lightboxTouchStartX;
+      lightboxTouchStartX = null;
+      if (Math.abs(delta) < 45) return;
+      moverLightbox(delta > 0 ? -1 : 1);
+    }, { passive: true });
+
+    document.getElementById('modalPub')?.addEventListener('hidden.bs.modal', cerrarLightbox);
 
     setActiveQuickButtons();
     listar();

@@ -94,7 +94,7 @@
         }
 
         // Aquí se conectará al endpoint real cuando lo implementes:
-        // const baseURL = (window.BASE_URL || "/entrevecinos").replace(/\/$/, "");
+        // const baseURL = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/$/, "");
         // const resp = await fetch(`${baseURL}/api/usuario/cambiar-contrasena`, { ... });
 
         Swal.fire({

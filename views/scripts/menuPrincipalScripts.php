@@ -2,7 +2,7 @@
 // views/scripts/menuPrincipalScripts.php
 
 if (!defined('BASE_URL')) {
-  define('BASE_URL', '/entrevecinos/');
+  require_once __DIR__ . '/../../Config/config.php';
 }
 
 if (!isset($rolUsuario)) {
@@ -12,6 +12,7 @@ if (!isset($rolUsuario)) {
 $rolUsuario = strtolower(trim((string)$rolUsuario));
 $baseUrl = rtrim(BASE_URL, '/');
 $evAppVer = defined('EV_APP_VER') ? (string)EV_APP_VER : '1.0.0';
+$evAppEnv = defined('EV_APP_ENV') ? (string)EV_APP_ENV : (string)(function_exists('ev_env') ? ev_env('APP_ENV', 'production') : 'production');
 
 function ev_js_ver(string $relativePath): string
 {
@@ -38,10 +39,17 @@ function ev_js_src(string $file): string
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-  window.BASE_URL = <?= json_encode($baseUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
-  window.EV_BASE_URL = window.BASE_URL;
-  window.EV_APP_VER = <?= json_encode($evAppVer, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+  window.EV_CONFIG = Object.freeze({
+    environment: <?= json_encode($evAppEnv, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+    baseUrl: <?= json_encode($baseUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>,
+    appVersion: <?= json_encode($evAppVer, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
+  });
+  window.BASE_URL = window.EV_CONFIG.baseUrl;
+  window.EV_BASE_URL = window.EV_CONFIG.baseUrl;
+  window.EV_APP_VER = window.EV_CONFIG.appVersion;
 </script>
+
+<script src="<?= htmlspecialchars(ev_js_src('js/evRoutes.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 
 <!-- Scripts globales del shell: se cargan para todos los perfiles -->
 <script src="<?= htmlspecialchars(ev_js_src('js/evSweetAlert.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
@@ -54,10 +62,14 @@ function ev_js_src(string $file): string
 
   <!-- Operación y supervisión EV -->
   <script src="<?= htmlspecialchars(ev_js_src('js/soporteDashboard.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+  <?php if ($rolUsuario === 'admin'): ?>
+    <script src="<?= htmlspecialchars(ev_js_src('js/configuracionPlataforma.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+  <?php endif; ?>
   <script src="<?= htmlspecialchars(ev_js_src('js/atenderCuentasUsuario.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/atenderRecargas.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/atenderPublicacion.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/atenderServicios.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+  <script src="<?= htmlspecialchars(ev_js_src('js/atenderLibroReclamaciones.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 
 <?php elseif ($rolUsuario === 'administrador_comunidad'): ?>
 

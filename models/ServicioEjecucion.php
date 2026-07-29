@@ -5,6 +5,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../database/Conexion.php';
+require_once __DIR__ . '/Notificacion.php';
 
 final class ServicioEjecucion extends Conexion
 {
@@ -174,29 +175,25 @@ final class ServicioEjecucion extends Conexion
         string $ruta,
         array $payloadExtra = []
     ): void {
-        if ($codigoUsuario <= 0 || $codigoSolicitud <= 0) {
-            return;
+        if ($codigoUsuario <= 0 || $codigoSolicitud <= 0) return;
+
+        try {
+            $notif = new Notificacion($this->dblink);
+            $notif->crear([
+                'codigo_usuario' => $codigoUsuario,
+                'categoria' => Notificacion::CAT_SERVICIO,
+                'subcategoria' => $subcategoria,
+                'referencia_id' => $codigoSolicitud,
+                'titulo' => $titulo,
+                'mensaje' => $mensaje,
+                'payload' => array_merge([
+                    'codigo_solicitud_servicio' => $codigoSolicitud,
+                    'ruta' => $ruta,
+                ], $payloadExtra),
+            ]);
+        } catch (Throwable $e) {
+            error_log('[EV][ServicioEjecucion::notificarUsuario] ' . $e->getMessage());
         }
-
-        $payload = array_merge([
-            'codigo_solicitud_servicio' => $codigoSolicitud,
-            'ruta' => $ruta,
-        ], $payloadExtra);
-
-        $sql = "
-            INSERT INTO notificacion
-            (codigo_usuario, canal, categoria, subcategoria, referencia_id, titulo, mensaje, payload_json, estado)
-            VALUES
-            (:usuario, 'app', 'servicio', :subcategoria, :referencia, :titulo, :mensaje, :payload, 'no_leida')
-        ";
-        $st = $this->dblink->prepare($sql);
-        $st->bindValue(':usuario', $codigoUsuario, PDO::PARAM_INT);
-        $st->bindValue(':subcategoria', mb_substr($subcategoria, 0, 80, 'UTF-8'), PDO::PARAM_STR);
-        $st->bindValue(':referencia', $codigoSolicitud, PDO::PARAM_INT);
-        $st->bindValue(':titulo', mb_substr($titulo, 0, 160, 'UTF-8'), PDO::PARAM_STR);
-        $st->bindValue(':mensaje', mb_substr($mensaje, 0, 1000, 'UTF-8'), PDO::PARAM_STR);
-        $st->bindValue(':payload', $this->jsonEncode($payload), PDO::PARAM_STR);
-        $st->execute();
     }
 
     private function notificarContraparte(array $solicitud, int $codigoAutor, string $subcategoria, string $titulo, string $mensaje): void

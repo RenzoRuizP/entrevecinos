@@ -5,7 +5,7 @@
   if (window.__EV_PEDIDOS_ALERTAS_GLOBAL_INIT__ === true) return;
   window.__EV_PEDIDOS_ALERTAS_GLOBAL_INIT__ = true;
 
-  const BASE = (window.BASE_URL || '').replace(/\/+$/, '');
+  const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/+$/, '');
   const POLLING_MS = 6500;
   const SUPPRESS_KEY = 'ev_pedidos_alertas_suprimidas_v1';
   const SUPPRESS_TTL_MS = 2 * 60 * 1000;
@@ -191,7 +191,6 @@
   }
 
   function iniciar() {
-    if (!BASE) return;
     if (timer) clearInterval(timer);
     revisarAlertas();
     timer = setInterval(revisarAlertas, POLLING_MS);

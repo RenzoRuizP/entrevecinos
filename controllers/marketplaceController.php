@@ -5,11 +5,17 @@ require_once __DIR__ . '/../Config/config.php';
 require_once __DIR__ . '/../models/SesionJWT.php';
 require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../models/Producto.php';
+require_once __DIR__ . '/../middleware/FuncionalidadGuard.php';
+require_once __DIR__ . '/../models/ConfiguracionPlataforma.php';
 
 class marketplaceController
 {
     public function index()
     {
+        if (!FuncionalidadGuard::exigirHtml(ConfiguracionPlataforma::FUNC_MARKETPLACE)) {
+            return;
+        }
+
         try {
             // El router ya validó token, pero blindamos sin romper flujo
             $token = $_COOKIE['auth_token'] ?? null;

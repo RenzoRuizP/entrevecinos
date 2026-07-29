@@ -249,5 +249,5 @@ $baseUrl = rtrim(BASE_URL, '/');
 </div>
 
 <script>
-  window.BASE_URL = window.BASE_URL || "<?= $baseUrl ?>";
+  window.BASE_URL = window.BASE_URL ?? "<?= $baseUrl ?>";
 </script>

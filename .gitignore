@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+*.bak*
+*.log
+.DS_Store
+Thumbs.db
+/uploads/*
+!/uploads/.gitkeep
+/resources/uploads/*
+!/resources/uploads/.gitkeep
+/public/uploads/*
+!/public/uploads/.gitkeep
+# Metadatos de repositorios embebidos en dependencias
+/vendor/**/.git/

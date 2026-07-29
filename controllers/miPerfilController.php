@@ -82,7 +82,7 @@ class miPerfilController
         }
 
         // Acceso directo (no parcial): redirigir al login
-        header("Location: /entrevecinos/?error={$motivo}");
+        header('Location: ' . rtrim(BASE_URL, '/') . '/?error=' . rawurlencode($motivo));
     }
 
     private function renderErrorHtml(string $titulo, string $mensaje, int $httpCode = 500): void

@@ -3,7 +3,7 @@
 require_once __DIR__ . '/../Config/config.php';
 ?>
 <script>
-window.BASE_URL = window.BASE_URL || <?= json_encode(rtrim(BASE_URL, '/'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+window.BASE_URL = window.BASE_URL ?? <?= json_encode(rtrim(BASE_URL, '/'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 </script>
 <?php include_once __DIR__ . '/estilos/atenderServiciosEstilo.php'; ?>
 

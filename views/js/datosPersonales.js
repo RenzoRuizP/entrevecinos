@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  const baseURL = (window.BASE_URL || "/entrevecinos").replace(/\/$/, "");
+  const baseURL = (window.EV?.baseUrl ?? window.BASE_URL ?? window.EV_BASE_URL ?? '').toString().replace(/\/+$/, '');
 
   // Endpoints
   const API_CONDOMINIOS = `${baseURL}/condominios`;

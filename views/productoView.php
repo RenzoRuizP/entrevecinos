@@ -212,10 +212,6 @@ require_once __DIR__ . '/../Config/config.php';
       </div>
     </div>
 
-    <div class="ev-card-footer">
-      <div class="ev-footer-left">En móvil, cada fila se muestra como tarjeta para una lectura más cómoda.</div>
-      <div class="ev-footer-right"></div>
-    </div>
   </div>
 
 </div>
@@ -270,7 +266,7 @@ require_once __DIR__ . '/../Config/config.php';
                 </div>
 
                 <div class="ev-publicacion-switch ev-publicacion-choice-grid">
-                  <input type="radio" class="btn-check" name="tipo_publicacion" id="tipoPublicacionProducto" value="producto" autocomplete="off" checked>
+                  <input type="radio" class="btn-check" name="tipo_publicacion" id="tipoPublicacionProducto" value="producto" autocomplete="off" <?= !$evPuedePublicarProductos ? 'disabled' : '' ?> <?= $evPuedePublicarProductos ? 'checked' : '' ?>>
                   <label class="ev-publicacion-option" for="tipoPublicacionProducto">
                     <span class="ev-publicacion-option-ico"><i class="bi bi-bag-check"></i></span>
                     <span class="ev-publicacion-option-copy">
@@ -280,7 +276,7 @@ require_once __DIR__ . '/../Config/config.php';
                     <span class="ev-publicacion-option-check"><i class="bi bi-check2"></i></span>
                   </label>
 
-                  <input type="radio" class="btn-check" name="tipo_publicacion" id="tipoPublicacionServicio" value="servicio" autocomplete="off">
+                  <input type="radio" class="btn-check" name="tipo_publicacion" id="tipoPublicacionServicio" value="servicio" autocomplete="off" <?= !$evPuedePublicarServicios ? 'disabled' : '' ?> <?= (!$evPuedePublicarProductos && $evPuedePublicarServicios) ? 'checked' : '' ?>>
                   <label class="ev-publicacion-option" for="tipoPublicacionServicio">
                     <span class="ev-publicacion-option-ico"><i class="bi bi-stars"></i></span>
                     <span class="ev-publicacion-option-copy">
@@ -566,3 +562,7 @@ require_once __DIR__ . '/../Config/config.php';
     </div>
   </div>
 </div>
+
+<script>
+window.EV_PUBLICACION_PERMISOS = Object.freeze({ producto: <?= $evPuedePublicarProductos ? 'true' : 'false' ?>, servicio: <?= $evPuedePublicarServicios ? 'true' : 'false' ?> });
+</script>

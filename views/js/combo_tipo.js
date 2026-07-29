@@ -5,7 +5,7 @@
   window.__EV_TIPO_INITED__ = true;
 
   const buildURL = (path, params = {}) => {
-    const base = (window.BASE_URL || "").replace(/\/+$/, "");
+    const base = (window.EV?.baseUrl ?? window.BASE_URL ?? "").replace(/\/+$/, "");
     const cleanPath = String(path).replace(/^\/+/, "");
     const url = new URL(base + "/" + cleanPath, window.location.origin);
 

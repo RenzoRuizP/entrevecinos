@@ -290,11 +290,21 @@ if (isset($nombreUsuario) && is_string($nombreUsuario) && trim($nombreUsuario) !
           </div>
         </a>
       </div>
+
+      <div class="col-12 col-md-6 col-lg-3">
+        <a data-ev-nav="1" class="ev-quick" href="<?= $baseUrl ?>/atender-libro-reclamaciones">
+          <span class="ev-quick-ico" aria-hidden="true"><i class="bi bi-journal-check"></i></span>
+          <div>
+            <div class="ev-quick-title">Libro de Reclamaciones</div>
+            <small class="text-muted">Reclamos, quejas y respuestas</small>
+          </div>
+        </a>
+      </div>
     </div>
   </div>
 
 </div>
 
 <script>
-window.BASE_URL = window.BASE_URL || "<?= $baseUrl ?>";
+window.BASE_URL = window.BASE_URL ?? "<?= $baseUrl ?>";
 </script>

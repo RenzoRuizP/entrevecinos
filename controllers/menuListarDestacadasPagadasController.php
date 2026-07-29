@@ -9,7 +9,7 @@
  */
 
 require_once __DIR__ . '/../Config/EnvConfig.php';
-require_once __DIR__ . '/../Models/Producto.php';
+require_once __DIR__ . '/../models/Producto.php';
 
 header('Content-Type: application/json; charset=utf-8');
 

@@ -4,6 +4,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../database/Conexion.php';
+require_once __DIR__ . '/Notificacion.php';
 
 final class ComunidadPublicacion extends Conexion
 {
@@ -250,6 +251,8 @@ final class ComunidadPublicacion extends Conexion
                 p.resumen,
                 p.prioridad,
                 p.destacado_dashboard,
+                p.notificar_vecinos,
+                p.fecha_notificacion,
                 p.estado,
                 p.fecha_publicacion,
                 p.fecha_evento_inicio,
@@ -375,7 +378,7 @@ final class ComunidadPublicacion extends Conexion
                     tipo_publicacion, origen_publicacion, alcance,
                     tipo_conjunto, codigo_condominio, codigo_urbanizacion,
                     titulo, resumen, contenido, imagen_portada,
-                    prioridad, destacado_dashboard, estado,
+                    prioridad, destacado_dashboard, notificar_vecinos, fecha_notificacion, estado,
                     fecha_publicacion, fecha_expiracion,
                     fecha_evento_inicio, fecha_evento_fin, ubicacion_evento,
                     codigo_usuario_creacion, codigo_usuario_publicacion, codigo_usuario_modificacion
@@ -383,7 +386,7 @@ final class ComunidadPublicacion extends Conexion
                     :tipo_publicacion, 'administracion_comunidad', 'comunidad',
                     :tipo_conjunto, :codigo_condominio, :codigo_urbanizacion,
                     :titulo, :resumen, :contenido, :imagen_portada,
-                    :prioridad, :destacado, 'borrador',
+                    :prioridad, :destacado, :notificar_vecinos, NULL, 'borrador',
                     NULL, :fecha_expiracion,
                     :fecha_evento_inicio, :fecha_evento_fin, :ubicacion_evento,
                     :usuario_creacion, NULL, :usuario_modificacion
@@ -441,6 +444,10 @@ final class ComunidadPublicacion extends Conexion
                     imagen_portada = :imagen_portada,
                     prioridad = :prioridad,
                     destacado_dashboard = :destacado,
+                    notificar_vecinos = CASE
+                        WHEN fecha_notificacion IS NULL THEN :notificar_vecinos
+                        ELSE notificar_vecinos
+                    END,
                     fecha_expiracion = :fecha_expiracion,
                     fecha_evento_inicio = :fecha_evento_inicio,
                     fecha_evento_fin = :fecha_evento_fin,
@@ -666,6 +673,7 @@ final class ComunidadPublicacion extends Conexion
         $st->bindValue(':imagen_portada', $imagenPortada, $imagenPortada === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $st->bindValue(':prioridad', $data['prioridad'], PDO::PARAM_STR);
         $st->bindValue(':destacado', (int)$data['destacado_dashboard'], PDO::PARAM_INT);
+        $st->bindValue(':notificar_vecinos', (int)($data['notificar_vecinos'] ?? 0), PDO::PARAM_INT);
         $st->bindValue(
             ':fecha_expiracion',
             $data['fecha_expiracion'],
@@ -710,6 +718,72 @@ final class ComunidadPublicacion extends Conexion
         $st->bindValue(':id', $codigoPublicacion, PDO::PARAM_INT);
         $st->execute();
         $this->registrarHistorial($codigoPublicacion, 'publicacion', $estadoAnterior, 'publicado', $usuario, null);
+        $this->notificarVecinosSiCorresponde($codigoPublicacion);
+    }
+
+    private function notificarVecinosSiCorresponde(int $codigoPublicacion): void
+    {
+        $st = $this->dblink->prepare("SELECT codigo_publicacion, tipo_publicacion, tipo_conjunto,
+                                            codigo_condominio, codigo_urbanizacion,
+                                            titulo, resumen, prioridad, notificar_vecinos, fecha_notificacion
+                                     FROM comunidad_publicacion
+                                     WHERE codigo_publicacion = :id
+                                     LIMIT 1
+                                     FOR UPDATE");
+        $st->bindValue(':id', $codigoPublicacion, PDO::PARAM_INT);
+        $st->execute();
+        $publicacion = $st->fetch(PDO::FETCH_ASSOC);
+
+        if (!$publicacion || !empty($publicacion['fecha_notificacion'])) {
+            return;
+        }
+
+        $esUrgente = strtolower((string)($publicacion['prioridad'] ?? 'normal')) === 'urgente';
+        $debeNotificar = $esUrgente || (int)($publicacion['notificar_vecinos'] ?? 0) === 1;
+        if (!$debeNotificar) {
+            return;
+        }
+
+        $tipo = strtolower((string)($publicacion['tipo_publicacion'] ?? 'comunicado'));
+        $subcategoria = $esUrgente
+            ? 'comunidad_urgente'
+            : match ($tipo) {
+                'evento' => 'comunidad_evento',
+                'noticia' => 'comunidad_noticia',
+                default => 'comunidad_comunicado',
+            };
+        $tipoConjunto = (string)$publicacion['tipo_conjunto'];
+        $codigoComunidad = $tipoConjunto === 'urbanizacion'
+            ? (int)($publicacion['codigo_urbanizacion'] ?? 0)
+            : (int)($publicacion['codigo_condominio'] ?? 0);
+
+        $notif = new Notificacion($this->dblink);
+        $notif->crearMasivaComunidad([
+            'tipo_conjunto' => $tipoConjunto,
+            'codigo_comunidad' => $codigoComunidad,
+            'subcategoria' => $subcategoria,
+            'referencia_id' => $codigoPublicacion,
+            'titulo' => $esUrgente
+                ? 'Aviso urgente de tu comunidad: ' . (string)$publicacion['titulo']
+                : (string)$publicacion['titulo'],
+            'mensaje' => (string)($publicacion['resumen'] ?? 'Revisa la nueva publicación de tu comunidad.'),
+            'payload' => [
+                'codigo_publicacion' => $codigoPublicacion,
+                'tipo_publicacion' => $tipo,
+                'prioridad' => (string)$publicacion['prioridad'],
+                'nombre_publicacion' => (string)$publicacion['titulo'],
+                'ruta' => '/comunidad',
+            ],
+        ]);
+
+        $up = $this->dblink->prepare("UPDATE comunidad_publicacion
+                                      SET notificar_vecinos = 1,
+                                          fecha_notificacion = NOW()
+                                      WHERE codigo_publicacion = :id
+                                        AND fecha_notificacion IS NULL
+                                      LIMIT 1");
+        $up->bindValue(':id', $codigoPublicacion, PDO::PARAM_INT);
+        $up->execute();
     }
 
     private function registrarHistorial(

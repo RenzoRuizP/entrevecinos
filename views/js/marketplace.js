@@ -2,8 +2,29 @@
 (function () {
   'use strict';
 
-  const BASE = (window.BASE_URL || '').toString().replace(/\/+$/, '');
+  const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').toString().replace(/\/+$/, '');
   const LOG_PREFIX = '[MARKETPLACE]';
+
+  const EV_FUNCIONES = (window.EV_FUNCIONALIDADES && typeof window.EV_FUNCIONALIDADES === 'object')
+    ? window.EV_FUNCIONALIDADES
+    : {};
+  const EV_MONETIZACION = (window.EV_MONETIZACION && typeof window.EV_MONETIZACION === 'object')
+    ? window.EV_MONETIZACION
+    : {};
+
+  function funcionalidadHabilitada(clave) {
+    const regla = EV_FUNCIONES[clave];
+    return !regla || Number(regla.habilitada ?? 1) === 1 || regla.habilitada === true;
+  }
+
+  function monetizacionBooleanaHabilitada(clave) {
+    const regla = EV_MONETIZACION[clave];
+    return !regla || Number(regla.valor_booleano ?? 1) === 1 || regla.valor_booleano === true;
+  }
+
+  const PUEDE_COMPRAR_PRODUCTOS = funcionalidadHabilitada('COMPRAR_PRODUCTOS');
+  const PUEDE_SOLICITAR_SERVICIOS = funcionalidadHabilitada('SOLICITAR_SERVICIOS');
+  const DESCUENTO_BILLETERA_PEDIDO = monetizacionBooleanaHabilitada('DESCUENTO_BILLETERA_PEDIDO');
 
   /*
     Polling Marketplace:
@@ -273,7 +294,6 @@
   }
 
   function getBasePath() {
-    if (!BASE) return '';
     const u = BASE.startsWith('http') ? new URL(BASE) : null;
     const p = u ? (u.pathname || '') : BASE;
     return p.replace(/\/+$/, '');
@@ -2406,9 +2426,9 @@
       }
 
       if (btnPedirDetalle) {
-        btnPedirDetalle.classList.remove('d-none');
-        btnPedirDetalle.disabled = false;
-        btnPedirDetalle.removeAttribute('aria-hidden');
+        btnPedirDetalle.classList.toggle('d-none', !PUEDE_SOLICITAR_SERVICIOS);
+        btnPedirDetalle.disabled = !PUEDE_SOLICITAR_SERVICIOS;
+        btnPedirDetalle.setAttribute('aria-hidden', PUEDE_SOLICITAR_SERVICIOS ? 'false' : 'true');
         btnPedirDetalle.textContent = 'Solicitar servicio';
       }
       return;
@@ -2420,9 +2440,9 @@
     }
 
     if (btnPedirDetalle) {
-      btnPedirDetalle.classList.remove('d-none');
-      btnPedirDetalle.disabled = false;
-      btnPedirDetalle.removeAttribute('aria-hidden');
+      btnPedirDetalle.classList.toggle('d-none', !PUEDE_COMPRAR_PRODUCTOS);
+      btnPedirDetalle.disabled = !PUEDE_COMPRAR_PRODUCTOS;
+      btnPedirDetalle.setAttribute('aria-hidden', PUEDE_COMPRAR_PRODUCTOS ? 'false' : 'true');
       btnPedirDetalle.textContent = 'Pedir ahora';
     }
   }
@@ -3040,7 +3060,7 @@
 
       showLoadingSolicitud();
 
-      if (requierePreparacion) {
+      if (requierePreparacion && DESCUENTO_BILLETERA_PEDIDO) {
         const saldoActual = await obtenerSaldoBilleteraActual();
 
         if (saldoActual !== null && saldoActual < totalPedido) {
@@ -3356,11 +3376,11 @@
     const accionesHtml = esServicio
       ? `
           <button type="button" class="btn ev-mp-btn-detalle">Ver detalle</button>
-          <button type="button" class="btn ev-mp-btn-servicio">Solicitar servicio</button>
+          ${PUEDE_SOLICITAR_SERVICIOS ? '<button type="button" class="btn ev-mp-btn-servicio">Solicitar servicio</button>' : ''}
         `
       : `
           <button type="button" class="btn btn-outline-success ev-mp-btn-detalle">Ver detalle</button>
-          <button type="button" class="btn btn-success ev-mp-btn-pedir" ${vendedorDisponible ? '' : 'disabled aria-disabled="true" title="El vendedor no está disponible"'}>Pedir ahora</button>
+          ${PUEDE_COMPRAR_PRODUCTOS ? `<button type="button" class="btn btn-success ev-mp-btn-pedir" ${vendedorDisponible ? '' : 'disabled aria-disabled="true" title="El vendedor no está disponible"'}>Pedir ahora</button>` : ''}
         `;
 
     return `

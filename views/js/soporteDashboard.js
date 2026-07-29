@@ -9,7 +9,7 @@
   if (window.__EV_SOPORTE_DASHBOARD_SCRIPT_LOADED__ === true) return;
   window.__EV_SOPORTE_DASHBOARD_SCRIPT_LOADED__ = true;
 
-  const baseUrl = (window.BASE_URL || window.EV_BASE_URL || "").replace(/\/+$/, "");
+  const baseUrl = (window.EV?.baseUrl ?? window.BASE_URL ?? window.EV_BASE_URL ?? "").replace(/\/+$/, "");
 
   const POLLING_MS = 15000;
   const FETCH_TIMEOUT_MS = 8000;
@@ -397,7 +397,7 @@
     const silencioso = opts.silencioso === true;
     const forzar = opts.forzar === true;
 
-    if (!baseUrl || !dashboardExiste()) {
+    if (!dashboardExiste()) {
       detenerPolling();
       return;
     }
@@ -511,7 +511,6 @@
   }
 
   function init() {
-    if (!baseUrl) return false;
     if (!dashboardExiste()) return false;
 
     asegurarEstilosRuntime();

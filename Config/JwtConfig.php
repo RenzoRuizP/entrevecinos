@@ -9,13 +9,13 @@ class JwtConfig
     {
         $tiempoActual = time();
 
-        $claveSecreta = trim((string)($_ENV['JWT_SECRET_KEY'] ?? ''));
+        $claveSecreta = trim((string)ev_env('JWT_SECRET_KEY', ''));
 
         if ($claveSecreta === '') {
             throw new RuntimeException('JWT_SECRET_KEY no está configurado.');
         }
 
-        $expiraEn = (int)($_ENV['JWT_EXPIRATION_SECONDS'] ?? 3600);
+        $expiraEn = (int)ev_env('JWT_EXPIRATION_SECONDS', 3600);
 
         if ($expiraEn <= 0) {
             $expiraEn = 3600;

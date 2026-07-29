@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../database/Conexion.php';
+require_once __DIR__ . '/DocumentoLegal.php';
 
 class User extends Conexion
 {
@@ -80,8 +81,21 @@ class User extends Conexion
     public function registrar(array $data): bool
     {
         $stmt = null;
+        $inicioTransaccion = false;
 
         try {
+            if (empty($data['acepta_terminos']) || empty($data['acepta_privacidad'])) {
+                throw new InvalidArgumentException('Los dos consentimientos legales son obligatorios.');
+            }
+
+            // Asegura que las versiones configuradas existan antes de crear la cuenta.
+            DocumentoLegal::sincronizarConfiguracionEnPdo($this->dblink, true);
+
+            if (!$this->dblink->inTransaction()) {
+                $this->dblink->beginTransaction();
+                $inicioTransaccion = true;
+            }
+
             $hash = password_hash((string)$data['clave'], PASSWORD_BCRYPT);
 
             $tipo               = (string)$data['tipo_conjunto'];
@@ -134,14 +148,50 @@ class User extends Conexion
                 $stmt->bindValue(':comprobante_domicilio', null, PDO::PARAM_NULL);
             }
 
-            $ok = $stmt->execute();
-
-            try {
-                $stmt->closeCursor();
-            } catch (Throwable $e) {
+            if (!$stmt->execute()) {
+                throw new RuntimeException('No se pudo registrar el usuario.');
             }
 
-            return $ok;
+            // Libera todos los resultados del procedimiento antes de ejecutar otra consulta.
+            try {
+                while ($stmt->nextRowset()) {
+                }
+                $stmt->closeCursor();
+            } catch (Throwable $e) {
+                // El driver puede no exponer rowsets adicionales; no afecta el registro.
+            }
+
+            $stUsuario = $this->dblink->prepare(
+                "SELECT codigo_usuario
+                 FROM usuario
+                 WHERE email = :email
+                   AND documento = :documento
+                 ORDER BY codigo_usuario DESC
+                 LIMIT 1"
+            );
+            $stUsuario->execute([
+                ':email' => strtolower(trim((string)$data['email'])),
+                ':documento' => trim((string)$data['documento']),
+            ]);
+            $codigoUsuario = (int)$stUsuario->fetchColumn();
+
+            if ($codigoUsuario <= 0) {
+                throw new RuntimeException('No se pudo identificar la cuenta recién creada.');
+            }
+
+            DocumentoLegal::registrarAceptacionesVigentesEnPdo(
+                $this->dblink,
+                $codigoUsuario,
+                (string)($data['origen_aceptacion'] ?? 'registro'),
+                isset($data['ip_aceptacion']) ? (string)$data['ip_aceptacion'] : null,
+                isset($data['user_agent_aceptacion']) ? (string)$data['user_agent_aceptacion'] : null
+            );
+
+            if ($inicioTransaccion && $this->dblink->inTransaction()) {
+                $this->dblink->commit();
+            }
+
+            return true;
         } catch (Throwable $e) {
             if ($stmt) {
                 try {
@@ -149,6 +199,11 @@ class User extends Conexion
                 } catch (Throwable $t) {
                 }
             }
+
+            if ($inicioTransaccion && $this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+
             throw $e;
         }
     }

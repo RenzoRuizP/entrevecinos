@@ -6,6 +6,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../Config/config.php';
 require_once __DIR__ . '/../models/SesionJWT.php';
 require_once __DIR__ . '/../models/Usuario.php';
+require_once __DIR__ . '/../models/ConfiguracionPlataforma.php';
 
 class MenuPrincipalController
 {
@@ -77,6 +78,18 @@ class MenuPrincipalController
 
             $menu['submenus'] = $submenus;
             $menus[] = $menu;
+        }
+
+        try {
+            $configuracionPlataforma = new ConfiguracionPlataforma();
+            $menus = $configuracionPlataforma->filtrarMenus($menus, $usuario);
+            $evFuncionalidades = $configuracionPlataforma->listarFuncionalidadesResueltas($usuario, true);
+            $evMonetizacion = $configuracionPlataforma->listarMonetizacionResuelta($usuario);
+        } catch (Throwable $e) {
+            // Compatibilidad segura mientras el script SQL todavía no haya sido ejecutado.
+            error_log('[EV][MenuPrincipalController][configuracion_plataforma] ' . $e->getMessage());
+            $evFuncionalidades = [];
+            $evMonetizacion = [];
         }
 
         $menusParaMenuIzquierda = $menus;

@@ -5,7 +5,7 @@
 
   if (window.EVServicioConversacion) return;
 
-  const BASE = String(window.BASE_URL || '').replace(/\/+$/, '');
+  const BASE = String(window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/+$/, '');
   const POLL_MS = 5000;
 
   let currentId = 0;
@@ -32,11 +32,34 @@
   const date = (value, withTime = false) => {
     const raw = String(value || '').trim();
     if (!raw) return '—';
-    const d = new Date(raw.replace(' ', 'T'));
+
+    /*
+     * MySQL entrega los TIMESTAMP en la sesión -05:00. Cuando el valor no
+     * incluye zona, se añade explícitamente la de Perú para que Safari/Chrome
+     * no lo interpreten como UTC ni desplacen cinco horas el mensaje.
+     */
+    const normalized = raw.replace(' ', 'T');
+    const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
+    const iso = hasZone ? normalized : `${normalized}-05:00`;
+    const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return raw;
-    return d.toLocaleString('es-PE', withTime
-      ? { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }
-      : { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    return new Intl.DateTimeFormat('es-PE', withTime
+      ? {
+          timeZone: 'America/Lima',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        }
+      : {
+          timeZone: 'America/Lima',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        }).format(d);
   };
 
   const imageUrl = (path) => {

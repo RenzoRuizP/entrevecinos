@@ -13,8 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // BASE_URL robusto
-  const BASE_URL = (window.BASE_URL || '').replace(/\/+$/, '');
-  const LOGIN_URL = BASE_URL ? `${BASE_URL}/login` : '/entrevecinos/login';
+  const BASE_URL = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/+$/, '');
+  const LOGIN_URL = BASE_URL ? `${BASE_URL}/login` : '/login';
 
   const isOffline = () =>
     typeof navigator !== 'undefined' && navigator && navigator.onLine === false;

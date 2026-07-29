@@ -4,6 +4,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../database/Conexion.php';
+require_once __DIR__ . '/Notificacion.php';
 
 class SolicitudServicioChat extends Conexion
 {
@@ -374,25 +375,31 @@ class SolicitudServicioChat extends Conexion
         string $ruta
     ): void
     {
-        if ($destino <= 0) return;
-        $sql = "
-          INSERT INTO notificacion
-            (codigo_usuario, canal, categoria, subcategoria, referencia_id, titulo, mensaje, payload_json, estado)
-          VALUES
-            (:usuario, 'app', 'servicio', :subcategoria, :referencia, :titulo, :mensaje, :payload, 'no_leida')
-        ";
-        $st = $this->dblink->prepare($sql);
-        $st->execute([
-            ':usuario' => $destino,
-            ':subcategoria' => $subcategoria,
-            ':referencia' => $codigoSolicitud,
-            ':titulo' => mb_substr($titulo, 0, 160, 'UTF-8'),
-            ':mensaje' => $mensaje,
-            ':payload' => $this->jsonEncode([
-                'codigo_solicitud_servicio' => $codigoSolicitud,
-                'ruta' => $ruta,
-            ]),
-        ]);
+        if ($destino <= 0 || $codigoSolicitud <= 0) return;
+
+        try {
+            $notif = new Notificacion($this->dblink);
+            $data = [
+                'codigo_usuario' => $destino,
+                'categoria' => Notificacion::CAT_SERVICIO,
+                'subcategoria' => $subcategoria,
+                'referencia_id' => $codigoSolicitud,
+                'titulo' => $titulo,
+                'mensaje' => $mensaje,
+                'payload' => [
+                    'codigo_solicitud_servicio' => $codigoSolicitud,
+                    'ruta' => $ruta,
+                ],
+            ];
+
+            if ($subcategoria === 'mensaje_conversacion') {
+                $notif->crearOActualizarNoLeida($data);
+            } else {
+                $notif->crear($data);
+            }
+        } catch (Throwable $e) {
+            error_log('[EV][SolicitudServicioChat::notificar] ' . $e->getMessage());
+        }
     }
 
     public function registrarContextoInicial(int $codigoSolicitud, int $codigoSolicitante, array $input, array $files): array

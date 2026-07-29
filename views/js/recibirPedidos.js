@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const BASE_URL = (window.BASE_URL || '/').replace(/\/+$/, '');
+  const BASE_URL = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/+$/, '');
 
   /*
     EV - Mis pedidos vendedor / Recibir pedidos

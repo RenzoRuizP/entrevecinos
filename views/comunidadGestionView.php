@@ -336,6 +336,15 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
                       <small>Este contenido tendrá mayor visibilidad para los vecinos.</small>
                     </span>
                   </label>
+
+                  <label class="ev-com-highlight-switch ev-com-notify-switch" id="notificarVecinosSwitchCom">
+                    <input type="checkbox" id="notificarVecinosCom" name="notificar_vecinos" value="1">
+                    <span class="ev-com-switch-control" aria-hidden="true"></span>
+                    <span>
+                      <strong>Notificar a los vecinos al publicar</strong>
+                      <small>Se enviará una sola notificación al centro de avisos. En prioridad urgente es obligatorio.</small>
+                    </span>
+                  </label>
                 </section>
 
                 <fieldset class="ev-com-step-card ev-com-event-fields d-none" id="camposEventoCom">

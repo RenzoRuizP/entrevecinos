@@ -2,6 +2,7 @@
 header("Content-Type: application/json; charset=utf-8");
 
 try {
+    require_once __DIR__ . '/../Config/config.php';
     require_once __DIR__ . '/../models/SesionJWT.php';
     require_once __DIR__ . '/../resources/util/functions/Helper.class.php';
 
@@ -50,8 +51,9 @@ try {
         || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
 
     // Helper: armar redirect robusto (evita ../ relativos frágiles)
-    $basePath = '/entrevecinos';
-    $redirectOk = $basePath . '/views/MenuPrincipalView.php';
+    $basePath = rtrim((string)BASE_URL, '/');
+    $cookiePath = BASE_URL ?: '/';
+    $redirectOk = $basePath . '/MenuPrincipal';
 
     // ============================
     // 3) Respuestas normalizadas
@@ -96,14 +98,14 @@ try {
         // Login OK
         case "SI":
             // Cookie JWT segura y coherente con el sistema
-            $expSeconds = intval($_ENV['JWT_EXPIRATION_SECONDS'] ?? 3600);
+            $expSeconds = (int)ev_env('JWT_EXPIRATION_SECONDS', 3600);
 
             setcookie("auth_token", $resultado['token'], [
                 'expires'  => time() + $expSeconds,
-                'path'     => $basePath,
+                'path'     => $cookiePath,
                 'httponly' => true,
                 'secure'   => $isHttps,
-                'samesite' => $isHttps ? 'None' : 'Lax'
+                'samesite' => 'Lax'
             ]);
 
             http_response_code(200);

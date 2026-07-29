@@ -3,7 +3,7 @@
   'use strict';
 
   function buildURL(path) {
-    const b = (window.BASE_URL || '').replace(/\/+$/, '');
+    const b = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/+$/, '');
     const p = String(path || '').replace(/^\/+/, '');
     return b ? (b + '/' + p) : ('/' + p);
   }

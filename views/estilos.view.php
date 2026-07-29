@@ -40,7 +40,7 @@
 />
 
 <!-- AdminLTE principal -->
-<link rel="stylesheet" href="<?= BASE_URL ?>/resources/util/lte4/dist/css/adminlte.css" />
+<link rel="stylesheet" href="<?= rtrim(BASE_URL, '/') ?>/resources/util/lte4/dist/css/adminlte.css" />
 
 <style>
   /* 🌿 Paleta base */
