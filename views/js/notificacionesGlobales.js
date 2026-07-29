@@ -19,7 +19,7 @@
     '/MenuPrincipal', '/notificaciones', '/notificaciones-residencia', '/cuenta-observada',
     '/publicacion', '/billetera', '/comunidad', '/mis-pedidos-comprador',
     '/mis-pedidos-vendedor', '/mis-solicitudes-servicio-comprador',
-    '/mis-solicitudes-servicio-vendedor', '/atender-servicios'
+    '/mis-solicitudes-servicio-vendedor', '/atender-servicios', '/atender-publicacion'
   ]);
 
   const SUBCATEGORIAS_GESTION_SERVICIO = new Set([
@@ -38,7 +38,6 @@
   let cargandoItems = false;
   let itemsCache = new Map();
   let totalNoLeidas = 0;
-  let atencionesSoporte = { total: 0, cuentas: 0, publicaciones: 0, recargas: 0, servicios: 0 };
 
   function refs() {
     return {
@@ -117,7 +116,10 @@
     if (categoria === 'billetera') return { icon: 'bi-wallet2', tone: sub.includes('aprobada') ? 'success' : (sub.includes('rechazada') ? 'danger' : 'warning') };
     if (categoria === 'pedido' || categoria === 'pedidos') return { icon: 'bi-bag-check', tone: sub.includes('cancel') || sub.includes('rechaz') ? 'danger' : 'success' };
     if (categoria === 'comunidad') return { icon: sub.includes('urgente') ? 'bi-megaphone-fill' : 'bi-people', tone: sub.includes('urgente') ? 'danger' : 'info' };
-    if (categoria === 'soporte') return { icon: 'bi-headset', tone: 'info' };
+    if (categoria === 'soporte') {
+      if (sub === 'publicacion_pendiente') return { icon: 'bi-megaphone', tone: 'warning' };
+      return { icon: 'bi-headset', tone: 'info' };
+    }
     if (categoria === 'servicio') {
       if (sub.includes('reprogramacion') || sub.includes('cotizacion') || sub.includes('calificacion')) return { icon: sub.includes('calificacion') ? 'bi-star' : 'bi-calendar2-week', tone: 'warning' };
       if (sub.includes('problema') || sub.includes('incidencia') || sub.includes('observacion') || sub.includes('cancel')) return { icon: 'bi-exclamation-triangle', tone: 'danger' };
@@ -162,76 +164,38 @@
     if (list) list.innerHTML = '<div class="ev-notification-loading"><span class="ev-notification-spinner" aria-hidden="true"></span><span>Cargando notificaciones...</span></div>';
   }
 
-  function actualizarContador(total, soporte = null) {
+  function actualizarContador(total) {
     const { count, summary, button } = refs();
-    if (soporte && typeof soporte === 'object') {
-      atencionesSoporte = {
-        total: Math.max(0, Number(soporte.total || 0)),
-        cuentas: Math.max(0, Number(soporte.cuentas || 0)),
-        publicaciones: Math.max(0, Number(soporte.publicaciones || 0)),
-        recargas: Math.max(0, Number(soporte.recargas || 0)),
-        servicios: Math.max(0, Number(soporte.servicios || 0))
-      };
-    }
     totalNoLeidas = Math.max(0, Number(total || 0));
-    const totalSoporte = Math.max(0, Number(atencionesSoporte.total || 0));
-    const totalNotificaciones = Math.max(0, totalNoLeidas - totalSoporte);
 
     if (count) {
       count.textContent = totalNoLeidas > 99 ? '99+' : String(totalNoLeidas);
       count.classList.toggle('d-none', totalNoLeidas <= 0);
-      count.setAttribute('aria-label', `${totalNoLeidas} pendientes`);
+      count.setAttribute('aria-label', `${totalNoLeidas} notificaciones no leídas`);
     }
     if (button) {
       button.classList.toggle('has-unread', totalNoLeidas > 0);
-      button.setAttribute('aria-label', totalNoLeidas > 0 ? `Abrir notificaciones. ${totalNoLeidas} pendientes.` : 'Abrir notificaciones');
+      button.setAttribute(
+        'aria-label',
+        totalNoLeidas > 0
+          ? `Abrir notificaciones. ${totalNoLeidas} ${totalNoLeidas === 1 ? 'novedad no leída' : 'novedades no leídas'}.`
+          : 'Abrir notificaciones'
+      );
     }
     if (summary) {
-      if (totalSoporte > 0 && totalNotificaciones > 0) {
-        summary.innerHTML = `<strong>${totalSoporte}</strong> ${totalSoporte === 1 ? 'atención operativa' : 'atenciones operativas'} y <strong>${totalNotificaciones}</strong> ${totalNotificaciones === 1 ? 'novedad pendiente' : 'novedades pendientes'}.`;
-      } else if (totalSoporte > 0) {
-        summary.innerHTML = `<strong>${totalSoporte}</strong> ${totalSoporte === 1 ? 'atención pendiente' : 'atenciones pendientes'} en Soporte EV.`;
-      } else {
-        summary.innerHTML = totalNotificaciones > 0
-          ? `<strong>${totalNotificaciones}</strong> ${totalNotificaciones === 1 ? 'novedad pendiente' : 'novedades pendientes'}`
-          : 'Estás al día. No tienes notificaciones pendientes.';
-      }
+      summary.innerHTML = totalNoLeidas > 0
+        ? `<strong>${totalNoLeidas}</strong> ${totalNoLeidas === 1 ? 'novedad no leída' : 'novedades no leídas'}.`
+        : 'Estás al día. No tienes notificaciones pendientes.';
       summary.classList.toggle('has-unread', totalNoLeidas > 0);
     }
   }
 
-  function soporteRowsHtml(soporte) {
-    const rows = [
-      { key: 'cuentas', label: 'Cuentas pendientes', icon: 'bi-person-check', route: '/atender-cuentas', tone: 'info' },
-      { key: 'publicaciones', label: 'Publicaciones por revisar', icon: 'bi-megaphone', route: '/atender-publicacion', tone: 'warning' },
-      { key: 'recargas', label: 'Recargas por validar', icon: 'bi-wallet2', route: '/atender-recargas', tone: 'success' },
-      { key: 'servicios', label: 'Incidencias de servicios', icon: 'bi-clipboard2-pulse', route: '/atender-servicios', tone: 'danger' }
-    ];
-
-    return rows
-      .filter(row => Number(soporte?.[row.key] || 0) > 0)
-      .map(row => {
-        const total = Number(soporte[row.key] || 0);
-        return `
-          <button type="button" class="ev-notification-item is-unread ev-notification-support-item" data-ev-support-route="${escapeHtml(row.route)}">
-            <span class="ev-notification-icon is-${row.tone}"><i class="bi ${row.icon}"></i></span>
-            <span class="ev-notification-copy">
-              <span class="ev-notification-title-row"><strong>${escapeHtml(row.label)}</strong><i class="ev-notification-unread-dot" aria-label="Pendiente"></i></span>
-              <span class="ev-notification-message">${total} ${total === 1 ? 'registro requiere' : 'registros requieren'} atención.</span>
-              <span class="ev-notification-context">Panel de Soporte</span>
-            </span>
-            <i class="bi bi-chevron-right ev-notification-chevron" aria-hidden="true"></i>
-          </button>`;
-      }).join('');
-  }
-
-  function renderLista(items, soporte = atencionesSoporte) {
+  function renderLista(items) {
     const { list } = refs();
     if (!list) return;
     const rows = Array.isArray(items) ? items : [];
     itemsCache = new Map();
-    const supportHtml = soporteRowsHtml(soporte);
-    if (!rows.length && !supportHtml) {
+    if (!rows.length) {
       list.innerHTML = '<div class="ev-notification-empty"><span><i class="bi bi-bell-slash"></i></span><strong>No hay notificaciones</strong><p>Las novedades de EV aparecerán aquí.</p></div>';
       return;
     }
@@ -256,7 +220,7 @@
         </button>`;
     }).join('');
 
-    list.innerHTML = `${supportHtml}${notificationHtml}`;
+    list.innerHTML = notificationHtml;
   }
 
   async function cargarContador() {
@@ -265,7 +229,7 @@
     try {
       const { response, json } = await fetchJson(`${BASE}/api/notificaciones/resumen?incluir_items=0&_=${Date.now()}`);
       if (response.ok && json?.ok === true) {
-        actualizarContador(Number(json?.data?.total || 0), json?.data?.atenciones_soporte || null);
+        actualizarContador(Number(json?.data?.total || 0));
       }
     } finally {
       cargandoContador = false;
@@ -279,8 +243,8 @@
     try {
       const { response, json } = await fetchJson(`${BASE}/api/notificaciones/resumen?incluir_items=1&limite=${MAX_ITEMS}&_=${Date.now()}`);
       if (!response.ok || json?.ok !== true) throw new Error(json?.mensaje || 'No se pudieron cargar las notificaciones.');
-      actualizarContador(Number(json?.data?.total || 0), json?.data?.atenciones_soporte || null);
-      renderLista(Array.isArray(json?.data?.items) ? json.data.items : [], json?.data?.atenciones_soporte || atencionesSoporte);
+      actualizarContador(Number(json?.data?.total || 0));
+      renderLista(Array.isArray(json?.data?.items) ? json.data.items : []);
     } catch (error) {
       const { list } = refs();
       if (list) list.innerHTML = `<div class="ev-notification-error"><i class="bi bi-exclamation-circle"></i><span>${escapeHtml(error?.message || 'No se pudieron cargar las notificaciones.')}</span></div>`;
@@ -367,26 +331,7 @@
     window.location.href = `${BASE}/MenuPrincipal?ev_goto=${encodeURIComponent(ruta)}`;
   }
 
-  async function navegarSoporte(ruta) {
-    const path = String(ruta || '').trim();
-    if (!path.startsWith('/')) return;
-    cerrarDropdown();
-    if (window.EVNav && typeof window.EVNav.loadPage === 'function') {
-      await window.EVNav.loadPage(path, { pushState: true, replaceState: false });
-      return;
-    }
-    window.location.href = `${BASE}/MenuPrincipal?ev_goto=${encodeURIComponent(path)}`;
-  }
-
   async function onNotificationClick(event) {
-    const supportButton = event.target.closest('[data-ev-support-route]');
-    if (supportButton) {
-      event.preventDefault();
-      event.stopPropagation();
-      await navegarSoporte(supportButton.dataset.evSupportRoute || '');
-      return;
-    }
-
     const button = event.target.closest('[data-ev-notification-id]');
     if (!button) return;
     event.preventDefault();
@@ -449,7 +394,10 @@
   }
 
   document.addEventListener('ev:notificaciones-globales-actualizar', () => refresh({ silent: true, includeItems: false }));
-  document.addEventListener('ev:content-loaded', () => window.setTimeout(intentarAbrirServicioPendiente, 180));
+  document.addEventListener('ev:content-loaded', () => {
+    cargarContador();
+    window.setTimeout(intentarAbrirServicioPendiente, 180);
+  });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) cargarContador(); });
   window.addEventListener('pageshow', () => {
     cargarContador();

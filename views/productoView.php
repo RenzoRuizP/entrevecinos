@@ -25,10 +25,6 @@ require_once __DIR__ . '/../Config/config.php';
         </div>
 
         <div class="ev-mp-hero-right">
-          <button class="ev-icon-btn" type="button" id="btnRefrescarMisProductos" title="Refrescar" aria-label="Refrescar">
-            <i class="bi bi-arrow-clockwise"></i>
-          </button>
-
           <button id="btnToggleFiltros" class="btn ev-btn-light" type="button"
                   data-bs-toggle="collapse" data-bs-target="#evFiltrosWrap"
                   aria-expanded="true" aria-controls="evFiltrosWrap">
@@ -42,20 +38,11 @@ require_once __DIR__ . '/../Config/config.php';
       </div>
 
       <div class="ev-mp-hero-bottom">
-        <div class="ev-summary-pill" aria-label="Total de publicaciones">
-          <span class="ev-summary-icon"><i class="bi bi-collection"></i></span>
-          <span class="ev-summary-copy">
-            <span class="ev-summary-label">Total de publicaciones</span>
-            <span class="ev-summary-help">Registradas en tu cuenta</span>
-          </span>
-          <span class="ev-summary-count" id="evTabCountAll">0</span>
-        </div>
-
-        <div class="ev-status-filter" aria-label="Filtrar por estado">
+        <div class="ev-status-filter" aria-label="Filtrar publicaciones por estado">
           <span class="ev-status-filter-icon"><i class="bi bi-sliders2"></i></span>
           <label class="ev-status-filter-copy" for="fEstadoPublicacion">
-            <span class="ev-status-filter-label">Estado</span>
-            <span class="ev-status-filter-help">Selecciona un estado para ver sus publicaciones</span>
+            <span class="ev-status-filter-label">Estado de publicaciones</span>
+            <span class="ev-status-filter-help">Visualiza únicamente el estado que deseas gestionar.</span>
           </label>
           <select class="form-select ev-status-select" id="fEstadoPublicacion" aria-label="Estado de publicación">
             <option value="all" id="evStatusOptionAll">Todos (0)</option>
@@ -68,7 +55,7 @@ require_once __DIR__ . '/../Config/config.php';
           </select>
         </div>
 
-        <div class="ev-result-summary" id="evLblMeta" aria-live="polite">Mostrando 0 registros</div>
+        <div class="ev-result-summary" id="evLblMeta" aria-live="polite">Mostrando 0 publicaciones</div>
       </div>
 
     </div>
@@ -80,11 +67,11 @@ require_once __DIR__ . '/../Config/config.php';
         <span class="ev-filter-heading-icon"><i class="bi bi-funnel"></i></span>
         <div>
           <h2 class="ev-card-title mb-1">Filtrar publicaciones</h2>
-          <p class="ev-filter-description mb-0">Encuentra rápidamente una publicación por texto, clasificación, precio u orden.</p>
+          <p class="ev-filter-description mb-0">Combina búsqueda y clasificación para encontrar rápidamente una publicación.</p>
         </div>
       </div>
       <button type="button" class="btn ev-btn-outline btn-sm" id="btnLimpiarFiltros">
-        <i class="bi bi-eraser me-1"></i> Limpiar filtros
+        <i class="bi bi-eraser me-1"></i> Limpiar
       </button>
     </div>
 
@@ -92,7 +79,7 @@ require_once __DIR__ . '/../Config/config.php';
       <form id="formFiltrosMisProductos" class="ev-filter-form">
         <div class="ev-filter-primary">
           <div class="ev-filter-field ev-filter-search-field">
-            <label class="form-label" for="fTexto">Buscar</label>
+            <label class="form-label" for="fTexto">Buscar publicación</label>
             <div class="position-relative">
               <i class="bi bi-search ev-input-icon"></i>
               <input
@@ -130,48 +117,61 @@ require_once __DIR__ . '/../Config/config.php';
           </div>
         </div>
 
-        <div class="ev-filter-secondary">
-          <div class="ev-filter-secondary-heading">
-            <span class="ev-filter-secondary-icon"><i class="bi bi-cash-stack"></i></span>
-            <div>
-              <strong>Precio y orden</strong>
-              <span>Opcional</span>
-            </div>
-          </div>
-
-          <div class="ev-filter-price-range">
-            <div class="ev-filter-field">
-              <label class="form-label" for="fPrecioMin">Precio mínimo (S/)</label>
-              <input type="number" step="0.01" min="0" class="form-control ev-input" id="fPrecioMin" name="min" placeholder="0.00">
-            </div>
-            <span class="ev-filter-range-separator" aria-hidden="true">—</span>
-            <div class="ev-filter-field">
-              <label class="form-label" for="fPrecioMax">Precio máximo (S/)</label>
-              <input type="number" step="0.01" min="0" class="form-control ev-input" id="fPrecioMax" name="max" placeholder="999.99">
-            </div>
-          </div>
-
-          <div class="ev-filter-field ev-filter-order-field">
-            <label class="form-label" for="fOrden">Ordenar resultados</label>
-            <select class="form-select ev-input" id="fOrden" name="orden">
-              <option value="recientes" selected>Más recientes</option>
-              <option value="precio_asc">Menor precio</option>
-              <option value="precio_desc">Mayor precio</option>
-              <option value="titulo_asc">Título A → Z</option>
-              <option value="titulo_desc">Título Z → A</option>
-            </select>
-          </div>
+        <div class="ev-filter-actions-row">
+          <button
+            type="button"
+            class="btn ev-filter-advanced-toggle collapsed"
+            id="btnToggleFiltrosAvanzados"
+            data-bs-toggle="collapse"
+            data-bs-target="#evFiltrosAvanzados"
+            aria-expanded="false"
+            aria-controls="evFiltrosAvanzados"
+          >
+            <i class="bi bi-sliders"></i>
+            <span>Más filtros</span>
+            <i class="bi bi-chevron-down ev-filter-toggle-chevron" aria-hidden="true"></i>
+          </button>
 
           <button class="btn ev-btn-orange ev-filter-submit" type="submit">
             <i class="bi bi-search"></i> Aplicar filtros
           </button>
         </div>
-      </form>
 
-      <div class="ev-filter-feedback" aria-live="polite">
-        <i class="bi bi-lightning-charge"></i>
-        <span>Los resultados se actualizan automáticamente. También puedes usar “Aplicar filtros” para confirmar la selección.</span>
-      </div>
+        <div class="collapse ev-filter-advanced" id="evFiltrosAvanzados">
+          <div class="ev-filter-advanced-inner">
+            <div class="ev-filter-advanced-heading">
+              <span class="ev-filter-secondary-icon"><i class="bi bi-sliders2"></i></span>
+              <div>
+                <strong>Precio y orden</strong>
+                <span>Opcional</span>
+              </div>
+            </div>
+
+            <div class="ev-filter-price-range">
+              <div class="ev-filter-field">
+                <label class="form-label" for="fPrecioMin">Precio mínimo (S/)</label>
+                <input type="number" step="0.01" min="0" class="form-control ev-input" id="fPrecioMin" name="min" placeholder="0.00">
+              </div>
+              <span class="ev-filter-range-separator" aria-hidden="true">—</span>
+              <div class="ev-filter-field">
+                <label class="form-label" for="fPrecioMax">Precio máximo (S/)</label>
+                <input type="number" step="0.01" min="0" class="form-control ev-input" id="fPrecioMax" name="max" placeholder="999.99">
+              </div>
+            </div>
+
+            <div class="ev-filter-field ev-filter-order-field">
+              <label class="form-label" for="fOrden">Ordenar resultados</label>
+              <select class="form-select ev-input" id="fOrden" name="orden">
+                <option value="recientes" selected>Más recientes</option>
+                <option value="precio_asc">Menor precio</option>
+                <option value="precio_desc">Mayor precio</option>
+                <option value="titulo_asc">Título A → Z</option>
+                <option value="titulo_desc">Título Z → A</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </form>
     </div>
   </div>
 

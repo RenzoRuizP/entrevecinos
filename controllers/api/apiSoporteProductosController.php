@@ -317,6 +317,19 @@ class apiSoporteProductosController
                 }
             }
 
+            try {
+                $rolSoporte = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
+                $notificacionSoporte = new Notificacion($m->getDblink());
+                $notificacionSoporte->marcarLeidasPorReferenciaRol(
+                    $rolSoporte,
+                    Notificacion::CAT_SOPORTE,
+                    'publicacion_pendiente',
+                    $id
+                );
+            } catch (Throwable $eNotifSoporte) {
+                error_log('[EV][apiSoporteProductosController::revisar][resolver_notificacion_soporte] ' . $eNotifSoporte->getMessage());
+            }
+
             $this->json(200, [
                 'ok' => true,
                 'mensaje' => $msg,

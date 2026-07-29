@@ -9,6 +9,7 @@ require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/Producto.php';
 require_once __DIR__ . '/../../models/ProductoSoporte.php';
 require_once __DIR__ . '/../../models/ConfiguracionPlataforma.php';
+require_once __DIR__ . '/../../models/Notificacion.php';
 require_once __DIR__ . '/../../middleware/FuncionalidadGuard.php';
 
 class apiProductoController
@@ -95,6 +96,38 @@ class apiProductoController
             'alcanzado'   => (bool)($resumen['alcanzado'] ?? ($activos >= $maximo)),
             'es_gratis'   => true,
         ];
+    }
+
+    private function notificarSoportePublicacionPendiente(Producto $model, array $detalle): void
+    {
+        $codigoProducto = (int)($detalle['codigo_producto'] ?? 0);
+        if ($codigoProducto <= 0) {
+            return;
+        }
+
+        $codigoRolSoporte = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
+        $titulo = trim((string)($detalle['titulo'] ?? 'Publicación sin título'));
+        $tipoPublicacion = $this->normalizarTipoPublicacion($detalle['tipo_publicacion'] ?? 'producto');
+
+        try {
+            $notificacion = new Notificacion($model->getDblink());
+            $notificacion->crearParaRol($codigoRolSoporte, [
+                'categoria' => Notificacion::CAT_SOPORTE,
+                'subcategoria' => 'publicacion_pendiente',
+                'referencia_id' => $codigoProducto,
+                'titulo' => 'Nueva publicación por revisar',
+                'mensaje' => 'La publicación “' . $titulo . '” fue enviada a revisión.',
+                'payload' => [
+                    'codigo_producto' => $codigoProducto,
+                    'tipo_publicacion' => $tipoPublicacion,
+                    'titulo_producto' => $titulo,
+                    'rol_destino' => 'soporte',
+                    'ruta' => '/atender-publicacion',
+                ],
+            ]);
+        } catch (Throwable $e) {
+            error_log('[EV][apiProductoController::notificarSoportePublicacionPendiente] ' . $e->getMessage());
+        }
     }
 
     private function normalizarEstadoPublicacion($valor, string $tipoPublicacion): string
@@ -556,6 +589,9 @@ class apiProductoController
                 return;
             }
 
+            $detalle['codigo_producto'] = $codigoProducto;
+            $this->notificarSoportePublicacionPendiente($model, $detalle);
+
             $resumenServicios = $this->respuestaLimiteServiciosPiloto(
                 $resultado['servicios_piloto'] ?? $model->obtenerResumenServiciosPiloto($codigoUsuario)
             );
@@ -792,6 +828,14 @@ class apiProductoController
                 }
             } catch (Throwable $e) {
                 error_log('[EV][apiProductoController][reenvio_correccion] ' . $e->getMessage());
+            }
+
+            if ($reenviado) {
+                $this->notificarSoportePublicacionPendiente($model, [
+                    'codigo_producto' => $codigoProducto,
+                    'titulo' => $titulo,
+                    'tipo_publicacion' => $tipoPublicacion,
+                ]);
             }
 
             $this->json(200, [

@@ -84,10 +84,12 @@ final class apiNotificacionesController
             $data = $m->resumen($u, $incluirItems, $limite);
             $atenciones = $this->atencionesPendientesSoporte();
 
+            // La campana representa únicamente novedades no leídas.
+            // Las atenciones operativas se muestran y gestionan desde el Panel de Soporte.
             $data['total_notificaciones'] = max(0, (int)($data['total'] ?? 0));
             $data['pendientes_soporte'] = (int)$atenciones['total'];
             $data['atenciones_soporte'] = $atenciones;
-            $data['total'] = $data['total_notificaciones'] + $data['pendientes_soporte'];
+            $data['total'] = $data['total_notificaciones'];
 
             $this->json(200, [
                 'ok' => true,

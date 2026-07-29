@@ -632,7 +632,7 @@
     return { id, name };
   }
 
-  async function cargarTiposFiltro() {
+  async function cargarTiposFiltro(seleccionarGuardado = true) {
     const selTipo = document.getElementById('fTipo');
     if (!selTipo) return;
 
@@ -648,7 +648,7 @@
     const data = await evFetchJson(url);
     if (!data || !data.ok || !Array.isArray(data.data)) return;
 
-    const prev = String(window.evProductosFiltro?.tipo || '');
+    const prev = seleccionarGuardado ? String(window.evProductosFiltro?.tipo || '') : '';
     selTipo.innerHTML = `<option value="">Todos los tipos</option>`;
 
     data.data.forEach(r => {
@@ -663,7 +663,7 @@
     if (prev) selTipo.value = prev;
   }
 
-  async function cargarCategoriasFiltro(tipoId) {
+  async function cargarCategoriasFiltro(tipoId, seleccionarGuardado = true) {
     const selCat = document.getElementById('fCategoria');
     if (!selCat) return;
 
@@ -696,7 +696,7 @@
 
     selCat.disabled = false;
 
-    const prev = String(window.evProductosFiltro?.categoria || '');
+    const prev = seleccionarGuardado ? String(window.evProductosFiltro?.categoria || '') : '';
     if (prev) selCat.value = prev;
   }
 
@@ -2131,7 +2131,7 @@
 
       const lblMeta = document.getElementById('evLblMeta');
       const lblFooterLeft = document.getElementById('evLblFooterLeft');
-      if (lblMeta) lblMeta.textContent = `Mostrando ${filtrados.length} registros`;
+      if (lblMeta) lblMeta.textContent = `Mostrando ${filtrados.length} ${filtrados.length === 1 ? 'publicación' : 'publicaciones'}`;
       if (lblFooterLeft) lblFooterLeft.textContent = `Mostrando ${filtrados.length} de ${items.length}`;
 
       if (!items.length) {
@@ -2267,11 +2267,6 @@
         return;
       }
 
-      if (e.target.closest('#btnRefrescarMisProductos')) {
-        window.evCargarProductos?.();
-        return;
-      }
-
       if (e.target.closest('#btnLimpiarFiltros')) {
         (async () => {
           resetFiltrosUI();
@@ -2298,15 +2293,6 @@
       if (btnPublicar && !btnPublicar.disabled) { confirmarYPublicar(btnPublicar.getAttribute('data-id')); return; }
     });
 
-    document.addEventListener('input', debounce((e) => {
-      if (window.__EV_AUTH_REDIRECTING__ === true) return;
-
-      if (e.target && e.target.id === 'fTexto') {
-        syncFiltrosFromUI();
-        window.evCargarProductos?.();
-      }
-    }, 250));
-
     document.addEventListener('change', (e) => {
       if (window.__EV_AUTH_REDIRECTING__ === true) return;
 
@@ -2328,10 +2314,6 @@
 
       if (e.target && e.target.id === 'fTipoPublicacion') {
         (async () => {
-          syncFiltrosFromUI();
-          window.evProductosFiltro.tipo = '';
-          window.evProductosFiltro.categoria = '';
-
           const selTipo = document.getElementById('fTipo');
           if (selTipo) selTipo.value = '';
 
@@ -2342,32 +2324,13 @@
             selCat.disabled = true;
           }
 
-          await cargarTiposFiltro();
-          window.evCargarProductos?.();
+          await cargarTiposFiltro(false);
         })();
         return;
       }
 
       if (e.target && e.target.id === 'fTipo') {
-        (async () => {
-          syncFiltrosFromUI();
-          window.evProductosFiltro.categoria = '';
-          await cargarCategoriasFiltro(e.target.value);
-          syncFiltrosFromUI();
-          window.evCargarProductos?.();
-        })();
-        return;
-      }
-
-      if (e.target && e.target.id === 'fCategoria') {
-        syncFiltrosFromUI();
-        window.evCargarProductos?.();
-        return;
-      }
-
-      if (e.target && (e.target.id === 'fPrecioMin' || e.target.id === 'fPrecioMax' || e.target.id === 'fOrden')) {
-        syncFiltrosFromUI();
-        window.evCargarProductos?.();
+        cargarCategoriasFiltro(e.target.value, false);
         return;
       }
     });

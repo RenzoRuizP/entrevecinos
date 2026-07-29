@@ -26,7 +26,8 @@
     '/mis-pedidos-vendedor',
     '/mis-solicitudes-servicio-comprador',
     '/mis-solicitudes-servicio-vendedor',
-    '/atender-servicios'
+    '/atender-servicios',
+    '/atender-publicacion'
   ]);
 
   const SUBCATEGORIAS_GESTION_SERVICIO = new Set([
@@ -50,6 +51,7 @@
     publicacion_aprobada: 'Publicación aprobada',
     publicacion_observada: 'Publicación observada',
     publicacion_rechazada: 'Publicación rechazada',
+    publicacion_pendiente: 'Publicación por revisar',
     recarga_aprobada: 'Recarga aprobada',
     recarga_observada: 'Recarga observada',
     recarga_rechazada: 'Recarga rechazada',
@@ -214,7 +216,10 @@
     if (categoria === 'billetera') return { icon: 'bi-wallet2', tone: sub.includes('aprobada') ? 'success' : (sub.includes('rechazada') ? 'danger' : 'warning') };
     if (categoria === 'pedido' || categoria === 'pedidos') return { icon: 'bi-bag-check', tone: sub.includes('cancel') || sub.includes('rechaz') ? 'danger' : 'success' };
     if (categoria === 'comunidad') return { icon: sub.includes('urgente') ? 'bi-megaphone-fill' : 'bi-people', tone: sub.includes('urgente') ? 'danger' : 'info' };
-    if (categoria === 'soporte') return { icon: 'bi-headset', tone: 'info' };
+    if (categoria === 'soporte') {
+      if (sub === 'publicacion_pendiente') return { icon: 'bi-megaphone', tone: 'warning' };
+      return { icon: 'bi-headset', tone: 'info' };
+    }
     if (categoria === 'servicio') {
       if (sub.includes('reprogramacion') || sub.includes('cotizacion') || sub.includes('calificacion')) return { icon: sub.includes('calificacion') ? 'bi-star' : 'bi-calendar2-week', tone: 'warning' };
       if (sub.includes('problema') || sub.includes('incidencia') || sub.includes('observacion') || sub.includes('cancel')) return { icon: 'bi-exclamation-triangle', tone: 'danger' };

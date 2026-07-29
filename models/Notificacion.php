@@ -51,6 +51,7 @@ final class Notificacion extends Conexion
         '/mis-solicitudes-servicio-comprador',
         '/mis-solicitudes-servicio-vendedor',
         '/atender-servicios',
+        '/atender-publicacion',
     ];
 
     public function __construct(?PDO $pdo = null)
@@ -200,6 +201,82 @@ final class Notificacion extends Conexion
         return $id;
     }
 
+    /**
+     * Crea una notificación para cada usuario habilitado de un rol.
+     * Devuelve la cantidad de destinatarios notificados.
+     */
+    public function crearParaRol(int $codigoRol, array $data): int
+    {
+        if ($codigoRol <= 0) {
+            return 0;
+        }
+
+        $st = $this->dblink->prepare(
+            "SELECT codigo_usuario
+             FROM usuario
+             WHERE codigo_rol = :rol
+               AND estado = 2
+             ORDER BY codigo_usuario ASC"
+        );
+        $st->bindValue(':rol', $codigoRol, PDO::PARAM_INT);
+        $st->execute();
+        $usuarios = $st->fetchAll(PDO::FETCH_COLUMN) ?: [];
+
+        $creadas = 0;
+        foreach ($usuarios as $codigoUsuario) {
+            $codigoUsuario = (int)$codigoUsuario;
+            if ($codigoUsuario <= 0) {
+                continue;
+            }
+            $payload = $data;
+            $payload['codigo_usuario'] = $codigoUsuario;
+            $this->crearOActualizarNoLeida($payload);
+            $creadas++;
+        }
+
+        return $creadas;
+    }
+
+    /**
+     * Cierra las novedades de un rol cuando la atención operativa ya fue resuelta.
+     * La bandeja de soporte continúa midiendo trabajo pendiente por separado.
+     */
+    public function marcarLeidasPorReferenciaRol(
+        int $codigoRol,
+        string $categoria,
+        string $subcategoria,
+        int $referenciaId
+    ): int {
+        if ($codigoRol <= 0 || $referenciaId <= 0) {
+            return 0;
+        }
+
+        $categoria = self::normalizarCategoria($categoria);
+        $subcategoria = strtolower(trim($subcategoria));
+        if ($subcategoria === '') {
+            return 0;
+        }
+
+        $st = $this->dblink->prepare(
+            "UPDATE notificacion n
+             INNER JOIN usuario u ON u.codigo_usuario = n.codigo_usuario
+             SET n.estado = 'leida',
+                 n.read_at = COALESCE(n.read_at, CURRENT_TIMESTAMP)
+             WHERE u.codigo_rol = :rol
+               AND n.categoria = :categoria
+               AND n.subcategoria = :subcategoria
+               AND n.referencia_id = :referencia
+               AND n.estado = 'no_leida'"
+        );
+        $st->bindValue(':rol', $codigoRol, PDO::PARAM_INT);
+        $st->bindValue(':categoria', $categoria, PDO::PARAM_STR);
+        $st->bindValue(':subcategoria', $subcategoria, PDO::PARAM_STR);
+        $st->bindValue(':referencia', $referenciaId, PDO::PARAM_INT);
+        $st->execute();
+
+        return $st->rowCount();
+    }
+
     public function listarPorUsuario(int $codigoUsuario, array $filtros): array
     {
         $categoria = strtolower(trim((string)($filtros['categoria'] ?? 'all')));
@@ -313,6 +390,7 @@ final class Notificacion extends Conexion
                         referencia_id, titulo, mensaje, payload_json, estado, created_at, read_at
                  FROM notificacion
                  WHERE codigo_usuario = :u
+                   AND estado = 'no_leida'
                  ORDER BY created_at DESC, codigo_notificacion DESC
                  LIMIT :lim"
             );

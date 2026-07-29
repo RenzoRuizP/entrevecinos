@@ -787,6 +787,8 @@
         const mi = ensureModal();
         if (mi) mi.hide();
 
+        document.dispatchEvent(new CustomEvent('ev:notificaciones-globales-actualizar'));
+        window.EVNotificacionesGlobales?.refresh?.({ silent: true, includeItems: false });
         listar();
       } catch (e) {
         toastError("Error de red al registrar revisión.");
