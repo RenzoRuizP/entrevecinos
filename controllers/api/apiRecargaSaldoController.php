@@ -5,14 +5,12 @@ require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/User.php';
 require_once __DIR__ . '/../../models/RecargaSaldo.php';
-require_once __DIR__ . '/../../models/ConfiguracionPlataforma.php';
-require_once __DIR__ . '/../../middleware/FuncionalidadGuard.php';
+require_once __DIR__ . '/../../models/Notificacion.php';
 
 class apiRecargaSaldoController
 {
     public function registrar()
     {
-        FuncionalidadGuard::exigirMonetizacionBooleanaJson(ConfiguracionPlataforma::MON_RECARGAS);
         header('Content-Type: application/json; charset=utf-8');
 
         try {
@@ -127,10 +125,19 @@ class apiRecargaSaldoController
                 $rutaRel
             );
 
+            $notificacionesSoporte = $this->notificarEquipoSoporteRecarga(
+                $usuarioAuth,
+                $codigoRecarga,
+                $monto,
+                $metodo,
+                false
+            );
+
             echo json_encode([
                 'ok'      => true,
                 'id'      => $codigoRecarga,
                 'estado'  => 'pendiente',
+                'notificaciones_soporte' => $notificacionesSoporte,
                 'mensaje' => 'Recarga registrada. Quedará pendiente de validación por Soporte.'
             ], JSON_UNESCAPED_UNICODE);
             return;
@@ -148,7 +155,6 @@ class apiRecargaSaldoController
 
     public function subsanar($codigo_recarga)
     {
-        FuncionalidadGuard::exigirMonetizacionBooleanaJson(ConfiguracionPlataforma::MON_RECARGAS);
         header('Content-Type: application/json; charset=utf-8');
 
         try {
@@ -300,11 +306,20 @@ class apiRecargaSaldoController
                 return;
             }
 
+            $notificacionesSoporte = $this->notificarEquipoSoporteRecarga(
+                $usuarioAuth,
+                $codigoRecarga,
+                $monto,
+                $metodo,
+                true
+            );
+
             echo json_encode([
                 'ok' => true,
                 'id' => $codigoRecarga,
                 'estado' => 'pendiente',
                 'reenviada_usuario' => 1,
+                'notificaciones_soporte' => $notificacionesSoporte,
                 'mensaje' => $nuevoArchivoSubido
                     ? 'Recarga corregida y reenviada a validación.'
                     : 'Recarga corregida y reenviada a validación.'
@@ -324,7 +339,6 @@ class apiRecargaSaldoController
 
     public function mis()
     {
-        FuncionalidadGuard::exigirMonetizacionBooleanaJson(ConfiguracionPlataforma::MON_RECARGAS);
         header('Content-Type: application/json; charset=utf-8');
 
         try {
@@ -423,6 +437,67 @@ class apiRecargaSaldoController
         }
 
         return null;
+    }
+
+    private function notificarEquipoSoporteRecarga(
+        array $usuarioAuth,
+        int $codigoRecarga,
+        float $monto,
+        string $metodo,
+        bool $esReenvio
+    ): int {
+        try {
+            $codigoUsuario = (int)($usuarioAuth['codigo_usuario'] ?? 0);
+            $nombre = trim((string)($usuarioAuth['nombre'] ?? ''));
+            $email = trim((string)($usuarioAuth['email'] ?? ''));
+
+            if ($nombre === '' && $email !== '') {
+                try {
+                    $usuarioModel = new User();
+                    $datos = $usuarioModel->DatosUsuario($email);
+                    if (is_array($datos)) {
+                        $nombre = trim((string)($datos['nombre'] ?? ''));
+                    }
+                } catch (Throwable $eUsuario) {
+                    error_log('[EV][apiRecargaSaldoController::notificarEquipoSoporteRecarga][usuario] ' . $eUsuario->getMessage());
+                }
+            }
+
+            if ($nombre === '') {
+                $nombre = $codigoUsuario > 0 ? 'Vecino #' . $codigoUsuario : 'Un vecino';
+            }
+
+            $metodoVisible = strtoupper($metodo);
+            $montoVisible = 'S/ ' . number_format($monto, 2, '.', '');
+            $titulo = $esReenvio
+                ? 'Recarga corregida por revisar'
+                : 'Nueva solicitud de recarga';
+            $mensaje = $esReenvio
+                ? $nombre . ' corrigió y reenvió una recarga de ' . $montoVisible . ' mediante ' . $metodoVisible . '.'
+                : $nombre . ' envió una solicitud de recarga de ' . $montoVisible . ' mediante ' . $metodoVisible . '.';
+
+            $notificacion = new Notificacion();
+            return $notificacion->crearParaRoles([1, 3], [
+                'categoria' => Notificacion::CAT_BILLETERA,
+                'subcategoria' => 'recarga_pendiente_soporte',
+                'referencia_id' => $codigoRecarga,
+                'titulo' => $titulo,
+                'mensaje' => $mensaje,
+                'payload' => [
+                    'codigo_recarga' => $codigoRecarga,
+                    'codigo_usuario' => $codigoUsuario,
+                    'monto' => $monto,
+                    'metodo' => $metodo,
+                    'estado' => 'pendiente',
+                    'reenviada_usuario' => $esReenvio ? 1 : 0,
+                    'rol_destino' => 'soporte',
+                    'ruta' => '/atender-recargas?estado=pendiente&recarga=' . $codigoRecarga,
+                ],
+            ]);
+        } catch (Throwable $eNotif) {
+            error_log('[EV][apiRecargaSaldoController::notificarEquipoSoporteRecarga] ' . $eNotif->getMessage());
+            return 0;
+        }
     }
 
     private function validarArchivoImagen(array $file): array

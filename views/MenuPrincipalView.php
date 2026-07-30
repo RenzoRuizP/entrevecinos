@@ -24,9 +24,6 @@ $baseHref = rtrim(BASE_URL, '/') . '/';
 
 $baseUrl = rtrim(BASE_URL, '/');
 
-$evFuncionalidades = is_array($evFuncionalidades ?? null) ? $evFuncionalidades : [];
-$evMonetizacion = is_array($evMonetizacion ?? null) ? $evMonetizacion : [];
-
 /**
  * Normaliza ev_goto para evitar que el shell /MenuPrincipal
  * se cargue dentro de sí mismo como vista parcial.
@@ -485,11 +482,6 @@ function ev_ver($pathAbs) {
     window.BASE_URL = window.EV_CONFIG.baseUrl;
     window.EV_BASE_URL = window.EV_CONFIG.baseUrl;
     window.EV_ROL_USUARIO = <?php echo json_encode($rolUsuarioRaw); ?>;
-  </script>
-
-  <script>
-    window.EV_FUNCIONALIDADES = Object.freeze(<?= json_encode($evFuncionalidades, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);
-    window.EV_MONETIZACION = Object.freeze(<?= json_encode($evMonetizacion, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);
   </script>
 
   <?php include_once __DIR__ . '/scripts/menuPrincipalScripts.php'; ?>

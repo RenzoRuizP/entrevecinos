@@ -3,8 +3,6 @@
 
 require_once __DIR__ . '/../models/SesionJWT.php';
 require_once __DIR__ . '/../models/User.php';
-require_once __DIR__ . '/../models/ConfiguracionPlataforma.php';
-require_once __DIR__ . '/../middleware/FuncionalidadGuard.php';
 
 class productoController
 {
@@ -30,21 +28,6 @@ class productoController
 
             if (!$datosUsuario) {
                 return $this->resolverNoAutorizado('usuario_no_encontrado');
-            }
-
-            $configuracion = new ConfiguracionPlataforma();
-            $evPuedePublicarProductos = $configuracion->funcionalidadHabilitada(
-                ConfiguracionPlataforma::FUNC_PUBLICAR_PRODUCTOS,
-                $datosToken
-            );
-            $evPuedePublicarServicios = $configuracion->funcionalidadHabilitada(
-                ConfiguracionPlataforma::FUNC_PUBLICAR_SERVICIOS,
-                $datosToken
-            );
-
-            if (!$evPuedePublicarProductos && !$evPuedePublicarServicios) {
-                FuncionalidadGuard::exigirHtml(ConfiguracionPlataforma::FUNC_PUBLICAR_PRODUCTOS);
-                return;
             }
 
             // 3) SIEMPRE devolver el parcial (evitamos redirecciones al panel)

@@ -18,52 +18,8 @@ require_once __DIR__ . '/../Config/config.php';
           </div>
         </div>
 
-        <div class="ev-hero-right">
-          <button class="ev-icon-btn" type="button" title="Notificaciones" aria-label="Notificaciones">
-            <i class="bi bi-bell"></i>
-          </button>
-
-          <div class="dropdown">
-            <button class="btn ev-btn-orange dropdown-toggle" data-bs-toggle="dropdown" type="button">
-              Acciones
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-              <li>
-                <button class="dropdown-item" type="button" id="btnRefrescar">
-                  <i class="bi bi-arrow-clockwise me-2"></i>Refrescar
-                </button>
-              </li>
-              <li>
-                <button class="dropdown-item" type="button" id="btnExportar">
-                  <i class="bi bi-download me-2"></i>Exportar CSV
-                </button>
-              </li>
-            </ul>
-          </div>
-        </div>
       </div>
 
-      <div class="ev-hero-bottom">
-        <div class="ev-summary-pill">
-          <span class="ev-summary-label">Pendientes:</span>
-          <span class="ev-summary-count" id="lblPendientes">0</span>
-        </div>
-
-        <div class="ev-quick-actions">
-          <button type="button" class="btn ev-btn-light btn-sm" id="btnVerPendientes">
-            <i class="bi bi-hourglass-split me-1"></i> Pendientes
-          </button>
-          <button type="button" class="btn ev-btn-light btn-sm" id="btnVerAprobadas">
-            <i class="bi bi-check-circle me-1"></i> Aprobadas
-          </button>
-          <button type="button" class="btn ev-btn-light btn-sm" id="btnVerRechazadas">
-            <i class="bi bi-x-circle me-1"></i> Rechazadas
-          </button>
-          <button type="button" class="btn ev-btn-light btn-sm" id="btnVerBorradores">
-            <i class="bi bi-pencil-square me-1"></i> Borradores
-          </button>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -125,16 +81,14 @@ require_once __DIR__ . '/../Config/config.php';
               <tr>
                 <th class="ev-col-fecha">Fecha</th>
                 <th class="ev-col-publicacion">Publicación</th>
-                <th class="ev-col-titulo">Título</th>
-                <th class="text-end ev-col-precio">Precio</th>
-                <th class="ev-col-usuario">Usuario</th>
+                <th class="ev-col-usuario">Vecino</th>
                 <th class="ev-col-estado">Estado</th>
                 <th class="text-end ev-col-acciones">Acciones</th>
               </tr>
             </thead>
             <tbody id="tbodyItems">
               <tr>
-                <td colspan="7" class="text-center py-4 ev-empty">
+                <td colspan="5" class="text-center py-4 ev-empty">
                   <div class="ev-empty-wrap">
                     <i class="bi bi-inbox ev-empty-ico"></i>
                     <div class="ev-empty-text">No hay publicaciones para los filtros seleccionados.</div>

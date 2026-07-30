@@ -42,18 +42,6 @@ class Conexion
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]);
-
-            /*
-             * Los campos TIMESTAMP deben salir de MySQL en la hora oficial de
-             * Perú, tanto en XAMPP como en QA/producción (servidores UTC).
-             * Se usa un offset para no depender de que MySQL tenga cargadas
-             * las tablas de zonas horarias con nombres IANA.
-             */
-            $dbTimezone = trim((string)ev_env('EV_DB_TIME_ZONE', '-05:00'));
-            if (!preg_match('/^[+-](?:0\d|1[0-4]):[0-5]\d$/', $dbTimezone)) {
-                $dbTimezone = '-05:00';
-            }
-            $this->dblink->exec("SET time_zone = " . $this->dblink->quote($dbTimezone));
         } catch (PDOException $e) {
             throw new RuntimeException(
                 'Error de conexión a la base de datos: ' . $e->getMessage(),

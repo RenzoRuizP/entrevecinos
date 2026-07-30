@@ -75,10 +75,6 @@ require_once __DIR__ . '/../Config/config.php';
           <span>Soporte técnico</span>
         </button>
 
-        <button type="button" class="btn ev-wallet-btn-refresh" id="btnRefrescarRecargas">
-          <i class="bi bi-arrow-clockwise"></i>
-          <span>Actualizar</span>
-        </button>
       </div>
     </header>
 

@@ -13,6 +13,7 @@
   const BASE = String(window.EV?.baseUrl ?? window.BASE_URL ?? window.EV_BASE_URL ?? '').replace(/\/+$/, '');
   const FETCH_TIMEOUT_MS = 8000;
   const PENDING_SERVICE_KEY = 'ev_notificacion_servicio_pendiente';
+  const PENDING_SUPPORT_RESIDENCE_KEY = 'ev_notificacion_residencia_soporte_pendiente';
 
   const RUTAS_PERMITIDAS = new Set([
     '/MenuPrincipal',
@@ -27,7 +28,9 @@
     '/mis-solicitudes-servicio-comprador',
     '/mis-solicitudes-servicio-vendedor',
     '/atender-servicios',
-    '/atender-publicacion'
+    '/atender-cuentas',
+    '/atender-publicacion',
+    '/atender-recargas'
   ]);
 
   const SUBCATEGORIAS_GESTION_SERVICIO = new Set([
@@ -51,10 +54,10 @@
     publicacion_aprobada: 'Publicación aprobada',
     publicacion_observada: 'Publicación observada',
     publicacion_rechazada: 'Publicación rechazada',
-    publicacion_pendiente: 'Publicación por revisar',
     recarga_aprobada: 'Recarga aprobada',
     recarga_observada: 'Recarga observada',
     recarga_rechazada: 'Recarga rechazada',
+    recarga_pendiente_soporte: 'Recarga pendiente de revisión',
     nueva_solicitud: 'Nueva solicitud',
     mensaje_conversacion: 'Nuevo mensaje',
     cotizacion_final_aceptada: 'Cotización aceptada',
@@ -182,10 +185,14 @@
         : '/MenuPrincipal';
     }
     if (categoria === 'residencia') return '/notificaciones-residencia';
-    if (categoria === 'publicacion') return '/publicacion';
-    if (categoria === 'billetera') return '/billetera';
+    if (categoria === 'publicacion') return rolDestino === 'soporte' ? '/atender-publicacion' : '/publicacion';
+    if (categoria === 'billetera') return rolDestino === 'soporte' ? '/atender-recargas' : '/billetera';
     if (categoria === 'comunidad') return '/comunidad';
-    if (categoria === 'soporte') return '/MenuPrincipal';
+    if (categoria === 'soporte') {
+      return String(item?.subcategoria || '').toLowerCase() === 'residencia_pendiente_soporte'
+        ? '/atender-cuentas'
+        : '/MenuPrincipal';
+    }
     return '/MenuPrincipal';
   }
 
@@ -216,10 +223,7 @@
     if (categoria === 'billetera') return { icon: 'bi-wallet2', tone: sub.includes('aprobada') ? 'success' : (sub.includes('rechazada') ? 'danger' : 'warning') };
     if (categoria === 'pedido' || categoria === 'pedidos') return { icon: 'bi-bag-check', tone: sub.includes('cancel') || sub.includes('rechaz') ? 'danger' : 'success' };
     if (categoria === 'comunidad') return { icon: sub.includes('urgente') ? 'bi-megaphone-fill' : 'bi-people', tone: sub.includes('urgente') ? 'danger' : 'info' };
-    if (categoria === 'soporte') {
-      if (sub === 'publicacion_pendiente') return { icon: 'bi-megaphone', tone: 'warning' };
-      return { icon: 'bi-headset', tone: 'info' };
-    }
+    if (categoria === 'soporte') return { icon: 'bi-headset', tone: 'info' };
     if (categoria === 'servicio') {
       if (sub.includes('reprogramacion') || sub.includes('cotizacion') || sub.includes('calificacion')) return { icon: sub.includes('calificacion') ? 'bi-star' : 'bi-calendar2-week', tone: 'warning' };
       if (sub.includes('problema') || sub.includes('incidencia') || sub.includes('observacion') || sub.includes('cancel')) return { icon: 'bi-exclamation-triangle', tone: 'danger' };
@@ -459,6 +463,33 @@
     }
   }
 
+  function guardarResidenciaSoportePendiente(item, payload, ruta) {
+    const categoria = String(item?.categoria || '').toLowerCase();
+    const subcategoria = String(item?.subcategoria || '').toLowerCase();
+    const codigoSolicitud = Number(payload?.codigo_solicitud || item?.referencia_id || 0);
+
+    if (
+      categoria !== 'soporte'
+      || subcategoria !== 'residencia_pendiente_soporte'
+      || codigoSolicitud <= 0
+    ) {
+      return false;
+    }
+
+    try {
+      sessionStorage.setItem(PENDING_SUPPORT_RESIDENCE_KEY, JSON.stringify({
+        codigo_solicitud: codigoSolicitud,
+        modo: 'residencias',
+        estado: 'revision',
+        ruta,
+        created_at: Date.now()
+      }));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   function guardarServicioPendiente(item, payload, ruta) {
     const categoria = String(item?.categoria || '').toLowerCase();
     const subcategoria = String(item?.subcategoria || '').toLowerCase();
@@ -512,6 +543,7 @@
     const payload = parsePayload(item);
     const ruta = rutaPorCategoria(item, payload);
     guardarServicioPendiente(item, payload, ruta);
+    guardarResidenciaSoportePendiente(item, payload, ruta);
     if (window.EVNav && typeof window.EVNav.loadPage === 'function') {
       await window.EVNav.loadPage(ruta, { pushState: true, replaceState: false });
       await intentarAbrirServicioPendiente();

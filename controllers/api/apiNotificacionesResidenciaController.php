@@ -5,6 +5,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/UsuarioResidenciaSolicitud.php';
 require_once __DIR__ . '/../../models/Notificacion.php';
+require_once __DIR__ . '/../../models/Usuario.php';
+require_once __DIR__ . '/../../models/UsuarioSoporte.php';
 
 final class apiNotificacionesResidenciaController
 {
@@ -108,16 +110,54 @@ final class apiNotificacionesResidenciaController
                 return;
             }
 
-            // ✅ FIX RAÍZ: cerrar la notificación ligada a la solicitud original
-            $n = new Notificacion();
-            $cerradas = $n->marcarLeidasPorReferencia($u, 'residencia', $id);
+            // Cierra el aviso anterior del vecino porque esta revisión ya fue atendida.
+            $n = new Notificacion($model->getDblink());
+            $cerradas = $n->marcarLeidasPorReferencia($u, Notificacion::CAT_RESIDENCIA, $id);
+
+            // El reenvío genera una nueva solicitud pendiente; Soporte y Administración
+            // deben recibir nuevamente el aviso operativo en su campana.
+            $notificacionesSoporte = 0;
+            try {
+                $usuario = (new Usuario())->obtenerPorCodigo($u);
+                $nombreVecino = trim((string)($usuario['nombre_completo'] ?? 'Un vecino'));
+                $adminId = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
+                $soporteId = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
+
+                $notificacionesSoporte = $n->crearParaRoles(
+                    [$adminId, $soporteId],
+                    [
+                        'categoria' => Notificacion::CAT_SOPORTE,
+                        'subcategoria' => 'residencia_pendiente_soporte',
+                        'referencia_id' => $newId,
+                        'titulo' => 'Solicitud de residencia reenviada',
+                        'mensaje' => $nombreVecino . ' subsanó su solicitud y requiere una nueva revisión.',
+                        'payload' => [
+                            'codigo_solicitud' => $newId,
+                            'codigo_usuario' => $u,
+                            'estado' => 'pendiente',
+                            'modo' => 'residencias',
+                            'rol_destino' => 'soporte',
+                            'ruta' => '/atender-cuentas',
+                        ],
+                    ]
+                );
+            } catch (Throwable $eNotif) {
+                error_log('[EV][apiNotificacionesResidenciaController::reenviar][notificacion_soporte] ' . $eNotif->getMessage());
+            }
+
+            try {
+                (new UsuarioSoporte())->actualizarEstado($u, 1);
+            } catch (Throwable $eEstado) {
+                error_log('[EV][apiNotificacionesResidenciaController::reenviar][estado] ' . $eEstado->getMessage());
+            }
 
             $this->json(200, [
                 'ok' => true,
                 'mensaje' => 'Solicitud reenviada. Queda pendiente de revisión.',
                 'data' => [
                     'codigo_solicitud' => $newId,
-                    'notificaciones_cerradas' => $cerradas
+                    'notificaciones_cerradas' => $cerradas,
+                    'notificaciones_soporte' => $notificacionesSoporte,
                 ]
             ]);
         } catch (Throwable $e) {

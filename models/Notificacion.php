@@ -51,7 +51,9 @@ final class Notificacion extends Conexion
         '/mis-solicitudes-servicio-comprador',
         '/mis-solicitudes-servicio-vendedor',
         '/atender-servicios',
+        '/atender-cuentas',
         '/atender-publicacion',
+        '/atender-recargas',
     ];
 
     public function __construct(?PDO $pdo = null)
@@ -201,82 +203,6 @@ final class Notificacion extends Conexion
         return $id;
     }
 
-    /**
-     * Crea una notificación para cada usuario habilitado de un rol.
-     * Devuelve la cantidad de destinatarios notificados.
-     */
-    public function crearParaRol(int $codigoRol, array $data): int
-    {
-        if ($codigoRol <= 0) {
-            return 0;
-        }
-
-        $st = $this->dblink->prepare(
-            "SELECT codigo_usuario
-             FROM usuario
-             WHERE codigo_rol = :rol
-               AND estado = 2
-             ORDER BY codigo_usuario ASC"
-        );
-        $st->bindValue(':rol', $codigoRol, PDO::PARAM_INT);
-        $st->execute();
-        $usuarios = $st->fetchAll(PDO::FETCH_COLUMN) ?: [];
-
-        $creadas = 0;
-        foreach ($usuarios as $codigoUsuario) {
-            $codigoUsuario = (int)$codigoUsuario;
-            if ($codigoUsuario <= 0) {
-                continue;
-            }
-            $payload = $data;
-            $payload['codigo_usuario'] = $codigoUsuario;
-            $this->crearOActualizarNoLeida($payload);
-            $creadas++;
-        }
-
-        return $creadas;
-    }
-
-    /**
-     * Cierra las novedades de un rol cuando la atención operativa ya fue resuelta.
-     * La bandeja de soporte continúa midiendo trabajo pendiente por separado.
-     */
-    public function marcarLeidasPorReferenciaRol(
-        int $codigoRol,
-        string $categoria,
-        string $subcategoria,
-        int $referenciaId
-    ): int {
-        if ($codigoRol <= 0 || $referenciaId <= 0) {
-            return 0;
-        }
-
-        $categoria = self::normalizarCategoria($categoria);
-        $subcategoria = strtolower(trim($subcategoria));
-        if ($subcategoria === '') {
-            return 0;
-        }
-
-        $st = $this->dblink->prepare(
-            "UPDATE notificacion n
-             INNER JOIN usuario u ON u.codigo_usuario = n.codigo_usuario
-             SET n.estado = 'leida',
-                 n.read_at = COALESCE(n.read_at, CURRENT_TIMESTAMP)
-             WHERE u.codigo_rol = :rol
-               AND n.categoria = :categoria
-               AND n.subcategoria = :subcategoria
-               AND n.referencia_id = :referencia
-               AND n.estado = 'no_leida'"
-        );
-        $st->bindValue(':rol', $codigoRol, PDO::PARAM_INT);
-        $st->bindValue(':categoria', $categoria, PDO::PARAM_STR);
-        $st->bindValue(':subcategoria', $subcategoria, PDO::PARAM_STR);
-        $st->bindValue(':referencia', $referenciaId, PDO::PARAM_INT);
-        $st->execute();
-
-        return $st->rowCount();
-    }
-
     public function listarPorUsuario(int $codigoUsuario, array $filtros): array
     {
         $categoria = strtolower(trim((string)($filtros['categoria'] ?? 'all')));
@@ -390,7 +316,6 @@ final class Notificacion extends Conexion
                         referencia_id, titulo, mensaje, payload_json, estado, created_at, read_at
                  FROM notificacion
                  WHERE codigo_usuario = :u
-                   AND estado = 'no_leida'
                  ORDER BY created_at DESC, codigo_notificacion DESC
                  LIMIT :lim"
             );
@@ -509,6 +434,122 @@ final class Notificacion extends Conexion
         $st->bindValue(':u', $codigoUsuario, PDO::PARAM_INT);
         $st->bindValue(':cat', $categoria, PDO::PARAM_STR);
         $st->bindValue(':ref', $referenciaId, PDO::PARAM_INT);
+        $st->execute();
+
+        return (int)$st->rowCount();
+    }
+
+    /**
+     * Crea o agrupa una notificación para todos los usuarios habilitados de
+     * los roles indicados. Se usa para bandejas operativas compartidas
+     * (Soporte/Administrador), evitando que el aviso dependa de una sola cuenta.
+     *
+     * @param int[] $codigoRoles
+     */
+    public function crearParaRoles(array $codigoRoles, array $data): int
+    {
+        $roles = array_values(array_unique(array_filter(
+            array_map('intval', $codigoRoles),
+            static fn(int $id): bool => $id > 0
+        )));
+
+        if ($roles === []) {
+            return 0;
+        }
+
+        $placeholders = [];
+        $params = [];
+        foreach ($roles as $i => $rol) {
+            $key = ':rol_' . $i;
+            $placeholders[] = $key;
+            $params[$key] = $rol;
+        }
+
+        $sql = "SELECT codigo_usuario
+                FROM usuario
+                WHERE codigo_rol IN (" . implode(', ', $placeholders) . ")
+                  AND estado = 2
+                ORDER BY codigo_usuario ASC";
+
+        $st = $this->dblink->prepare($sql);
+        foreach ($params as $key => $rol) {
+            $st->bindValue($key, $rol, PDO::PARAM_INT);
+        }
+        $st->execute();
+
+        $usuarios = array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN) ?: []);
+        $creadas = 0;
+
+        foreach ($usuarios as $codigoUsuario) {
+            if ($codigoUsuario <= 0) {
+                continue;
+            }
+
+            $payload = $data;
+            $payload['codigo_usuario'] = $codigoUsuario;
+            $this->crearOActualizarNoLeida($payload);
+            $creadas++;
+        }
+
+        return $creadas;
+    }
+
+    /**
+     * Resuelve el aviso operativo para todo el equipo que comparte la bandeja.
+     *
+     * @param int[] $codigoRoles
+     */
+    public function marcarLeidasPorReferenciaRoles(
+        array $codigoRoles,
+        string $categoria,
+        int $referenciaId,
+        ?string $subcategoria = null
+    ): int {
+        $roles = array_values(array_unique(array_filter(
+            array_map('intval', $codigoRoles),
+            static fn(int $id): bool => $id > 0
+        )));
+
+        if ($roles === [] || $referenciaId <= 0) {
+            return 0;
+        }
+
+        $categoria = self::normalizarCategoria($categoria);
+        $placeholders = [];
+        $params = [
+            ':cat' => $categoria,
+            ':ref' => $referenciaId,
+        ];
+
+        foreach ($roles as $i => $rol) {
+            $key = ':rol_' . $i;
+            $placeholders[] = $key;
+            $params[$key] = $rol;
+        }
+
+        $whereSub = '';
+        $subcategoria = trim((string)$subcategoria);
+        if ($subcategoria !== '') {
+            $whereSub = ' AND subcategoria = :sub';
+            $params[':sub'] = $subcategoria;
+        }
+
+        $sql = "UPDATE notificacion
+                SET estado = 'leida', read_at = CURRENT_TIMESTAMP
+                WHERE categoria = :cat
+                  AND referencia_id = :ref
+                  {$whereSub}
+                  AND estado = 'no_leida'
+                  AND codigo_usuario IN (
+                      SELECT codigo_usuario
+                      FROM usuario
+                      WHERE codigo_rol IN (" . implode(', ', $placeholders) . ")
+                  )";
+
+        $st = $this->dblink->prepare($sql);
+        foreach ($params as $key => $value) {
+            $st->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
         $st->execute();
 
         return (int)$st->rowCount();

@@ -90,8 +90,24 @@ class apiSoporteResidenciasController
 
         $ok = $model->actualizarEstadoSoporte($id, $estado, $comentario);
 
+        $notificacionesResueltas = 0;
+
         if ($ok && in_array($estado, ['observada', 'aprobada', 'rechazada'], true)) {
             $codigoUsuario = (int)($sol['codigo_usuario'] ?? 0);
+
+            try {
+                $adminId = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
+                $soporteId = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
+                $notifEquipo = new Notificacion($model->getDblink());
+                $notificacionesResueltas = $notifEquipo->marcarLeidasPorReferenciaRoles(
+                    [$adminId, $soporteId],
+                    Notificacion::CAT_SOPORTE,
+                    $id,
+                    'residencia_pendiente_soporte'
+                );
+            } catch (Throwable $eNotifEquipo) {
+                error_log('[EV][apiSoporteResidenciasController::actualizarEstado][resolver_notificacion_soporte] ' . $eNotifEquipo->getMessage());
+            }
 
             if ($codigoUsuario > 0) {
                 $titulos = [
@@ -133,7 +149,8 @@ class apiSoporteResidenciasController
 
         $this->json(200, [
             'ok' => $ok,
-            'mensaje' => $ok ? 'Solicitud actualizada.' : 'No se pudo actualizar.'
+            'mensaje' => $ok ? 'Solicitud actualizada.' : 'No se pudo actualizar.',
+            'notificaciones_resueltas' => $notificacionesResueltas,
         ]);
     }
 }

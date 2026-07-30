@@ -221,6 +221,7 @@ class User extends Conexion
                 u.email,
                 u.documento,
                 u.telefono,
+                u.foto_perfil,
                 u.codigo_rol AS codigo_rol,
 
                 ur.tipo_conjunto,
@@ -230,7 +231,14 @@ class User extends Conexion
                 ur.comprobante_domicilio,
 
                 c.nombre_condominio,
-                ub.nombre_urbanizacion
+                ub.nombre_urbanizacion,
+
+                COALESCE(c.codigo_distrito, ub.codigo_distrito) AS ubigeo_distrito,
+                ud.codigo_provincia AS ubigeo_provincia,
+                up.codigo_departamento AS ubigeo_departamento,
+                ud.nombre_distrito,
+                up.nombre_provincia,
+                udp.nombre_departamento
 
             FROM usuario u
             LEFT JOIN usuario_residencia ur
@@ -245,6 +253,12 @@ class User extends Conexion
                 ON ur.codigo_condominio = c.codigo_condominio
             LEFT JOIN urbanizacion ub
                 ON ur.codigo_urbanizacion = ub.codigo_urbanizacion
+            LEFT JOIN ubigeo_distrito ud
+                ON ud.codigo_distrito = COALESCE(c.codigo_distrito, ub.codigo_distrito)
+            LEFT JOIN ubigeo_provincia up
+                ON up.codigo_provincia = ud.codigo_provincia
+            LEFT JOIN ubigeo_departamento udp
+                ON udp.codigo_departamento = up.codigo_departamento
             WHERE u.email = :email
             LIMIT 1
         ";

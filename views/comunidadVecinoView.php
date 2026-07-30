@@ -73,22 +73,14 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
   </header>
 
   <section class="ev-cv-toolbar" aria-label="Filtros de novedades">
-    <div class="ev-cv-tabs" role="tablist" aria-label="Tipo de contenido">
-      <button type="button" class="is-active" data-cv-tipo="all">
-        Todo <span id="evCvCountTodo">0</span>
-      </button>
-
-      <button type="button" data-cv-tipo="comunicado">
-        Comunicados <span id="evCvCountComunicados">0</span>
-      </button>
-
-      <button type="button" data-cv-tipo="noticia">
-        Noticias <span id="evCvCountNoticias">0</span>
-      </button>
-
-      <button type="button" data-cv-tipo="evento">
-        Eventos <span id="evCvCountEventos">0</span>
-      </button>
+    <div class="ev-cv-filter">
+      <label for="evCvTipo">Tipo de novedad</label>
+      <select id="evCvTipo" class="ev-cv-filter-select" aria-label="Filtrar por tipo de novedad">
+        <option value="all" data-label="Todos">Todos (0)</option>
+        <option value="comunicado" data-label="Comunicados">Comunicados (0)</option>
+        <option value="noticia" data-label="Noticias">Noticias (0)</option>
+        <option value="evento" data-label="Eventos">Eventos (0)</option>
+      </select>
     </div>
 
     <form id="evCvBuscarForm" class="ev-cv-search" autocomplete="off">

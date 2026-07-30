@@ -8,9 +8,6 @@ require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/Producto.php';
 require_once __DIR__ . '/../../models/ProductoSoporte.php';
-require_once __DIR__ . '/../../models/ConfiguracionPlataforma.php';
-require_once __DIR__ . '/../../models/Notificacion.php';
-require_once __DIR__ . '/../../middleware/FuncionalidadGuard.php';
 
 class apiProductoController
 {
@@ -65,15 +62,6 @@ class apiProductoController
         return in_array($v, ['producto', 'servicio'], true) ? $v : 'producto';
     }
 
-    private function exigirPublicacionHabilitada(string $tipoPublicacion): void
-    {
-        $clave = $tipoPublicacion === 'servicio'
-            ? ConfiguracionPlataforma::FUNC_PUBLICAR_SERVICIOS
-            : ConfiguracionPlataforma::FUNC_PUBLICAR_PRODUCTOS;
-
-        FuncionalidadGuard::exigirJson($clave);
-    }
-
     private function etiquetaPublicacion(string $tipoPublicacion): string
     {
         return $tipoPublicacion === 'servicio' ? 'servicio' : 'producto';
@@ -96,38 +84,6 @@ class apiProductoController
             'alcanzado'   => (bool)($resumen['alcanzado'] ?? ($activos >= $maximo)),
             'es_gratis'   => true,
         ];
-    }
-
-    private function notificarSoportePublicacionPendiente(Producto $model, array $detalle): void
-    {
-        $codigoProducto = (int)($detalle['codigo_producto'] ?? 0);
-        if ($codigoProducto <= 0) {
-            return;
-        }
-
-        $codigoRolSoporte = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
-        $titulo = trim((string)($detalle['titulo'] ?? 'Publicación sin título'));
-        $tipoPublicacion = $this->normalizarTipoPublicacion($detalle['tipo_publicacion'] ?? 'producto');
-
-        try {
-            $notificacion = new Notificacion($model->getDblink());
-            $notificacion->crearParaRol($codigoRolSoporte, [
-                'categoria' => Notificacion::CAT_SOPORTE,
-                'subcategoria' => 'publicacion_pendiente',
-                'referencia_id' => $codigoProducto,
-                'titulo' => 'Nueva publicación por revisar',
-                'mensaje' => 'La publicación “' . $titulo . '” fue enviada a revisión.',
-                'payload' => [
-                    'codigo_producto' => $codigoProducto,
-                    'tipo_publicacion' => $tipoPublicacion,
-                    'titulo_producto' => $titulo,
-                    'rol_destino' => 'soporte',
-                    'ruta' => '/atender-publicacion',
-                ],
-            ]);
-        } catch (Throwable $e) {
-            error_log('[EV][apiProductoController::notificarSoportePublicacionPendiente] ' . $e->getMessage());
-        }
     }
 
     private function normalizarEstadoPublicacion($valor, string $tipoPublicacion): string
@@ -398,7 +354,6 @@ class apiProductoController
             $codigoUsuario = $this->obtenerUsuarioAuth();
 
             $tipoPublicacion = $this->normalizarTipoPublicacion($_POST['tipo_publicacion'] ?? 'producto');
-            $this->exigirPublicacionHabilitada($tipoPublicacion);
             $label = $this->etiquetaPublicacion($tipoPublicacion);
 
             $titulo      = trim((string)($_POST['titulo'] ?? ''));
@@ -542,7 +497,6 @@ class apiProductoController
 
             $visibleActual = (int)($detalle['visible'] ?? -1);
             $tipoPublicacion = $this->normalizarTipoPublicacion($detalle['tipo_publicacion'] ?? 'producto');
-            $this->exigirPublicacionHabilitada($tipoPublicacion);
             $label = $this->etiquetaPublicacion($tipoPublicacion);
 
             if ($visibleActual !== 0) {
@@ -588,9 +542,6 @@ class apiProductoController
                 ]);
                 return;
             }
-
-            $detalle['codigo_producto'] = $codigoProducto;
-            $this->notificarSoportePublicacionPendiente($model, $detalle);
 
             $resumenServicios = $this->respuestaLimiteServiciosPiloto(
                 $resultado['servicios_piloto'] ?? $model->obtenerResumenServiciosPiloto($codigoUsuario)
@@ -737,7 +688,6 @@ class apiProductoController
             $tipoPublicacion = $this->normalizarTipoPublicacion(
                 $_POST['tipo_publicacion'] ?? ($detalle['tipo_publicacion'] ?? 'producto')
             );
-            $this->exigirPublicacionHabilitada($tipoPublicacion);
 
             $titulo      = trim((string)($_POST['titulo'] ?? ''));
             $descripcion = trim((string)($_POST['descripcion'] ?? ''));
@@ -828,14 +778,6 @@ class apiProductoController
                 }
             } catch (Throwable $e) {
                 error_log('[EV][apiProductoController][reenvio_correccion] ' . $e->getMessage());
-            }
-
-            if ($reenviado) {
-                $this->notificarSoportePublicacionPendiente($model, [
-                    'codigo_producto' => $codigoProducto,
-                    'titulo' => $titulo,
-                    'tipo_publicacion' => $tipoPublicacion,
-                ]);
             }
 
             $this->json(200, [
@@ -941,8 +883,6 @@ class apiProductoController
     ====================================================================================== */
     public function listarMarketplace(): void
     {
-        FuncionalidadGuard::exigirJson(ConfiguracionPlataforma::FUNC_MARKETPLACE);
-
         if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
             $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
             return;
@@ -1025,8 +965,6 @@ class apiProductoController
 
     public function obtenerDetalleMarketplace($id): void
     {
-        FuncionalidadGuard::exigirJson(ConfiguracionPlataforma::FUNC_MARKETPLACE);
-
         try {
             if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
                 $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido']);

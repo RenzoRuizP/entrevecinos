@@ -672,7 +672,6 @@ safeRequire(__DIR__ . '/controllers/api/apiDocumentosLegalesController.php');
 safeRequire(__DIR__ . '/controllers/comunidadGestionController.php');
 safeRequire(__DIR__ . '/controllers/comunidadModeracionController.php');
 safeRequire(__DIR__ . '/controllers/comunidadVecinoController.php');
-safeRequire(__DIR__ . '/controllers/configuracionPlataformaController.php');
 
 safeRequire(__DIR__ . '/controllers/cuentaObservadaController.php');
 safeRequire(__DIR__ . '/controllers/api/apiCuentaObservadaController.php');
@@ -712,7 +711,6 @@ safeRequire(__DIR__ . '/controllers/api/apiSoporteLibroReclamacionesController.p
 safeRequire(__DIR__ . '/controllers/api/apiDisponibilidadPedidosController.php');
 safeRequire(__DIR__ . '/controllers/api/apiComunidadController.php');
 safeRequire(__DIR__ . '/controllers/api/apiComunidadVecinoController.php');
-safeRequire(__DIR__ . '/controllers/api/apiConfiguracionPlataformaController.php');
 
 safeRequire(__DIR__ . '/controllers/misPedidosCompradorController.php');
 safeRequire(__DIR__ . '/controllers/misPedidosVendedorController.php');
@@ -855,11 +853,6 @@ $routes = [
     ['GET', '#^/comunidad/moderacion$#', [comunidadModeracionController::class, 'index'], 'html'],
 
     // ---------------------------
-    // ADMINISTRACIÓN - CONFIGURACIÓN DE PLATAFORMA
-    // ---------------------------
-    ['GET', '#^/configuracion-plataforma$#', [configuracionPlataformaController::class, 'index'], 'html'],
-
-    // ---------------------------
     // COMUNIDAD - API GESTIÓN INSTITUCIONAL
     // ---------------------------
     ['GET',  '#^/api/comunidad/destinos$#', [apiComunidadController::class, 'destinos'], 'json'],
@@ -879,18 +872,10 @@ $routes = [
     ['GET', '#^/api/comunidad/vecino/publicaciones/(\d+)$#', [apiComunidadVecinoController::class, 'detalle'], 'json'],
 
     // ---------------------------
-    // ADMINISTRACIÓN - CONTROL DE FUNCIONALIDADES Y MONETIZACIÓN
-    // ---------------------------
-    ['GET',  '#^/api/admin/configuracion-plataforma$#', [apiConfiguracionPlataformaController::class, 'obtener'], 'json'],
-    ['GET',  '#^/api/admin/configuracion-plataforma/alcances$#', [apiConfiguracionPlataformaController::class, 'buscarAlcances'], 'json'],
-    ['POST', '#^/api/admin/configuracion-plataforma/funcionalidad$#', [apiConfiguracionPlataformaController::class, 'guardarFuncionalidad'], 'json'],
-    ['POST', '#^/api/admin/configuracion-plataforma/monetizacion$#', [apiConfiguracionPlataformaController::class, 'guardarMonetizacion'], 'json'],
-    ['POST', '#^/api/admin/configuracion-plataforma/aplicar-piloto$#', [apiConfiguracionPlataformaController::class, 'aplicarPiloto'], 'json'],
-
-    // ---------------------------
     // USUARIO
     // ---------------------------
     ['GET',  '#^/api/usuario/datos$#', [usuarioDatosController::class, 'obtenerDatos'], 'json'],
+    ['GET',  '#^/api/usuario/comunidad-actual$#', [usuarioDatosController::class, 'comunidadActual'], 'json'],
     ['POST', '#^/api/usuario/actualizar$#', [usuarioDatosController::class, 'actualizarDatos'], 'json'],
     ['POST', '#^/api/usuario/foto-perfil$#', [usuarioDatosController::class, 'actualizarFotoPerfil'], 'json'],
     ['POST', '#^/api/usuario/cambiar-clave$#', [usuarioDatosController::class, 'cambiarClave'], 'json'],

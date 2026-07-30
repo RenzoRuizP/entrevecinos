@@ -62,9 +62,6 @@ function ev_js_src(string $file): string
 
   <!-- Operación y supervisión EV -->
   <script src="<?= htmlspecialchars(ev_js_src('js/soporteDashboard.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
-  <?php if ($rolUsuario === 'admin'): ?>
-    <script src="<?= htmlspecialchars(ev_js_src('js/configuracionPlataforma.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
-  <?php endif; ?>
   <script src="<?= htmlspecialchars(ev_js_src('js/atenderCuentasUsuario.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/atenderRecargas.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/atenderPublicacion.js'), ENT_QUOTES, 'UTF-8') ?>"></script>

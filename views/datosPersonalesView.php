@@ -27,6 +27,28 @@ $urlLibroPerfil = (string)($enlacesLegalesPerfil['libro_reclamaciones']
   $ub_prov  = (string)($datosUsuario['ubigeo_provincia'] ?? '');
   $ub_dist  = (string)($datosUsuario['ubigeo_distrito'] ?? '');
 
+  $nombreConjuntoActual = $tipoConjunto === 'urbanizacion'
+      ? trim((string)($datosUsuario['nombre_urbanizacion'] ?? ''))
+      : trim((string)($datosUsuario['nombre_condominio'] ?? ''));
+  $labelConjuntoActual = $tipoConjunto === 'urbanizacion'
+      ? 'Urbanización'
+      : ($tipoConjunto === 'condominio' ? 'Condominio' : 'Comunidad');
+  $iconoConjuntoActual = $tipoConjunto === 'urbanizacion'
+      ? 'bi-houses'
+      : 'bi-buildings';
+  if ($nombreConjuntoActual !== '') {
+      $nombreConjuntoLower = mb_strtolower($nombreConjuntoActual, 'UTF-8');
+      $labelConjuntoLower = mb_strtolower($labelConjuntoActual, 'UTF-8');
+      $nombreVisibleConjunto = (
+          $nombreConjuntoLower === $labelConjuntoLower
+          || str_starts_with($nombreConjuntoLower, $labelConjuntoLower . ' ')
+      )
+          ? $nombreConjuntoActual
+          : $labelConjuntoActual . ' ' . $nombreConjuntoActual;
+  } else {
+      $nombreVisibleConjunto = 'Residencia no registrada';
+  }
+
   $basePerfil = rtrim(BASE_URL, '/');
   $fotoPerfilDefault = $basePerfil . '/views/fotos/00000000.png';
   $fotoPerfilRel = trim((string)($datosUsuario['foto_perfil'] ?? ''));
@@ -54,22 +76,31 @@ $urlLibroPerfil = (string)($enlacesLegalesPerfil['libro_reclamaciones']
   data-ub-dist="<?= htmlspecialchars($ub_dist, ENT_QUOTES, 'UTF-8'); ?>"
 ></div>
 
-<div class="container-datos-personales fade-in">
-  <div class="card shadow-sm border-0 rounded-4 ev-datos-card">
+<div class="container-datos-personales ev-profile-page fade-in">
+  <div class="card border-0 ev-datos-card ev-profile-shell">
 
-    <div class="card-header bg-white border-0 d-flex align-items-center justify-content-between py-4 px-4">
-      <div class="d-flex align-items-center gap-3">
-        <span class="ev-datos-icon">
+    <header class="card-header ev-profile-hero">
+      <div class="ev-profile-hero__main">
+        <span class="ev-datos-icon" aria-hidden="true">
           <i class="bi bi-person-badge-fill"></i>
         </span>
-        <div class="lh-sm">
-          <div class="fw-bold" style="font-size: 1.35rem; color: #0F592F;">Mi perfil</div>
-          <div class="text-muted" style="font-size: .95rem;">
-            Actualiza tu información. Los cambios de residencia requieren verificación.
-          </div>
+        <div>
+          <span class="ev-profile-hero__eyebrow">MI CUENTA</span>
+          <h2>Mi perfil</h2>
+          <p>Administra tus datos, residencia y seguridad desde un solo lugar.</p>
         </div>
       </div>
-    </div>
+
+      <div class="ev-profile-hero__community" aria-label="Residencia actual">
+        <span class="ev-profile-hero__community-icon" aria-hidden="true">
+          <i class="bi <?= htmlspecialchars($iconoConjuntoActual, ENT_QUOTES, 'UTF-8'); ?>"></i>
+        </span>
+        <span>
+          <small>Residencia actual</small>
+          <strong><?= htmlspecialchars($nombreVisibleConjunto, ENT_QUOTES, 'UTF-8'); ?></strong>
+        </span>
+      </div>
+    </header>
 
     <div class="card-body p-4">
 
@@ -93,6 +124,14 @@ $urlLibroPerfil = (string)($enlacesLegalesPerfil['libro_reclamaciones']
       <form id="formDatosPersonales" class="ev-wizard" autocomplete="off" enctype="multipart/form-data">
 
         <section class="ev-step-panel" data-panel="1">
+          <div class="ev-profile-section-head">
+            <span class="ev-profile-section-head__icon"><i class="bi bi-person-vcard"></i></span>
+            <div>
+              <h3>Información personal</h3>
+              <p>Actualiza tu teléfono y mantén vigente tu foto de perfil.</p>
+            </div>
+          </div>
+
           <div class="ev-profile-photo-panel mb-4">
             <button
               type="button"
@@ -117,7 +156,7 @@ $urlLibroPerfil = (string)($enlacesLegalesPerfil['libro_reclamaciones']
             </div>
           </div>
 
-          <div class="row g-3">
+          <div class="row g-3 ev-profile-form-grid">
             <div class="col-md-6">
               <label for="nombre_completo" class="form-label ev-form-label">Nombre completo</label>
               <input
@@ -178,7 +217,24 @@ $urlLibroPerfil = (string)($enlacesLegalesPerfil['libro_reclamaciones']
         </section>
 
         <section class="ev-step-panel d-none" data-panel="2">
-          <div class="row g-3">
+          <div class="ev-profile-section-head">
+            <span class="ev-profile-section-head__icon"><i class="bi bi-geo-alt"></i></span>
+            <div>
+              <h3>Residencia</h3>
+              <p>Selecciona primero el distrito; EV mostrará únicamente los conjuntos disponibles en esa ubicación.</p>
+            </div>
+          </div>
+
+          <div class="ev-current-residence">
+            <span class="ev-current-residence__icon"><i class="bi <?= htmlspecialchars($iconoConjuntoActual, ENT_QUOTES, 'UTF-8'); ?>"></i></span>
+            <div>
+              <small>Comunidad registrada</small>
+              <strong><?= htmlspecialchars($nombreVisibleConjunto, ENT_QUOTES, 'UTF-8'); ?></strong>
+              <span><?= htmlspecialchars($direccionResidencia ?: 'Dirección no registrada', ENT_QUOTES, 'UTF-8'); ?></span>
+            </div>
+          </div>
+
+          <div class="row g-3 ev-profile-form-grid">
 
             <div class="col-12">
               <div class="ev-hint">
@@ -324,7 +380,15 @@ $urlLibroPerfil = (string)($enlacesLegalesPerfil['libro_reclamaciones']
         </section>
 
         <section class="ev-step-panel d-none" data-panel="3">
-          <div class="row g-3">
+          <div class="ev-profile-section-head">
+            <span class="ev-profile-section-head__icon"><i class="bi bi-shield-lock"></i></span>
+            <div>
+              <h3>Seguridad de la cuenta</h3>
+              <p>Renueva tu contraseña con una combinación segura y distinta a la actual.</p>
+            </div>
+          </div>
+
+          <div class="row g-3 ev-profile-form-grid">
             <div class="col-12">
               <div class="ev-hint">
                 <i class="bi bi-lock me-2"></i>

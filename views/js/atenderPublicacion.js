@@ -370,7 +370,7 @@
     function renderEmptyRow() {
       elBody.innerHTML = `
         <tr>
-          <td colspan="7" class="text-center py-4 ev-empty">
+          <td colspan="5" class="text-center py-4 ev-empty">
             <div class="ev-empty-wrap">
               <i class="bi bi-inbox ev-empty-ico"></i>
               <div class="ev-empty-text">No hay publicaciones para los filtros seleccionados.</div>
@@ -406,15 +406,26 @@
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td class="ev-cell-fecha">${escapeHtml(fecha)}</td>
-          <td class="ev-cell-publicacion"><span class="${tipoPublicacionBadgeClass(it)}">${escapeHtml(tipoPub)}</span></td>
-          <td class="ev-cell-titulo" title="${escapeHtml(titulo)}"><span class="ev-table-title">${escapeHtml(titulo)}</span></td>
-          <td class="text-end ev-cell-precio">${escapeHtml(precio)}</td>
-          <td class="ev-cell-usuario" title="${escapeHtml(usuario)}">${escapeHtml(usuario)}</td>
-          <td class="ev-cell-estado"><span class="${badgeClass(it)}">${escapeHtml(estTxt)}</span></td>
-          <td class="text-end ev-cell-acciones">
+          <td class="ev-cell-fecha" data-label="Fecha">${escapeHtml(fecha)}</td>
+          <td class="ev-cell-publicacion" data-label="Publicación">
+            <div class="ev-ap-publication-cell">
+              <span class="${tipoPublicacionBadgeClass(it)}">${escapeHtml(tipoPub)}</span>
+              <div class="ev-ap-publication-copy">
+                <span class="ev-table-title" title="${escapeHtml(titulo)}">${escapeHtml(titulo)}</span>
+                <span class="ev-ap-publication-price">${escapeHtml(precio)}</span>
+              </div>
+            </div>
+          </td>
+          <td class="ev-cell-usuario" data-label="Vecino">
+            <div class="ev-ap-user-cell">
+              <strong>${escapeHtml(usuarioNombre || "—")}</strong>
+              <span>${escapeHtml(usuarioEmail || "Sin correo registrado")}</span>
+            </div>
+          </td>
+          <td class="ev-cell-estado" data-label="Estado"><span class="${badgeClass(it)}">${escapeHtml(estTxt)}</span></td>
+          <td class="text-end ev-cell-acciones" data-label="Acciones">
             <button type="button" class="btn btn-sm btn-outline-success js-revisar" data-id="${String(id)}">
-              Revisar
+              <i class="bi bi-eye me-1" aria-hidden="true"></i>Revisar
             </button>
           </td>
         `;
@@ -666,7 +677,7 @@
           const zoom = document.createElement("span");
           zoom.className = "ev-ap-image-zoom";
           zoom.setAttribute("aria-hidden", "true");
-          zoom.innerHTML = '<i class="bi bi-arrows-fullscreen"></i><small>Ampliar</small>';
+          zoom.innerHTML = '<i class="bi bi-search"></i><small>Ver detalle</small>';
 
           button.append(img, zoom);
           figure.appendChild(button);
@@ -702,6 +713,11 @@
 
         const data = await safeJson(res);
         if (!res.ok || data?.ok === false) {
+          if (res.status === 404 || data?.error === 'NOT_FOUND') {
+            toastInfo('La publicación ya no está disponible. El listado se actualizará para retirar el registro.');
+            listar();
+            return;
+          }
           toastError(data?.mensaje || data?.error || "No se pudo obtener el detalle.");
           return;
         }
@@ -787,8 +803,6 @@
         const mi = ensureModal();
         if (mi) mi.hide();
 
-        document.dispatchEvent(new CustomEvent('ev:notificaciones-globales-actualizar'));
-        window.EVNotificacionesGlobales?.refresh?.({ silent: true, includeItems: false });
         listar();
       } catch (e) {
         toastError("Error de red al registrar revisión.");

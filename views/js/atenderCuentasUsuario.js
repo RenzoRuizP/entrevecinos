@@ -3,14 +3,16 @@
   "use strict";
 
   const baseUrl = (window.EV?.baseUrl ?? window.BASE_URL ?? "").replace(/\/+$/, "");
+  const PENDING_SUPPORT_RESIDENCE_KEY = "ev_notificacion_residencia_soporte_pendiente";
 
   let observer = null;
   let modalInstance = null;
   let currentId = null;
   let currentKind = "usuario"; // usuario | residencia
 
-  let lastInitKey = "";
+  let lastInitRoot = null;
   let searchActive = false;
+  let pendingResidenceToOpenId = 0;
 
   function esc(s) {
     return String(s ?? "")
@@ -45,6 +47,50 @@
   function isAtenderCuentasView() {
     const c = getControls();
     return !!(c.selModo && c.selEstado && c.inpBuscar);
+  }
+
+  function leerResidenciaSoportePendiente() {
+    try {
+      const raw = sessionStorage.getItem(PENDING_SUPPORT_RESIDENCE_KEY);
+      if (!raw) return null;
+
+      const data = JSON.parse(raw);
+      const id = Number(data?.codigo_solicitud || 0);
+      const age = Date.now() - Number(data?.created_at || 0);
+
+      if (id <= 0 || age < 0 || age > 5 * 60 * 1000) {
+        sessionStorage.removeItem(PENDING_SUPPORT_RESIDENCE_KEY);
+        return null;
+      }
+
+      return data;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function limpiarResidenciaSoportePendiente() {
+    try {
+      sessionStorage.removeItem(PENDING_SUPPORT_RESIDENCE_KEY);
+    } catch (_) {}
+  }
+
+  function actualizarNotificacionesSoporte() {
+    document.dispatchEvent(new CustomEvent("ev:notificaciones-globales-actualizar"));
+  }
+
+  function intentarAbrirResidenciaPendiente() {
+    if (pendingResidenceToOpenId <= 0) return;
+
+    const btn = document.querySelector(
+      `.js-ev-revisar[data-kind="residencia"][data-id="${pendingResidenceToOpenId}"]`
+    );
+
+    if (!btn) return;
+
+    pendingResidenceToOpenId = 0;
+    limpiarResidenciaSoportePendiente();
+    window.setTimeout(() => btn.click(), 80);
   }
 
   function getTbody() {
@@ -415,6 +461,7 @@
       const c = getControls();
       if (c.lblTotal) c.lblTotal.textContent = String(total);
       if (c.pagNum) c.pagNum.textContent = String(state.page || 1);
+      intentarAbrirResidenciaPendiente();
     } catch (e) {
       setError(tbody);
     }
@@ -557,6 +604,7 @@
         Swal.fire({ icon: "success", title: "Cuenta inactivada", timer: 1400, showConfirmButton: false });
       }
 
+      actualizarNotificacionesSoporte();
       modalInstance.hide();
 
       const c = getControls();
@@ -612,6 +660,7 @@
       if (!resp.ok || json.ok !== true) throw new Error(json.mensaje || "No se pudo registrar la observación.");
 
       Swal.fire({ icon: "success", title: "Observación registrada", timer: 1500, showConfirmButton: false });
+      actualizarNotificacionesSoporte();
       modalInstance.hide();
 
       const c = getControls();
@@ -685,6 +734,7 @@
       if (!resp.ok || json.ok !== true) throw new Error(json.mensaje || "No se pudo aprobar.");
 
       Swal.fire({ icon: "success", title: "Operación exitosa", timer: 1400, showConfirmButton: false });
+      actualizarNotificacionesSoporte();
       modalInstance.hide();
 
       const c = getControls();
@@ -704,12 +754,37 @@
   function init() {
     if (!isAtenderCuentasView()) return false;
 
-    const key = "atender-cuentas|" + window.location.pathname;
-    if (key === lastInitKey) return true;
-    lastInitKey = key;
+    const root = document.querySelector(".ev-au-page");
+    if (!root) return false;
+    if (root === lastInitRoot && root.dataset.evAtenderInit === "1") return true;
+    lastInitRoot = root;
+    root.dataset.evAtenderInit = "1";
 
     const c = getControls();
     wireConjuntoDependienteOnce();
+
+    const pendiente = leerResidenciaSoportePendiente();
+    if (pendiente) {
+      pendingResidenceToOpenId = Number(pendiente.codigo_solicitud || 0);
+      if (c.selModo) c.selModo.value = "residencias";
+      if (c.selEstado) c.selEstado.value = "revision";
+      c.chips.forEach((chip) => {
+        chip.classList.toggle("ev-chip-active", normalizarEstado(chip.dataset.estado) === "revision");
+      });
+    }
+
+    if (c.selModo && c.selModo.dataset.evWired !== "1") {
+      c.selModo.dataset.evWired = "1";
+      c.selModo.addEventListener("change", () => {
+        searchActive = false;
+        if (c.inpBuscar) c.inpBuscar.value = "";
+        if (c.selEstado) c.selEstado.value = "revision";
+        c.chips.forEach((chip) => {
+          chip.classList.toggle("ev-chip-active", normalizarEstado(chip.dataset.estado) === "revision");
+        });
+        load(snapshotStateFromUI());
+      });
+    }
 
     c.chips.forEach((chip) => {
       if (chip.dataset.evWired === "1") return;

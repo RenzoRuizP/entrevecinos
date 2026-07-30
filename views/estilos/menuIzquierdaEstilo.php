@@ -22,8 +22,6 @@
   position:fixed;
   top:0; left:0;
   height:100vh;
-  height:100dvh;
-  max-height:100dvh;
   z-index:1030;
   display:flex;
   flex-direction:column;
@@ -35,10 +33,6 @@
   box-shadow:10px 0 24px rgba(0,0,0,.10);
   overflow-x:hidden;
   overflow-y:auto;
-  -webkit-overflow-scrolling:touch;
-  overscroll-behavior-y:contain;
-  touch-action:pan-y;
-  scroll-padding-bottom:96px;
   transition:transform .28s cubic-bezier(.22,.9,.32,1),box-shadow .28s ease;
   scrollbar-width:thin;
   scrollbar-color:rgba(255,255,255,.25) rgba(255,255,255,.08);
@@ -171,186 +165,13 @@
 }
 #sidebar-backdrop.show,#sidebar-backdrop.active,body.ev-sidebar-open #sidebar-backdrop{ opacity:1; pointer-events:auto; }
 @media (min-width:992px){ #sidebar-backdrop{ display:none; } }
-
-/* ============================================================
-   AYUDA EV — SWEETALERT RESPONSIVO
-============================================================ */
-.swal2-container.ev-help-swal-container{
-  z-index:11150 !important;
-  padding:14px !important;
-}
-.swal2-popup.ev-help-swal-popup{
-  width:min(520px,calc(100vw - 28px)) !important;
-  padding:24px 24px 20px !important;
-  border:1px solid rgba(148,163,184,.22) !important;
-  border-radius:26px !important;
-  background:
-    radial-gradient(circle at 92% 4%,rgba(22,163,74,.10),transparent 34%),
-    #fff !important;
-  box-shadow:0 30px 86px rgba(15,23,42,.25) !important;
-  overflow:hidden !important;
-}
-.swal2-popup.ev-help-swal-popup::before{
-  content:"";
-  position:absolute;
-  inset:0 0 auto;
-  height:4px;
-  background:linear-gradient(90deg,#0F592F,#16A34A,#EA7C12);
-}
-.ev-help-swal-title{
-  margin:2px 0 8px !important;
-  padding:0 !important;
-  color:#0F592F !important;
-  font-size:1.9rem !important;
-  font-weight:950 !important;
-  letter-spacing:-.035em !important;
-}
-.ev-help-swal-html{
-  margin:0 !important;
-  padding:0 !important;
-  color:#4B5563 !important;
-}
-.ev-help-content{ text-align:left; }
-.ev-help-icon{
-  width:64px;
-  height:64px;
-  margin:2px auto 12px;
-  display:grid;
-  place-items:center;
-  border:1px solid rgba(22,163,74,.20);
-  border-radius:22px;
-  color:#0F592F;
-  background:linear-gradient(135deg,#ECFDF3,#fff);
-  box-shadow:0 12px 26px rgba(15,89,47,.08);
-  font-size:1.65rem;
-}
-.ev-help-content h3{
-  margin:0 0 8px;
-  color:#0F592F;
-  font-size:1.03rem;
-  font-weight:900;
-  text-align:center;
-}
-.ev-help-intro{
-  margin:0 auto 15px;
-  max-width:430px;
-  color:#6B7280;
-  font-size:.9rem;
-  line-height:1.55;
-  text-align:center;
-}
-.ev-help-rules{
-  display:grid;
-  gap:8px;
-  margin:0 0 15px;
-}
-.ev-help-rules > div{
-  display:grid;
-  grid-template-columns:34px minmax(0,1fr);
-  align-items:center;
-  gap:10px;
-  padding:10px 11px;
-  border:1px solid rgba(229,231,235,.95);
-  border-radius:14px;
-  background:#FCFDFC;
-  color:#4B5563;
-  font-size:.82rem;
-  line-height:1.4;
-}
-.ev-help-rules i{
-  width:34px;
-  height:34px;
-  display:grid;
-  place-items:center;
-  border-radius:12px;
-  color:#0F592F;
-  background:#ECFDF3;
-}
-.ev-help-support{
-  display:grid;
-  grid-template-columns:42px minmax(0,1fr) auto;
-  align-items:center;
-  gap:10px;
-  padding:12px;
-  border:1px solid rgba(22,163,74,.20);
-  border-radius:16px;
-  background:linear-gradient(135deg,#F0FDF4,#fff);
-}
-.ev-help-support-icon{
-  width:42px;
-  height:42px;
-  display:grid;
-  place-items:center;
-  border-radius:14px;
-  color:#fff;
-  background:#16A34A;
-  font-size:1.2rem;
-  box-shadow:0 10px 20px rgba(22,163,74,.20);
-}
-.ev-help-support small{
-  display:block;
-  color:#6B7280;
-  font-size:.68rem;
-  font-weight:800;
-}
-.ev-help-support strong{
-  display:block;
-  color:#0F592F;
-  font-size:.98rem;
-  font-weight:950;
-}
-.ev-help-support a{
-  min-height:36px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding:8px 12px;
-  border-radius:12px;
-  color:#fff;
-  background:#0E7A43;
-  font-size:.78rem;
-  font-weight:900;
-  text-decoration:none;
-  box-shadow:0 10px 20px rgba(15,89,47,.16);
-}
-.ev-help-swal-confirm{
-  min-width:142px !important;
-  margin-top:14px !important;
-  padding:11px 22px !important;
-  border:0 !important;
-  border-radius:14px !important;
-  color:#fff !important;
-  background:linear-gradient(135deg,#EA7C12,#F59E0B) !important;
-  font-weight:900 !important;
-  box-shadow:0 12px 24px rgba(234,124,18,.27) !important;
-}
-
 @media (max-width:991.98px){
   :root{ --ev-topbar-h:52px; }
-
-  .swal2-popup.ev-help-swal-popup{
-    padding:22px 16px 17px !important;
-    border-radius:22px !important;
-  }
-  .ev-help-swal-title{ font-size:1.65rem !important; }
-  .ev-help-support{
-    grid-template-columns:38px minmax(0,1fr);
-  }
-  .ev-help-support-icon{ width:38px; height:38px; }
-  .ev-help-support a{
-    grid-column:1 / -1;
-    width:100%;
-  }
-  .ev-help-swal-confirm{ width:100% !important; }
 
   #sidebar.app-sidebar{
     top:var(--ev-topbar-h);
     height:calc(100vh - var(--ev-topbar-h));
-    height:calc(100dvh - var(--ev-topbar-h));
-    max-height:calc(100dvh - var(--ev-topbar-h));
     width:min(82vw,286px);
-    padding-bottom:calc(28px + env(safe-area-inset-bottom, 0px));
-    box-sizing:border-box;
     z-index:1040;
     transform:translateX(-106%);
     border-bottom-right-radius:24px;
@@ -387,50 +208,17 @@
 
   .ev-sidebar-footer{
     flex:0 0 auto;
-    margin:auto 12px 8px;
+    margin:auto 12px 18px;
     padding-top:14px;
-  }
-
-  #sidebar.active,
-  #sidebar.open,
-  body.ev-sidebar-open #sidebar.app-sidebar{
-    overflow-y:auto;
-    touch-action:pan-y;
   }
 
   body.ev-sidebar-open{
     overflow:hidden;
+    touch-action:none;
   }
 
   body{
     overscroll-behavior:contain;
-  }
-}
-
-/* Refuerzo móvil: toda la barra lateral permanece desplazable hasta el final. */
-@media (max-width:991.98px){
-  #sidebar.app-sidebar{
-    overflow-x:hidden !important;
-    overflow-y:auto !important;
-    -webkit-overflow-scrolling:touch !important;
-    overscroll-behavior-y:contain !important;
-    touch-action:pan-y !important;
-    padding-bottom:calc(96px + env(safe-area-inset-bottom, 0px)) !important;
-    scroll-padding-top:12px;
-    scroll-padding-bottom:150px;
-  }
-
-  #sidebar.app-sidebar .sidebar-wrapper{
-    flex:0 0 auto !important;
-    max-height:none !important;
-    overflow:visible !important;
-    padding-bottom:4px !important;
-  }
-
-  #sidebar.app-sidebar .ev-sidebar-footer{
-    flex:0 0 auto !important;
-    margin:14px 12px 0 !important;
-    padding-bottom:18px;
   }
 }
 </style>

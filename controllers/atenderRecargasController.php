@@ -3,17 +3,11 @@
 
 require_once __DIR__ . '/../models/SesionJWT.php';
 require_once __DIR__ . '/../models/User.php';
-require_once __DIR__ . '/../middleware/FuncionalidadGuard.php';
-require_once __DIR__ . '/../models/ConfiguracionPlataforma.php';
 
 class atenderRecargasController
 {
     public function index()
     {
-        if (!FuncionalidadGuard::exigirMonetizacionBooleanaHtml(ConfiguracionPlataforma::MON_RECARGAS, true)) {
-            return;
-        }
-
         try {
             $token = $_COOKIE['auth_token'] ?? null;
             if (!$token) {

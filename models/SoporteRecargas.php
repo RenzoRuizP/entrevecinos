@@ -446,6 +446,20 @@ final class SoporteRecargas extends Conexion
                 }
             }
 
+            if ($estadoActual !== $nuevoEstado && in_array($nuevoEstado, ['observada', 'aprobada', 'rechazada'], true)) {
+                try {
+                    $notifEquipo = new Notificacion($this->dblink);
+                    $notifEquipo->marcarLeidasPorReferenciaRoles(
+                        [1, 3],
+                        Notificacion::CAT_BILLETERA,
+                        $codigoRecarga,
+                        'recarga_pendiente_soporte'
+                    );
+                } catch (Throwable $eNotifEquipo) {
+                    error_log('[EV][SoporteRecargas::actualizarEstado][resolver_notificacion_soporte] ' . $eNotifEquipo->getMessage());
+                }
+            }
+
             $this->dblink->commit();
 
             $out = $this->dblink->prepare("

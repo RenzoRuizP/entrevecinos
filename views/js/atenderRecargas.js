@@ -28,6 +28,8 @@
     btnAprobar: null, btnObservar: null, btnRechazar: null,
   };
 
+  let pendingOpenId = 0;
+
   let state = {
     page: 1,
     size: 10,
@@ -114,6 +116,21 @@
       rechazada: 'ev-badge ev-badge-rechazada',
     };
     return map[e] || 'ev-badge ev-badge-pendiente';
+  }
+
+  function aplicarContextoNotificacion() {
+    let params;
+    try { params = new URLSearchParams(window.location.search || ''); } catch (_) { return; }
+
+    const estado = String(params.get('estado') || '').toLowerCase();
+    if (refs.fEstado && ['pendiente', 'observada', 'aprobada', 'rechazada'].includes(estado)) {
+      refs.fEstado.value = estado;
+    }
+
+    const id = Number(params.get('recarga') || 0);
+    if (Number.isInteger(id) && id > 0) {
+      pendingOpenId = id;
+    }
   }
 
   function endpointListar() {
@@ -283,6 +300,15 @@
 
       renderTabla(state.items);
       renderMeta();
+
+      if (pendingOpenId > 0) {
+        const existe = state.items.some((item) => Number(item.id || 0) === pendingOpenId);
+        if (existe) {
+          const idAbrir = pendingOpenId;
+          pendingOpenId = 0;
+          window.requestAnimationFrame(() => abrirModalById(idAbrir));
+        }
+      }
     } catch (e) {
       error(e);
       renderEmpty();
@@ -380,6 +406,8 @@
         emitirEventoRefreshBilletera({ motivo: 'RECARGA_APROBADA', recarga_id: id });
       }
 
+      document.dispatchEvent(new CustomEvent('ev:notificaciones-globales-actualizar'));
+      window.EVNotificacionesGlobales?.refresh?.({ silent: true, includeItems: false });
       loadList();
     } catch (e) {
       error(e);
@@ -427,6 +455,7 @@
   function init() {
     if (!document.querySelector('.ev-recargas-page')) return;
     if (!capturarRefs()) return;
+    aplicarContextoNotificacion();
     bindEvents();
     loadList();
   }

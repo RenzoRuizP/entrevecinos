@@ -10,6 +10,8 @@ require_once __DIR__ . '/../../models/UsuarioResidenciaSolicitud.php';
 require_once __DIR__ . '/../../models/CondominioModel.php';
 require_once __DIR__ . '/../../models/Urbanizacion.php';
 require_once __DIR__ . '/../../models/UsuarioSoporte.php';
+require_once __DIR__ . '/../../models/Notificacion.php';
+require_once __DIR__ . '/../../models/SesionJWT.php';
 
 class usuarioDatosController
 {
@@ -69,6 +71,34 @@ class usuarioDatosController
                 'success' => false,
                 'error'   => 'ERROR_SERVIDOR',
                 'detalle' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function comunidadActual(): void
+    {
+        try {
+            $codigoUsuario = $this->authUserId();
+            if ($codigoUsuario <= 0) {
+                $this->json(401, ['ok' => false, 'error' => 'UNAUTHORIZED']);
+                return;
+            }
+
+            $auth = $GLOBALS['EV_AUTH'] ?? [];
+            $rol = (string)($auth['rol'] ?? $auth['nombre_rol'] ?? '');
+
+            $sesion = new SesionJWT();
+            $comunidad = $sesion->obtenerComunidadActual($codigoUsuario, $rol);
+
+            $this->json(200, [
+                'ok' => true,
+                'data' => $comunidad,
+            ]);
+        } catch (Throwable $e) {
+            $this->json(500, [
+                'ok' => false,
+                'error' => 'ERROR_COMUNIDAD_ACTUAL',
+                'mensaje' => 'No se pudo actualizar la comunidad visible.',
             ]);
         }
     }
@@ -211,6 +241,19 @@ class usuarioDatosController
                 return;
             }
 
+            $codigoDistrito = (int)$ubDist;
+            $perteneceAlDistrito = $tipo === 'condominio'
+                ? (new CondominioModel())->perteneceADistrito($codCon, $codigoDistrito)
+                : (new Urbanizacion())->perteneceADistrito($codUrb, $codigoDistrito);
+
+            if (!$perteneceAlDistrito) {
+                $this->json(422, [
+                    'ok' => false,
+                    'mensaje' => 'El conjunto residencial seleccionado no pertenece al distrito indicado.',
+                ]);
+                return;
+            }
+
             $direccion = $this->obtenerDireccionDesdeBD($tipo, $codCon, $codUrb);
             if ($direccion === '') {
                 $this->json(422, ['ok' => false, 'mensaje' => 'No se pudo obtener la dirección desde BD.']);
@@ -277,10 +320,41 @@ class usuarioDatosController
                 error_log('[EV][usuarioDatosController][solicitarCambioResidencia][estado] ' . $e->getMessage());
             }
 
+            $notificacionesSoporte = 0;
+            try {
+                $usuario = (new Usuario())->obtenerPorCodigo($codigoUsuario);
+                $nombreVecino = trim((string)($usuario['nombre_completo'] ?? 'Un vecino'));
+                $adminId = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
+                $soporteId = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
+
+                $notif = new Notificacion($model->getDblink());
+                $notificacionesSoporte = $notif->crearParaRoles(
+                    [$adminId, $soporteId],
+                    [
+                        'categoria' => Notificacion::CAT_SOPORTE,
+                        'subcategoria' => 'residencia_pendiente_soporte',
+                        'referencia_id' => $idSolicitud,
+                        'titulo' => 'Nueva solicitud de cambio de residencia',
+                        'mensaje' => $nombreVecino . ' envió una solicitud que requiere revisión.',
+                        'payload' => [
+                            'codigo_solicitud' => $idSolicitud,
+                            'codigo_usuario' => $codigoUsuario,
+                            'estado' => 'pendiente',
+                            'modo' => 'residencias',
+                            'rol_destino' => 'soporte',
+                            'ruta' => '/atender-cuentas',
+                        ],
+                    ]
+                );
+            } catch (Throwable $e) {
+                error_log('[EV][usuarioDatosController][solicitarCambioResidencia][notificacion_soporte] ' . $e->getMessage());
+            }
+
             $this->json(200, [
                 'ok'      => true,
                 'id'      => $idSolicitud,
                 'mensaje' => 'Solicitud registrada. Queda en revisión.',
+                'notificaciones_soporte' => $notificacionesSoporte,
             ]);
 
         } catch (Throwable $e) {

@@ -141,6 +141,41 @@
     });
   }
 
+  function resetConjuntosResidenciales(container, { limpiarDireccion = true } = {}) {
+    const comboCondo = $("#comboCondominio", container);
+    const comboUrb = $("#comboUrbanizacion", container);
+
+    [comboCondo, comboUrb].forEach((combo) => {
+      if (!combo) return;
+      delete combo.dataset.evLoadedDistrict;
+      combo._evDirMap = new Map();
+    });
+
+    resetSelect(comboCondo, "Selecciona primero un distrito", { disabled: true });
+    resetSelect(comboUrb, "Selecciona primero un distrito", { disabled: true });
+
+    if (limpiarDireccion) {
+      const direccion = $("#direccion", container);
+      if (direccion) direccion.value = "";
+    }
+
+    const wrapUpload = $("#wrapUploadDomicilio", container);
+    setHidden(wrapUpload, true);
+    const file = $("#dpDocDomicilio", container);
+    if (file) file.required = false;
+  }
+
+  async function recargarConjuntoActual(container, base, { force = false, useBaseSelection = false } = {}) {
+    const tipo = currentTipo(container, base);
+    if (tipo === "condominio") {
+      await initCondominios(container, base, { force, useBaseSelection });
+      return;
+    }
+    if (tipo === "urbanizacion") {
+      await initUrbanizaciones(container, base, { force, useBaseSelection });
+    }
+  }
+
   async function initUbigeo(container, base) {
     const selDep = $("#dpUbDepto", container);
     const selProv = $("#dpUbProv", container);
@@ -150,13 +185,23 @@
     if (container.dataset.dpUbigeoInit === "1") return;
     container.dataset.dpUbigeoInit = "1";
 
-    const preDep  = selDep.dataset.valorRegistrado  || base.ub_depto || "";
-    const preProv = selProv.dataset.valorRegistrado || base.ub_prov  || "";
-    const preDist = selDist.dataset.valorRegistrado || base.ub_dist  || "";
+    const preDep  = selDep.dataset.valorRegistrado || base.ub_depto || "";
+    const preProv = selProv.dataset.valorRegistrado || base.ub_prov || "";
+    const preDist = selDist.dataset.valorRegistrado || base.ub_dist || "";
 
     resetSelect(selDep, "Cargando...", { disabled: true });
     resetSelect(selProv, "-- Seleccione --", { disabled: true });
     resetSelect(selDist, "-- Seleccione --", { disabled: true });
+
+    async function loadDistritos(provId, preselectDist = "") {
+      resetSelect(selDist, "Cargando...", { disabled: true });
+      const dists = await fetchJSON(API_UB_DISTS(provId));
+      fillSelect(selDist, "-- Seleccione --", Array.isArray(dists) ? dists : [], (d) => ({
+        value: d.codigo_distrito,
+        text: d.nombre_distrito
+      }), preselectDist);
+      selDist.disabled = false;
+    }
 
     async function loadProvincias(depId, preselectProv = "", preselectDist = "") {
       resetSelect(selProv, "Cargando...", { disabled: true });
@@ -164,37 +209,45 @@
 
       const provs = await fetchJSON(API_UB_PROVS(depId));
       fillSelect(selProv, "-- Seleccione --", Array.isArray(provs) ? provs : [], (p) => ({
-        value: p.codigo_provincia, text: p.nombre_provincia
+        value: p.codigo_provincia,
+        text: p.nombre_provincia
       }), preselectProv);
       selProv.disabled = false;
 
-      if (preselectProv) await loadDistritos(preselectProv, preselectDist);
-    }
-
-    async function loadDistritos(provId, preselectDist = "") {
-      resetSelect(selDist, "Cargando...", { disabled: true });
-      const dists = await fetchJSON(API_UB_DISTS(provId));
-      fillSelect(selDist, "-- Seleccione --", Array.isArray(dists) ? dists : [], (d) => ({
-        value: d.codigo_distrito, text: d.nombre_distrito
-      }), preselectDist);
-      selDist.disabled = false;
+      if (preselectProv) {
+        await loadDistritos(preselectProv, preselectDist);
+      }
     }
 
     try {
       const deps = await fetchJSON(API_UB_DEPTOS);
       fillSelect(selDep, "-- Seleccione --", Array.isArray(deps) ? deps : [], (d) => ({
-        value: d.codigo_departamento, text: d.nombre_departamento
+        value: d.codigo_departamento,
+        text: d.nombre_departamento
       }), preDep);
       selDep.disabled = false;
 
-      if (preDep) await loadProvincias(preDep, preProv, preDist);
+      if (preDep) {
+        await loadProvincias(preDep, preProv, preDist);
+      }
+
+      if (selDist.value) {
+        await recargarConjuntoActual(container, base, {
+          force: true,
+          useBaseSelection: String(selDist.value) === String(base.ub_dist || "")
+        });
+      } else {
+        resetConjuntosResidenciales(container, { limpiarDireccion: false });
+      }
     } catch (e) {
       console.error("[EV][Ubigeo] Error:", e);
       resetSelect(selDep, "No se pudo cargar", { disabled: true });
+      resetConjuntosResidenciales(container);
     }
 
     selDep.addEventListener("change", async () => {
       try {
+        resetConjuntosResidenciales(container);
         const depId = selDep.value;
         if (!depId) {
           resetSelect(selProv, "-- Seleccione --", { disabled: true });
@@ -209,6 +262,7 @@
 
     selProv.addEventListener("change", async () => {
       try {
+        resetConjuntosResidenciales(container);
         const provId = selProv.value;
         if (!provId) {
           resetSelect(selDist, "-- Seleccione --", { disabled: true });
@@ -217,6 +271,21 @@
         await loadDistritos(provId, "");
       } catch (e) {
         console.error("[EV][Ubigeo] change prov:", e);
+      }
+    });
+
+    selDist.addEventListener("change", async () => {
+      resetConjuntosResidenciales(container);
+      if (!selDist.value) return;
+
+      try {
+        await recargarConjuntoActual(container, base, {
+          force: true,
+          useBaseSelection: false
+        });
+        refreshResidenciaUI(container, base);
+      } catch (e) {
+        console.error("[EV][Ubigeo] change distrito:", e);
       }
     });
   }
@@ -262,21 +331,30 @@
     return false;
   }
 
-  async function initCondominios(container, base) {
+  async function initCondominios(container, base, options = {}) {
     const combo = $("#comboCondominio", container);
+    const distrito = $("#dpUbDist", container)?.value || "";
     if (!combo) return;
 
-    if (combo.dataset.evLoaded === "1") return;
-    combo.dataset.evLoaded = "1";
+    if (!distrito) {
+      resetSelect(combo, "Selecciona primero un distrito", { disabled: true });
+      return;
+    }
 
-    const pre = combo.dataset.valorRegistrado || base.codCondominio || "";
+    const force = options.force === true;
+    if (!force && combo.dataset.evLoadedDistrict === String(distrito)) return;
+
+    const useBaseSelection = options.useBaseSelection === true
+      && String(distrito) === String(base.ub_dist || "");
+    const pre = useBaseSelection ? (combo.dataset.valorRegistrado || base.codCondominio || "") : "";
+
     resetSelect(combo, "Cargando condominios...", { disabled: true });
 
     try {
-      const data = await fetchJSON(API_CONDOMINIOS);
+      const data = await fetchJSON(`${API_CONDOMINIOS}?distrito=${encodeURIComponent(distrito)}`);
       const arr = Array.isArray(data) ? data : [];
 
-      fillSelect(combo, "-- Seleccione condominio --", arr, (c) => ({
+      fillSelect(combo, arr.length ? "-- Seleccione condominio --" : "No hay condominios en este distrito", arr, (c) => ({
         value: c.codigo_condominio,
         text: c.nombre_condominio
       }), pre);
@@ -284,13 +362,13 @@
       const map = new Map();
       arr.forEach((c) => map.set(String(c.codigo_condominio), String(c.direccion_condominio || "")));
       combo._evDirMap = map;
+      combo.dataset.evLoadedDistrict = String(distrito);
+      combo.disabled = arr.length === 0;
 
-      combo.disabled = false;
-
-      if (pre) {
-        const dir = map.get(String(pre)) || "";
-        const inputDir = $("#direccion", container);
-        if (inputDir) inputDir.value = dir || base.direccion || "";
+      const inputDir = $("#direccion", container);
+      if (inputDir) {
+        const dir = pre ? (map.get(String(pre)) || "") : "";
+        inputDir.value = dir || (useBaseSelection ? base.direccion : "");
       }
     } catch (e) {
       console.error("[EV][Condominios] Error:", e);
@@ -298,21 +376,30 @@
     }
   }
 
-  async function initUrbanizaciones(container, base) {
+  async function initUrbanizaciones(container, base, options = {}) {
     const combo = $("#comboUrbanizacion", container);
+    const distrito = $("#dpUbDist", container)?.value || "";
     if (!combo) return;
 
-    if (combo.dataset.evLoaded === "1") return;
-    combo.dataset.evLoaded = "1";
+    if (!distrito) {
+      resetSelect(combo, "Selecciona primero un distrito", { disabled: true });
+      return;
+    }
 
-    const pre = combo.dataset.valorRegistrado || base.codUrbanizacion || "";
+    const force = options.force === true;
+    if (!force && combo.dataset.evLoadedDistrict === String(distrito)) return;
+
+    const useBaseSelection = options.useBaseSelection === true
+      && String(distrito) === String(base.ub_dist || "");
+    const pre = useBaseSelection ? (combo.dataset.valorRegistrado || base.codUrbanizacion || "") : "";
+
     resetSelect(combo, "Cargando urbanizaciones...", { disabled: true });
 
     try {
-      const data = await fetchJSON(API_URBANIZACIONES);
+      const data = await fetchJSON(`${API_URBANIZACIONES}?distrito=${encodeURIComponent(distrito)}`);
       const arr = Array.isArray(data) ? data : [];
 
-      fillSelect(combo, "-- Seleccione urbanización --", arr, (u) => ({
+      fillSelect(combo, arr.length ? "-- Seleccione urbanización --" : "No hay urbanizaciones en este distrito", arr, (u) => ({
         value: u.codigo_urbanizacion,
         text: u.nombre_urbanizacion
       }), pre);
@@ -320,13 +407,13 @@
       const map = new Map();
       arr.forEach((u) => map.set(String(u.codigo_urbanizacion), String(u.direccion_urbanizacion || "")));
       combo._evDirMap = map;
+      combo.dataset.evLoadedDistrict = String(distrito);
+      combo.disabled = arr.length === 0;
 
-      combo.disabled = false;
-
-      if (pre) {
-        const dir = map.get(String(pre)) || "";
-        const inputDir = $("#direccion", container);
-        if (inputDir) inputDir.value = dir || base.direccion || "";
+      const inputDir = $("#direccion", container);
+      if (inputDir) {
+        const dir = pre ? (map.get(String(pre)) || "") : "";
+        inputDir.value = dir || (useBaseSelection ? base.direccion : "");
       }
     } catch (e) {
       console.error("[EV][Urbanizaciones] Error:", e);
@@ -343,8 +430,15 @@
     setHidden(wrapCondo, tipo !== "condominio");
     setHidden(wrapUrb, tipo !== "urbanizacion");
 
-    if (tipo === "condominio") initCondominios(container, base);
-    if (tipo === "urbanizacion") initUrbanizaciones(container, base);
+    const distritoActual = $("#dpUbDist", container)?.value || "";
+    const usarSeleccionBase = String(distritoActual) === String(base.ub_dist || "");
+
+    if (tipo === "condominio") {
+      initCondominios(container, base, { useBaseSelection: usarSeleccionBase });
+    }
+    if (tipo === "urbanizacion") {
+      initUrbanizaciones(container, base, { useBaseSelection: usarSeleccionBase });
+    }
 
     const changed = residenciaChanged(container, base);
     setHidden(wrapUp, !changed);
@@ -747,6 +841,7 @@
       if (!res2.ok) throw new Error(data2.message || data2.mensaje || data2.error || `HTTP ${res2.status}`);
 
       swalOk("Solicitud enviada", "Tu solicitud de cambio de domicilio fue enviada. Un administrador la revisará.");
+      document.dispatchEvent(new CustomEvent("ev:notificaciones-globales-actualizar"));
     } catch (e) {
       console.error("[EV][Paso2] Error:", e);
       swalErr(e.message || "No se pudo enviar la solicitud.");
@@ -872,8 +967,6 @@
 
       setStep(container, currentStep(container));
       initUbigeo(container, base);
-      initCondominios(container, base);
-      initUrbanizaciones(container, base);
 
       const inputDir = $("#direccion", container);
       if (inputDir) inputDir.value = inputDir.value || base.direccion || "";

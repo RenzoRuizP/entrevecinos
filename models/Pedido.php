@@ -4,7 +4,6 @@ declare(strict_types=1);
 require_once __DIR__ . '/../database/Conexion.php';
 require_once __DIR__ . '/Calificacion.php';
 require_once __DIR__ . '/Notificacion.php';
-require_once __DIR__ . '/ConfiguracionPlataforma.php';
 
 class Pedido extends Conexion
 {
@@ -13,6 +12,7 @@ class Pedido extends Conexion
     private const MINUTOS_GRACIA_FECHA_PROGRAMADA = 1;
     private const SEGUNDOS_RECOJO = 360;
     private const PENALIDAD_CANCELACION_COMPRADOR = 1.00;
+    private const COMISION_EV_PORCENTAJE = 0.10;
 
 
     // =========================================================
@@ -223,24 +223,10 @@ class Pedido extends Conexion
             return;
         }
 
-        $porcentaje = max(0.0, (float)($pedido['comision_ev_porcentaje'] ?? 10.0));
         $base = $this->baseComisionPedido($pedido);
-        $monto = round($base * ($porcentaje / 100), 2);
+        $monto = round($base * self::COMISION_EV_PORCENTAJE, 2);
 
-        if ($monto <= 0 || $porcentaje <= 0) {
-            $sql = "
-                UPDATE pedido
-                SET
-                    comision_ev_monto = 0.00,
-                    comision_ev_aplicada = 0,
-                    comision_ev_pendiente = 0
-                WHERE codigo_pedido = :codigo_pedido
-            ";
-            $st = $this->dblink->prepare($sql);
-            $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
-            $st->execute();
-            return;
-        }
+        if ($monto <= 0) return;
 
         $billetera = $this->obtenerOBilleteraBloqueada($codigoVendedor);
         $codigoBilletera = (int)$billetera['codigo_billetera'];
@@ -1813,34 +1799,6 @@ class Pedido extends Conexion
 
         $producto = $validacion['data'];
 
-        $configuracionPlataforma = new ConfiguracionPlataforma();
-        $alcanceMonetizacion = $configuracionPlataforma->obtenerAlcancePublicacion($producto);
-        $reglaComision = $configuracionPlataforma->obtenerMonetizacionPorAlcance(
-            ConfiguracionPlataforma::MON_COMISION_PRODUCTO,
-            $alcanceMonetizacion['tipo_alcance'],
-            $alcanceMonetizacion['codigo_alcance']
-        );
-        $reglaDescuentoBilletera = $configuracionPlataforma->obtenerMonetizacionPorAlcance(
-            ConfiguracionPlataforma::MON_DESCUENTO_BILLETERA_PEDIDO,
-            $alcanceMonetizacion['tipo_alcance'],
-            $alcanceMonetizacion['codigo_alcance']
-        );
-
-        $comisionPorcentaje = max(0.0, (float)($reglaComision['valor_decimal'] ?? 0));
-        $descuentoBilleteraHabilitado = !empty($reglaDescuentoBilletera['valor_booleano']);
-        $codigoConfiguracionMonetizacion = (int)($reglaComision['codigo_configuracion'] ?? 0);
-        $modalidadMonetizacion = ($comisionPorcentaje <= 0.0 && !$descuentoBilleteraHabilitado)
-            ? 'piloto_gratuito'
-            : 'estandar';
-        $snapshotMonetizacion = json_encode([
-            'alcance' => $alcanceMonetizacion,
-            'comision_producto_porcentaje' => $comisionPorcentaje,
-            'descuento_billetera_pedido' => $descuentoBilleteraHabilitado,
-            'regla_comision' => $reglaComision,
-            'regla_descuento_billetera' => $reglaDescuentoBilletera,
-            'capturado_en' => (new DateTimeImmutable('now', new DateTimeZone('America/Lima')))->format('Y-m-d H:i:s'),
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
         if ($cantidad <= 0) {
             return [
                 'ok'      => false,
@@ -1889,8 +1847,8 @@ class Pedido extends Conexion
         $requierePrep   = (int)($producto['requiere_preparacion'] ?? 0);
         $codigoVendedor = (int)($producto['codigo_usuario_vendedor'] ?? 0);
 
-        // Durante el piloto, la billetera puede estar desactivada incluso para productos preparados.
-        $metodoPago = ($requierePrep === 1 && $descuentoBilleteraHabilitado) ? 'billetera' : 'efectivo';
+        // Regla EV 2.0: producto preparado exige billetera; no preparado queda en efectivo por defecto.
+        $metodoPago = ($requierePrep === 1) ? 'billetera' : 'efectivo';
         $penalidadReservada = 0.00;
         $total = $subtotalProducto;
 
@@ -1954,10 +1912,6 @@ class Pedido extends Conexion
                     requiere_preparacion,
                     metodo_pago,
                     penalidad_comprador_monto,
-                    comision_ev_porcentaje,
-                    codigo_monetizacion_configuracion,
-                    modalidad_monetizacion,
-                    monetizacion_snapshot_json,
                     monto_descontado_billetera,
                     descuento_billetera_aplicado,
                     devolucion_billetera_aplicada,
@@ -1986,10 +1940,6 @@ class Pedido extends Conexion
                     :requiere_preparacion,
                     :metodo_pago,
                     :penalidad_comprador_monto,
-                    :comision_ev_porcentaje,
-                    :codigo_monetizacion_configuracion,
-                    :modalidad_monetizacion,
-                    :monetizacion_snapshot_json,
                     0.00,
                     0,
                     0,
@@ -2032,14 +1982,6 @@ class Pedido extends Conexion
             $st->bindValue(':requiere_preparacion', $requierePrep, PDO::PARAM_INT);
             $st->bindValue(':metodo_pago', $metodoPago, PDO::PARAM_STR);
             $st->bindValue(':penalidad_comprador_monto', $penalidadReservada);
-            $st->bindValue(':comision_ev_porcentaje', $comisionPorcentaje);
-            if ($codigoConfiguracionMonetizacion > 0) {
-                $st->bindValue(':codigo_monetizacion_configuracion', $codigoConfiguracionMonetizacion, PDO::PARAM_INT);
-            } else {
-                $st->bindValue(':codigo_monetizacion_configuracion', null, PDO::PARAM_NULL);
-            }
-            $st->bindValue(':modalidad_monetizacion', $modalidadMonetizacion, PDO::PARAM_STR);
-            $st->bindValue(':monetizacion_snapshot_json', $snapshotMonetizacion ?: null, $snapshotMonetizacion ? PDO::PARAM_STR : PDO::PARAM_NULL);
 
             if ($fechaLimite !== null) {
                 $st->bindValue(':fecha_limite_respuesta', $fechaLimite, PDO::PARAM_STR);
@@ -2055,7 +1997,7 @@ class Pedido extends Conexion
                 $this->reservarPenalidadesPendientesParaPedido($codigoUsuarioComprador, $codigoPedido);
             }
 
-            if ($requierePrep === 1 && $descuentoBilleteraHabilitado) {
+            if ($requierePrep === 1) {
                 $debito = $this->debitarBilleteraPorSolicitudPreparada(
                     $codigoUsuarioComprador,
                     $codigoPedido,
@@ -2121,10 +2063,8 @@ class Pedido extends Conexion
                     'requiere_preparacion'          => $requierePrep,
                     'metodo_pago'                   => $metodoPago,
                     'penalidad_comprador_monto'     => $penalidadReservada,
-                    'comision_ev_porcentaje'        => $comisionPorcentaje,
-                    'modalidad_monetizacion'        => $modalidadMonetizacion,
-                    'monto_descontado_billetera'    => ($requierePrep === 1 && $descuentoBilleteraHabilitado) ? $subtotalProducto : 0,
-                    'descuento_billetera_aplicado'  => ($requierePrep === 1 && $descuentoBilleteraHabilitado) ? 1 : 0,
+                    'monto_descontado_billetera'    => $requierePrep === 1 ? $subtotalProducto : 0,
+                    'descuento_billetera_aplicado'  => $requierePrep === 1 ? 1 : 0,
                     'devolucion_billetera_aplicada' => 0,
                     'fecha_limite_respuesta'        => $fechaLimite,
                     'created_at'                    => date('Y-m-d H:i:s')
@@ -3619,11 +3559,8 @@ class Pedido extends Conexion
                 'codigo_categoria'        => (int)($row['codigo_categoria'] ?? 0),
                 'tipo_nombre'             => (string)($row['tipo_nombre'] ?? ''),
                 'categoria_nombre'        => (string)($row['categoria_nombre'] ?? ''),
-                'imagen_portada'                    => (string)($row['imagen_portada'] ?? ''),
-                'tipo_conjunto_publicacion'          => (string)($row['tipo_conjunto_publicacion'] ?? ''),
-                'codigo_condominio_publicacion'      => (int)($row['codigo_condominio_publicacion'] ?? 0),
-                'codigo_urbanizacion_publicacion'    => (int)($row['codigo_urbanizacion_publicacion'] ?? 0),
-                'requiere_preparacion'               => ((string)($row['tipo_atencion_producto'] ?? '') === 'requiere_preparacion') ? 1 : 0
+                'imagen_portada'          => (string)($row['imagen_portada'] ?? ''),
+                'requiere_preparacion'    => ((string)($row['tipo_atencion_producto'] ?? '') === 'requiere_preparacion') ? 1 : 0
             ]
         ];
     }

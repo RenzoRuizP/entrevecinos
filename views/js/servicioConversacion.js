@@ -32,34 +32,11 @@
   const date = (value, withTime = false) => {
     const raw = String(value || '').trim();
     if (!raw) return '—';
-
-    /*
-     * MySQL entrega los TIMESTAMP en la sesión -05:00. Cuando el valor no
-     * incluye zona, se añade explícitamente la de Perú para que Safari/Chrome
-     * no lo interpreten como UTC ni desplacen cinco horas el mensaje.
-     */
-    const normalized = raw.replace(' ', 'T');
-    const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
-    const iso = hasZone ? normalized : `${normalized}-05:00`;
-    const d = new Date(iso);
+    const d = new Date(raw.replace(' ', 'T'));
     if (Number.isNaN(d.getTime())) return raw;
-
-    return new Intl.DateTimeFormat('es-PE', withTime
-      ? {
-          timeZone: 'America/Lima',
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true
-        }
-      : {
-          timeZone: 'America/Lima',
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
-        }).format(d);
+    return d.toLocaleString('es-PE', withTime
+      ? { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }
+      : { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
   const imageUrl = (path) => {

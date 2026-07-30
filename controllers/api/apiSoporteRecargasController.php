@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/SoporteRecargas.php';
-require_once __DIR__ . '/../../models/ConfiguracionPlataforma.php';
-require_once __DIR__ . '/../../middleware/FuncionalidadGuard.php';
 
 final class apiSoporteRecargasController
 {
@@ -58,7 +56,6 @@ final class apiSoporteRecargasController
     // GET /api/soporte/recargas
     public function listar(): void
     {
-        FuncionalidadGuard::exigirMonetizacionBooleanaJson(ConfiguracionPlataforma::MON_RECARGAS, true);
         try {
             if (!$this->isSoporteOrAdmin()) {
                 $this->fail(403, 'FORBIDDEN', 'Solo Soporte/Admin');
@@ -109,7 +106,6 @@ final class apiSoporteRecargasController
     // OJO: SIN type-hint estricto en parámetro para evitar TypeError (router manda string)
     public function actualizarEstado($codigo_recarga): void
     {
-        FuncionalidadGuard::exigirMonetizacionBooleanaJson(ConfiguracionPlataforma::MON_RECARGAS, true);
         try {
             if (!$this->isSoporteOrAdmin()) {
                 $this->fail(403, 'FORBIDDEN', 'Solo Soporte/Admin');

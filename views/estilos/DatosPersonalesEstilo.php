@@ -691,4 +691,539 @@
   }
 }
 
+/* ===================================================
+   EV PERFIL V3 — CARDS Y ANCHO ESTÁNDAR ENTRE VECINOS
+   Patrón visual homologado con "Mis Publicaciones".
+=================================================== */
+.container-datos-personales.ev-profile-page{
+  width:100%;
+  max-width:none;
+  margin:0 auto;
+  padding:14px 14px 26px;
+  color:#111827;
+}
+
+/* El contenedor estructural deja de verse como un card gigante. */
+.ev-profile-shell{
+  overflow:visible !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+
+.ev-profile-shell > .card-body{
+  padding:0 !important;
+  background:transparent !important;
+}
+
+/* Card de cabecera: mismo radio, borde y sombra del estándar EV. */
+.ev-profile-hero{
+  min-height:0;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:22px;
+  margin:0 0 16px;
+  padding:18px !important;
+  overflow:hidden;
+  border:1px solid rgba(148,163,184,.22) !important;
+  border-radius:18px !important;
+  background:
+    radial-gradient(circle at 82% 20%,rgba(22,163,74,.08),transparent 55%),
+    radial-gradient(circle at 14% 80%,rgba(234,124,18,.07),transparent 55%),
+    linear-gradient(180deg,#FFFFFF 0%,#FBFDFB 100%) !important;
+  box-shadow:0 16px 44px rgba(15,23,42,.10) !important;
+}
+
+.ev-profile-hero__main{
+  min-width:0;
+  display:flex;
+  align-items:flex-start;
+  gap:14px;
+}
+
+.ev-profile-hero .ev-datos-icon{
+  width:44px;
+  height:44px;
+  min-width:44px;
+  border-radius:16px;
+  background:rgba(187,247,208,.55);
+  border:1px solid rgba(22,163,74,.20);
+  box-shadow:0 12px 22px rgba(15,23,42,.06);
+}
+
+.ev-profile-hero .ev-datos-icon i{
+  font-size:1.15rem;
+}
+
+.ev-profile-hero__eyebrow{
+  display:block;
+  margin-bottom:2px;
+  color:var(--ev-naranja-oscuro);
+  font-size:.70rem;
+  font-weight:900;
+  letter-spacing:.10em;
+}
+
+.ev-profile-hero h2{
+  margin:0;
+  color:var(--ev-verde-oscuro);
+  font-size:clamp(1.65rem,2vw,2.05rem);
+  line-height:1.12;
+  font-weight:850;
+  letter-spacing:.01em;
+}
+
+.ev-profile-hero p{
+  margin:4px 0 0;
+  color:#6B7280;
+  font-size:.95rem;
+  line-height:1.4;
+  font-weight:500;
+}
+
+.ev-profile-hero__community{
+  max-width:390px;
+  min-width:260px;
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding:11px 14px;
+  border-radius:16px;
+  background:rgba(255,255,255,.94);
+  border:1px solid rgba(15,89,47,.13);
+  box-shadow:0 10px 24px rgba(15,23,42,.055);
+}
+
+.ev-profile-hero__community-icon{
+  width:40px;
+  height:40px;
+  min-width:40px;
+  display:grid;
+  place-items:center;
+  border-radius:13px;
+  color:var(--ev-verde-oscuro);
+  background:#F0FDF4;
+  border:1px solid #BBF7D0;
+}
+
+.ev-profile-hero__community small,
+.ev-profile-hero__community strong{
+  display:block;
+}
+
+.ev-profile-hero__community small{
+  color:#6B7280;
+  font-size:.69rem;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.055em;
+}
+
+.ev-profile-hero__community strong{
+  margin-top:2px;
+  color:#163B26;
+  font-size:.90rem;
+  line-height:1.28;
+  font-weight:850;
+}
+
+/* Card de navegación del perfil. */
+.ev-profile-page .ev-stepper{
+  margin:0 0 16px !important;
+  padding:10px 14px;
+  border:1px solid rgba(148,163,184,.22);
+  border-radius:18px;
+  background:#fff;
+  box-shadow:0 16px 44px rgba(15,23,42,.10);
+}
+
+.ev-profile-page .ev-step{
+  flex:0 1 250px;
+  min-width:0;
+  min-height:44px;
+  padding:8px 14px;
+  border:1px solid transparent;
+  border-radius:999px;
+  background:transparent;
+  box-shadow:none;
+}
+
+.ev-profile-page .ev-step:hover{
+  transform:none;
+  border-color:rgba(234,124,18,.34);
+  background:#FFFBF5;
+  box-shadow:none;
+}
+
+.ev-profile-page .ev-step.active{
+  color:var(--ev-verde-oscuro);
+  border-color:rgba(22,163,74,.28);
+  background:#F0FDF4;
+  box-shadow:0 8px 18px rgba(15,89,47,.07);
+}
+
+.ev-profile-page .ev-step.done{
+  border-color:transparent;
+  background:#F9FAFB;
+}
+
+.ev-profile-page .ev-step-line{
+  max-width:120px;
+  background:linear-gradient(90deg,rgba(15,89,47,.10),rgba(234,124,18,.15));
+}
+
+/* Cada paso se presenta como card independiente, no como panel extendido. */
+.ev-profile-page .ev-step-panel{
+  width:100%;
+  max-width:none;
+  margin:0;
+  padding:18px;
+  border:1px solid rgba(148,163,184,.22);
+  border-radius:18px;
+  background:#fff;
+  box-shadow:0 16px 44px rgba(15,23,42,.10);
+}
+
+.ev-profile-section-head{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:0 0 14px;
+  margin:0 0 18px;
+  border-bottom:1px solid #E5E7EB;
+}
+
+.ev-profile-section-head__icon{
+  width:40px;
+  height:40px;
+  min-width:40px;
+  display:grid;
+  place-items:center;
+  border-radius:13px;
+  color:var(--ev-verde-oscuro);
+  background:#F0FDF4;
+  border:1px solid #BBF7D0;
+  font-size:1rem;
+}
+
+.ev-profile-section-head h3{
+  margin:0;
+  color:var(--ev-verde-oscuro);
+  font-size:1.05rem;
+  line-height:1.25;
+  font-weight:900;
+  letter-spacing:-.01em;
+}
+
+.ev-profile-section-head p{
+  margin:3px 0 0;
+  color:#6B7280;
+  font-size:.84rem;
+  line-height:1.4;
+}
+
+.ev-profile-form-grid{
+  row-gap:16px !important;
+}
+
+.ev-profile-page .ev-form-label{
+  margin-bottom:7px;
+  color:#263C30;
+  font-size:.86rem;
+  font-weight:750;
+}
+
+.ev-profile-page .ev-input-rounded{
+  min-height:46px;
+  height:auto;
+  border-radius:12px !important;
+  border:1px solid #DDE7E1 !important;
+  background:#fff;
+  color:#17251D;
+  box-shadow:0 1px 2px rgba(15,23,42,.02);
+}
+
+.ev-profile-page .ev-input-rounded:hover:not(:disabled){
+  border-color:rgba(234,124,18,.55) !important;
+}
+
+.ev-profile-page .ev-input-rounded:focus{
+  border-color:var(--ev-naranja) !important;
+  box-shadow:0 0 0 4px rgba(234,124,18,.12) !important;
+}
+
+.ev-profile-page .ev-step-panel input[disabled],
+.ev-profile-page .ev-step-panel select[disabled]{
+  opacity:1;
+  background:#F7F9FA !important;
+  color:#667085 !important;
+  border-color:#E6EBE8 !important;
+}
+
+.ev-profile-page .form-check-input{
+  width:1.05rem;
+  height:1.05rem;
+  border-color:#9DB7A8;
+}
+
+.ev-profile-page .form-check-input:checked{
+  background-color:var(--ev-verde-oscuro);
+  border-color:var(--ev-verde-oscuro);
+}
+
+.ev-profile-page .form-check-input:focus{
+  box-shadow:0 0 0 4px rgba(22,163,74,.13);
+}
+
+.ev-profile-page .ev-hint{
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid #E5E7EB;
+  background:#F9FAFB;
+  color:#31463A;
+  font-size:.86rem;
+  line-height:1.5;
+}
+
+.ev-profile-page .ev-hint:hover{
+  border-color:rgba(234,124,18,.28);
+}
+
+.ev-current-residence{
+  display:flex;
+  align-items:center;
+  gap:13px;
+  margin-bottom:18px;
+  padding:13px 15px;
+  border-radius:14px;
+  border:1px solid rgba(22,163,74,.17);
+  background:linear-gradient(135deg,#F0FDF4,#FFFFFF);
+}
+
+.ev-current-residence__icon{
+  width:42px;
+  height:42px;
+  min-width:42px;
+  display:grid;
+  place-items:center;
+  border-radius:13px;
+  color:var(--ev-verde-oscuro);
+  background:#fff;
+  border:1px solid #BBF7D0;
+  box-shadow:0 9px 20px rgba(15,89,47,.08);
+}
+
+.ev-current-residence small,
+.ev-current-residence strong,
+.ev-current-residence span{
+  display:block;
+}
+
+.ev-current-residence small{
+  color:#718078;
+  font-size:.69rem;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.065em;
+}
+
+.ev-current-residence strong{
+  margin-top:1px;
+  color:#163B26;
+  font-size:.92rem;
+  font-weight:900;
+}
+
+.ev-current-residence span{
+  margin-top:2px;
+  color:#64748B;
+  font-size:.79rem;
+}
+
+.ev-profile-page .ev-profile-photo-panel{
+  padding:16px 18px;
+  border-radius:16px;
+  background:#FBFDFC;
+  border:1px solid #E1EBE5;
+  box-shadow:none;
+  transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease;
+}
+
+.ev-profile-page .ev-profile-photo-panel:hover{
+  transform:translateY(-1px);
+  border-color:rgba(234,124,18,.35);
+  box-shadow:0 13px 28px rgba(15,23,42,.055);
+}
+
+.ev-profile-page .ev-file-row{
+  border-color:#E1E8E4;
+  border-radius:12px;
+  box-shadow:none;
+}
+
+.ev-profile-page .ev-file-row:hover{
+  border-color:rgba(234,124,18,.35);
+  background:#FFFCF8;
+}
+
+.ev-profile-page .btn-ev-primary{
+  min-height:42px;
+  padding:9px 22px !important;
+  border-radius:12px !important;
+  background:linear-gradient(135deg,var(--ev-naranja),#F59E0B) !important;
+  box-shadow:0 10px 22px rgba(234,124,18,.22) !important;
+  font-weight:800;
+}
+
+.ev-profile-page .btn-ev-primary:hover{
+  transform:translateY(-1px);
+  box-shadow:0 14px 28px rgba(234,124,18,.30) !important;
+}
+
+.ev-profile-page .btn-ev-neutral{
+  min-height:42px;
+  padding:9px 17px !important;
+  border-radius:12px !important;
+  border-color:#DDE5E0 !important;
+  box-shadow:none;
+  font-weight:750;
+}
+
+.ev-profile-page .btn-ev-neutral:hover{
+  border-color:rgba(234,124,18,.45) !important;
+  background:#FFFBF5 !important;
+  color:var(--ev-naranja-oscuro) !important;
+}
+
+/* Navegación inferior como card compacto del mismo sistema visual. */
+.ev-profile-page .ev-wizard-footer{
+  width:100%;
+  max-width:none;
+  margin:16px 0 0 !important;
+  padding:12px 14px;
+  border:1px solid rgba(148,163,184,.22);
+  border-radius:18px;
+  background:#fff;
+  box-shadow:0 16px 44px rgba(15,23,42,.08);
+}
+
+.ev-profile-page .ev-profile-legal{
+  width:100%;
+  max-width:none;
+  margin:16px 0 0 !important;
+  padding:18px;
+  border:1px solid rgba(148,163,184,.22);
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 92% 8%,rgba(22,163,74,.08),transparent 32%),
+    linear-gradient(180deg,#FFFFFF 0%,#FBFDFB 100%);
+  box-shadow:0 16px 44px rgba(15,23,42,.10);
+}
+
+.ev-profile-page .ev-profile-legal__card{
+  border-color:rgba(148,163,184,.22);
+  box-shadow:0 10px 24px rgba(15,23,42,.045);
+}
+
+.ev-profile-page .ev-profile-legal__card:hover{
+  border-color:rgba(234,124,18,.46);
+  background:#FFFCF8;
+  box-shadow:0 13px 26px rgba(196,107,5,.08);
+}
+
+@media (max-width: 992px){
+  .container-datos-personales.ev-profile-page{
+    max-width:none;
+    padding:12px 12px 24px;
+  }
+
+  .ev-profile-hero{
+    align-items:flex-start !important;
+    flex-direction:column;
+  }
+
+  .ev-profile-hero__community{
+    width:100%;
+    max-width:none;
+    min-width:0;
+  }
+
+  .ev-profile-page .ev-step{
+    flex:1 1 0;
+  }
+}
+
+@media (max-width: 768px){
+  .container-datos-personales.ev-profile-page{
+    padding:10px 8px 20px;
+  }
+
+  .ev-profile-hero{
+    padding:16px !important;
+    border-radius:16px !important;
+  }
+
+  .ev-profile-page .ev-stepper{
+    flex-direction:column;
+    align-items:stretch;
+    gap:8px;
+    padding:10px;
+    border-radius:16px;
+  }
+
+  .ev-profile-page .ev-step-line{
+    display:none;
+  }
+
+  .ev-profile-page .ev-step{
+    width:100%;
+    justify-content:flex-start;
+  }
+
+  .ev-profile-page .ev-step-panel,
+  .ev-profile-page .ev-wizard-footer,
+  .ev-profile-page .ev-profile-legal{
+    border-radius:16px;
+  }
+
+  .ev-profile-page .ev-step-panel{
+    padding:16px 14px;
+  }
+}
+
+@media (max-width: 576px){
+  .ev-profile-hero__main{
+    align-items:flex-start;
+  }
+
+  .ev-profile-hero .ev-datos-icon{
+    width:42px;
+    height:42px;
+    min-width:42px;
+    border-radius:14px;
+  }
+
+  .ev-profile-hero h2{
+    font-size:1.45rem;
+  }
+
+  .ev-profile-hero__community{
+    padding:10px 11px;
+  }
+
+  .ev-profile-page .ev-step-panel{
+    padding:14px 12px;
+  }
+
+  .ev-profile-page .ev-wizard-footer{
+    padding:10px 11px;
+  }
+
+  .ev-profile-page .ev-profile-legal{
+    padding:15px 13px;
+  }
+}
+
 </style>

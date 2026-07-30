@@ -108,13 +108,6 @@ if (!defined('BASE_URL')) {
     define('BASE_URL', ev_detect_base_url());
 }
 
-/* Zona horaria operativa oficial de Entre Vecinos (Perú). */
-$evTimezone = trim((string)ev_env('EV_APP_TIMEZONE', 'America/Lima'));
-if ($evTimezone === '' || !in_array($evTimezone, timezone_identifiers_list(), true)) {
-    $evTimezone = 'America/Lima';
-}
-date_default_timezone_set($evTimezone);
-
 if (!defined('EV_APP_ENV')) {
     $evAppEnv = trim((string)ev_env('APP_ENV', 'production'));
     define('EV_APP_ENV', strtolower($evAppEnv !== '' ? $evAppEnv : 'production'));
@@ -142,7 +135,7 @@ if (!defined('EV_ADMIN_COMUNIDAD_ROLE_ID')) {
 }
 
 if (!defined('EV_APP_VER')) {
-    define('EV_APP_VER', '1.0.3');
+    define('EV_APP_VER', '1.0.2');
 }
 
 /* Uploads (ruta física + URL pública) */

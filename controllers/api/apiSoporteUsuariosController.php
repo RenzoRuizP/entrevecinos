@@ -6,7 +6,6 @@ require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/SoporteUsuarios.php';
 require_once __DIR__ . '/../../models/Billetera.php';
 require_once __DIR__ . '/../../models/Notificacion.php';
-require_once __DIR__ . '/../../models/ConfiguracionPlataforma.php';
 
 final class apiSoporteUsuariosController
 {
@@ -199,47 +198,22 @@ final class apiSoporteUsuariosController
             if ($estadoNuevo === 2) {
                 $m->limpiarRevision($codigoUsuario);
 
-                $configuracion = new ConfiguracionPlataforma();
-                $alcanceUsuario = $configuracion->obtenerAlcanceUsuario($codigoUsuario);
-                $reglaBono = $configuracion->obtenerMonetizacionPorAlcance(
-                    ConfiguracionPlataforma::MON_BONO_BIENVENIDA,
-                    $alcanceUsuario['tipo_alcance'],
-                    $alcanceUsuario['codigo_alcance']
-                );
-                $reglaMontoBono = $configuracion->obtenerMonetizacionPorAlcance(
-                    ConfiguracionPlataforma::MON_BONO_BIENVENIDA_MONTO,
-                    $alcanceUsuario['tipo_alcance'],
-                    $alcanceUsuario['codigo_alcance']
-                );
+                $wallet = new Billetera();
+                $bono = $wallet->aplicarBonoBienvenida($codigoUsuario, 15.00);
 
-                $bonoHabilitado = !empty($reglaBono['valor_booleano']);
-                $montoBono = max(0.0, (float)($reglaMontoBono['valor_decimal'] ?? 0));
-
-                if ($bonoHabilitado && $montoBono > 0) {
-                    $wallet = new Billetera();
-                    $bono = $wallet->aplicarBonoBienvenida($codigoUsuario, $montoBono);
-
-                    if (empty($bono['ok'])) {
-                        error_log(
-                            '[EV][apiSoporteUsuariosController::actualizarEstado] ' .
-                            'Usuario aprobado pero falló bono. u=' . $codigoUsuario .
-                            ' err=' . ($bono['error'] ?? ($bono['mensaje'] ?? 'DESCONOCIDO'))
-                        );
-                    }
-                } else {
-                    $bono = [
-                        'ok' => true,
-                        'aplicado' => false,
-                        'omitido_por_configuracion' => true,
-                        'monto' => 0.0,
-                    ];
+                if (empty($bono['ok'])) {
+                    error_log(
+                        '[EV][apiSoporteUsuariosController::actualizarEstado] ' .
+                        'Usuario aprobado pero falló bono. u=' . $codigoUsuario .
+                        ' err=' . ($bono['error'] ?? ($bono['mensaje'] ?? 'DESCONOCIDO'))
+                    );
                 }
             }
 
             if (in_array($estadoNuevo, [0, 2], true)) {
                 try {
                     $aprobada = $estadoNuevo === 2;
-                    $bonoAplicado = $aprobada && !empty($bono['ok']) && empty($bono['omitido_por_configuracion']);
+                    $bonoAplicado = $aprobada && !empty($bono['ok']);
                     $mensajeNotificacion = $aprobada
                         ? ($bonoAplicado
                             ? 'Tu cuenta fue aprobada y ya puedes usar Entre Vecinos. También se acreditó tu saldo de bienvenida.'

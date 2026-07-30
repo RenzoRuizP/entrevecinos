@@ -14,12 +14,14 @@
   const FETCH_TIMEOUT_MS = 8000;
   const MAX_ITEMS = 8;
   const PENDING_SERVICE_KEY = 'ev_notificacion_servicio_pendiente';
+  const PENDING_SUPPORT_RESIDENCE_KEY = 'ev_notificacion_residencia_soporte_pendiente';
 
   const RUTAS_PERMITIDAS = new Set([
     '/MenuPrincipal', '/notificaciones', '/notificaciones-residencia', '/cuenta-observada',
     '/publicacion', '/billetera', '/comunidad', '/mis-pedidos-comprador',
     '/mis-pedidos-vendedor', '/mis-solicitudes-servicio-comprador',
-    '/mis-solicitudes-servicio-vendedor', '/atender-servicios', '/atender-publicacion'
+    '/mis-solicitudes-servicio-vendedor', '/atender-servicios', '/atender-cuentas',
+    '/atender-publicacion', '/atender-recargas'
   ]);
 
   const SUBCATEGORIAS_GESTION_SERVICIO = new Set([
@@ -100,10 +102,14 @@
     if (categoria === 'pedido' || categoria === 'pedidos') return rolDestino === 'vendedor' ? '/mis-pedidos-vendedor' : '/mis-pedidos-comprador';
     if (categoria === 'cuenta') return String(item?.subcategoria || '').toLowerCase() === 'cuenta_observada' ? '/cuenta-observada' : '/MenuPrincipal';
     if (categoria === 'residencia') return '/notificaciones-residencia';
-    if (categoria === 'publicacion') return '/publicacion';
-    if (categoria === 'billetera') return '/billetera';
+    if (categoria === 'publicacion') return rolDestino === 'soporte' ? '/atender-publicacion' : '/publicacion';
+    if (categoria === 'billetera') return rolDestino === 'soporte' ? '/atender-recargas' : '/billetera';
     if (categoria === 'comunidad') return '/comunidad';
-    if (categoria === 'soporte') return '/MenuPrincipal';
+    if (categoria === 'soporte') {
+      return String(item?.subcategoria || '').toLowerCase() === 'residencia_pendiente_soporte'
+        ? '/atender-cuentas'
+        : '/MenuPrincipal';
+    }
     return '/MenuPrincipal';
   }
 
@@ -116,10 +122,7 @@
     if (categoria === 'billetera') return { icon: 'bi-wallet2', tone: sub.includes('aprobada') ? 'success' : (sub.includes('rechazada') ? 'danger' : 'warning') };
     if (categoria === 'pedido' || categoria === 'pedidos') return { icon: 'bi-bag-check', tone: sub.includes('cancel') || sub.includes('rechaz') ? 'danger' : 'success' };
     if (categoria === 'comunidad') return { icon: sub.includes('urgente') ? 'bi-megaphone-fill' : 'bi-people', tone: sub.includes('urgente') ? 'danger' : 'info' };
-    if (categoria === 'soporte') {
-      if (sub === 'publicacion_pendiente') return { icon: 'bi-megaphone', tone: 'warning' };
-      return { icon: 'bi-headset', tone: 'info' };
-    }
+    if (categoria === 'soporte') return { icon: 'bi-headset', tone: 'info' };
     if (categoria === 'servicio') {
       if (sub.includes('reprogramacion') || sub.includes('cotizacion') || sub.includes('calificacion')) return { icon: sub.includes('calificacion') ? 'bi-star' : 'bi-calendar2-week', tone: 'warning' };
       if (sub.includes('problema') || sub.includes('incidencia') || sub.includes('observacion') || sub.includes('cancel')) return { icon: 'bi-exclamation-triangle', tone: 'danger' };
@@ -167,7 +170,6 @@
   function actualizarContador(total) {
     const { count, summary, button } = refs();
     totalNoLeidas = Math.max(0, Number(total || 0));
-
     if (count) {
       count.textContent = totalNoLeidas > 99 ? '99+' : String(totalNoLeidas);
       count.classList.toggle('d-none', totalNoLeidas <= 0);
@@ -175,16 +177,11 @@
     }
     if (button) {
       button.classList.toggle('has-unread', totalNoLeidas > 0);
-      button.setAttribute(
-        'aria-label',
-        totalNoLeidas > 0
-          ? `Abrir notificaciones. ${totalNoLeidas} ${totalNoLeidas === 1 ? 'novedad no leída' : 'novedades no leídas'}.`
-          : 'Abrir notificaciones'
-      );
+      button.setAttribute('aria-label', totalNoLeidas > 0 ? `Abrir notificaciones. ${totalNoLeidas} pendientes.` : 'Abrir notificaciones');
     }
     if (summary) {
       summary.innerHTML = totalNoLeidas > 0
-        ? `<strong>${totalNoLeidas}</strong> ${totalNoLeidas === 1 ? 'novedad no leída' : 'novedades no leídas'}.`
+        ? `<strong>${totalNoLeidas}</strong> ${totalNoLeidas === 1 ? 'novedad pendiente' : 'novedades pendientes'}`
         : 'Estás al día. No tienes notificaciones pendientes.';
       summary.classList.toggle('has-unread', totalNoLeidas > 0);
     }
@@ -200,7 +197,7 @@
       return;
     }
 
-    const notificationHtml = rows.map(item => {
+    list.innerHTML = rows.map(item => {
       const id = Number(item?.codigo_notificacion || 0);
       const unread = String(item?.estado || '') === 'no_leida';
       const meta = iconoNotificacion(item);
@@ -219,8 +216,6 @@
           <i class="bi bi-chevron-right ev-notification-chevron" aria-hidden="true"></i>
         </button>`;
     }).join('');
-
-    list.innerHTML = notificationHtml;
   }
 
   async function cargarContador() {
@@ -230,6 +225,7 @@
       const { response, json } = await fetchJson(`${BASE}/api/notificaciones/resumen?incluir_items=0&_=${Date.now()}`);
       if (response.ok && json?.ok === true) {
         actualizarContador(Number(json?.data?.total || 0));
+        window.EVSidebarCommunity?.refresh?.({ silent: true });
       }
     } finally {
       cargandoContador = false;
@@ -273,6 +269,33 @@
     const { button } = refs();
     if (!button || !window.bootstrap?.Dropdown) return;
     try { window.bootstrap.Dropdown.getOrCreateInstance(button).hide(); } catch (_) {}
+  }
+
+  function guardarResidenciaSoportePendiente(item, payload, ruta) {
+    const categoria = String(item?.categoria || '').toLowerCase();
+    const subcategoria = String(item?.subcategoria || '').toLowerCase();
+    const codigoSolicitud = Number(payload?.codigo_solicitud || item?.referencia_id || 0);
+
+    if (
+      categoria !== 'soporte'
+      || subcategoria !== 'residencia_pendiente_soporte'
+      || codigoSolicitud <= 0
+    ) {
+      return false;
+    }
+
+    try {
+      sessionStorage.setItem(PENDING_SUPPORT_RESIDENCE_KEY, JSON.stringify({
+        codigo_solicitud: codigoSolicitud,
+        modo: 'residencias',
+        estado: 'revision',
+        ruta,
+        created_at: Date.now()
+      }));
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   function guardarServicioPendiente(item, payload, ruta) {
@@ -322,6 +345,7 @@
     const payload = parsePayload(item);
     const ruta = rutaPorCategoria(item, payload);
     guardarServicioPendiente(item, payload, ruta);
+    guardarResidenciaSoportePendiente(item, payload, ruta);
     cerrarDropdown();
     if (window.EVNav && typeof window.EVNav.loadPage === 'function') {
       await window.EVNav.loadPage(ruta, { pushState: true, replaceState: false });
@@ -394,10 +418,7 @@
   }
 
   document.addEventListener('ev:notificaciones-globales-actualizar', () => refresh({ silent: true, includeItems: false }));
-  document.addEventListener('ev:content-loaded', () => {
-    cargarContador();
-    window.setTimeout(intentarAbrirServicioPendiente, 180);
-  });
+  document.addEventListener('ev:content-loaded', () => window.setTimeout(intentarAbrirServicioPendiente, 180));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) cargarContador(); });
   window.addEventListener('pageshow', () => {
     cargarContador();

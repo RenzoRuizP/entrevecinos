@@ -2,9 +2,7 @@
 // controllers/api/apiNotificacionesController.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/Notificacion.php';
-require_once __DIR__ . '/../../models/SoporteDashboard.php';
 
 final class apiNotificacionesController
 {
@@ -21,28 +19,6 @@ final class apiNotificacionesController
     {
         $auth = $GLOBALS['EV_AUTH'] ?? [];
         return (int)($auth['codigo_usuario'] ?? 0);
-    }
-
-    private function codigoRolAuth(): int
-    {
-        $auth = $GLOBALS['EV_AUTH'] ?? [];
-        return (int)($auth['codigo_rol'] ?? 0);
-    }
-
-    private function atencionesPendientesSoporte(): array
-    {
-        $soporteId = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
-        if ($this->codigoRolAuth() !== $soporteId) {
-            return [
-                'total' => 0,
-                'cuentas' => 0,
-                'publicaciones' => 0,
-                'recargas' => 0,
-                'servicios' => 0,
-            ];
-        }
-
-        return (new SoporteDashboard())->pendientesOperativos();
     }
 
     public function listar(): void
@@ -81,19 +57,9 @@ final class apiNotificacionesController
 
         try {
             $m = new Notificacion();
-            $data = $m->resumen($u, $incluirItems, $limite);
-            $atenciones = $this->atencionesPendientesSoporte();
-
-            // La campana representa únicamente novedades no leídas.
-            // Las atenciones operativas se muestran y gestionan desde el Panel de Soporte.
-            $data['total_notificaciones'] = max(0, (int)($data['total'] ?? 0));
-            $data['pendientes_soporte'] = (int)$atenciones['total'];
-            $data['atenciones_soporte'] = $atenciones;
-            $data['total'] = $data['total_notificaciones'];
-
             $this->json(200, [
                 'ok' => true,
-                'data' => $data,
+                'data' => $m->resumen($u, $incluirItems, $limite),
             ]);
         } catch (Throwable $e) {
             error_log('[EV][apiNotificacionesController::resumen] ' . $e->getMessage());

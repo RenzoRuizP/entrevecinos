@@ -29,6 +29,26 @@ class Urbanizacion extends Conexion
         return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    public function perteneceADistrito(int $codigoUrbanizacion, int $codigoDistrito): bool
+    {
+        if ($codigoUrbanizacion <= 0 || $codigoDistrito <= 0) {
+            return false;
+        }
+
+        $sql = "SELECT 1
+                FROM urbanizacion
+                WHERE codigo_urbanizacion = :id
+                  AND codigo_distrito = :dist
+                  AND estado = 'A'
+                LIMIT 1";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':id', $codigoUrbanizacion, PDO::PARAM_INT);
+        $st->bindValue(':dist', $codigoDistrito, PDO::PARAM_INT);
+        $st->execute();
+
+        return (bool)$st->fetchColumn();
+    }
+
     public function obtenerDireccionPorId(int $codigoUrbanizacion): string
     {
         if ($codigoUrbanizacion <= 0) {

@@ -18,50 +18,88 @@ document.addEventListener('DOMContentLoaded', () => {
   const main = document.getElementById('contenido-principal');
   const sidebar = document.getElementById('sidebar');
 
-  async function abrirAyudaEV() {
-    const telefonoVisible = '996 524 992';
-    const whatsappUrl = 'https://wa.me/51996524992';
+  let communityRefreshPromise = null;
+  let communityLastRefreshAt = 0;
 
-    if (!window.Swal?.fire) {
-      alert(`Ayuda EV\n\nEntre Vecinos te permite comprar, vender, solicitar servicios y mantener la coordinación dentro de tu comunidad.\n\nSoporte exclusivo por WhatsApp: ${telefonoVisible}`);
-      return;
-    }
+  function nombreComunidadVisible(tipo, nombre) {
+    const raw = String(nombre || '').trim();
+    if (!raw) return '';
 
-    await Swal.fire({
-      title: 'Ayuda EV',
-      html: `
-        <div class="ev-help-content">
-          <div class="ev-help-icon" aria-hidden="true"><i class="bi bi-question-circle"></i></div>
-          <h3>¿Cómo podemos ayudarte?</h3>
-          <p class="ev-help-intro">Entre Vecinos te permite comprar, vender, solicitar servicios y mantener la coordinación con tus vecinos desde un mismo lugar.</p>
+    const label = tipo === 'urbanizacion'
+      ? 'Urbanización'
+      : (tipo === 'condominio' ? 'Condominio' : 'Comunidad');
 
-          <div class="ev-help-support">
-            <span class="ev-help-support-icon"><i class="bi bi-whatsapp"></i></span>
-            <div>
-              <small>Soporte EV · Solo WhatsApp</small>
-              <strong>${telefonoVisible}</strong>
-            </div>
-            <a href="${whatsappUrl}" target="_blank" rel="noopener noreferrer">Escribir</a>
-          </div>
-        </div>
-      `,
-      confirmButtonText: 'Aceptar',
-      buttonsStyling: false,
-      showCloseButton: false,
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      focusConfirm: false,
-      customClass: {
-        container: 'ev-help-swal-container',
-        popup: 'ev-help-swal-popup',
-        title: 'ev-help-swal-title',
-        htmlContainer: 'ev-help-swal-html',
-        confirmButton: 'ev-help-swal-confirm'
-      }
-    });
+    const rawLower = raw.toLocaleLowerCase('es-PE');
+    const labelLower = label.toLocaleLowerCase('es-PE');
+
+    return rawLower === labelLower || rawLower.startsWith(`${labelLower} `)
+      ? raw
+      : `${label} ${raw}`;
   }
 
-  window.EVAyudaEV = Object.assign(window.EVAyudaEV || {}, { abrir: abrirAyudaEV });
+  async function refreshSidebarCommunity(options = {}) {
+    const card = document.querySelector('.ev-sidebar-community-card');
+    const nameEl = document.getElementById('evSidebarCommunityName');
+    const iconEl = document.getElementById('evSidebarCommunityIcon');
+
+    if (!card || !nameEl || !iconEl) return null;
+
+    const minInterval = options.force === true ? 0 : 5000;
+    if (Date.now() - communityLastRefreshAt < minInterval) return null;
+    if (communityRefreshPromise) return communityRefreshPromise;
+
+    communityRefreshPromise = (async () => {
+      try {
+        const response = await fetch(`${BASE}/api/usuario/comunidad-actual?_=${Date.now()}`, {
+          credentials: 'include',
+          cache: 'no-store',
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        });
+
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok || json?.ok !== true) return null;
+
+        const data = json?.data || {};
+        const tipo = String(data?.tipo_conjunto || '').trim().toLowerCase();
+        const nombre = String(
+          data?.conjunto_nombre
+          || data?.nombre_conjunto
+          || data?.condominio_nombre
+          || data?.urbanizacion_nombre
+          || ''
+        ).trim();
+
+        if (!nombre || !['condominio', 'urbanizacion'].includes(tipo)) {
+          return data;
+        }
+
+        card.dataset.communityType = tipo;
+        nameEl.textContent = nombreComunidadVisible(tipo, nombre);
+        iconEl.className = tipo === 'urbanizacion'
+          ? 'bi bi-houses'
+          : 'bi bi-buildings';
+
+        document.dispatchEvent(new CustomEvent('ev:community-updated', {
+          detail: { ...data, nombre_visible: nameEl.textContent }
+        }));
+
+        return data;
+      } catch (error) {
+        if (options.silent !== true) {
+          console.warn('[EV][Sidebar][comunidad_actual]', error);
+        }
+        return null;
+      } finally {
+        communityLastRefreshAt = Date.now();
+        communityRefreshPromise = null;
+      }
+    })();
+
+    return communityRefreshPromise;
+  }
 
   if (!main) {
     console.warn('[EV][NAV] Falta #contenido-principal. No se inicializa navegación AJAX.');
@@ -800,7 +838,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const ayuda = e.target.closest('#btnEvAyudaSidebar');
     if (ayuda) {
       e.preventDefault();
-      abrirAyudaEV();
+      if (window.Swal?.fire) {
+        Swal.fire({
+          title: 'Ayuda EV',
+          html: `
+            <div style="width:68px;height:68px;margin:0 auto 14px;display:grid;place-items:center;border-radius:22px;background:linear-gradient(135deg,#ECFDF3,#FFFFFF);border:1px solid rgba(22,163,74,.24);color:#0F592F;font-size:1.8rem;box-shadow:0 14px 28px rgba(15,89,47,.10)" aria-hidden="true"><i class="bi bi-question-lg"></i></div>
+            <div style="line-height:1.55;color:#4B5563">
+              ¿Necesitas ayuda? Comunícate con <strong style="color:#0F592F">Soporte EV</strong> por WhatsApp al
+              <a href="https://wa.me/51956969182" target="_blank" rel="noopener noreferrer" style="color:#0E7A43;font-weight:800;text-decoration:none">956 969 182</a>.
+              Estaremos atentos para orientarte.
+            </div>
+          `,
+          confirmButtonText: 'Aceptar',
+          confirmButtonColor: '#EA7C12'
+        });
+      } else {
+        alert('Ayuda EV\n\n¿Necesitas ayuda? Comunícate con Soporte EV por WhatsApp al 956 969 182. Estaremos atentos para orientarte.');
+      }
       return;
     }
 
@@ -852,8 +906,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Inicializa estado activo y abre el grupo del item activo.
+  // Inicializa estado activo, abre el grupo del item activo y sincroniza
+  // la comunidad vigente desde BD (el JWT puede contener una residencia anterior).
   setActiveSidebarByPath(getCurrentSidebarPath());
+  refreshSidebarCommunity({ silent: true, force: true });
 
   try {
     const qs = new URLSearchParams(window.location.search);
@@ -875,6 +931,26 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch (e) {
     console.warn('[EV][NAV] ev_goto no procesado:', e);
   }
+
+  document.addEventListener('ev:content-loaded', () => {
+    refreshSidebarCommunity({ silent: true });
+  });
+
+  document.addEventListener('ev:sidebar-community-refresh', () => {
+    refreshSidebarCommunity({ silent: true, force: true });
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshSidebarCommunity({ silent: true });
+  });
+
+  window.addEventListener('pageshow', () => {
+    refreshSidebarCommunity({ silent: true, force: true });
+  });
+
+  window.EVSidebarCommunity = {
+    refresh: refreshSidebarCommunity
+  };
 
   window.EVNav = {
     loadPage,

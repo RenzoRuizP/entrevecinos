@@ -207,6 +207,24 @@ class SesionJWT extends Conexion
         }
     }
 
+    /**
+     * Retorna la comunidad vigente directamente desde BD para evitar que el
+     * shell dependa de datos de residencia almacenados en un JWT anterior.
+     */
+    public function obtenerComunidadActual(int $codigoUsuario, string $rol = ''): array
+    {
+        if ($codigoUsuario <= 0) {
+            return $this->comunidadVacia();
+        }
+
+        $rol = strtolower(trim($rol));
+        if ($rol === 'administrador_comunidad') {
+            return $this->obtenerComunidadAdministrada($codigoUsuario);
+        }
+
+        return $this->obtenerResidenciaVigente($codigoUsuario);
+    }
+
     private function obtenerResidenciaLegacy(int $codigoUsuario): array
     {
         $base = $this->comunidadVacia();

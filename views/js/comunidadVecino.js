@@ -281,26 +281,20 @@
   }
 
   function renderCounts(root, counts = {}) {
-    const todo = $('#evCvCountTodo', root);
-    const comunicados = $('#evCvCountComunicados', root);
-    const noticias = $('#evCvCountNoticias', root);
-    const eventos = $('#evCvCountEventos', root);
+    const select = $('#evCvTipo', root);
+    if (!select) return;
 
-    if (todo) {
-      todo.textContent = String(Number(counts.total || 0));
-    }
+    const values = {
+      all: Number(counts.total || 0),
+      comunicado: Number(counts.comunicados || 0),
+      noticia: Number(counts.noticias || 0),
+      evento: Number(counts.eventos || 0)
+    };
 
-    if (comunicados) {
-      comunicados.textContent = String(Number(counts.comunicados || 0));
-    }
-
-    if (noticias) {
-      noticias.textContent = String(Number(counts.noticias || 0));
-    }
-
-    if (eventos) {
-      eventos.textContent = String(Number(counts.eventos || 0));
-    }
+    Array.from(select.options).forEach((option) => {
+      const label = option.dataset.label || option.textContent || '';
+      option.textContent = `${label} (${values[option.value] ?? 0})`;
+    });
   }
 
   function renderPager(root, state, meta = {}) {
@@ -856,19 +850,11 @@
     vincularModal();
     inyectarEstilosEnfoque();
 
-    $$('[data-cv-tipo]', root).forEach((button) => {
-      button.addEventListener('click', () => {
-        $$('[data-cv-tipo]', root).forEach((item) => {
-          item.classList.remove('is-active');
-        });
-
-        button.classList.add('is-active');
-
-        state.tipo = button.dataset.cvTipo || 'all';
-        state.page = 1;
-
-        cargar(root, state);
-      });
+    const selectTipo = $('#evCvTipo', root);
+    selectTipo?.addEventListener('change', () => {
+      state.tipo = selectTipo.value || 'all';
+      state.page = 1;
+      cargar(root, state);
     });
 
     const formularioBusqueda = $('#evCvBuscarForm', root);

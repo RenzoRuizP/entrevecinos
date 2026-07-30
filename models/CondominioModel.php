@@ -53,6 +53,26 @@ class CondominioModel extends Conexion
         return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    public function perteneceADistrito(int $codigoCondominio, int $codigoDistrito): bool
+    {
+        if ($codigoCondominio <= 0 || $codigoDistrito <= 0) {
+            return false;
+        }
+
+        $sql = "SELECT 1
+                FROM condominio
+                WHERE codigo_condominio = :id
+                  AND codigo_distrito = :dist
+                  AND estado = 'A'
+                LIMIT 1";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':id', $codigoCondominio, PDO::PARAM_INT);
+        $st->bindValue(':dist', $codigoDistrito, PDO::PARAM_INT);
+        $st->execute();
+
+        return (bool)$st->fetchColumn();
+    }
+
     public function obtenerDireccionPorId(int $codigoCondominio): string
     {
         if ($codigoCondominio <= 0) {

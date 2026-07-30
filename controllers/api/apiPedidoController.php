@@ -4,8 +4,6 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/Pedido.php';
 require_once __DIR__ . '/../../models/Calificacion.php';
-require_once __DIR__ . '/../../models/ConfiguracionPlataforma.php';
-require_once __DIR__ . '/../../middleware/FuncionalidadGuard.php';
 
 class apiPedidoController
 {
@@ -109,8 +107,6 @@ class apiPedidoController
     // =========================================================
     public function registrarPedido(): void
     {
-        FuncionalidadGuard::exigirJson(ConfiguracionPlataforma::FUNC_COMPRAR_PRODUCTOS);
-
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->json(405, [
                 'ok'      => false,

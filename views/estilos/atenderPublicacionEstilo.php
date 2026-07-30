@@ -1691,4 +1691,318 @@ body.ev-ap-lightbox-open{
   .ev-ap-lightbox-foot small{ text-align:left; }
 }
 
+
+
+/* ============================================================
+   CIERRE UX/UI EV — ATENDER PUBLICACIONES
+   Mantiene la lógica existente y normaliza escritorio/móvil.
+============================================================ */
+.ev-ap-page{
+  width:min(100%,1540px);
+  margin:0 auto;
+}
+.ev-ap-page .ev-hero-top{
+  align-items:center;
+}
+.ev-ap-page .ev-hero-right{
+  flex:0 0 auto;
+}
+.ev-ap-refresh-btn{
+  min-height:42px;
+  padding:9px 15px;
+  border-color:rgba(15,89,47,.18) !important;
+  color:var(--ev-verde-oscuro) !important;
+  background:#fff !important;
+  box-shadow:0 9px 22px rgba(15,23,42,.06);
+}
+.ev-ap-refresh-btn:hover,
+.ev-ap-refresh-btn:focus-visible{
+  color:var(--ev-naranja-oscuro) !important;
+  border-color:rgba(234,124,18,.42) !important;
+  box-shadow:0 12px 26px rgba(234,124,18,.13);
+  transform:translateY(-1px);
+}
+.ev-ap-page .ev-hero-bottom{
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+}
+.ev-ap-hero-note{
+  max-width:720px;
+  color:var(--ev-gris-500);
+  font-size:.84rem;
+  line-height:1.45;
+  text-align:right;
+}
+.ev-ap-page .ev-filters .ev-card-body{
+  padding-top:14px;
+}
+.ev-ap-page .ev-table-wrap{
+  padding:0 14px 14px;
+}
+.ev-ap-page .ev-table{
+  width:100%;
+  min-width:980px;
+  table-layout:fixed;
+}
+.ev-ap-page .ev-col-fecha{ width:150px; }
+.ev-ap-page .ev-col-publicacion{ width:auto; }
+.ev-ap-page .ev-col-usuario{ width:290px; }
+.ev-ap-page .ev-col-estado{ width:145px; }
+.ev-ap-page .ev-col-acciones{ width:135px; }
+.ev-ap-page .ev-table thead th{
+  vertical-align:middle;
+  white-space:nowrap;
+}
+.ev-ap-page .ev-table tbody td{
+  vertical-align:middle;
+}
+.ev-ap-publication-cell{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:center;
+  gap:12px;
+  min-width:0;
+}
+.ev-ap-publication-copy{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.ev-ap-publication-price{
+  color:var(--ev-verde-oscuro);
+  font-size:.82rem;
+  font-weight:900;
+  white-space:nowrap;
+}
+.ev-ap-user-cell{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.ev-ap-user-cell strong{
+  color:var(--ev-texto);
+  font-size:.88rem;
+  font-weight:850;
+  line-height:1.3;
+  overflow-wrap:anywhere;
+}
+.ev-ap-user-cell span{
+  color:var(--ev-gris-500);
+  font-size:.76rem;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+}
+.ev-ap-page .ev-cell-acciones .btn{
+  min-width:94px;
+  border-radius:999px;
+  font-weight:850;
+}
+
+#modalPub.ev-ap-modal .ev-ap-modal-dialog{
+  max-width:1240px;
+}
+#modalPub.ev-ap-modal .ev-ap-review-grid{
+  grid-template-columns:minmax(0,54%) minmax(390px,46%);
+}
+#modalPub.ev-ap-modal .ev-ap-review-grid::after{
+  left:calc(54% + 10px);
+}
+#modalPub.ev-ap-modal .ev-ap-galeria[data-count="1"] img,
+#modalPub.ev-ap-modal .ev-ap-galeria[data-count="1"] .ev-ap-image-button img{
+  height:clamp(360px,56vh,620px);
+  object-fit:contain;
+}
+#modalPub.ev-ap-modal .ev-ap-modal-header .btn-close,
+#modalPub.ev-ap-modal .ev-ap-modal-header .btn-close:hover,
+#modalPub.ev-ap-modal .ev-ap-modal-header .btn-close:focus-visible,
+.ev-ap-lightbox-close,
+.ev-ap-lightbox-close:hover,
+.ev-ap-lightbox-close:focus-visible{
+  transform:none !important;
+}
+
+@media (max-width:1199.98px){
+  #modalPub.ev-ap-modal .ev-ap-review-grid{
+    grid-template-columns:minmax(0,56%) minmax(340px,44%);
+  }
+  #modalPub.ev-ap-modal .ev-ap-review-grid::after{
+    left:calc(56% + 10px);
+  }
+}
+
+@media (max-width:991.98px){
+  .ev-ap-page .ev-hero-top,
+  .ev-ap-page .ev-hero-bottom{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .ev-ap-hero-note{
+    max-width:none;
+    text-align:left;
+  }
+  .ev-ap-page .ev-hero-right,
+  .ev-ap-refresh-btn{
+    width:100%;
+  }
+  #modalPub.ev-ap-modal .ev-ap-review-grid{
+    grid-template-columns:1fr;
+  }
+  #modalPub.ev-ap-modal .ev-ap-review-grid::after{
+    display:none;
+  }
+}
+
+@media (max-width:767.98px){
+  .ev-ap-page{
+    padding:10px 8px 22px !important;
+  }
+  .ev-ap-page .ev-card{
+    border-radius:17px;
+  }
+  .ev-ap-page .ev-table-wrap{
+    padding:0 10px 12px;
+  }
+  .ev-ap-page .ev-table-frame,
+  .ev-ap-page .table-responsive{
+    overflow:visible !important;
+    border:0;
+    background:transparent;
+  }
+  .ev-ap-page .ev-table{
+    min-width:0 !important;
+    width:100%;
+    display:block;
+    border:0;
+    background:transparent;
+  }
+  .ev-ap-page .ev-table thead{
+    display:none;
+  }
+  .ev-ap-page .ev-table tbody{
+    display:grid;
+    gap:12px;
+  }
+  .ev-ap-page .ev-table tbody tr{
+    display:block;
+    overflow:hidden;
+    border:1px solid rgba(148,163,184,.24);
+    border-radius:16px;
+    background:#fff;
+    box-shadow:0 10px 24px rgba(15,23,42,.06);
+  }
+  .ev-ap-page .ev-table tbody tr:hover td,
+  .ev-ap-page .ev-table tbody tr:nth-child(even) td{
+    background:#fff;
+  }
+  .ev-ap-page .ev-table tbody td{
+    width:100% !important;
+    min-width:0 !important;
+    display:grid;
+    grid-template-columns:minmax(92px,34%) minmax(0,1fr);
+    align-items:start;
+    gap:12px;
+    padding:11px 13px !important;
+    border:0 !important;
+    border-bottom:1px solid rgba(229,231,235,.78) !important;
+    text-align:left !important;
+    white-space:normal !important;
+  }
+  .ev-ap-page .ev-table tbody td:last-child{
+    border-bottom:0 !important;
+  }
+  .ev-ap-page .ev-table tbody td::before{
+    content:attr(data-label);
+    color:var(--ev-gris-500);
+    font-size:.70rem;
+    font-weight:900;
+    letter-spacing:.045em;
+    line-height:1.35;
+    text-transform:uppercase;
+  }
+  .ev-ap-page .ev-table tbody td.ev-empty{
+    display:block;
+    padding:24px 14px !important;
+    text-align:center !important;
+  }
+  .ev-ap-page .ev-table tbody td.ev-empty::before{
+    content:none;
+  }
+  .ev-ap-publication-cell{
+    grid-template-columns:1fr;
+    gap:8px;
+  }
+  .ev-ap-publication-cell > .ev-badge{
+    width:max-content;
+  }
+  .ev-ap-page .ev-cell-acciones .btn{
+    width:100%;
+  }
+  .ev-ap-page .ev-card-footer{
+    align-items:stretch;
+    flex-direction:column;
+    gap:10px;
+  }
+  .ev-ap-page .ev-footer-right{
+    justify-content:space-between;
+    width:100%;
+  }
+  #modalPub.ev-ap-modal .ev-ap-galeria[data-count="1"] img,
+  #modalPub.ev-ap-modal .ev-ap-galeria[data-count="1"] .ev-ap-image-button img{
+    height:min(62vh,460px);
+  }
+}
+
+@media (max-width:575.98px){
+  .ev-ap-page .ev-table tbody td{
+    grid-template-columns:86px minmax(0,1fr);
+    gap:9px;
+  }
+  .ev-ap-page .ev-summary-pill{
+    width:100%;
+    justify-content:space-between;
+  }
+}
+
+/* ============================================================
+   EV V4 — ANCHO OPERATIVO Y VISOR DE DETALLE
+============================================================ */
+.ev-ap-page{
+  width:100%;
+  max-width:none;
+  margin:0 auto;
+}
+.ev-ap-page .ev-hero-top{
+  align-items:flex-start;
+}
+.ev-ap-lightbox{
+  padding:12px;
+}
+.ev-ap-lightbox-dialog{
+  width:min(1680px,calc(100vw - 24px));
+  height:calc(100dvh - 24px);
+  max-height:none;
+}
+.ev-ap-lightbox-stage{
+  min-height:0;
+  padding:12px 68px;
+}
+.ev-ap-lightbox-stage img{
+  max-width:100%;
+  max-height:calc(100dvh - 145px);
+  border-radius:10px;
+}
+.ev-ap-lightbox-close:hover,
+.ev-ap-lightbox-close:focus-visible{
+  transform:none !important;
+}
+@media(max-width:767.98px){
+  .ev-ap-lightbox{padding:0;}
+  .ev-ap-lightbox-dialog{width:100%;height:100dvh;}
+  .ev-ap-lightbox-stage{padding:10px 46px;}
+  .ev-ap-lightbox-stage img{max-height:calc(100dvh - 145px);}
+}
+
 </style>

@@ -53,13 +53,19 @@ class ProductoSoporte extends Conexion
 
         if ($q !== '') {
             $where[] = "(
-                p.titulo LIKE :q
-                OR p.descripcion LIKE :q
-                OR p.tipo_publicacion LIKE :q
-                OR u.nombre LIKE :q
-                OR u.email LIKE :q
+                p.titulo LIKE :q_titulo
+                OR p.descripcion LIKE :q_descripcion
+                OR p.tipo_publicacion LIKE :q_tipo_publicacion
+                OR u.nombre LIKE :q_usuario_nombre
+                OR u.email LIKE :q_usuario_email
             )";
-            $params[':q'] = '%' . $q . '%';
+
+            $like = '%' . $q . '%';
+            $params[':q_titulo'] = $like;
+            $params[':q_descripcion'] = $like;
+            $params[':q_tipo_publicacion'] = $like;
+            $params[':q_usuario_nombre'] = $like;
+            $params[':q_usuario_email'] = $like;
         }
 
         $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';

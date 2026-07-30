@@ -6,7 +6,6 @@ declare(strict_types=1);
 require_once __DIR__ . '/../Config/config.php';
 require_once __DIR__ . '/../models/SesionJWT.php';
 require_once __DIR__ . '/../models/Usuario.php';
-require_once __DIR__ . '/../models/ConfiguracionPlataforma.php';
 
 class MenuPrincipalController
 {
@@ -29,19 +28,25 @@ class MenuPrincipalController
         }
 
         $codigoUsuario = (int)($usuario['codigo_usuario'] ?? 0);
+        $rolUsuario = strtolower(trim((string)$usuario['rol']));
+        $objSesion = new SesionJWT();
 
         if ($codigoUsuario > 0) {
             try {
                 $usuarioModel = new Usuario();
-                $fotoPerfil = $usuarioModel->obtenerFotoPerfil($codigoUsuario);
-                $usuario['foto_perfil'] = $fotoPerfil;
+                $usuario['foto_perfil'] = $usuarioModel->obtenerFotoPerfil($codigoUsuario);
             } catch (Throwable $e) {
                 error_log('[EV][MenuPrincipalController][foto_perfil] ' . $e->getMessage());
                 $usuario['foto_perfil'] = (string)($usuario['foto_perfil'] ?? '');
             }
-        }
 
-        $rolUsuario = strtolower(trim((string)$usuario['rol']));
+            try {
+                $comunidadActual = $objSesion->obtenerComunidadActual($codigoUsuario, $rolUsuario);
+                $usuario = array_merge($usuario, $comunidadActual);
+            } catch (Throwable $e) {
+                error_log('[EV][MenuPrincipalController][comunidad_actual] ' . $e->getMessage());
+            }
+        }
 
         $evGotoActual = trim((string)($_GET['ev_goto'] ?? ''));
 
@@ -58,7 +63,6 @@ class MenuPrincipalController
             exit;
         }
 
-        $objSesion = new SesionJWT();
         $menusBase = $objSesion->obtenerOpcionesMenu($rolUsuario);
 
         $menus = [];
@@ -78,18 +82,6 @@ class MenuPrincipalController
 
             $menu['submenus'] = $submenus;
             $menus[] = $menu;
-        }
-
-        try {
-            $configuracionPlataforma = new ConfiguracionPlataforma();
-            $menus = $configuracionPlataforma->filtrarMenus($menus, $usuario);
-            $evFuncionalidades = $configuracionPlataforma->listarFuncionalidadesResueltas($usuario, true);
-            $evMonetizacion = $configuracionPlataforma->listarMonetizacionResuelta($usuario);
-        } catch (Throwable $e) {
-            // Compatibilidad segura mientras el script SQL todavía no haya sido ejecutado.
-            error_log('[EV][MenuPrincipalController][configuracion_plataforma] ' . $e->getMessage());
-            $evFuncionalidades = [];
-            $evMonetizacion = [];
         }
 
         $menusParaMenuIzquierda = $menus;

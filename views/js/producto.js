@@ -1,4 +1,4 @@
-/* producto.js – EV (Publicaciones: productos/servicios + filtros por estado + responsive + no rompe menú) */
+/* producto.js – EV (Publicaciones: productos/servicios + filtros + tabs + responsive + no rompe menú) */
 
 (() => {
   'use strict';
@@ -632,7 +632,7 @@
     return { id, name };
   }
 
-  async function cargarTiposFiltro(seleccionarGuardado = true) {
+  async function cargarTiposFiltro() {
     const selTipo = document.getElementById('fTipo');
     if (!selTipo) return;
 
@@ -648,8 +648,8 @@
     const data = await evFetchJson(url);
     if (!data || !data.ok || !Array.isArray(data.data)) return;
 
-    const prev = seleccionarGuardado ? String(window.evProductosFiltro?.tipo || '') : '';
-    selTipo.innerHTML = `<option value="">Todos los tipos</option>`;
+    const prev = String(window.evProductosFiltro?.tipo || '');
+    selTipo.innerHTML = `<option value="">Todos</option>`;
 
     data.data.forEach(r => {
       const m = mapIdNombre(r, ['codigo_tipo', 'id', 'codigo'], ['nombre', 'tipo', 'descripcion']);
@@ -663,11 +663,11 @@
     if (prev) selTipo.value = prev;
   }
 
-  async function cargarCategoriasFiltro(tipoId, seleccionarGuardado = true) {
+  async function cargarCategoriasFiltro(tipoId) {
     const selCat = document.getElementById('fCategoria');
     if (!selCat) return;
 
-    selCat.innerHTML = `<option value="">Todas las categorías</option>`;
+    selCat.innerHTML = `<option value="">Todas</option>`;
     selCat.disabled = true;
 
     const tid = String(tipoId || '').trim();
@@ -696,12 +696,13 @@
 
     selCat.disabled = false;
 
-    const prev = seleccionarGuardado ? String(window.evProductosFiltro?.categoria || '') : '';
+    const prev = String(window.evProductosFiltro?.categoria || '');
     if (prev) selCat.value = prev;
   }
 
   function syncFiltrosFromUI() {
     const q = document.getElementById('fTexto')?.value ?? '';
+    const estadoPublicacion = document.getElementById('fEstadoPublicacion')?.value ?? 'all';
     const tipoPublicacion = document.getElementById('fTipoPublicacion')?.value ?? '';
     const tipo = document.getElementById('fTipo')?.value ?? '';
     const cat = document.getElementById('fCategoria')?.value ?? '';
@@ -710,6 +711,7 @@
     const orden = document.getElementById('fOrden')?.value ?? 'recientes';
 
     window.evProductosFiltro.q = String(q).trim();
+    window.evProductosFiltro.tab = String(estadoPublicacion || 'all').trim();
     window.evProductosFiltro.tipo_publicacion = normalizarTipoPublicacion(tipoPublicacion, true);
     window.evProductosFiltro.tipo = String(tipo).trim();
     window.evProductosFiltro.categoria = String(cat).trim();
@@ -735,12 +737,13 @@
 
     const selCat = document.getElementById('fCategoria');
     if (selCat) {
-      selCat.innerHTML = `<option value="">Todas las categorías</option>`;
+      selCat.innerHTML = `<option value="">Todas</option>`;
       selCat.value = '';
       selCat.disabled = true;
     }
 
     window.evProductosFiltro.q = '';
+    window.evProductosFiltro.tab = 'all';
     window.evProductosFiltro.tipo_publicacion = '';
     window.evProductosFiltro.tipo = '';
     window.evProductosFiltro.categoria = '';
@@ -2003,28 +2006,29 @@
   }
 
   function evUpdateTabsUI(counts) {
-    const set = (id, val) => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = String(val ?? 0);
+    const total = document.getElementById('evTabCountAll');
+    if (total) total.textContent = String(counts?.all ?? 0);
+
+    const select = document.getElementById('fEstadoPublicacion');
+    if (!select) return;
+
+    const values = {
+      all: counts?.all ?? 0,
+      aprobado: counts?.aprobado ?? 0,
+      pendiente: counts?.pendiente ?? 0,
+      observado: counts?.observado ?? 0,
+      rechazado: counts?.rechazado ?? 0,
+      borrador: counts?.borrador ?? 0,
+      anulado: counts?.anulado ?? 0
     };
 
-    const setOption = (id, label, val) => {
-      const option = document.getElementById(id);
-      if (option) option.textContent = `${label} (${Number(val ?? 0)})`;
-    };
+    Array.from(select.options).forEach((option) => {
+      const label = option.dataset.label || option.textContent || '';
+      option.textContent = `${label} (${values[option.value] ?? 0})`;
+    });
 
-    set('evTabCountAll', counts.all);
-    setOption('evStatusOptionAll', 'Todos', counts.all);
-    setOption('evStatusOptionAprobado', 'Aprobados', counts.aprobado);
-    setOption('evStatusOptionPendiente', 'Pendientes', counts.pendiente);
-    setOption('evStatusOptionObservado', 'Observados', counts.observado);
-    setOption('evStatusOptionRechazado', 'Rechazados', counts.rechazado);
-    setOption('evStatusOptionBorrador', 'Borradores', counts.borrador);
-    setOption('evStatusOptionAnulado', 'Anulados', counts.anulado);
-
-    const tab = String(window.evProductosFiltro?.tab || 'all');
-    const statusSelect = document.getElementById('fEstadoPublicacion');
-    if (statusSelect && statusSelect.value !== tab) statusSelect.value = tab;
+    const current = String(window.evProductosFiltro?.tab || 'all');
+    if (select.value !== current) select.value = current;
   }
 
   function filtrarItems(items) {
@@ -2131,7 +2135,7 @@
 
       const lblMeta = document.getElementById('evLblMeta');
       const lblFooterLeft = document.getElementById('evLblFooterLeft');
-      if (lblMeta) lblMeta.textContent = `Mostrando ${filtrados.length} ${filtrados.length === 1 ? 'publicación' : 'publicaciones'}`;
+      if (lblMeta) lblMeta.textContent = `Mostrando ${filtrados.length} registros`;
       if (lblFooterLeft) lblFooterLeft.textContent = `Mostrando ${filtrados.length} de ${items.length}`;
 
       if (!items.length) {
@@ -2204,12 +2208,12 @@
         return `
           <tr ${trStyle}>
             <td data-label="Código" class="text-center"><span class="ev-code">${cod}</span></td>
-            <td data-label="Publicación" class="text-center ev-cell-publication"><span class="${tipoPublicacionCls} ev-publication-badge">${tipoPublicacionTxt}</span></td>
-            <td data-label="Título" class="ev-cell-title" title="${titulo}"><span class="ev-cell-primary-text">${titulo || '-'}</span></td>
-            <td data-label="Precio" class="text-end ev-cell-price"><span>S/ ${precio}</span></td>
-            <td data-label="Tipo" class="ev-cell-type" title="${tipo}">${tipo}</td>
-            <td data-label="Categoría" class="ev-cell-category" title="${categoria}">${categoria}</td>
-            <td data-label="Descripción" class="ev-cell-description" title="${escAttr(descFull)}"><span>${descSafe}</span></td>
+            <td data-label="Publicación" class="text-center"><span class="${tipoPublicacionCls}">${tipoPublicacionTxt}</span></td>
+            <td data-label="Título" class="td-trunc" title="${titulo}">${titulo || '-'}</td>
+            <td data-label="Precio" class="text-end">S/ ${precio}</td>
+            <td data-label="Tipo" class="td-trunc" title="${tipo}">${tipo}</td>
+            <td data-label="Categoría" class="td-trunc" title="${categoria}">${categoria}</td>
+            <td data-label="Descripción" class="td-trunc" title="${escAttr(descFull)}">${descSafe}</td>
             <td data-label="Mensaje de soporte">${mensajeHtml}</td>
             <td data-label="Estado de publicación" class="text-center">
               <span class="${visUI.cls}">${visUI.text}</span>
@@ -2267,6 +2271,11 @@
         return;
       }
 
+      if (e.target.closest('#btnRefrescarMisProductos')) {
+        window.evCargarProductos?.();
+        return;
+      }
+
       if (e.target.closest('#btnLimpiarFiltros')) {
         (async () => {
           resetFiltrosUI();
@@ -2293,6 +2302,15 @@
       if (btnPublicar && !btnPublicar.disabled) { confirmarYPublicar(btnPublicar.getAttribute('data-id')); return; }
     });
 
+    document.addEventListener('input', debounce((e) => {
+      if (window.__EV_AUTH_REDIRECTING__ === true) return;
+
+      if (e.target && e.target.id === 'fTexto') {
+        syncFiltrosFromUI();
+        window.evCargarProductos?.();
+      }
+    }, 250));
+
     document.addEventListener('change', (e) => {
       if (window.__EV_AUTH_REDIRECTING__ === true) return;
 
@@ -2307,30 +2325,53 @@
       }
 
       if (e.target && e.target.id === 'fEstadoPublicacion') {
-        window.evProductosFiltro.tab = String(e.target.value || 'all');
+        syncFiltrosFromUI();
         window.evCargarProductos?.();
         return;
       }
 
       if (e.target && e.target.id === 'fTipoPublicacion') {
         (async () => {
+          syncFiltrosFromUI();
+          window.evProductosFiltro.tipo = '';
+          window.evProductosFiltro.categoria = '';
+
           const selTipo = document.getElementById('fTipo');
           if (selTipo) selTipo.value = '';
 
           const selCat = document.getElementById('fCategoria');
           if (selCat) {
-            selCat.innerHTML = `<option value="">Todas las categorías</option>`;
+            selCat.innerHTML = `<option value="">Todas</option>`;
             selCat.value = '';
             selCat.disabled = true;
           }
 
-          await cargarTiposFiltro(false);
+          await cargarTiposFiltro();
+          window.evCargarProductos?.();
         })();
         return;
       }
 
       if (e.target && e.target.id === 'fTipo') {
-        cargarCategoriasFiltro(e.target.value, false);
+        (async () => {
+          syncFiltrosFromUI();
+          window.evProductosFiltro.categoria = '';
+          await cargarCategoriasFiltro(e.target.value);
+          syncFiltrosFromUI();
+          window.evCargarProductos?.();
+        })();
+        return;
+      }
+
+      if (e.target && e.target.id === 'fCategoria') {
+        syncFiltrosFromUI();
+        window.evCargarProductos?.();
+        return;
+      }
+
+      if (e.target && (e.target.id === 'fPrecioMin' || e.target.id === 'fPrecioMax' || e.target.id === 'fOrden')) {
+        syncFiltrosFromUI();
+        window.evCargarProductos?.();
         return;
       }
     });
@@ -2408,9 +2449,6 @@
     bindOnceGlobalEvents();
     evMountAllModalsToBody();
     bindTipoPublicacionUI();
-
-    const estadoSel = document.getElementById('fEstadoPublicacion');
-    if (estadoSel) estadoSel.value = String(window.evProductosFiltro?.tab || 'all');
 
     const tipoSel = document.getElementById('fTipo');
     if (tipoSel && !tipoSel.dataset.evLoaded) {

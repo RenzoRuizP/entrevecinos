@@ -7,8 +7,6 @@ require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/SolicitudServicio.php';
 require_once __DIR__ . '/../../models/SolicitudServicioChat.php';
 require_once __DIR__ . '/../../models/ServicioEjecucion.php';
-require_once __DIR__ . '/../../models/ConfiguracionPlataforma.php';
-require_once __DIR__ . '/../../middleware/FuncionalidadGuard.php';
 
 
 class apiSolicitudServicioController
@@ -118,7 +116,6 @@ class apiSolicitudServicioController
     /** POST /api/servicios/solicitudes */
     public function registrar(): void
     {
-        FuncionalidadGuard::exigirJson(ConfiguracionPlataforma::FUNC_SOLICITAR_SERVICIOS);
         if (!$this->validarMetodo('POST')) return;
 
         try {

@@ -1290,4 +1290,200 @@
     flex-direction:column;
   }
 }
+
+
+/* ============================================================
+   CIERRE UX/UI EV — NOVEDADES DE LA COMUNIDAD
+============================================================ */
+.ev-cv-shell{
+  width:min(100%,1540px);
+  margin:0 auto;
+}
+.ev-cv-hero{
+  align-items:center;
+  min-height:174px;
+}
+.ev-cv-hero-copy{
+  max-width:780px;
+}
+.ev-cv-community-pill{
+  flex:0 1 360px;
+  min-width:250px;
+}
+.ev-cv-community-pill > div{
+  min-width:0;
+}
+.ev-cv-toolbar{
+  padding:13px 14px;
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:18px;
+  background:#fff;
+  box-shadow:var(--ev-cv-shadow-soft);
+}
+.ev-cv-content,
+.ev-cv-feature{
+  padding:14px;
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:20px;
+  background:#fff;
+  box-shadow:var(--ev-cv-shadow-soft);
+}
+.ev-cv-section-head{
+  padding-bottom:10px;
+  border-bottom:1px solid rgba(229,231,235,.72);
+}
+.ev-cv-grid:has(.ev-cv-empty),
+#evCvDestacada:has(.ev-cv-empty){
+  grid-template-columns:1fr;
+}
+
+@media (max-width:991.98px){
+  .ev-cv-hero{
+    align-items:flex-start;
+  }
+  .ev-cv-community-pill{
+    flex-basis:310px;
+  }
+}
+
+@media (max-width:767.98px){
+  .ev-cv-hero{
+    min-height:0;
+  }
+  .ev-cv-hero h1{
+    font-size:clamp(1.65rem,8vw,2rem);
+    line-height:1.08;
+    text-wrap:balance;
+  }
+  .ev-cv-hero p{
+    font-size:.94rem;
+    line-height:1.55;
+  }
+  .ev-cv-toolbar,
+  .ev-cv-content,
+  .ev-cv-feature{
+    padding:12px;
+    border-radius:18px;
+  }
+}
+
+@media (max-width:575.98px){
+  .ev-cv-shell{
+    padding:10px 8px 22px;
+  }
+  .ev-cv-hero{
+    padding:20px 16px 18px;
+  }
+  .ev-cv-kicker{
+    margin-bottom:9px;
+  }
+  .ev-cv-community-pill{
+    min-width:0;
+    padding:12px;
+  }
+  .ev-cv-community-pill strong{
+    display:block;
+    max-width:100%;
+    font-size:.90rem;
+    line-height:1.22;
+    overflow-wrap:normal;
+    word-break:normal;
+  }
+  .ev-cv-toolbar{
+    gap:12px;
+  }
+  .ev-cv-search input,
+  .ev-cv-search button{
+    min-height:44px;
+  }
+  .ev-cv-section-head{
+    gap:7px;
+  }
+  #evCvMeta{
+    width:100%;
+  }
+}
+
+/* ============================================================
+   EV V4 — ANCHO OPERATIVO Y FILTRO ÚNICO DE NOVEDADES
+============================================================ */
+.ev-cv-shell{
+  width:100%;
+  max-width:none;
+  margin:0 auto;
+  padding:14px 14px 26px;
+}
+.ev-cv-toolbar{
+  grid-template-columns:minmax(220px,280px) minmax(0,1fr);
+  align-items:end;
+}
+.ev-cv-filter{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
+.ev-cv-filter label{
+  color:var(--ev-cv-verde-oscuro);
+  font-size:.78rem;
+  font-weight:900;
+  letter-spacing:.02em;
+}
+.ev-cv-filter-select{
+  width:100%;
+  min-height:44px;
+  border:1px solid rgba(22,163,74,.24);
+  border-radius:14px;
+  padding:10px 38px 10px 13px;
+  color:#24372B;
+  background:#fff;
+  font:inherit;
+  font-size:.88rem;
+  font-weight:800;
+  outline:0;
+  box-shadow:0 8px 18px rgba(15,23,42,.035);
+  transition:border-color .16s ease,box-shadow .16s ease;
+}
+.ev-cv-filter-select:hover{
+  border-color:rgba(234,124,18,.48);
+}
+.ev-cv-filter-select:focus{
+  border-color:var(--ev-cv-naranja);
+  box-shadow:0 0 0 4px rgba(234,124,18,.12);
+}
+.ev-cv-search button{
+  background:linear-gradient(135deg,var(--ev-cv-naranja),#F59E0B);
+  box-shadow:0 12px 26px rgba(234,124,18,.26);
+}
+.ev-cv-search button:hover,
+.ev-cv-search button:focus-visible{
+  background:linear-gradient(135deg,var(--ev-cv-naranja-oscuro),var(--ev-cv-naranja));
+  box-shadow:0 16px 30px rgba(234,124,18,.34);
+  outline:0;
+}
+@media(max-width:767.98px){
+  .ev-cv-toolbar{
+    grid-template-columns:1fr;
+    align-items:stretch;
+  }
+  .ev-cv-filter,
+  .ev-cv-search{
+    width:100%;
+  }
+}
+@media(max-width:575.98px){
+  .ev-cv-shell{
+    padding:10px 8px 22px;
+  }
+  .ev-cv-search{
+    grid-template-columns:1fr;
+  }
+  .ev-cv-search > i{
+    top:22px;
+  }
+  .ev-cv-search button{
+    width:100%;
+  }
+}
+
 </style>
