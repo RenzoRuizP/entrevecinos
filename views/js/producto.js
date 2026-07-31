@@ -2209,16 +2209,16 @@
           <tr ${trStyle}>
             <td data-label="Código" class="text-center"><span class="ev-code">${cod}</span></td>
             <td data-label="Publicación" class="text-center"><span class="${tipoPublicacionCls}">${tipoPublicacionTxt}</span></td>
-            <td data-label="Título" class="td-trunc" title="${titulo}">${titulo || '-'}</td>
-            <td data-label="Precio" class="text-end">S/ ${precio}</td>
-            <td data-label="Tipo" class="td-trunc" title="${tipo}">${tipo}</td>
-            <td data-label="Categoría" class="td-trunc" title="${categoria}">${categoria}</td>
-            <td data-label="Descripción" class="td-trunc" title="${escAttr(descFull)}">${descSafe}</td>
-            <td data-label="Mensaje de soporte">${mensajeHtml}</td>
+            <td data-label="Título" class="td-trunc text-center" title="${titulo}">${titulo || '-'}</td>
+            <td data-label="Precio" class="text-center">S/ ${precio}</td>
+            <td data-label="Tipo" class="td-trunc text-center" title="${tipo}">${tipo}</td>
+            <td data-label="Categoría" class="td-trunc text-center" title="${categoria}">${categoria}</td>
+            <td data-label="Descripción" class="td-trunc text-center" title="${escAttr(descFull)}">${descSafe}</td>
+            <td data-label="Mensaje de soporte" class="text-center">${mensajeHtml}</td>
             <td data-label="Estado de publicación" class="text-center">
               <span class="${visUI.cls}">${visUI.text}</span>
             </td>
-            <td data-label="Acciones" class="text-end">
+            <td data-label="Acciones" class="text-center">
               <div class="ev-actions">
                 ${
                   isAnulado

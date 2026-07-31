@@ -2055,4 +2055,142 @@ body.ev-ap-lightbox-open{
   }
 }
 
+
+
+/* ============================================================
+   EV V6 — VISOR EQUILIBRADO Y ACCESO TÁCTIL A LA LUPA
+============================================================ */
+#modalPub.ev-ap-modal .ev-ap-image-button{
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+
+.ev-ap-lightbox{
+  padding:20px;
+}
+.ev-ap-lightbox-dialog{
+  width:min(1260px,calc(100vw - 40px));
+  height:auto;
+  max-height:calc(100dvh - 40px);
+  border-radius:22px;
+}
+.ev-ap-lightbox-stage{
+  flex:0 1 auto;
+  width:100%;
+  height:clamp(380px,68dvh,720px);
+  min-height:0;
+  padding:20px 68px;
+  overflow:hidden;
+}
+.ev-ap-lightbox-stage img{
+  width:auto;
+  height:auto;
+  max-width:100%;
+  max-height:100%;
+  object-fit:contain;
+  border-radius:12px;
+  background:#fff;
+  box-shadow:0 22px 54px rgba(0,0,0,.34);
+}
+.ev-ap-lightbox-close:hover,
+.ev-ap-lightbox-close:focus-visible{
+  transform:none!important;
+}
+
+@media (hover:none), (pointer:coarse){
+  #modalPub.ev-ap-modal .ev-ap-image-zoom{
+    left:auto;
+    right:10px;
+    bottom:10px;
+    min-width:42px;
+    min-height:42px;
+    justify-content:center;
+    padding:9px 11px;
+    opacity:1;
+    transform:none;
+    pointer-events:none;
+  }
+  #modalPub.ev-ap-modal .ev-ap-image-zoom small{
+    display:none;
+  }
+  #modalPub.ev-ap-modal .ev-ap-image-zoom i{
+    font-size:1.05rem;
+  }
+}
+
+@media(max-width:767.98px){
+  .ev-ap-lightbox{
+    padding:8px;
+  }
+  .ev-ap-lightbox-dialog{
+    width:100%;
+    height:auto;
+    max-height:calc(100dvh - 16px);
+    border-radius:18px;
+  }
+  .ev-ap-lightbox-head{
+    padding:11px 13px;
+  }
+  .ev-ap-lightbox-stage{
+    height:clamp(330px,60dvh,520px);
+    padding:14px 44px;
+  }
+  .ev-ap-lightbox-stage img{
+    max-width:100%;
+    max-height:100%;
+    border-radius:9px;
+  }
+  .ev-ap-lightbox-foot{
+    padding:9px 13px 11px;
+  }
+}
+
+
+
+/* ============================================================
+   EV V7 — ZOOM INTEGRADO SIN MODAL DE VISTA AMPLIADA
+============================================================ */
+.ev-ap-lightbox{
+  display:none !important;
+}
+body.ev-ap-lightbox-open{
+  overflow:auto !important;
+}
+#modalPub.ev-ap-modal .ev-ap-image-button{
+  --ev-ap-zoom-x:50%;
+  --ev-ap-zoom-y:50%;
+  cursor:zoom-in;
+  touch-action:pan-y;
+}
+#modalPub.ev-ap-modal .ev-ap-image-button:hover img,
+#modalPub.ev-ap-modal .ev-ap-image-button:focus-visible img,
+#modalPub.ev-ap-modal .ev-ap-image-button.is-zoomed img{
+  transform:scale(1.62) !important;
+  transform-origin:var(--ev-ap-zoom-x) var(--ev-ap-zoom-y) !important;
+  filter:brightness(1) !important;
+}
+#modalPub.ev-ap-modal .ev-ap-image-button.is-zoomed{
+  cursor:zoom-out;
+  touch-action:none;
+}
+#modalPub.ev-ap-modal .ev-ap-image-button.is-zoomed::after{
+  border-color:rgba(234,124,18,.82);
+  box-shadow:inset 0 0 0 3px rgba(234,124,18,.12);
+}
+#modalPub.ev-ap-modal .ev-ap-image-button.is-zoomed .ev-ap-image-zoom{
+  opacity:1;
+  transform:translate(-50%,0);
+  background:rgba(196,107,5,.94);
+}
+@media (hover:none), (pointer:coarse), (max-width:767.98px){
+  #modalPub.ev-ap-modal .ev-ap-image-zoom{
+    opacity:1 !important;
+    transform:none !important;
+  }
+  #modalPub.ev-ap-modal .ev-ap-image-button:hover img,
+  #modalPub.ev-ap-modal .ev-ap-image-button:focus-visible img{
+    transform:scale(1.62) !important;
+  }
+}
+
 </style>

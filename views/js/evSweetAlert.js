@@ -48,6 +48,10 @@
         --ev-swal-blue:#38BDF8;
       }
 
+      .swal2-container{
+        z-index:30000 !important;
+      }
+
       .swal2-container.ev-swal-container,
       .swal2-container.ev-mp-swal-container,
       .swal2-container.ev-mpv-swal-container,

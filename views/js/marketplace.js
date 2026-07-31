@@ -2832,12 +2832,15 @@
       await cerrarModalSolicitudServicioConfirmada(modal);
       form?.reset();
       swalCloseIfVisible();
-      await notify('success', 'Solicitud enviada', 'El proveedor recibió tu solicitud. Toda la negociación se realizará dentro de la conversación privada de EV.', {
-        subtitle: 'Cotización solicitada correctamente',
-        productLabel: 'Servicio',
-        productText: tituloServicio,
-        note: 'Podrás compartir ubicación, fecha, horario y otros detalles dentro de la conversación cuando sea necesario para cotizar.'
-      });
+      await notify(
+        'success',
+        'Solicitud enviada',
+        'Tu solicitud de cotización fue enviada correctamente. El proveedor podrá revisarla y responderte desde la conversación privada de EV.',
+        {
+          subtitle: 'Cotización solicitada correctamente',
+          confirmButtonText: 'Aceptar'
+        }
+      );
     } catch (error) {
       err('EXCEPTION registrar solicitud servicio', error);
       swalCloseIfVisible();

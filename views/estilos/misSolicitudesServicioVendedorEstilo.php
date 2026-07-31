@@ -113,4 +113,44 @@
 @media(max-width:991.98px){.ev-ssv-summary-grid{width:100%;flex:1 1 100%}.ev-ssv-grid{grid-template-columns:1fr}}
 @media(max-width:767.98px){.ev-ssv-page{padding:10px 10px 22px}.ev-ssv-hero-content,.ev-ssv-panel-head,.ev-ssv-panel-body{padding:14px}.ev-ssv-title{font-size:1.72rem}.ev-ssv-summary-grid{grid-template-columns:1fr}.ev-ssv-head-actions{align-items:stretch}.ev-ssv-tabs{width:100%}.ev-ssv-tab{flex:1 1 160px}.ev-ssv-btn-refresh{width:100%}.ev-ssv-card-head{grid-template-columns:78px minmax(0,1fr)}.ev-ssv-card-media{width:78px;height:78px}.ev-ssv-card-title-row{flex-direction:column}.ev-ssv-card-data{grid-template-columns:1fr}.ev-ssv-line{flex-direction:column;gap:4px}.ev-ssv-line-value{text-align:left;max-width:100%}.ev-ssv-actions{flex-direction:column}.ev-ssv-actions .btn{width:100%}.ev-ssv-form-grid,.ev-ssv-detail-grid{grid-template-columns:1fr}.ev-ssv-detail-top{grid-template-columns:1fr}.ev-ssv-detail-media{width:100%;height:190px}}
 @media(max-width:575.98px){.ev-ssv-swal-popup{padding:20px 15px 17px!important;border-radius:22px!important}.ev-ssv-swal-title{font-size:1.65rem!important}.ev-ssv-swal-confirm,.ev-ssv-swal-cancel{width:100%!important}}
+
+
+/* ============================================================
+   EV V6 — CONTADOR DE RESPUESTA COMPACTO
+============================================================ */
+.ev-ssv-response-timer{
+  margin-top:11px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 12px;
+  border:1px solid rgba(234,124,18,.24);
+  border-radius:15px;
+  background:linear-gradient(135deg,#FFF9EE 0%,#FFFFFF 100%);
+  box-shadow:0 8px 18px rgba(234,124,18,.06);
+}
+.ev-ssv-response-timer span{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  color:#7C4A12;
+  font-size:.75rem;
+  font-weight:850;
+}
+.ev-ssv-response-timer strong{
+  flex:0 0 auto;
+  color:#C46B05;
+  font-size:.78rem;
+  font-weight:950;
+  font-variant-numeric:tabular-nums;
+}
+@media(max-width:420px){
+  .ev-ssv-response-timer{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:5px;
+  }
+}
+
 </style>

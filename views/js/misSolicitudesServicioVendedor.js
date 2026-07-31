@@ -217,13 +217,14 @@
     const estado = String(item?.estado || '');
     if (estado === 'pendiente_proveedor') {
       const restantes = item?.segundos_restantes;
-      return `
-        <div class="ev-ssv-state ev-ssv-state-pending">
-          <div class="ev-ssv-state-title">Solicitud pendiente de tu respuesta</div>
-          <div class="ev-ssv-state-text">Revisa el detalle y responde desde la conversación con una cotización final, mensajes de precisión o un rechazo cordial.</div>
-          ${restantes !== null && restantes !== undefined ? `<div class="ev-ssv-time"><i class="bi bi-clock-history"></i> ${escapeHtml(formatTiempo(restantes))} restantes</div>` : ''}
-        </div>
-      `;
+      return restantes !== null && restantes !== undefined
+        ? `
+          <div class="ev-ssv-response-timer" aria-label="Tiempo disponible para responder">
+            <span><i class="bi bi-clock-history"></i> Tiempo para responder</span>
+            <strong>${escapeHtml(formatTiempo(restantes))}</strong>
+          </div>
+        `
+        : '';
     }
     if (estado === 'informacion_adicional_solicitada') {
       return `<div class="ev-ssv-state ev-ssv-state-wait"><div class="ev-ssv-state-title">Información solicitada al vecino</div><div class="ev-ssv-state-text">Tu solicitud quedó registrada. El vecino podrá responder dentro de la conversación privada.</div></div>`;

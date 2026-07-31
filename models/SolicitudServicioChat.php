@@ -716,11 +716,15 @@ class SolicitudServicioChat extends Conexion
             $stI = $this->dblink->prepare("\n              SELECT i.*, u.nombre AS nombre_autor\n              FROM solicitud_servicio_interaccion i\n              INNER JOIN usuario u ON u.codigo_usuario = i.codigo_usuario_autor\n              WHERE i.codigo_solicitud_servicio = :solicitud\n              ORDER BY i.created_at ASC, i.codigo_solicitud_servicio_interaccion ASC\n            ");
             $stI->execute([':solicitud' => $codigoSolicitud]);
             $interacciones = [];
+            $tieneSolicitudInicial = false;
             $ultimaSolicitudUbicacion = 0;
             $ultimaUbicacionCompartida = 0;
             foreach ($stI->fetchAll(PDO::FETCH_ASSOC) ?: [] as $i) {
                 $id = (int)$i['codigo_solicitud_servicio_interaccion'];
                 $tipoInteraccion = (string)($i['tipo_interaccion'] ?? '');
+                if ($tipoInteraccion === 'solicitud_creada') {
+                    $tieneSolicitudInicial = true;
+                }
                 if ($tipoInteraccion === 'ubicacion_solicitada_para_cotizar') {
                     $ultimaSolicitudUbicacion = $id;
                 }
@@ -737,6 +741,22 @@ class SolicitudServicioChat extends Conexion
                     'created_at' => $i['created_at'] ?? null,
                     'adjuntos' => $adjuntosInteraccion[$id] ?? [],
                 ];
+            }
+
+            if (!$tieneSolicitudInicial) {
+                $mensajeInicial = trim((string)($solicitud['mensaje_solicitante'] ?? ''));
+                if ($mensajeInicial !== '') {
+                    array_unshift($interacciones, [
+                        'codigo_interaccion' => 0,
+                        'rol_autor' => 'solicitante',
+                        'nombre_autor' => trim((string)($solicitud['nombre_solicitante'] ?? '')) ?: 'Comprador',
+                        'tipo_interaccion' => 'solicitud_creada',
+                        'mensaje' => $mensajeInicial,
+                        'payload' => [],
+                        'created_at' => $solicitud['created_at'] ?? null,
+                        'adjuntos' => [],
+                    ]);
+                }
             }
 
             $stP = $this->dblink->prepare("\n              SELECT *\n              FROM solicitud_servicio_propuesta\n              WHERE codigo_solicitud_servicio = :solicitud\n              ORDER BY version ASC, codigo_solicitud_servicio_propuesta ASC\n            ");

@@ -133,8 +133,8 @@
       #ev-sc-shell .ev-sc-icon{width:42px;height:42px;display:grid;place-items:center;flex:0 0 auto;border:1px solid rgba(255,255,255,.22);border-radius:14px;background:rgba(255,255,255,.13);font-size:1.18rem}
       #ev-sc-shell .ev-sc-title{font-weight:900;font-size:1.04rem;line-height:1.22;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       #ev-sc-shell .ev-sc-sub{margin-top:2px;color:rgba(255,255,255,.78);font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      #ev-sc-shell .ev-sc-close{width:38px;height:38px;display:grid;place-items:center;border:0;border-radius:12px;color:#fff;background:rgba(255,255,255,.12);font-size:1.45rem;line-height:1;cursor:pointer;transition:.16s ease}
-      #ev-sc-shell .ev-sc-close:hover{background:rgba(255,255,255,.2);transform:translateY(-1px)}
+      #ev-sc-shell .ev-sc-close{width:38px;height:38px;display:grid;place-items:center;border:0;border-radius:10px;color:#fff;background:transparent;font-size:1.45rem;line-height:1;cursor:pointer;transition:background-color .15s ease,opacity .15s ease}
+      #ev-sc-shell .ev-sc-close:hover,#ev-sc-shell .ev-sc-close:focus-visible{background:rgba(255,255,255,.12);opacity:.88;transform:none;outline:0}
       #ev-sc-shell .ev-sc-grid{flex:1 1 auto;min-height:0;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) 350px}
       #ev-sc-shell .ev-sc-main{min-width:0;min-height:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #E2E8F0;background:#F8FAF9}
       #ev-sc-shell .ev-sc-context{flex:0 0 auto;padding:13px 16px;border-bottom:1px solid #E6ECE8;background:#fff}
@@ -152,6 +152,10 @@
       #ev-sc-shell .ev-sc-message.me{justify-content:flex-end}
       #ev-sc-shell .ev-sc-bubble{max-width:min(82%,620px);padding:10px 12px;border:1px solid #E2E8F0;border-radius:17px 17px 17px 5px;background:#fff;box-shadow:0 5px 14px rgba(15,23,42,.05)}
       #ev-sc-shell .ev-sc-message.me .ev-sc-bubble{border-color:rgba(22,163,74,.22);border-radius:17px 17px 5px 17px;background:linear-gradient(135deg,#EAF8EF,#FFF)}
+      #ev-sc-shell .ev-sc-bubble-initial{border-color:rgba(234,124,18,.24);background:linear-gradient(180deg,#FFF9F0,#FFF);box-shadow:0 9px 22px rgba(234,124,18,.08)}
+      #ev-sc-shell .ev-sc-message.me .ev-sc-bubble-initial{border-color:rgba(22,163,74,.24);background:linear-gradient(180deg,#F0FDF4,#FFF)}
+      #ev-sc-shell .ev-sc-initial-badge{display:inline-flex;align-items:center;gap:6px;margin-bottom:7px;padding:4px 8px;border:1px solid rgba(234,124,18,.22);border-radius:999px;color:#9A3412;background:#FFF7ED;font-size:.64rem;font-weight:900}
+      #ev-sc-shell .ev-sc-message.me .ev-sc-initial-badge{border-color:rgba(22,163,74,.20);color:#166534;background:#F0FDF4}
       #ev-sc-shell .ev-sc-author{margin-bottom:4px;color:#0F592F;font-size:.7rem;font-weight:900}
       #ev-sc-shell .ev-sc-text{color:#334155;font-size:.86rem;line-height:1.48;white-space:pre-wrap;overflow-wrap:anywhere}
       #ev-sc-shell .ev-sc-time{margin-top:5px;color:#94A3B8;font-size:.66rem;font-weight:700}
@@ -163,15 +167,22 @@
       #ev-sc-shell .ev-sc-compose{position:relative;z-index:2;flex:0 0 auto;padding:12px 14px;border-top:1px solid #E3EAE5;background:#fff;box-shadow:0 -10px 22px rgba(15,23,42,.045)}
       #ev-sc-shell .ev-sc-compose-row{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:8px;align-items:end}
       #ev-sc-shell .ev-sc-attach,#ev-sc-shell .ev-sc-send{border:0;border-radius:13px;cursor:pointer;font-weight:900;transition:.16s ease}
-      #ev-sc-shell .ev-sc-attach{height:42px;color:#0F592F;background:#ECFDF3;border:1px solid rgba(22,163,74,.18)}
+      #ev-sc-shell .ev-sc-file-input{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+      #ev-sc-shell .ev-sc-attach{position:relative;overflow:hidden;height:42px;display:grid;place-items:center;color:#0F592F;background:#ECFDF3;border:1px solid rgba(22,163,74,.18)}
       #ev-sc-shell .ev-sc-send{min-height:42px;padding:0 15px;color:#fff;background:linear-gradient(135deg,#D97706,#EA7C12);box-shadow:0 10px 20px rgba(217,119,6,.28)}
       #ev-sc-shell .ev-sc-attach:hover{transform:translateY(-1px);filter:brightness(1.03)}
+      #ev-sc-shell .ev-sc-attach.has-files{color:#fff;background:linear-gradient(135deg,#0F592F,#16A34A);border-color:transparent;box-shadow:0 8px 18px rgba(15,89,47,.20)}
+      #ev-sc-shell .ev-sc-file-input{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;opacity:0;cursor:pointer;font-size:100px}
+      #ev-sc-shell .ev-sc-attach:focus-within,#ev-sc-shell .ev-sc-attach:focus-visible{outline:3px solid rgba(234,124,18,.22);outline-offset:2px}
       #ev-sc-shell .ev-sc-send:hover{transform:translateY(-1px);background:linear-gradient(135deg,#C46B05,#D46F0F);box-shadow:0 14px 26px rgba(217,119,6,.36);filter:brightness(1.02)}
       #ev-sc-shell .ev-sc-input{min-height:42px;max-height:110px;resize:vertical;padding:10px 11px;border:1px solid #D8E3DB;border-radius:13px;background:#fff;color:#1F2937;font:inherit;font-size:.84rem;outline:0}
       #ev-sc-shell .ev-sc-input:focus{border-color:#16A34A;box-shadow:0 0 0 3px rgba(22,163,74,.11)}
       #ev-sc-shell .ev-sc-helper{margin-top:7px;color:#94A3B8;font-size:.68rem}
       #ev-sc-shell .ev-sc-files{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:7px}
-      #ev-sc-shell .ev-sc-file{display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:5px 8px;border:1px solid #DCEAE1;border-radius:999px;background:#F0FDF4;color:#166534;font-size:.69rem;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      #ev-sc-shell .ev-sc-file{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:5px 6px 5px 9px;border:1px solid #DCEAE1;border-radius:999px;background:#F0FDF4;color:#166534;font-size:.69rem;font-weight:800;white-space:nowrap}
+      #ev-sc-shell .ev-sc-file-name{max-width:220px;overflow:hidden;text-overflow:ellipsis}
+      #ev-sc-shell .ev-sc-file-remove{width:23px;height:23px;display:grid;place-items:center;flex:0 0 auto;padding:0;border:0;border-radius:999px;color:#166534;background:rgba(255,255,255,.82);cursor:pointer}
+      #ev-sc-shell .ev-sc-file-remove:hover,#ev-sc-shell .ev-sc-file-remove:focus-visible{color:#B91C1C;background:#fff;outline:0}
       #ev-sc-shell .ev-sc-side{min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:14px;background:linear-gradient(180deg,#FFFFFF,#F7FAF8);scrollbar-width:thin;scrollbar-color:rgba(15,89,47,.28) transparent}
       #ev-sc-shell .ev-sc-card{margin-bottom:11px;padding:13px;border:1px solid #E4EBE6;border-radius:17px;background:#fff;box-shadow:0 7px 18px rgba(15,23,42,.045)}
       #ev-sc-shell .ev-sc-kicker{margin-bottom:8px;color:#94A3B8;font-size:.66rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
@@ -391,6 +402,21 @@
       coordinacion_cancelada_proveedor: ['Coordinación cancelada', event.mensaje || 'El proveedor canceló la coordinación.']
     };
 
+    if (type === 'solicitud_creada') {
+      const initialText = String(event.mensaje || '').trim() || 'Solicito una cotización para este servicio.';
+      return `
+        <div class="ev-sc-message ${authorIsMe ? 'me' : ''} ev-sc-message-initial">
+          <div class="ev-sc-bubble ev-sc-bubble-initial">
+            <div class="ev-sc-initial-badge"><i class="bi bi-chat-left-text"></i> Solicitud inicial</div>
+            <div class="ev-sc-author">${esc(authorIsMe ? 'Tú' : (event.nombre_autor || 'Comprador'))}</div>
+            <div class="ev-sc-text">${esc(initialText)}</div>
+            ${filesHtml(event.adjuntos)}
+            <div class="ev-sc-time">${esc(date(event.created_at, true))}</div>
+          </div>
+        </div>
+      `;
+    }
+
     if (specials[type]) {
       const [title, text] = specials[type];
       return `<div class="ev-sc-system"><strong>${esc(title)}</strong><br>${esc(text)}${filesHtml(event.adjuntos)}</div>`;
@@ -456,8 +482,10 @@
       <div id="evScFiles" class="ev-sc-files"></div>
       <div class="ev-sc-compose-label"><span>Mensaje de negociación</span><small>Enter para enviar · Shift + Enter para una nueva línea</small></div>
       <div class="ev-sc-compose-row">
-        <input id="evScAttach" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
-        <button id="evScAttachButton" type="button" class="ev-sc-attach" title="Adjuntar imágenes" aria-label="Adjuntar imágenes"><i class="bi bi-paperclip"></i></button>
+        <label id="evScAttachButton" class="ev-sc-attach" title="Adjuntar imágenes" aria-label="Adjuntar imágenes" tabindex="0">
+          <input id="evScAttach" class="ev-sc-file-input" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" multiple>
+          <i class="bi bi-paperclip" aria-hidden="true"></i>
+        </label>
         <textarea id="evScMessage" class="ev-sc-input" maxlength="1500" aria-label="Mensaje de negociación"></textarea>
         <button id="evScSend" type="button" class="ev-sc-send"><i class="bi bi-send"></i><span>Enviar</span></button>
       </div>
@@ -528,7 +556,31 @@
   function renderFiles() {
     const holder = document.getElementById('evScFiles');
     if (!holder) return;
-    holder.innerHTML = selectedFiles().map((file) => `<span class="ev-sc-file"><i class="bi bi-image"></i>${esc(file.name)}</span>`).join('');
+
+    const files = selectedFiles();
+    holder.innerHTML = files.map((file, index) => `
+      <span class="ev-sc-file">
+        <i class="bi bi-image"></i>
+        <span class="ev-sc-file-name">${esc(file.name)}</span>
+        <button type="button" class="ev-sc-file-remove" data-ev-sc-file-index="${index}" aria-label="Quitar ${esc(file.name)}" title="Quitar imagen"><i class="bi bi-x"></i></button>
+      </span>
+    `).join('');
+  }
+
+  function removeSelectedFile(index) {
+    const input = document.getElementById('evScAttach');
+    if (!input) return;
+
+    const files = selectedFiles();
+    const position = Number(index);
+    if (!Number.isInteger(position) || position < 0 || position >= files.length) return;
+
+    const transfer = new DataTransfer();
+    files.forEach((file, currentIndex) => {
+      if (currentIndex !== position) transfer.items.add(file);
+    });
+    input.files = transfer.files;
+    renderFiles();
   }
 
   function idSolicitudActivo() {
@@ -596,7 +648,7 @@
         confirmButtonText: 'Entendido',
         confirmButtonColor: '#EA7C12',
         allowOutsideClick: false,
-        allowEscapeKey: true
+        allowEscapeKey: false
       });
     }
     window.alert(text);
@@ -1067,8 +1119,30 @@
   }
 
   function bindControls() {
-    document.getElementById('evScAttachButton')?.addEventListener('click', () => document.getElementById('evScAttach')?.click());
-    document.getElementById('evScAttach')?.addEventListener('change', renderFiles);
+    const attachButton = document.getElementById('evScAttachButton');
+    const attachInput = document.getElementById('evScAttach');
+
+    attachButton?.addEventListener('keydown', (event) => {
+      if (!['Enter', ' '].includes(event.key)) return;
+      event.preventDefault();
+      attachInput?.click();
+    });
+    attachInput?.addEventListener('change', () => {
+      renderFiles();
+      if (attachInput.files?.length) {
+        attachButton?.classList.add('has-files');
+        attachButton?.setAttribute('aria-label', `${attachInput.files.length} imagen(es) seleccionada(s)`);
+      } else {
+        attachButton?.classList.remove('has-files');
+        attachButton?.setAttribute('aria-label', 'Adjuntar imágenes');
+      }
+    });
+    document.getElementById('evScFiles')?.addEventListener('click', (event) => {
+      const button = event.target?.closest?.('[data-ev-sc-file-index]');
+      if (!button) return;
+      event.preventDefault();
+      removeSelectedFile(button.dataset.evScFileIndex);
+    });
     document.getElementById('evScSend')?.addEventListener('click', () => sendMessage().catch((error) => toast('error', error.message)));
     document.getElementById('evScMessage')?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' && !event.shiftKey) {

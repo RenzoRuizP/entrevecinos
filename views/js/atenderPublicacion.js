@@ -275,72 +275,6 @@
 
     let modalInstance = null;
     let currentId = null;
-    let lightboxUrls = [];
-    let lightboxIndex = 0;
-    let lightboxTrigger = null;
-    let lightboxTouchStartX = null;
-
-    function getLightboxEls() {
-      return {
-        shell: document.getElementById('evApLightbox'),
-        image: document.getElementById('evApLightboxImage'),
-        counter: document.getElementById('evApLightboxCounter'),
-        prev: document.getElementById('evApLightboxPrev'),
-        next: document.getElementById('evApLightboxNext'),
-        close: document.getElementById('evApLightboxClose')
-      };
-    }
-
-    function renderLightbox() {
-      const { shell, image, counter, prev, next } = getLightboxEls();
-      if (!shell || !image || lightboxUrls.length === 0) return;
-
-      lightboxIndex = Math.max(0, Math.min(lightboxUrls.length - 1, lightboxIndex));
-      image.src = lightboxUrls[lightboxIndex];
-      image.alt = `Imagen ${lightboxIndex + 1} de ${lightboxUrls.length} de la publicación`;
-      if (counter) counter.textContent = `${lightboxIndex + 1} de ${lightboxUrls.length}`;
-
-      const multiple = lightboxUrls.length > 1;
-      if (prev) prev.hidden = !multiple;
-      if (next) next.hidden = !multiple;
-    }
-
-    function abrirLightbox(index, trigger = null) {
-      const { shell, close } = getLightboxEls();
-      if (!shell || lightboxUrls.length === 0) return;
-
-      lightboxIndex = Math.max(0, Math.min(lightboxUrls.length - 1, Number(index) || 0));
-      lightboxTrigger = trigger instanceof HTMLElement ? trigger : null;
-      renderLightbox();
-
-      shell.hidden = false;
-      shell.setAttribute('aria-hidden', 'false');
-      document.body.classList.add('ev-ap-lightbox-open');
-      window.requestAnimationFrame(() => shell.classList.add('is-open'));
-      window.setTimeout(() => close?.focus(), 30);
-    }
-
-    function cerrarLightbox() {
-      const { shell, image } = getLightboxEls();
-      if (!shell || shell.hidden) return;
-
-      shell.classList.remove('is-open');
-      shell.setAttribute('aria-hidden', 'true');
-      document.body.classList.remove('ev-ap-lightbox-open');
-
-      window.setTimeout(() => {
-        shell.hidden = true;
-        if (image) image.removeAttribute('src');
-        lightboxTrigger?.focus?.();
-        lightboxTrigger = null;
-      }, 170);
-    }
-
-    function moverLightbox(delta) {
-      if (lightboxUrls.length <= 1) return;
-      lightboxIndex = (lightboxIndex + delta + lightboxUrls.length) % lightboxUrls.length;
-      renderLightbox();
-    }
 
     if (!elBody) return;
     if (elEstado && elEstado.value) estado = String(elEstado.value).toLowerCase();
@@ -547,10 +481,6 @@
       if (mDescripcion) mDescripcion.textContent = "—";
       if (mComentario) mComentario.value = "";
       if (mUltimoComentario) mUltimoComentario.textContent = "Sin mensaje registrado.";
-      lightboxUrls = [];
-      lightboxIndex = 0;
-      cerrarLightbox();
-
       if (mGaleria) {
         mGaleria.innerHTML = "";
         mGaleria.dataset.count = "0";
@@ -653,11 +583,11 @@
       if (urls.length > 0) {
         if (mNoImgs) mNoImgs.style.display = "none";
 
-        lightboxUrls = urls.map((u) => (
+        const imageUrls = urls.map((u) => (
           u.startsWith("http") ? u : (u.startsWith("/") ? (baseUrl + u) : (baseUrl + "/" + u))
         ));
 
-        lightboxUrls.forEach((src, index) => {
+        imageUrls.forEach((src, index) => {
           const figure = document.createElement("figure");
           figure.className = "ev-galeria-item ev-ap-galeria-item";
 
@@ -665,8 +595,9 @@
           button.type = "button";
           button.className = "ev-ap-image-button";
           button.dataset.evApImageIndex = String(index);
-          button.setAttribute("aria-label", `Ampliar imagen ${index + 1} de ${lightboxUrls.length}`);
-          button.title = "Ver imagen ampliada";
+          button.setAttribute("aria-label", `Activar zoom en la imagen ${index + 1} de ${imageUrls.length}`);
+          button.setAttribute("aria-pressed", "false");
+          button.title = "Activar zoom";
 
           const img = document.createElement("img");
           img.src = src;
@@ -677,7 +608,7 @@
           const zoom = document.createElement("span");
           zoom.className = "ev-ap-image-zoom";
           zoom.setAttribute("aria-hidden", "true");
-          zoom.innerHTML = '<i class="bi bi-search"></i><small>Ver detalle</small>';
+          zoom.innerHTML = '<i class="bi bi-search"></i><small>Zoom</small>';
 
           button.append(img, zoom);
           figure.appendChild(button);
@@ -872,10 +803,33 @@
       abrirRevisar(id);
     });
 
+    function setImageZoom(button, active) {
+      if (!(button instanceof HTMLElement)) return;
+
+      button.classList.toggle('is-zoomed', Boolean(active));
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      button.setAttribute('aria-label', active ? 'Desactivar zoom de la imagen' : 'Activar zoom de la imagen');
+      button.title = active ? 'Desactivar zoom' : 'Activar zoom';
+
+      const label = button.querySelector('.ev-ap-image-zoom small');
+      if (label) label.textContent = active ? 'Quitar zoom' : 'Zoom';
+
+      if (!active) {
+        button.style.removeProperty('--ev-ap-zoom-x');
+        button.style.removeProperty('--ev-ap-zoom-y');
+      }
+    }
+
+    function resetImageZoom(except = null) {
+      document.querySelectorAll('#modalPub [data-ev-ap-image-index].is-zoomed').forEach((button) => {
+        if (button !== except) setImageZoom(button, false);
+      });
+    }
+
     document.addEventListener('pointermove', function (ev) {
-      if (ev.pointerType === 'touch') return;
       const button = ev.target?.closest?.('[data-ev-ap-image-index]');
       if (!button) return;
+      if (ev.pointerType === 'touch' && !button.classList.contains('is-zoomed')) return;
 
       const rect = button.getBoundingClientRect();
       if (!rect.width || !rect.height) return;
@@ -888,7 +842,7 @@
 
     document.addEventListener('pointerout', function (ev) {
       const button = ev.target?.closest?.('[data-ev-ap-image-index]');
-      if (!button) return;
+      if (!button || button.classList.contains('is-zoomed')) return;
       if (ev.relatedTarget instanceof Node && button.contains(ev.relatedTarget)) return;
       button.style.removeProperty('--ev-ap-zoom-x');
       button.style.removeProperty('--ev-ap-zoom-y');
@@ -901,26 +855,14 @@
       const imageButton = t.closest('[data-ev-ap-image-index]');
       if (imageButton) {
         ev.preventDefault();
-        abrirLightbox(Number(imageButton.dataset.evApImageIndex || 0), imageButton);
+        const activate = !imageButton.classList.contains('is-zoomed');
+        resetImageZoom(imageButton);
+        setImageZoom(imageButton, activate);
         return;
       }
 
-      if (t.closest('#evApLightboxClose')) {
-        ev.preventDefault();
-        cerrarLightbox();
-        return;
-      }
-
-      if (t.closest('#evApLightboxPrev')) {
-        ev.preventDefault();
-        moverLightbox(-1);
-        return;
-      }
-
-      if (t.closest('#evApLightboxNext')) {
-        ev.preventDefault();
-        moverLightbox(1);
-        return;
+      if (!t.closest('#modalPub .ev-ap-galeria')) {
+        resetImageZoom();
       }
 
       if (t.closest("#btnAprobar")) {
@@ -942,37 +884,7 @@
       }
     }, true);
 
-    document.addEventListener('keydown', function (ev) {
-      const shell = document.getElementById('evApLightbox');
-      if (!shell || shell.hidden) return;
-
-      if (ev.key === 'Escape') {
-        // Política EV: el visor no se cierra con Escape.
-        ev.preventDefault();
-        ev.stopPropagation();
-      } else if (ev.key === 'ArrowLeft') {
-        ev.preventDefault();
-        moverLightbox(-1);
-      } else if (ev.key === 'ArrowRight') {
-        ev.preventDefault();
-        moverLightbox(1);
-      }
-    });
-
-    const lightboxStage = document.querySelector('#evApLightbox .ev-ap-lightbox-stage');
-    lightboxStage?.addEventListener('touchstart', (ev) => {
-      lightboxTouchStartX = ev.touches?.[0]?.clientX ?? null;
-    }, { passive: true });
-    lightboxStage?.addEventListener('touchend', (ev) => {
-      if (lightboxTouchStartX === null) return;
-      const endX = ev.changedTouches?.[0]?.clientX ?? lightboxTouchStartX;
-      const delta = endX - lightboxTouchStartX;
-      lightboxTouchStartX = null;
-      if (Math.abs(delta) < 45) return;
-      moverLightbox(delta > 0 ? -1 : 1);
-    }, { passive: true });
-
-    document.getElementById('modalPub')?.addEventListener('hidden.bs.modal', cerrarLightbox);
+    document.getElementById('modalPub')?.addEventListener('hidden.bs.modal', () => resetImageZoom());
 
     setActiveQuickButtons();
     listar();

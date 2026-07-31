@@ -2302,4 +2302,48 @@
   }
 }
 
+
+
+/* ============================================================
+   EV V6 — VISTA PREVIA BLANCA Y LIMPIA
+============================================================ */
+.ev-preview-panel,
+.ev-modal .ev-preview-panel{
+  background:#FFFFFF!important;
+}
+.ev-preview-area,
+.ev-preview-media-card,
+.ev-preview-media-card.is-empty,
+.ev-preview-empty{
+  background:#FFFFFF!important;
+}
+.ev-preview-empty{
+  background-image:none!important;
+}
+
+
+
+/* ============================================================
+   EV V7 — ALINEACIÓN CONSISTENTE DE LA TABLA DE PUBLICACIONES
+============================================================ */
+@media (min-width: 769px){
+  #tablaPublicaciones tbody td{
+    text-align:center !important;
+  }
+  #tablaPublicaciones .td-trunc{
+    text-align:center !important;
+  }
+  #tablaPublicaciones .ev-actions{
+    justify-content:center !important;
+  }
+  #tablaPublicaciones .ev-msg-support-box{
+    align-items:center;
+    text-align:center;
+  }
+  #tablaPublicaciones .ev-chip,
+  #tablaPublicaciones .ev-chip-status{
+    margin-inline:auto;
+  }
+}
+
 </style>
