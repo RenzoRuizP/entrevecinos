@@ -31,12 +31,7 @@ require_once __DIR__ . '/../Config/config.php';
         </div>
       </div>
 
-      <div class="ev-mp-hero-bottom">
-        <div class="ev-summary-pill">
-          <span class="ev-summary-label">Total:</span>
-          <span class="ev-summary-count" id="evTabCountAll">0</span>
-        </div>
-
+      <div class="ev-mp-hero-bottom ev-mp-hero-bottom--meta-only">
         <div class="ev-table-meta" id="evLblMeta">Mostrando 0 registros</div>
       </div>
 
@@ -189,7 +184,7 @@ require_once __DIR__ . '/../Config/config.php';
 
 </div>
 
-<div class="modal fade ev-modal" id="modalBuscarPublicacion" tabindex="-1" aria-hidden="true">
+<div class="modal fade ev-modal" id="modalBuscarPublicacion" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content ev-modal-content">
       <div class="ev-modal-header">
@@ -217,7 +212,7 @@ require_once __DIR__ . '/../Config/config.php';
 </div>
 
 
-<div class="modal fade ev-modal" id="modalAgregarPublicacion" tabindex="-1" aria-hidden="true">
+<div class="modal fade ev-modal" id="modalAgregarPublicacion" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-centered ev-modal-xl">
     <div class="modal-content ev-modal-content ev-modal-flex">
       <div class="ev-modal-header">
@@ -374,7 +369,7 @@ require_once __DIR__ . '/../Config/config.php';
   </div>
 </div>
 
-<div class="modal fade ev-modal" id="modalEditarPublicacion" tabindex="-1" aria-hidden="true">
+<div class="modal fade ev-modal" id="modalEditarPublicacion" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-centered ev-modal-xl">
     <div class="modal-content ev-modal-content ev-modal-flex">
       <div class="ev-modal-header">

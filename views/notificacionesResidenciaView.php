@@ -51,7 +51,7 @@ require_once __DIR__ . '/../Config/config.php';
 </div>
 
 <!-- Modal detalle / reenviar -->
-<div class="modal fade" id="modalNotifResidencia" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalNotifResidencia" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content ev-modal-content">
 

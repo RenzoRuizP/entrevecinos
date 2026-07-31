@@ -130,7 +130,7 @@ require_once __DIR__ . '/../Config/config.php';
   </section>
 </div>
 
-<div class="modal fade ev-modal ev-modal-login" id="modalRecargarSaldo" tabindex="-1" aria-hidden="true">
+<div class="modal fade ev-modal ev-modal-login" id="modalRecargarSaldo" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content ev-modal-content">
 
@@ -253,7 +253,7 @@ require_once __DIR__ . '/../Config/config.php';
   </div>
 </div>
 
-<div class="modal fade ev-modal ev-modal-login" id="modalSoporteBilletera" tabindex="-1" aria-hidden="true">
+<div class="modal fade ev-modal ev-modal-login" id="modalSoporteBilletera" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content ev-modal-content">
 

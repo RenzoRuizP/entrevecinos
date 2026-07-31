@@ -165,7 +165,7 @@
     status.className = "ev-dashboard-status";
     status.innerHTML = `
       <span class="ev-dashboard-live-dot" aria-hidden="true"></span>
-      <span>Actualización <strong>automática</strong></span>
+      <span class="ev-dashboard-status-copy"><span class="ev-dashboard-status-label">Actualización </span><strong>automática</strong></span>
     `;
 
     right.prepend(status);
@@ -335,11 +335,11 @@
 
         return `
           <tr class="${rowClass}">
-            <td class="ev-col-fecha">
+            <td class="ev-col-fecha" data-label="Fecha">
               <div class="fw-semibold">${fecha}</div>
             </td>
 
-            <td class="ev-col-tipo">
+            <td class="ev-col-tipo" data-label="Tipo de atención">
               <div class="ev-att-cell">
                 <div class="ev-att-top">
                   <span class="ev-att-tipo">${tipo}</span>
@@ -351,7 +351,7 @@
               </div>
             </td>
 
-            <td class="ev-col-accion">
+            <td class="ev-col-accion" data-label="Acción">
               <a data-ev-nav="1" class="ev-btn-atender" href="${href}">Atender</a>
             </td>
           </tr>
@@ -371,7 +371,7 @@
 
     status.innerHTML = `
       <span class="ev-dashboard-live-dot" aria-hidden="true"></span>
-      <span>Actualizado <strong>${hh}:${mm}:${ss}</strong></span>
+      <span class="ev-dashboard-status-copy"><span class="ev-dashboard-status-label">Actualizado </span><strong>${hh}:${mm}:${ss}</strong></span>
     `;
   }
 

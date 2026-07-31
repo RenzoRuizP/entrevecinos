@@ -323,4 +323,158 @@
     white-space: normal;
   }
 }
+
+
+/* =========================================================
+   EV V5 — "ATENDER AHORA" RESPONSIVE SIN TABLA COMPRIMIDA
+========================================================= */
+@media (max-width: 767.98px){
+  .ev-atender-header{
+    align-items:stretch !important;
+    flex-direction:column;
+    gap:12px;
+    padding:14px !important;
+  }
+
+  .ev-atender-header > .d-flex{
+    width:100%;
+    justify-content:space-between;
+    gap:10px !important;
+  }
+
+  .ev-atender-header .ev-select{
+    width:min(152px,48vw);
+    max-width:none !important;
+  }
+
+  .ev-table-wrap,
+  .ev-table-wrap .table-responsive{
+    overflow:visible !important;
+  }
+
+  .ev-soporte-dashboard .ev-table{
+    display:block;
+    width:100%;
+    min-width:0 !important;
+    padding:12px;
+    background:transparent;
+  }
+
+  .ev-soporte-dashboard .ev-table thead{
+    display:none;
+  }
+
+  .ev-soporte-dashboard .ev-table tbody{
+    display:grid;
+    gap:12px;
+  }
+
+  .ev-soporte-dashboard .ev-table tbody tr{
+    display:block;
+    overflow:hidden;
+    border:1px solid rgba(148,163,184,.24);
+    border-radius:17px;
+    background:#fff;
+    box-shadow:0 12px 26px rgba(15,23,42,.07);
+  }
+
+  .ev-soporte-dashboard .ev-table tbody tr:hover{
+    background:#fff;
+  }
+
+  .ev-soporte-dashboard .ev-table tbody td{
+    width:100% !important;
+    display:grid;
+    grid-template-columns:92px minmax(0,1fr);
+    align-items:start;
+    gap:10px;
+    padding:11px 13px !important;
+    border:0 !important;
+    border-bottom:1px solid rgba(229,231,235,.82) !important;
+    text-align:left !important;
+    white-space:normal !important;
+  }
+
+  .ev-soporte-dashboard .ev-table tbody td:last-child{
+    border-bottom:0 !important;
+  }
+
+  .ev-soporte-dashboard .ev-table tbody td::before{
+    content:attr(data-label);
+    color:var(--ev-gris-500);
+    font-size:.69rem;
+    font-weight:900;
+    letter-spacing:.04em;
+    line-height:1.35;
+    text-transform:uppercase;
+  }
+
+  .ev-soporte-dashboard .ev-table tbody td.ev-empty{
+    display:block;
+    padding:24px 14px !important;
+    text-align:center !important;
+  }
+
+  .ev-soporte-dashboard .ev-table tbody td.ev-empty::before{
+    content:none;
+  }
+
+  .ev-soporte-dashboard .ev-att-cell{
+    align-items:flex-start;
+    gap:7px;
+    text-align:left;
+  }
+
+  .ev-soporte-dashboard .ev-att-top{
+    align-items:flex-start;
+    justify-content:flex-start;
+    gap:7px;
+  }
+
+  .ev-soporte-dashboard .ev-att-tipo,
+  .ev-soporte-dashboard .ev-att-nombre{
+    width:100%;
+    line-height:1.3;
+  }
+
+  .ev-soporte-dashboard .ev-att-sub{
+    max-width:none;
+    text-align:left;
+    white-space:normal;
+    overflow:visible;
+    text-overflow:clip;
+    overflow-wrap:anywhere;
+    line-height:1.42;
+  }
+
+  .ev-soporte-dashboard .ev-col-accion{
+    align-items:center !important;
+  }
+
+  .ev-soporte-dashboard .ev-col-accion .ev-btn-atender{
+    width:100%;
+    min-width:0;
+  }
+}
+
+@media (max-width: 430px){
+  .ev-atender-header .ev-card-title{
+    font-size:1rem;
+  }
+
+  .ev-dashboard-status-label{
+    display:none;
+  }
+
+  .ev-dashboard-status{
+    gap:5px;
+  }
+
+  .ev-soporte-dashboard .ev-table tbody td{
+    grid-template-columns:78px minmax(0,1fr);
+    gap:8px;
+    padding:10px 11px !important;
+  }
+}
+
 </style>

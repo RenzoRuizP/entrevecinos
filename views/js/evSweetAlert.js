@@ -457,6 +457,10 @@
       delete config.icon;
     }
 
+    // Política global EV: cierre únicamente mediante acciones explícitas.
+    config.allowOutsideClick = false;
+    config.allowEscapeKey = false;
+
     return config;
   }
 
@@ -476,12 +480,14 @@
 
   function swalBase(opts = {}) {
     injectStyles();
-    return Object.assign({
+    const config = Object.assign({
       buttonsStyling:false,
-      allowOutsideClick:false,
-      allowEscapeKey:true,
       customClass: defaultClasses
     }, opts || {});
+
+    config.allowOutsideClick = false;
+    config.allowEscapeKey = false;
+    return config;
   }
 
   async function success(title, text, opts = {}) {

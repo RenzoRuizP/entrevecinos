@@ -172,7 +172,7 @@ $baseUrl = rtrim(BASE_URL, '/');
 
 </div>
 
-<div class="modal fade" id="modalRevisarCuenta" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalRevisarCuenta" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content ev-modal">
       <div class="modal-header ev-modal-header">

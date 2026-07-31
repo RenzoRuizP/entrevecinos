@@ -261,7 +261,7 @@ require_once __DIR__ . '/../Config/config.php';
 
 <!-- VISOR AMPLIADO DE IMÁGENES — SOPORTE -->
 <div class="ev-ap-lightbox" id="evApLightbox" hidden aria-hidden="true">
-  <div class="ev-ap-lightbox-backdrop" data-ev-ap-lightbox-close="1"></div>
+  <div class="ev-ap-lightbox-backdrop" aria-hidden="true"></div>
 
   <section
     class="ev-ap-lightbox-dialog"

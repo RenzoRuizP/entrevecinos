@@ -692,13 +692,15 @@
 
 .ev-modal-close-icon{
   opacity:.95;
-  transition:transform .16s ease, opacity .16s ease, filter .16s ease;
+  transform:none;
+  transition:opacity .16s ease, filter .16s ease, background-color .16s ease;
 }
 
-.ev-modal-close-icon:hover{
+.ev-modal-close-icon:hover,
+.ev-modal-close-icon:focus-visible{
   opacity:1;
   filter:brightness(1.05);
-  transform:rotate(90deg) scale(1.04);
+  transform:none;
 }
 
 /* El formulario ocupa el área blanca debajo del header */
@@ -2268,6 +2270,36 @@
   .ev-mp-hero-bottom .ev-summary-pill,
   .ev-mp-hero-bottom .ev-table-meta{width:100%;}
   .ev-mp-hero-bottom .ev-table-meta{text-align:left;}
+}
+
+
+
+/* ============================================================
+   EV V5 — TABLA CENTRADA Y HERO SIN CARD DE TOTAL
+============================================================ */
+.ev-mp-hero-bottom--meta-only{
+  justify-content:flex-end;
+}
+
+.ev-table tbody td[data-label="Publicación"]{
+  text-align:center !important;
+}
+
+.ev-table tbody td[data-label="Publicación"] > .ev-chip{
+  margin-inline:auto;
+}
+
+.ev-modal-close-icon,
+.ev-modal-close-icon:hover,
+.ev-modal-close-icon:focus-visible{
+  transform:none !important;
+}
+
+@media(max-width:767.98px){
+  .ev-table tbody td[data-label="Publicación"] > .ev-chip{
+    margin-inline:auto;
+    justify-self:center;
+  }
 }
 
 </style>

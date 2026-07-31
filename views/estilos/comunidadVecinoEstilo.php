@@ -1486,4 +1486,52 @@
   }
 }
 
+
+
+/* ============================================================
+   EV V5 — TARJETA DE COMUNIDAD COMPACTA EN MÓVIL
+============================================================ */
+@media(max-width:767.98px){
+  .ev-cv-hero{
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .ev-cv-community-pill{
+    flex:none !important;
+    flex-basis:auto !important;
+    width:100%;
+    min-width:0;
+    min-height:0;
+    align-self:auto;
+    padding:11px 13px;
+  }
+}
+
+@media(max-width:575.98px){
+  .ev-cv-community-pill{
+    grid-template-columns:40px minmax(0,1fr);
+    gap:10px;
+    padding:10px 12px;
+    border-radius:15px;
+  }
+
+  .ev-cv-community-pill > i{
+    width:40px;
+    height:40px;
+    border-radius:13px;
+    font-size:1.05rem;
+  }
+
+  .ev-cv-community-pill small{
+    font-size:.68rem;
+  }
+
+  .ev-cv-community-pill strong{
+    font-size:.88rem;
+    line-height:1.2;
+  }
+}
+
 </style>

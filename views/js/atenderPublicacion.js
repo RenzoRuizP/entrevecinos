@@ -872,6 +872,28 @@
       abrirRevisar(id);
     });
 
+    document.addEventListener('pointermove', function (ev) {
+      if (ev.pointerType === 'touch') return;
+      const button = ev.target?.closest?.('[data-ev-ap-image-index]');
+      if (!button) return;
+
+      const rect = button.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+
+      const x = Math.max(0, Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100));
+      const y = Math.max(0, Math.min(100, ((ev.clientY - rect.top) / rect.height) * 100));
+      button.style.setProperty('--ev-ap-zoom-x', `${x.toFixed(2)}%`);
+      button.style.setProperty('--ev-ap-zoom-y', `${y.toFixed(2)}%`);
+    }, true);
+
+    document.addEventListener('pointerout', function (ev) {
+      const button = ev.target?.closest?.('[data-ev-ap-image-index]');
+      if (!button) return;
+      if (ev.relatedTarget instanceof Node && button.contains(ev.relatedTarget)) return;
+      button.style.removeProperty('--ev-ap-zoom-x');
+      button.style.removeProperty('--ev-ap-zoom-y');
+    }, true);
+
     document.addEventListener("click", function (ev) {
       const t = ev.target;
       if (!t || !t.closest) return;
@@ -883,7 +905,7 @@
         return;
       }
 
-      if (t.closest('#evApLightboxClose') || t.closest('[data-ev-ap-lightbox-close="1"]')) {
+      if (t.closest('#evApLightboxClose')) {
         ev.preventDefault();
         cerrarLightbox();
         return;
@@ -925,8 +947,9 @@
       if (!shell || shell.hidden) return;
 
       if (ev.key === 'Escape') {
+        // Política EV: el visor no se cierra con Escape.
         ev.preventDefault();
-        cerrarLightbox();
+        ev.stopPropagation();
       } else if (ev.key === 'ArrowLeft') {
         ev.preventDefault();
         moverLightbox(-1);

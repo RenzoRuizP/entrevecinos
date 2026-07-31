@@ -2005,4 +2005,54 @@ body.ev-ap-lightbox-open{
   .ev-ap-lightbox-stage img{max-height:calc(100dvh - 145px);}
 }
 
+
+
+/* ============================================================
+   EV V5 — ZOOM DE REVISIÓN Y VISOR PROPORCIONAL
+============================================================ */
+#modalPub.ev-ap-modal .ev-ap-image-button{
+  --ev-ap-zoom-x:50%;
+  --ev-ap-zoom-y:50%;
+}
+
+@media (hover:hover) and (pointer:fine){
+  #modalPub.ev-ap-modal .ev-ap-image-button:hover img,
+  #modalPub.ev-ap-modal .ev-ap-image-button:focus-visible img{
+    transform:scale(1.62);
+    transform-origin:var(--ev-ap-zoom-x) var(--ev-ap-zoom-y);
+    filter:brightness(1);
+  }
+}
+
+.ev-ap-lightbox-backdrop{
+  cursor:default;
+}
+
+.ev-ap-lightbox-dialog{
+  width:min(1760px,calc(100vw - 24px));
+  height:calc(100dvh - 24px);
+}
+
+.ev-ap-lightbox-stage{
+  min-height:0;
+  padding:10px 64px;
+}
+
+.ev-ap-lightbox-stage img{
+  width:100%;
+  height:100%;
+  max-width:100%;
+  max-height:100%;
+  object-fit:contain;
+  border-radius:10px;
+  background:transparent;
+  box-shadow:none;
+}
+
+@media(max-width:767.98px){
+  .ev-ap-lightbox-stage{
+    padding:8px 44px;
+  }
+}
+
 </style>
