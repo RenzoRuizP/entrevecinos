@@ -144,6 +144,8 @@
     if (q) params.set('q', q);
     params.set('page', String(state.page));
     params.set('size', String(state.size));
+    const scope = window.EVAdminCommunityScope?.get?.('recargas') || {};
+    if (scope.selected) { params.set('tipo_conjunto', scope.tipo); params.set('codigo_comunidad', String(scope.codigo)); }
 
     return `${BASE}/api/soporte/recargas?${params.toString()}`;
   }
@@ -436,6 +438,11 @@
 
     refs.btnRefrescar?.addEventListener('click', () => loadList());
 
+    document.addEventListener('ev:admin-community-change', (event) => {
+      if (event.detail?.module !== 'recargas') return;
+      state.page = 1; loadList();
+    });
+
     refs.btnVerPendientes?.addEventListener('click', () => { refs.fEstado.value = 'pendiente'; state.page = 1; loadList(); });
     refs.btnVerObservadas?.addEventListener('click', () => { refs.fEstado.value = 'observada'; state.page = 1; loadList(); });
     refs.btnVerAprobadas?.addEventListener('click', () => { refs.fEstado.value = 'aprobada'; state.page = 1; loadList(); });
@@ -462,11 +469,7 @@
 
   document.addEventListener('DOMContentLoaded', init);
 
-  const obs = new MutationObserver(() => {
-    const form = document.getElementById('formFiltros');
-    if (form && form.dataset.evHooked !== '1') init();
-  });
-  obs.observe(document.body, { childList: true, subtree: true });
+  document.addEventListener('ev:content-loaded', init);
 
   window.EVRecargas = { init };
 })();

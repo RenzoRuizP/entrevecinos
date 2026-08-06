@@ -280,6 +280,16 @@
     `;
   }
 
+  function renderVacioSinComunidad() {
+    return `
+      <div class="ev-cv-empty ev-cv-empty--selection">
+        <i class="bi bi-buildings"></i>
+        <strong>Selecciona una comunidad para consultar sus novedades</strong>
+        <p>Busca un condominio o una urbanización en el selector superior.</p>
+      </div>
+    `;
+  }
+
   function renderCounts(root, counts = {}) {
     const select = $('#evCvTipo', root);
     if (!select) return;
@@ -522,6 +532,30 @@
     configurarEventoModal(item);
   }
 
+  function communityParams(root) {
+    return new URLSearchParams({
+      tipo_conjunto: String(root?.dataset?.tipoConjunto || ''),
+      codigo_comunidad: String(root?.dataset?.codigoComunidad || '0')
+    });
+  }
+
+  function actualizarComunidadVisible(root, option) {
+    const hasSelection = Boolean(option && String(option.value || '').trim());
+    const label = String(option?.textContent || '').trim();
+    const clean = hasSelection
+      ? (label.replace(/^(Urbanización|Condominio)\s*·\s*/i, '').split(' · ')[0] || label)
+      : 'Sin comunidad seleccionada';
+    const name = $('#evCvCommunityName', root);
+    const labelEl = $('#evCvCommunityLabel', root);
+    if (name) name.textContent = clean;
+    if (labelEl) labelEl.textContent = hasSelection ? 'Comunidad consultada' : 'Comunidad por consultar';
+    const modalName = document.getElementById('evCvModalCommunityName');
+    const footerName = document.getElementById('evCvFooterCommunityName');
+    if (modalName) modalName.textContent = clean;
+    if (footerName) footerName.textContent = clean;
+    root.dataset.comunidad = clean;
+  }
+
   async function abrirDetalle(root, id) {
     if (!Number.isInteger(id) || id <= 0) {
       return;
@@ -529,7 +563,7 @@
 
     try {
       const data = await requestJson(
-        `${BASE}/api/comunidad/vecino/publicaciones/${encodeURIComponent(id)}`
+        `${BASE}/api/comunidad/vecino/publicaciones/${encodeURIComponent(id)}?${communityParams(root).toString()}`
       );
 
       const item = data.item || {};
@@ -746,6 +780,20 @@
 
     error.classList.add('d-none');
 
+    const adminSinSeleccion = root.dataset.esAdmin === '1'
+      && (!String(state.tipoConjunto || '').trim() || Number(state.codigoComunidad || 0) <= 0);
+
+    if (adminSinSeleccion) {
+      renderCounts(root, { total: 0, comunicados: 0, noticias: 0, eventos: 0 });
+      renderPager(root, state, { page: 1, pages: 1, total: 0 });
+      feature.innerHTML = '';
+      featureSection.hidden = true;
+      recientes.hidden = false;
+      grid.innerHTML = renderVacioSinComunidad();
+      meta.textContent = 'Selecciona una comunidad para comenzar.';
+      return;
+    }
+
     grid.innerHTML = `
       <div class="ev-cv-skeleton"></div>
       <div class="ev-cv-skeleton"></div>
@@ -756,7 +804,9 @@
       tipo: state.tipo,
       q: state.q,
       page: String(state.page),
-      size: String(state.size)
+      size: String(state.size),
+      tipo_conjunto: String(state.tipoConjunto || ''),
+      codigo_comunidad: String(state.codigoComunidad || 0)
     });
 
     try {
@@ -844,16 +894,31 @@
       page: 1,
       size: 9,
       pages: 1,
-      total: 0
+      total: 0,
+      tipoConjunto: String(root.dataset.tipoConjunto || ''),
+      codigoComunidad: Number(root.dataset.codigoComunidad || 0)
     };
 
     vincularModal();
     inyectarEstilosEnfoque();
+    window.EVSearchableSelect?.init?.(root);
 
     const selectTipo = $('#evCvTipo', root);
     selectTipo?.addEventListener('change', () => {
       state.tipo = selectTipo.value || 'all';
       state.page = 1;
+      cargar(root, state);
+    });
+
+    const adminCommunity = $('#evCvComunidadAdmin', root);
+    adminCommunity?.addEventListener('change', () => {
+      const [tipo, codigo] = String(adminCommunity.value || '').split('|');
+      state.tipoConjunto = tipo || '';
+      state.codigoComunidad = Number(codigo || 0);
+      state.page = 1;
+      root.dataset.tipoConjunto = state.tipoConjunto;
+      root.dataset.codigoComunidad = String(state.codigoComunidad);
+      actualizarComunidadVisible(root, adminCommunity.options[adminCommunity.selectedIndex]);
       cargar(root, state);
     });
 

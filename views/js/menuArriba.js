@@ -509,7 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
     style.id = 'evAvatarModalStyles';
     style.textContent = `
       .ev-avatar-modal .modal-dialog{
-        max-width:min(520px, calc(100vw - 22px));
+        max-width:min(690px, calc(100vw - 22px));
       }
 
       .ev-avatar-modal-content{
@@ -590,21 +590,71 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       .ev-avatar-modal-body{
-        padding:22px 22px 18px;
-        background:linear-gradient(180deg,#FFFFFF 0%,#F9FAFB 100%);
+        padding:22px;
+        background:linear-gradient(180deg,#FFFFFF 0%,#F8FAFC 100%);
+      }
+
+      .ev-avatar-workspace{
+        display:grid;
+        grid-template-columns:minmax(210px,.82fr) minmax(0,1.18fr);
+        gap:18px;
+        align-items:stretch;
+      }
+
+      .ev-avatar-preview-shell,
+      .ev-avatar-upload-panel{
+        border:1px solid #E5E7EB;
+        border-radius:20px;
+        background:#fff;
+        box-shadow:0 12px 30px rgba(15,23,42,.055);
       }
 
       .ev-avatar-preview-shell{
         display:flex;
         flex-direction:column;
         align-items:center;
+        justify-content:center;
         text-align:center;
         gap:12px;
+        padding:22px 16px;
+      }
+
+      .ev-avatar-upload-panel{
+        display:flex;
+        flex-direction:column;
+        justify-content:center;
+        padding:20px;
+      }
+
+      .ev-avatar-upload-eyebrow{
+        display:block;
+        margin-bottom:5px;
+        color:#EA7C12;
+        font-size:.68rem;
+        font-weight:950;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+
+      .ev-avatar-upload-panel h3{
+        margin:0;
+        color:#0F592F;
+        font-size:1.08rem;
+        line-height:1.2;
+        font-weight:950;
+      }
+
+      .ev-avatar-upload-copy{
+        margin:7px 0 0;
+        color:#64748B;
+        font-size:.82rem;
+        line-height:1.5;
+        font-weight:700;
       }
 
       .ev-avatar-preview-ring{
-        width:132px;
-        height:132px;
+        width:146px;
+        height:146px;
         border-radius:999px;
         padding:5px;
         background:
@@ -624,10 +674,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       .ev-avatar-help{
-        max-width:360px;
+        max-width:230px;
         margin:0;
-        color:#6B7280;
-        font-size:.88rem;
+        color:#64748B;
+        font-size:.80rem;
         line-height:1.45;
         font-weight:700;
       }
@@ -635,11 +685,28 @@ document.addEventListener('DOMContentLoaded', () => {
       .ev-avatar-file-card{
         width:100%;
         margin-top:16px;
-        padding:14px;
-        border:1px dashed rgba(15,89,47,.26);
-        border-radius:18px;
+        display:grid;
+        grid-template-columns:38px minmax(0,1fr);
+        gap:10px;
+        align-items:center;
+        padding:13px;
+        border:1px dashed rgba(15,89,47,.28);
+        border-radius:17px;
         background:linear-gradient(135deg,#F0FDF4,#FFFFFF);
       }
+
+      .ev-avatar-file-card-icon{
+        width:38px;
+        height:38px;
+        display:grid;
+        place-items:center;
+        border-radius:13px;
+        color:#0F592F;
+        background:#fff;
+        border:1px solid #D8F1E1;
+      }
+
+      .ev-avatar-file-card-copy{min-width:0}
 
       .ev-avatar-file-card strong{
         display:block;
@@ -659,7 +726,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .ev-avatar-actions{
         display:flex;
         flex-wrap:wrap;
-        justify-content:center;
+        justify-content:flex-end;
         gap:10px;
         margin-top:18px;
       }
@@ -728,8 +795,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       .ev-avatar-btn-cancel{
-        min-height:38px;
-        border-radius:999px;
+        min-height:40px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:7px;
+        border-radius:14px;
         padding:8px 16px;
         color:#111827;
         background:#fff;
@@ -739,7 +810,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       .ev-avatar-btn-cancel:hover{
-        background:#F9FAFB;
+        color:#0F592F;
+        background:#F8FAFC;
+        border-color:#CBD5E1;
       }
 
       .user-menu img,
@@ -747,9 +820,16 @@ document.addEventListener('DOMContentLoaded', () => {
         cursor:pointer;
       }
 
+      @media (max-width:767.98px){
+        .ev-avatar-workspace{grid-template-columns:1fr}
+        .ev-avatar-preview-shell{padding:18px 14px}
+        .ev-avatar-preview-ring{width:124px;height:124px}
+        .ev-avatar-help{max-width:320px}
+      }
+
       @media (max-width:575.98px){
         .ev-avatar-modal-body{
-          padding:18px 16px 16px;
+          padding:16px;
         }
 
         .ev-avatar-modal-footer{
@@ -808,39 +888,51 @@ document.addEventListener('DOMContentLoaded', () => {
           </header>
 
           <div class="modal-body ev-avatar-modal-body">
-            <div class="ev-avatar-preview-shell">
-              <div class="ev-avatar-preview-ring">
-                <img id="evAvatarPreview" src="${avatarActualUrl()}" alt="Vista previa de foto de perfil">
-              </div>
+            <div class="ev-avatar-workspace">
+              <section class="ev-avatar-preview-shell" aria-label="Vista previa de la foto">
+                <div class="ev-avatar-preview-ring">
+                  <img id="evAvatarPreview" src="${avatarActualUrl()}" alt="Vista previa de foto de perfil">
+                </div>
 
-              <p class="ev-avatar-help">
-                Primero selecciona una imagen y revisa la vista previa.
-                Tu foto recién se actualizará cuando presiones <strong>Guardar foto</strong>.
-              </p>
-            </div>
+                <p class="ev-avatar-help">
+                  Procura que tu rostro esté centrado y se vea con claridad.
+                </p>
+              </section>
 
-            <div class="ev-avatar-file-card" id="evAvatarFileInfo">
-              <strong>Ninguna imagen seleccionada</strong>
-              <small>Formatos permitidos: JPG, PNG o WEBP. Tamaño máximo: 2 MB.</small>
-            </div>
+              <section class="ev-avatar-upload-panel">
+                <span class="ev-avatar-upload-eyebrow">Tu perfil EV</span>
+                <h3>Elige una foto clara y actual</h3>
+                <p class="ev-avatar-upload-copy">
+                  Selecciona una imagen, revisa la vista previa y guarda el cambio cuando estés conforme.
+                </p>
 
-            <input
-              type="file"
-              id="evAvatarInput"
-              accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-              hidden
-            >
+                <div class="ev-avatar-file-card" id="evAvatarFileInfo">
+                  <span class="ev-avatar-file-card-icon" aria-hidden="true"><i class="bi bi-image"></i></span>
+                  <span class="ev-avatar-file-card-copy">
+                    <strong>Ninguna imagen seleccionada</strong>
+                    <small>JPG, PNG o WEBP · Máximo 2 MB.</small>
+                  </span>
+                </div>
 
-            <div class="ev-avatar-actions">
-              <button type="button" class="ev-avatar-btn ev-avatar-btn-select" id="evAvatarBtnSelect">
-                <i class="bi bi-folder2-open"></i>
-                Seleccionar nueva foto
-              </button>
+                <input
+                  type="file"
+                  id="evAvatarInput"
+                  accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                  hidden
+                >
 
-              <button type="button" class="ev-avatar-btn ev-avatar-btn-save" id="evAvatarBtnSave" disabled>
-                <i class="bi bi-check2-circle"></i>
-                Guardar foto
-              </button>
+                <div class="ev-avatar-actions">
+                  <button type="button" class="ev-avatar-btn ev-avatar-btn-select" id="evAvatarBtnSelect">
+                    <i class="bi bi-folder2-open"></i>
+                    Seleccionar foto
+                  </button>
+
+                  <button type="button" class="ev-avatar-btn ev-avatar-btn-save" id="evAvatarBtnSave" disabled>
+                    <i class="bi bi-check2-circle"></i>
+                    Guardar foto
+                  </button>
+                </div>
+              </section>
             </div>
           </div>
 
@@ -851,6 +943,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </span>
 
             <button type="button" class="ev-avatar-btn-cancel" data-bs-dismiss="modal">
+              <i class="bi bi-x-circle" aria-hidden="true"></i>
               Cancelar
             </button>
           </footer>
@@ -900,8 +993,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (info) {
       info.innerHTML = `
-        <strong>Ninguna imagen seleccionada</strong>
-        <small>Formatos permitidos: JPG, PNG o WEBP. Tamaño máximo: 2 MB.</small>
+        <span class="ev-avatar-file-card-icon" aria-hidden="true"><i class="bi bi-image"></i></span>
+        <span class="ev-avatar-file-card-copy">
+          <strong>Ninguna imagen seleccionada</strong>
+          <small>JPG, PNG o WEBP · Máximo 2 MB.</small>
+        </span>
       `;
     }
 
@@ -913,13 +1009,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function notificarAvatar(icon, title, text) {
+    if (icon === 'success' && window.EVSwal?.success) {
+      await window.EVSwal.success(title, text, {
+        subtitle: 'Cambio guardado',
+        confirmButtonText: 'Aceptar',
+        showConfirmButton: true,
+        showCancelButton: false
+      });
+      return;
+    }
+
     if (window.Swal?.fire) {
       await Swal.fire({
         icon,
         title,
         text,
+        showCancelButton: false,
+        showDenyButton: false,
+        showConfirmButton: true,
         confirmButtonText: 'Aceptar',
-        confirmButtonColor: icon === 'error' ? '#DC2626' : '#EA7C12'
+        confirmButtonColor: icon === 'error' ? '#DC2626' : '#EA7C12',
+        allowOutsideClick: false
       });
       return;
     }
@@ -946,8 +1056,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (info) {
         info.innerHTML = `
-          <strong>No se pudo usar esta imagen</strong>
-          <small>${error}</small>
+          <span class="ev-avatar-file-card-icon" aria-hidden="true"><i class="bi bi-exclamation-triangle"></i></span>
+          <span class="ev-avatar-file-card-copy">
+            <strong>No se pudo usar esta imagen</strong>
+            <small>${error}</small>
+          </span>
         `;
       }
 
@@ -968,8 +1081,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (info) {
       info.innerHTML = `
-        <strong>${nombreArchivoSeguro(file)}</strong>
-        <small>${formatearPeso(file.size)} · Lista para guardar.</small>
+        <span class="ev-avatar-file-card-icon" aria-hidden="true"><i class="bi bi-check2"></i></span>
+        <span class="ev-avatar-file-card-copy">
+          <strong>${nombreArchivoSeguro(file)}</strong>
+          <small>${formatearPeso(file.size)} · Lista para guardar.</small>
+        </span>
       `;
     }
 
@@ -1106,15 +1222,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function vincularClickAvatares() {
-    const avatares = document.querySelectorAll('.user-menu img, #userDropdown img, img[data-ev-avatar-img], .ev-avatar-img');
+    const avatares = document.querySelectorAll('.user-menu img, #userDropdown img, img[data-ev-avatar-img], .ev-avatar-img, [data-ev-avatar-action="1"]');
 
     avatares.forEach((img) => {
       if (img.dataset.evAvatarBound === '1') return;
 
       img.dataset.evAvatarBound = '1';
       img.setAttribute('title', 'Actualizar foto de perfil');
-      img.setAttribute('role', 'button');
-      img.setAttribute('tabindex', '0');
+      if (img.tagName !== 'BUTTON') {
+        img.setAttribute('role', 'button');
+        img.setAttribute('tabindex', '0');
+      }
 
       img.addEventListener('click', (event) => {
         event.preventDefault();

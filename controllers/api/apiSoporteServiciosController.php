@@ -74,6 +74,8 @@ final class apiSoporteServiciosController
             'buscar' => $_GET['buscar'] ?? '',
             'page' => $_GET['page'] ?? 1,
             'size' => $_GET['size'] ?? 20,
+            'tipo_conjunto' => $_GET['tipo_conjunto'] ?? '',
+            'codigo_comunidad' => $_GET['codigo_comunidad'] ?? 0,
         ]);
         $this->json($this->status($res), $res);
     }
@@ -85,7 +87,10 @@ final class apiSoporteServiciosController
             return;
         }
         $this->exigirSoporte();
-        $res = (new ServicioSoporte())->resumen();
+        $res = (new ServicioSoporte())->resumen([
+            'tipo_conjunto' => $_GET['tipo_conjunto'] ?? '',
+            'codigo_comunidad' => $_GET['codigo_comunidad'] ?? 0,
+        ]);
         $this->json($this->status($res), $res);
     }
 

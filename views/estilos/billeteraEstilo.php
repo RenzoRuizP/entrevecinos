@@ -471,4 +471,48 @@
 @media(prefers-reduced-motion:reduce){
   .ev-wallet-summary-card,.ev-wallet-activity-block,.ev-wallet-mov-card,.ev-wallet-btn-primary,.ev-wallet-btn-outline,.ev-wallet-btn-refresh{transition:none!important}
 }
+
+/* Recargar saldo: acciones juntas y consistentes en web/móvil */
+#modalRecargarSaldo .ev-wallet-recarga-actions{
+  justify-content:flex-end !important;
+  flex-direction:row !important;
+  flex-wrap:wrap;
+  gap:10px;
+}
+#modalRecargarSaldo .ev-wallet-recarga-actions .btn{
+  width:auto !important;
+  min-width:132px;
+  margin:0 !important;
+}
+@media(max-width:575.98px){
+  #modalRecargarSaldo .ev-wallet-recarga-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+  #modalRecargarSaldo .ev-wallet-recarga-actions .btn{
+    width:100% !important;
+    min-width:0;
+  }
+}
+
+</style>
+
+<style>
+.ev-wallet-feature-status{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  min-height:42px;
+  padding:10px 14px;
+  border:1px solid #F3D7B8;
+  border-radius:13px;
+  background:#FFF9F1;
+  color:#9A4C08;
+  font-size:.82rem;
+  font-weight:750;
+  line-height:1.25;
+}
+@media (max-width:575.98px){
+  .ev-wallet-feature-status{width:100%;justify-content:center;text-align:center}
+}
 </style>

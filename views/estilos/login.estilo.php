@@ -1655,4 +1655,477 @@ body.login-body {
   box-shadow: 0 0 0 4px rgba(234, 124, 18, .22), 0 14px 28px rgba(15, 89, 47, .20);
 }
 
+</style><style>
+/* EV 2026-08 — cierre visual del paso Legal */
+#crear_usuario #formStep4{padding:2px}
+#crear_usuario .ev-register-legal{gap:14px}
+#crear_usuario .ev-register-legal__heading{padding:15px 16px;border:1px solid rgba(14,122,67,.12);border-radius:18px;background:linear-gradient(110deg,#fff 0%,#f7fff9 60%,#fff8f0 100%);box-shadow:0 12px 28px rgba(15,23,42,.05)}
+#crear_usuario .ev-register-legal__review,#crear_usuario .ev-register-legal__consent-panel{border-radius:19px;box-shadow:0 12px 28px rgba(15,23,42,.045)}
+#crear_usuario .ev-register-legal__review{padding:16px}
+#crear_usuario .ev-register-legal__doc{min-height:78px;padding:13px;border-radius:15px;background:#fff}
+#crear_usuario .ev-register-legal__doc:hover,#crear_usuario .ev-register-legal__doc:focus-visible{border-color:#EA7C12;background:#FFFBF5;box-shadow:0 12px 24px rgba(234,124,18,.10)}
+#crear_usuario .ev-register-legal__doc:hover .ev-register-legal__doc-action{color:#C46B05}
+#crear_usuario .ev-register-legal__consent-panel{padding:16px;background:linear-gradient(145deg,#fff 0%,#f7fff9 100%)}
+#crear_usuario .ev-register-legal__check{display:grid;grid-template-columns:24px minmax(0,1fr);gap:11px;align-items:flex-start;padding:14px}
+#crear_usuario .ev-register-legal__check .form-check-input{width:20px;height:20px;margin:1px 0 0;border-radius:6px}
+#crear_usuario .ev-register-legal__check label{font-size:.78rem;line-height:1.5}
+#crear_usuario .ev-register-legal__note{padding:10px 12px;border:1px solid #DDEFE4;border-radius:12px;background:#fff}
+#crear_usuario #btnRegistrar:not(:disabled){border-color:#EA7C12!important;background:linear-gradient(135deg,#EA7C12,#F59E0B)!important;box-shadow:0 12px 25px rgba(234,124,18,.24)!important}
+@media(max-width:767.98px){#crear_usuario .ev-register-legal__heading{padding:13px}#crear_usuario .ev-register-legal__review,#crear_usuario .ev-register-legal__consent-panel{padding:13px}#crear_usuario .ev-register-legal__doc{min-height:auto}}
+
+/* Registro enviado — modal de confirmación EV */
+.ev-swal-registro{position:relative!important;overflow:hidden!important;width:min(470px,calc(100% - 28px))!important;padding:32px 30px 26px!important;border:0!important;border-radius:25px!important;box-shadow:0 34px 72px rgba(15,23,42,.24)!important}
+.ev-swal-registro:before{content:"";position:absolute;inset:0 0 auto;height:4px;background:linear-gradient(90deg,#0F592F,#16A34A,#EA7C12)}
+.ev-swal-registro .swal2-title{margin:6px 0 16px!important;color:#0F592F!important;font-size:1.65rem!important;font-weight:900!important}
+.ev-swal-registro .swal2-html-container{margin:0!important;overflow:visible!important}
+.ev-swal-registro__success{width:82px;height:82px;margin:0 auto 18px;display:grid;place-items:center;border:1px solid #A7E9C0;border-radius:50%;background:linear-gradient(145deg,#F0FDF4,#fff);color:#0E7A43;font-size:2.25rem;box-shadow:0 14px 30px rgba(14,122,67,.12)}
+.ev-swal-registro__lead{margin:0 0 7px;color:#1F2937;font-size:1rem;font-weight:850}.ev-swal-registro__text{max-width:360px;margin:0 auto;color:#64748B;font-size:.88rem;line-height:1.55}
+.ev-swal-registro__confirm{min-width:148px!important;min-height:46px!important;margin-top:20px!important;border-radius:14px!important;background:linear-gradient(135deg,#EA7C12,#F59E0B)!important;box-shadow:0 13px 27px rgba(234,124,18,.24)!important}
+.ev-swal-registro__confirm:hover{background:linear-gradient(135deg,#D96F09,#EA7C12)!important;box-shadow:0 16px 32px rgba(234,124,18,.30)!important}
+@media(max-width:520px){.ev-swal-registro{padding:28px 20px 23px!important}.ev-swal-registro .swal2-title{font-size:1.42rem!important}.ev-swal-registro__success{width:72px;height:72px;font-size:2rem}}
+</style>
+<style>
+/* =============================================================
+   EV 2026-08 — Crear usuario y paso Legal · cierre UX/UI
+============================================================= */
+#crear_usuario .ev-register-modal{
+  border:0!important;
+  border-radius:20px!important;
+  background:#fff!important;
+  background-clip:border-box!important;
+  box-shadow:0 32px 78px rgba(15,23,42,.24),0 9px 24px rgba(15,23,42,.10)!important;
+}
+#crear_usuario .ev-register-modal__header{
+  min-height:76px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:14px 18px;
+  border:0!important;
+  border-bottom:1px solid rgba(255,255,255,.16)!important;
+  border-radius:0!important;
+  color:#fff;
+  background:linear-gradient(140deg,#0F592F 0%,#0E7A43 54%,#16A34A 100%)!important;
+  background-clip:border-box!important;
+  overflow:hidden;
+}
+#crear_usuario .ev-register-modal__heading{min-width:0;display:flex;align-items:center;gap:12px}
+#crear_usuario .ev-register-modal__icon{
+  width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;
+  border:1px solid rgba(255,255,255,.22);border-radius:14px;
+  color:#fff;background:rgba(255,255,255,.13);font-size:1.05rem;
+}
+#crear_usuario .ev-register-modal__copy{min-width:0;display:grid;gap:2px}
+#crear_usuario .ev-register-modal__copy .modal-title{margin:0;color:#fff;font-size:1.08rem;font-weight:850;line-height:1.2;letter-spacing:-.012em}
+#crear_usuario .ev-register-modal__subtitle{color:rgba(255,255,255,.82);font-size:.76rem;font-weight:650;line-height:1.25}
+#crear_usuario .ev-register-modal__close{
+  width:42px;height:42px;flex:0 0 42px;margin:0!important;padding:0!important;
+  border:1px solid rgba(255,255,255,.20)!important;border-radius:13px!important;
+  background-color:rgba(255,255,255,.10)!important;background-size:16px!important;
+  opacity:1!important;transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease!important;
+}
+#crear_usuario .ev-register-modal__close:hover{background-color:rgba(255,255,255,.18)!important;border-color:rgba(255,255,255,.32)!important;transform:none!important}
+#crear_usuario .ev-register-modal__close:focus-visible{box-shadow:0 0 0 4px rgba(255,255,255,.18)!important;outline:0}
+#crear_usuario .modal-body{background:linear-gradient(180deg,#fff 0%,#FCFDFC 100%)}
+#crear_usuario .progress{
+  height:34px!important;padding:3px;border:1px solid #E2E8F0;border-radius:999px!important;
+  background:#EEF1F4!important;overflow:hidden;box-shadow:inset 0 1px 2px rgba(15,23,42,.04);
+}
+#crear_usuario .progress-bar{border-radius:999px!important;background:transparent!important;color:#667085!important;font-size:.72rem!important;transition:background .2s ease,color .2s ease,box-shadow .2s ease}
+#crear_usuario .progress-bar.bg-success{color:#fff!important;background:linear-gradient(135deg,#0F592F,#16A34A)!important;box-shadow:0 7px 15px rgba(14,122,67,.18)}
+#crear_usuario .progress-bar.is-complete:not(.bg-success){color:#0E7A43!important;background:#EAF8EF!important}
+
+/* Legal: se elimina el card redundante de "Último paso" y se concentra la decisión. */
+#crear_usuario #formStep4{padding:0 2px 2px}
+#crear_usuario .ev-register-legal{gap:14px}
+#crear_usuario .ev-register-legal__review,
+#crear_usuario .ev-register-legal__consent-panel{border-radius:18px;overflow:hidden}
+#crear_usuario .ev-register-legal__review{
+  padding:16px;border-color:#DCE8E1;
+  background:linear-gradient(145deg,#fff 0%,#FBFEFC 100%);
+  box-shadow:0 13px 30px rgba(15,23,42,.045);
+}
+#crear_usuario .ev-register-legal__section-title{margin-bottom:12px}
+#crear_usuario .ev-register-legal__section-title h6{color:#0F592F!important;font-size:.98rem!important;font-weight:850!important}
+#crear_usuario .ev-register-legal__section-badge{display:inline-flex;align-items:center;gap:6px;color:#0F592F;background:#F0FDF4;border-color:#BBF7D0}
+#crear_usuario .ev-register-legal__intro{
+  display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;gap:10px;
+  margin:0 0 12px;padding:11px 12px;border:1px solid #D7EADF;border-radius:13px;
+  background:linear-gradient(110deg,#F4FFF7,#FFF9F1);color:#526173;
+}
+#crear_usuario .ev-register-legal__intro>span{width:36px;height:36px;display:grid;place-items:center;border-radius:11px;color:#0E7A43;background:#fff;border:1px solid #CDEED9}
+#crear_usuario .ev-register-legal__intro p{margin:0;font-size:.74rem;line-height:1.45}
+#crear_usuario .ev-register-legal__docs{gap:10px}
+#crear_usuario .ev-register-legal__doc{border-color:#DFE7E2;background:#fff}
+#crear_usuario .ev-register-legal__doc:hover,#crear_usuario .ev-register-legal__doc:focus-visible{border-color:#EA7C12;background:#FFF9F1;box-shadow:0 12px 25px rgba(234,124,18,.10)}
+#crear_usuario .ev-register-legal__consent-panel{border-color:#CFE8D8;background:linear-gradient(145deg,#fff 0%,#F4FFF7 100%);box-shadow:0 13px 30px rgba(15,23,42,.04)}
+#crear_usuario .ev-register-legal__consent-heading h6{color:#0F592F!important;font-size:.94rem!important;font-weight:850!important}
+#crear_usuario .ev-register-legal__check{transition:background .16s ease,box-shadow .16s ease}
+#crear_usuario .ev-register-legal__check:hover{background:#FFF9F1}
+#crear_usuario .ev-register-legal__check:focus-within{background:#FFF9F1;box-shadow:inset 4px 0 0 #EA7C12}
+#crear_usuario .ev-register-legal__check .form-check-input:focus{border-color:#EA7C12;box-shadow:0 0 0 4px rgba(234,124,18,.16)}
+#crear_usuario .ev-register-legal__check .form-check-input:checked{border-color:#0E7A43;background-color:#0E7A43}
+#crear_usuario .ev-register-legal__note{border-color:#D7EADF;background:#fff}
+#crear_usuario .modal-footer .btn{min-height:44px;border-radius:13px;font-weight:800;transition:transform .16s ease,box-shadow .16s ease,background-color .16s ease}
+#crear_usuario .modal-footer .btn:hover{transform:translateY(-1px)}
+#crear_usuario #btnAnterior{border-color:#D7DEE7;color:#526173;background:#fff}
+#crear_usuario #btnSiguiente,#crear_usuario #btnRegistrar:not(:disabled){border-color:#EA7C12!important;color:#fff!important;background:linear-gradient(135deg,#EA7C12,#F59E0B)!important;box-shadow:0 12px 25px rgba(234,124,18,.23)!important}
+#crear_usuario #btnSiguiente:hover,#crear_usuario #btnRegistrar:not(:disabled):hover{background:linear-gradient(135deg,#D96F09,#EA7C12)!important;box-shadow:0 15px 30px rgba(234,124,18,.28)!important}
+
+/* Error de registro con el mismo lenguaje visual EV. */
+.ev-swal-registro--error:before{background:linear-gradient(90deg,#0F592F,#16A34A,#EA7C12)!important}
+.ev-swal-registro--error .swal2-title{color:#0F592F!important}
+.ev-swal-registro__error{
+  width:78px;height:78px;margin:0 auto 18px;display:grid;place-items:center;
+  border:1px solid #FECACA;border-radius:50%;background:linear-gradient(145deg,#FFF7F7,#fff);
+  color:#E5484D;font-size:2rem;box-shadow:0 14px 30px rgba(229,72,77,.10);
+}
+.ev-swal-registro--error .ev-swal-registro__confirm{background:linear-gradient(135deg,#EA7C12,#F59E0B)!important}
+
+@media(max-width:767.98px){
+  #crear_usuario .ev-register-modal__header{min-height:68px;padding:11px 12px}
+  #crear_usuario .ev-register-modal__icon{width:38px;height:38px;flex-basis:38px;border-radius:12px}
+  #crear_usuario .ev-register-modal__copy .modal-title{font-size:.98rem}
+  #crear_usuario .ev-register-modal__subtitle{font-size:.71rem}
+  #crear_usuario .ev-register-modal__close{width:38px;height:38px;flex-basis:38px;border-radius:12px!important}
+  #crear_usuario .progress{height:32px!important}
+  #crear_usuario .progress-bar{font-size:.64rem!important}
+  #crear_usuario .ev-register-legal__review,#crear_usuario .ev-register-legal__consent-panel{padding:12px;border-radius:15px}
+  #crear_usuario .ev-register-legal__section-title{align-items:flex-start}
+  #crear_usuario .ev-register-legal__intro{grid-template-columns:32px minmax(0,1fr);padding:10px}
+  #crear_usuario .ev-register-legal__intro>span{width:32px;height:32px;border-radius:10px}
+  #crear_usuario .ev-register-legal__check{padding:13px 11px}
+  #crear_usuario .modal-footer{gap:8px}
+  #crear_usuario .modal-footer .btn{min-width:0}
+}
+@media(max-width:420px){
+  #crear_usuario .progress-bar{font-size:.58rem!important;letter-spacing:-.01em}
+  #crear_usuario .ev-register-legal__section-badge{display:none}
+  #crear_usuario .ev-register-legal__section-title h6{font-size:.9rem!important}
+}
+</style>
+
+
+<style>
+/* ============================================================
+   EV 2026-08 — registro de vecino: homologación final
+============================================================ */
+/* X limpia: mismo patrón del modal Nueva publicación. */
+#crear_usuario .ev-register-modal__close{
+  box-sizing:content-box!important;
+  width:1em!important;
+  height:1em!important;
+  flex:0 0 auto!important;
+  margin:0!important;
+  padding:.25em!important;
+  border:0!important;
+  border-radius:.375rem!important;
+  background:transparent var(--bs-btn-close-bg) center/1em auto no-repeat!important;
+  filter:invert(1) grayscale(100%) brightness(200%)!important;
+  opacity:.95!important;
+  box-shadow:none!important;
+  transform:none!important;
+  transition:opacity .16s ease,filter .16s ease!important;
+}
+#crear_usuario .ev-register-modal__close:hover,
+#crear_usuario .ev-register-modal__close:focus-visible{
+  opacity:1!important;
+  filter:invert(1) grayscale(100%) brightness(225%)!important;
+  background-color:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  transform:none!important;
+  outline:0!important;
+}
+
+/* El paso activo se identifica con el anaranjado EV. */
+#crear_usuario .progress-bar.bg-success{
+  color:#fff!important;
+  background:linear-gradient(135deg,#EA7C12 0%,#F59E0B 100%)!important;
+  box-shadow:0 8px 18px rgba(234,124,18,.25)!important;
+}
+#crear_usuario .progress-bar.is-complete:not(.bg-success){
+  color:#0E7A43!important;
+  background:#EEF9F2!important;
+  box-shadow:inset 0 0 0 1px rgba(14,122,67,.08)!important;
+}
+
+/* Paso Legal: cards blancos EV, jerarquía limpia y estados claros. */
+#crear_usuario .ev-register-legal__review,
+#crear_usuario .ev-register-legal__consent-panel,
+#crear_usuario .ev-register-legal__intro,
+#crear_usuario .ev-register-legal__doc,
+#crear_usuario .ev-register-legal__check,
+#crear_usuario .ev-register-legal__note{
+  background:#FFFFFF!important;
+}
+#crear_usuario .ev-register-legal__review,
+#crear_usuario .ev-register-legal__consent-panel{
+  border:1px solid #DFE7E2!important;
+  box-shadow:0 14px 30px rgba(15,23,42,.055)!important;
+}
+#crear_usuario .ev-register-legal__intro{
+  border-color:#F3D7B8!important;
+  box-shadow:inset 4px 0 0 #EA7C12!important;
+}
+#crear_usuario .ev-register-legal__doc{
+  border-color:#E1E8E4!important;
+  box-shadow:0 7px 18px rgba(15,23,42,.035)!important;
+}
+#crear_usuario .ev-register-legal__check{
+  border-color:#E1E8E4!important;
+}
+#crear_usuario .ev-register-legal__check:hover,
+#crear_usuario .ev-register-legal__check:focus-within{
+  background:#FFF8F0!important;
+  box-shadow:inset 4px 0 0 #EA7C12!important;
+}
+#crear_usuario .ev-register-legal__check .form-check-input:checked{
+  border-color:#EA7C12!important;
+  background-color:#EA7C12!important;
+}
+
+/* Navegación reunida: Anterior y Siguiente/Registrar permanecen juntos. */
+#crear_usuario .ev-register-modal__footer{
+  display:flex!important;
+  justify-content:flex-end!important;
+  align-items:center!important;
+  padding:12px 20px 16px!important;
+}
+#crear_usuario .ev-register-modal__actions{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  gap:10px;
+  width:auto;
+}
+#crear_usuario .ev-register-modal__actions .btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  min-width:126px;
+}
+
+/* Login exitoso: lenguaje visual idéntico a Registro enviado. */
+.ev-swal-login .swal2-title{margin-bottom:14px!important}
+.ev-swal-login__progress{
+  width:min(260px,82%);
+  height:5px;
+  margin:20px auto 0;
+  overflow:hidden;
+  border-radius:999px;
+  background:#EEF2F7;
+}
+.ev-swal-login__progress span{
+  display:block;
+  width:42%;
+  height:100%;
+  border-radius:inherit;
+  background:linear-gradient(90deg,#0E7A43,#16A34A,#EA7C12);
+  animation:evLoginProgress 1.1s ease-in-out infinite;
+}
+@keyframes evLoginProgress{
+  0%{transform:translateX(-125%)}
+  100%{transform:translateX(340%)}
+}
+
+@media(max-width:575.98px){
+  #crear_usuario .ev-register-modal__footer{padding:11px 14px 14px!important}
+  #crear_usuario .ev-register-modal__actions{width:100%;gap:8px}
+  #crear_usuario .ev-register-modal__actions .btn{flex:1;min-width:0;padding-inline:10px}
+}
+</style>
+
+<style>
+/* EV — cargador compacto unificado para autenticación. */
+.spinner-overlay{
+  background:rgba(15,23,42,.28)!important;
+  backdrop-filter:blur(2px);
+}
+.ev-loading-compact,
+.ev-swal-login__loading{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  min-height:48px;
+  padding:10px 18px;
+  border:1px solid rgba(229,231,235,.96);
+  border-radius:999px;
+  background:#fff;
+  color:#0F592F;
+  box-shadow:0 16px 34px rgba(15,23,42,.16);
+  font-size:.92rem;
+  font-weight:850;
+  letter-spacing:-.01em;
+}
+.ev-loading-compact .spinner,
+.ev-swal-login__spinner{
+  width:24px;
+  height:24px;
+  flex:0 0 24px;
+  border:3px solid #DDF4E6;
+  border-top-color:#0E7A43;
+  border-right-color:#EA7C12;
+  border-radius:50%;
+  animation:spin .72s linear infinite;
+}
+.ev-swal-login__loading{
+  margin:18px auto 0;
+  min-height:44px;
+  padding:9px 16px;
+  box-shadow:0 10px 24px rgba(15,23,42,.08);
+}
+.ev-swal-login__loading strong{font-weight:850}
+@media(max-width:575.98px){
+  .ev-loading-compact,.ev-swal-login__loading{font-size:.86rem;padding-inline:14px}
+}
+</style>
+
+<style>
+/* EV — pasos 1, 2 y 3 integrados en un único card, igual jerarquía que Legal. */
+#crear_usuario #formStep1,
+#crear_usuario #formStep2,
+#crear_usuario #formStep3{
+  overflow:hidden;
+  padding:0;
+  border:1px solid #DFE7E2;
+  border-radius:18px;
+  background:#FFFFFF;
+  box-shadow:0 14px 30px rgba(15,23,42,.055);
+}
+#crear_usuario #formStep1>h6,
+#crear_usuario #formStep2>h6,
+#crear_usuario #formStep3>h6{
+  min-height:58px;
+  margin:0!important;
+  padding:14px 18px!important;
+  border-bottom:1px solid #E7EEE9;
+  background:#FFFFFF;
+  color:#0F592F!important;
+  font-size:1rem!important;
+  font-weight:850!important;
+  letter-spacing:-.015em;
+}
+#crear_usuario #formStep1>h6>i,
+#crear_usuario #formStep2>h6>i,
+#crear_usuario #formStep3>h6>i{
+  width:34px!important;
+  height:34px!important;
+  flex:0 0 34px!important;
+  border:1px solid #CDEED9;
+  border-radius:11px;
+  background:#F0FDF4;
+  color:#0E7A43;
+}
+#crear_usuario #formStep1>.row.g-3,
+#crear_usuario #formStep2>.row.g-3,
+#crear_usuario #formStep3>.row.g-3{
+  margin:0!important;
+  padding:18px!important;
+  border:0!important;
+  border-radius:0!important;
+  background:#FFFFFF!important;
+  box-shadow:none!important;
+}
+#crear_usuario #formStep1:focus-within,
+#crear_usuario #formStep2:focus-within,
+#crear_usuario #formStep3:focus-within{
+  border-color:#C8E8D4;
+  box-shadow:0 16px 34px rgba(15,89,47,.08);
+}
+@media(max-width:767.98px){
+  #crear_usuario #formStep1,
+  #crear_usuario #formStep2,
+  #crear_usuario #formStep3{border-radius:15px}
+  #crear_usuario #formStep1>h6,
+  #crear_usuario #formStep2>h6,
+  #crear_usuario #formStep3>h6{min-height:54px;padding:11px 13px!important;font-size:.94rem!important}
+  #crear_usuario #formStep1>.row.g-3,
+  #crear_usuario #formStep2>.row.g-3,
+  #crear_usuario #formStep3>.row.g-3{padding:14px 12px!important}
+}
+</style>
+<style>
+/* ============================================================
+   EV — cierre final del modal Crear mi usuario
+   Misma interacción del modal Revisar registro.
+============================================================ */
+#crear_usuario .modal-header .ev-register-modal__close{
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  box-sizing:border-box!important;
+  display:inline-grid!important;
+  place-items:center!important;
+  width:40px!important;
+  height:40px!important;
+  flex:0 0 40px!important;
+  margin:0!important;
+  padding:0!important;
+  border:1px solid transparent!important;
+  border-radius:12px!important;
+  background:transparent!important;
+  background-image:none!important;
+  color:#FFFFFF!important;
+  filter:none!important;
+  opacity:1!important;
+  box-shadow:none!important;
+  transform:none!important;
+  cursor:pointer!important;
+  -webkit-tap-highlight-color:transparent;
+  transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease!important;
+}
+#crear_usuario .modal-header .ev-register-modal__close::before,
+#crear_usuario .modal-header .ev-register-modal__close::after{
+  content:none!important;
+  display:none!important;
+}
+#crear_usuario .modal-header .ev-register-modal__close i{
+  display:block!important;
+  color:#FFFFFF!important;
+  font-size:1.08rem!important;
+  line-height:1!important;
+  pointer-events:none!important;
+}
+#crear_usuario .modal-header .ev-register-modal__close:hover,
+#crear_usuario .modal-header .ev-register-modal__close:focus-visible{
+  background:rgba(15,89,47,.34)!important;
+  border-color:rgba(255,255,255,.30)!important;
+  box-shadow:0 0 0 4px rgba(255,255,255,.10),inset 0 1px 0 rgba(255,255,255,.14)!important;
+  color:#FFFFFF!important;
+  transform:translateY(-1px)!important;
+  outline:0!important;
+}
+#crear_usuario .modal-header .ev-register-modal__close:active{
+  background:rgba(15,89,47,.48)!important;
+  transform:translateY(0)!important;
+}
+@media(max-width:575.98px){
+  #crear_usuario .modal-header .ev-register-modal__close{
+    width:38px!important;
+    height:38px!important;
+    flex-basis:38px!important;
+  }
+}
+</style>
+
+<style>
+/* EV — cierre del registro homologado con Nueva publicación. */
+#crear_usuario .modal-header .btn-close.ev-modal-close-icon{
+  box-sizing:border-box!important;width:38px!important;height:38px!important;min-width:38px!important;min-height:38px!important;
+  flex:0 0 38px!important;margin:0!important;padding:0!important;border:0!important;border-radius:10px!important;
+  background-color:transparent!important;background-image:var(--bs-btn-close-bg)!important;
+  background-position:center!important;background-repeat:no-repeat!important;background-size:14px 14px!important;
+  filter:invert(1) grayscale(1) brightness(2)!important;opacity:1!important;box-shadow:none!important;transform:none!important;
+  transition:background-color .13s ease!important;
+}
+#crear_usuario .modal-header .btn-close.ev-modal-close-icon:hover,
+#crear_usuario .modal-header .btn-close.ev-modal-close-icon:focus-visible{
+  background-color:rgba(15,89,47,.44)!important;border:0!important;box-shadow:none!important;
+  opacity:1!important;transform:none!important;outline:0!important;
+}
+#crear_usuario .modal-header .btn-close.ev-modal-close-icon:active{background-color:rgba(15,89,47,.60)!important}
+@media(max-width:575.98px){#crear_usuario .modal-header .btn-close.ev-modal-close-icon{width:36px!important;height:36px!important;min-width:36px!important;min-height:36px!important;flex-basis:36px!important}}
 </style>

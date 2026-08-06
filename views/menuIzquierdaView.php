@@ -313,7 +313,8 @@ $rutaActivaMenu = ev_obtener_ruta_activa_menu();
 
     <button type="button"
             class="ev-sidebar-footer-link ev-sidebar-footer-link-logout"
-            onclick="window.location.href='<?= htmlspecialchars($hrefLogoutSidebar, ENT_QUOTES, 'UTF-8') ?>'">
+            data-ev-logout="1"
+            data-logout-url="<?= htmlspecialchars($hrefLogoutSidebar, ENT_QUOTES, 'UTF-8') ?>">
 
       <i class="bi bi-box-arrow-right"></i>
       <span>Cerrar sesión</span>

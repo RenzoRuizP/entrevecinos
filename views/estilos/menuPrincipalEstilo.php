@@ -1282,4 +1282,47 @@ body{ background:var(--ev-gris-fondo); }
   justify-content:flex-start;
 }
 
+
+/* ============================================================
+   POLÍTICA VISUAL GLOBAL DE MODALES EV
+   Evita bordes blancos en las esquinas superiores y unifica el recorte.
+============================================================ */
+.modal .modal-content{
+  border:0!important;
+  background-clip:border-box!important;
+  overflow:hidden!important;
+}
+.modal .modal-header{
+  background-clip:border-box!important;
+  border-top-left-radius:inherit!important;
+  border-top-right-radius:inherit!important;
+}
+
+/* Ayuda EV */
+.ev-help-modal-popup{
+  width:min(92vw,560px)!important;
+  border:0!important;
+  border-radius:26px!important;
+  padding:30px 28px 24px!important;
+  overflow:hidden!important;
+  box-shadow:0 34px 76px rgba(15,23,42,.24),0 10px 24px rgba(15,23,42,.10)!important;
+  background:linear-gradient(180deg,#FFFFFF 0%,#FBFDFB 100%)!important;
+}
+.ev-help-modal-popup::before{
+  content:"";
+  position:absolute;
+  inset:0 0 auto;
+  height:5px;
+  background:linear-gradient(90deg,#0F592F,#16A34A,#EA7C12);
+}
+.ev-help-modal-title{color:#0F592F!important;font-weight:900!important;letter-spacing:-.025em!important;font-size:clamp(1.75rem,4vw,2.15rem)!important}
+.ev-help-modal-html{margin-top:8px!important;color:#4B5563!important}
+.ev-help-modal-icon{width:76px;height:76px;margin:4px auto 16px;display:grid;place-items:center;border-radius:24px;background:linear-gradient(145deg,#ECFDF3,#FFFFFF);border:1px solid rgba(22,163,74,.24);color:#0F592F;font-size:2rem;box-shadow:0 16px 32px rgba(15,89,47,.11)}
+.ev-help-modal-copy{display:grid;justify-items:center;gap:10px;line-height:1.55;text-align:center}
+.ev-help-modal-copy>strong{color:#0F592F;font-size:1rem;font-weight:900}
+.ev-help-modal-copy>p{max-width:420px;margin:0;color:#5B6474}
+.ev-help-modal-contact{display:inline-flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;background:#F0FDF4;border:1px solid rgba(22,163,74,.22);color:#0E7A43!important;font-weight:900;text-decoration:none!important;transition:.16s ease}
+.ev-help-modal-contact:hover{transform:translateY(-1px);border-color:rgba(234,124,18,.40);color:#C46B05!important;box-shadow:0 10px 22px rgba(234,124,18,.12)}
+.ev-help-modal-confirm{min-width:150px!important;border-radius:14px!important;font-weight:900!important;box-shadow:0 12px 24px rgba(234,124,18,.22)!important}
+
 </style>

@@ -51,6 +51,8 @@ function ev_js_src(string $file): string
 
 <script src="<?= htmlspecialchars(ev_js_src('js/evRoutes.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(ev_js_src('js/evModalPolicy.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(ev_js_src('js/evSearchableSelect.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="<?= htmlspecialchars(ev_js_src('js/adminCommunityScope.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
 
 <!-- Scripts globales del shell: se cargan para todos los perfiles -->
 <script src="<?= htmlspecialchars(ev_js_src('js/evSweetAlert.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
@@ -68,6 +70,10 @@ function ev_js_src(string $file): string
   <script src="<?= htmlspecialchars(ev_js_src('js/atenderPublicacion.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/atenderServicios.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <script src="<?= htmlspecialchars(ev_js_src('js/atenderLibroReclamaciones.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+
+  <?php if ($rolUsuario === 'admin'): ?>
+    <script src="<?= htmlspecialchars(ev_js_src('js/marketplace.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+  <?php endif; ?>
 
 <?php elseif ($rolUsuario === 'administrador_comunidad'): ?>
 

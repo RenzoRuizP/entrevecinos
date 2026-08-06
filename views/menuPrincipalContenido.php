@@ -88,6 +88,7 @@ $nombreSaludoSafe = htmlspecialchars($nombreSaludoRaw, ENT_QUOTES, 'UTF-8');
   <!-- RESUMEN -->
   <section class="ev-home-summary-grid" aria-label="Resumen operativo">
 
+    <?php if (($evComprarProductosDisponible ?? true) === true): ?>
     <article class="ev-home-summary-card ev-home-summary-green">
       <div class="ev-home-summary-icon">
         <i class="bi bi-bag-check"></i>
@@ -103,6 +104,7 @@ $nombreSaludoSafe = htmlspecialchars($nombreSaludoRaw, ENT_QUOTES, 'UTF-8');
         </button>
       </div>
     </article>
+    <?php endif; ?>
 
     <article class="ev-home-summary-card ev-home-summary-orange">
       <div class="ev-home-summary-icon">
@@ -136,6 +138,7 @@ $nombreSaludoSafe = htmlspecialchars($nombreSaludoRaw, ENT_QUOTES, 'UTF-8');
       </div>
     </article>
 
+    <?php if (($evBilleteraDisponible ?? true) === true): ?>
     <article class="ev-home-summary-card ev-home-summary-wallet">
       <div class="ev-home-summary-icon">
         <i class="bi bi-wallet2"></i>
@@ -151,6 +154,7 @@ $nombreSaludoSafe = htmlspecialchars($nombreSaludoRaw, ENT_QUOTES, 'UTF-8');
         </button>
       </div>
     </article>
+    <?php endif; ?>
   </section>
 
   <section class="ev-home-main-grid" aria-label="Actividad y accesos rápidos">
@@ -186,40 +190,50 @@ $nombreSaludoSafe = htmlspecialchars($nombreSaludoRaw, ENT_QUOTES, 'UTF-8');
 
       <div class="ev-home-actions-grid">
 
+        <?php if (($evMarketplaceDisponible ?? true) === true): ?>
         <button type="button" class="ev-home-action-card" data-ev-route="/marketplace">
           <span><i class="bi bi-cart3"></i></span>
           <strong>Ir al Marketplace</strong>
           <small>Explora productos y servicios</small>
           <i class="bi bi-chevron-right ev-home-action-chevron"></i>
         </button>
+        <?php endif; ?>
 
+        <?php if (($evCrearPublicacionDisponible ?? true) === true): ?>
         <button type="button" class="ev-home-action-card" data-ev-route="/publicacion">
           <span><i class="bi bi-plus-circle"></i></span>
           <strong>Crear publicación</strong>
           <small>Publica un producto o servicio</small>
           <i class="bi bi-chevron-right ev-home-action-chevron"></i>
         </button>
+        <?php endif; ?>
 
+        <?php if (($evComprarProductosDisponible ?? true) === true): ?>
         <button type="button" class="ev-home-action-card" data-ev-route="/mis-pedidos-comprador">
           <span><i class="bi bi-bag"></i></span>
           <strong>Mis compras</strong>
           <small>Ver mis pedidos</small>
           <i class="bi bi-chevron-right ev-home-action-chevron"></i>
         </button>
+        <?php endif; ?>
 
+        <?php if (($evPublicarProductosDisponible ?? true) === true): ?>
         <button type="button" class="ev-home-action-card" data-ev-route="/mis-pedidos-vendedor">
           <span><i class="bi bi-box-seam"></i></span>
           <strong>Mis ventas</strong>
           <small>Ver pedidos recibidos</small>
           <i class="bi bi-chevron-right ev-home-action-chevron"></i>
         </button>
+        <?php endif; ?>
 
+        <?php if (($evBilleteraDisponible ?? true) === true): ?>
         <button type="button" class="ev-home-action-card" data-ev-route="/billetera">
           <span><i class="bi bi-wallet2"></i></span>
           <strong>Billetera</strong>
           <small>Saldo y movimientos</small>
           <i class="bi bi-chevron-right ev-home-action-chevron"></i>
         </button>
+        <?php endif; ?>
 
         <button type="button" class="ev-home-action-card ev-home-action-card--community" data-ev-route="/comunidad">
           <span><i class="bi bi-people"></i></span>

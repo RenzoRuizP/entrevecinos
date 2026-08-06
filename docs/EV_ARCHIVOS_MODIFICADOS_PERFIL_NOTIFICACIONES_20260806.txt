@@ -1,0 +1,18 @@
+Paquete de actualización EV — Perfil, foto, acceso, Marketplace y notificaciones
+Fecha: 2026-08-06
+
+Archivos modificados:
+1. views/menuArribaView.php
+2. views/estilos/menuArribaEstilo.php
+3. views/js/menuArriba.js
+4. views/js/iniciarSesion.js
+5. views/login.php
+6. views/estilos/marketplaceEstilo.php
+7. views/js/datosPersonales.js
+
+Documentación agregada:
+8. docs/EV_CORRECCIONES_PERFIL_NOTIFICACIONES_20260806.md
+9. docs/EV_ARCHIVOS_MODIFICADOS_PERFIL_NOTIFICACIONES_20260806.txt
+
+Base de datos:
+- No requiere cambios SQL.

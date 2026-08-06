@@ -97,6 +97,8 @@ final class ServicioSoporte extends Conexion
         $page = max(1, (int)($filtros['page'] ?? 1));
         $size = max(1, min(50, (int)($filtros['size'] ?? 20)));
         $offset = ($page - 1) * $size;
+        $tipoConjunto = strtolower(trim((string)($filtros['tipo_conjunto'] ?? '')));
+        $codigoComunidad = max(0, (int)($filtros['codigo_comunidad'] ?? 0));
 
         $where = ['i.requiere_soporte = 1'];
         $params = [];
@@ -104,6 +106,12 @@ final class ServicioSoporte extends Conexion
             $where[] = "i.estado IN ('revision_soporte','esperando_informacion')";
         } elseif ($estado === 'resueltas') {
             $where[] = "i.estado IN ('resuelta','cerrada','cancelada')";
+        }
+        if ($codigoComunidad > 0 && in_array($tipoConjunto, ['condominio','urbanizacion'], true)) {
+            $where[] = $tipoConjunto === 'condominio'
+                ? "p.tipo_conjunto_publicacion='condominio' AND p.codigo_condominio_publicacion=:codigo_comunidad"
+                : "p.tipo_conjunto_publicacion='urbanizacion' AND p.codigo_urbanizacion_publicacion=:codigo_comunidad";
+            $params[':codigo_comunidad'] = $codigoComunidad;
         }
         if ($buscar !== '') {
             $where[] = '(p.titulo LIKE :buscar_titulo OR uc.nombre LIKE :buscar_comprador OR up.nombre LIKE :buscar_proveedor OR CAST(i.codigo_incidencia AS CHAR) LIKE :buscar_incidencia)';
@@ -181,28 +189,41 @@ final class ServicioSoporte extends Conexion
         }
     }
 
-    public function resumen(): array
+    public function resumen(array $filtros = []): array
     {
         try {
+            $tipoConjunto = strtolower(trim((string)($filtros['tipo_conjunto'] ?? '')));
+            $codigoComunidad = max(0, (int)($filtros['codigo_comunidad'] ?? 0));
+            $where = '';
+            $params = [];
+            if ($codigoComunidad > 0 && in_array($tipoConjunto, ['condominio','urbanizacion'], true)) {
+                $where = $tipoConjunto === 'condominio'
+                    ? " AND p.tipo_conjunto_publicacion='condominio' AND p.codigo_condominio_publicacion=:comunidad"
+                    : " AND p.tipo_conjunto_publicacion='urbanizacion' AND p.codigo_urbanizacion_publicacion=:comunidad";
+                $params[':comunidad'] = $codigoComunidad;
+            }
             $sql = "
                 SELECT
-                    SUM(CASE WHEN requiere_soporte = 1 AND estado IN ('revision_soporte','esperando_informacion') THEN 1 ELSE 0 END) AS abiertas,
-                    SUM(CASE WHEN requiere_soporte = 1 AND estado = 'revision_soporte' THEN 1 ELSE 0 END) AS pendientes,
-                    SUM(CASE WHEN fecha_resolucion_soporte IS NOT NULL AND DATE(fecha_resolucion_soporte) = CURDATE() THEN 1 ELSE 0 END) AS resueltas_hoy
-                FROM solicitud_servicio_incidencia
+                    SUM(CASE WHEN i.requiere_soporte = 1 AND i.estado IN ('revision_soporte','esperando_informacion') THEN 1 ELSE 0 END) AS abiertas,
+                    SUM(CASE WHEN i.requiere_soporte = 1 AND i.estado = 'revision_soporte' THEN 1 ELSE 0 END) AS pendientes,
+                    SUM(CASE WHEN i.fecha_resolucion_soporte IS NOT NULL AND DATE(i.fecha_resolucion_soporte) = CURDATE() THEN 1 ELSE 0 END) AS resueltas_hoy
+                FROM solicitud_servicio_incidencia i
+                INNER JOIN solicitud_servicio ss ON ss.codigo_solicitud_servicio=i.codigo_solicitud_servicio
+                INNER JOIN producto p ON p.codigo_producto=ss.codigo_producto
+                WHERE 1=1 {$where}
             ";
-            $row = $this->dblink->query($sql)->fetch(PDO::FETCH_ASSOC) ?: [];
-            return [
-                'ok' => true,
-                'data' => [
-                    'abiertas' => (int)($row['abiertas'] ?? 0),
-                    'pendientes' => (int)($row['pendientes'] ?? 0),
-                    'resueltas_hoy' => (int)($row['resueltas_hoy'] ?? 0),
-                ],
-            ];
+            $st = $this->dblink->prepare($sql);
+            foreach ($params as $key => $value) $st->bindValue($key, $value, PDO::PARAM_INT);
+            $st->execute();
+            $row = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+            return ['ok'=>true,'data'=>[
+                'abiertas'=>(int)($row['abiertas']??0),
+                'pendientes'=>(int)($row['pendientes']??0),
+                'resueltas_hoy'=>(int)($row['resueltas_hoy']??0),
+            ]];
         } catch (Throwable $e) {
             error_log('[EV][ServicioSoporte][resumen] ' . $e->getMessage());
-            return ['ok' => false, 'error' => 'ERROR_RESUMEN_SERVICIOS', 'mensaje' => 'No se pudo obtener el resumen de servicios.'];
+            return ['ok'=>false,'error'=>'ERROR_RESUMEN_SERVICIOS','mensaje'=>'No se pudo obtener el resumen de servicios.'];
         }
     }
 

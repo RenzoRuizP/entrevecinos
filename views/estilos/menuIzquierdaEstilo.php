@@ -94,7 +94,7 @@
   margin:.04rem .55rem; padding:0 .34rem; border-radius:16px;
   background:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.045));
   border:1px solid transparent; pointer-events:none; transform:translateY(-2px);
-  transition:max-height .18s cubic-bezier(.22,.9,.32,1),opacity .14s ease,transform .18s ease,margin .18s ease,padding .18s ease,border-color .18s ease;
+  transition:max-height .12s ease-out,opacity .10s ease,transform .12s ease,margin .12s ease,padding .12s ease,border-color .12s ease;
 }
 .nav-treeview.ev-menu-group.is-open{
   max-height:760px; opacity:1; margin:.16rem .55rem .5rem; padding:.34rem .34rem .30rem;

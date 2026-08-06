@@ -381,4 +381,264 @@
   border-color: rgba(15,89,47,0.22);
   color: #0F592F;
 }
+
+
+/* ===================================================
+   REVISAR REGISTRO — refinamiento responsive EV
+=================================================== */
+#modalRevisarCuenta .modal-dialog{
+  width:min(1120px, calc(100vw - 32px));
+  max-width:1120px;
+  margin:1.25rem auto;
+}
+#modalRevisarCuenta .ev-modal{
+  background:#fff;
+  border:0!important;
+  background-clip:border-box;
+  overflow:hidden;
+  box-shadow:0 30px 76px rgba(15,23,42,.24),0 8px 24px rgba(15,23,42,.10);
+}
+#modalRevisarCuenta .ev-modal-header{
+  min-height:76px;
+  margin:0!important;
+  border-top-left-radius:inherit;
+  border-top-right-radius:inherit;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  padding:14px 18px;
+  overflow:hidden;
+}
+.ev-review-modal-heading{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.ev-review-modal-icon{
+  width:42px;
+  height:42px;
+  flex:0 0 42px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  color:#fff;
+  background:rgba(255,255,255,.13);
+  border:1px solid rgba(255,255,255,.22);
+  font-size:1.08rem;
+}
+.ev-review-modal-copy{
+  min-width:0;
+  display:grid;
+  gap:2px;
+}
+#modalRevisarCuenta .ev-review-modal-copy .modal-title{
+  margin:0;
+  font-size:1.08rem;
+  line-height:1.25;
+  letter-spacing:-.012em;
+  overflow-wrap:anywhere;
+}
+.ev-review-modal-subtitle{
+  display:block;
+  max-width:100%;
+  color:rgba(255,255,255,.78);
+  font-size:.82rem;
+  font-weight:650;
+  line-height:1.3;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+#modalRevisarCuenta .ev-modal-close{
+  width:40px;
+  height:40px;
+  flex:0 0 40px;
+  margin:0;
+  padding:0;
+  border-radius:12px;
+  background-color:rgba(255,255,255,.09);
+  border:1px solid rgba(255,255,255,.18);
+  opacity:1;
+  transition:background-color .16s ease,border-color .16s ease;
+}
+#modalRevisarCuenta .ev-modal-close:hover,
+#modalRevisarCuenta .ev-modal-close:focus{
+  background-color:rgba(255,255,255,.17);
+  border-color:rgba(255,255,255,.30);
+  box-shadow:none;
+  transform:none;
+}
+.ev-review-profile{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  padding-bottom:12px;
+  margin-bottom:4px;
+  border-bottom:1px solid rgba(229,231,235,.92);
+}
+.ev-review-person{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.ev-review-avatar{
+  width:42px;
+  height:42px;
+  flex:0 0 42px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  color:var(--ev-verde-oscuro);
+  background:#ECFDF3;
+  border:1px solid rgba(22,163,74,.18);
+}
+.ev-review-person-copy{min-width:0}
+.ev-review-person-copy #mNombre,
+.ev-review-person-copy #mEmail{
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.ev-review-badges{min-width:0;max-width:54%}
+.ev-review-status-stack{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:flex-end;
+  gap:6px;
+}
+.ev-review-status-stack .ev-badge{
+  max-width:100%;
+  white-space:normal;
+  line-height:1.25;
+  text-align:center;
+  justify-content:center;
+}
+#modalRevisarCuenta .ev-kv{
+  padding:14px;
+  border-color:rgba(15,89,47,.12);
+  box-shadow:0 10px 28px rgba(15,23,42,.035);
+}
+#modalRevisarCuenta .ev-kv-item strong{
+  max-width:62%;
+  text-align:right;
+  overflow-wrap:anywhere;
+}
+#modalRevisarCuenta .ev-hint{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  background:linear-gradient(135deg,#F8FFFB,#FFFFFF);
+  border-color:rgba(22,163,74,.18);
+  color:#38534A;
+}
+#modalRevisarCuenta .ev-hint::before{
+  content:"\F52A";
+  font-family:"bootstrap-icons";
+  color:var(--ev-naranja);
+  font-size:1rem;
+  flex:0 0 auto;
+}
+#modalRevisarCuenta #btnModalObservar{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  border-radius:12px;
+  font-weight:800;
+}
+#modalRevisarCuenta .ev-proof{
+  height:100%;
+  min-height:430px;
+  display:flex;
+  flex-direction:column;
+  border-color:rgba(15,89,47,.13);
+  box-shadow:0 12px 30px rgba(15,23,42,.04);
+}
+#modalRevisarCuenta .ev-proof-title{
+  min-height:52px;
+  background:linear-gradient(90deg,#F8FFFB,#FFFFFF);
+}
+.ev-proof-open{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  color:var(--ev-verde);
+  font-weight:800;
+  text-decoration:none;
+}
+.ev-proof-open:hover{color:var(--ev-naranja)}
+#modalRevisarCuenta .ev-proof-box{
+  flex:1;
+  min-height:330px;
+  overflow:auto;
+  background:linear-gradient(180deg,#FFFFFF,#FBFDFC);
+}
+#modalRevisarCuenta .ev-proof-box img{
+  width:auto;
+  max-width:100%;
+  max-height:520px!important;
+  object-fit:contain;
+}
+#modalRevisarCuenta .ev-proof-hint{
+  padding:10px 14px 13px;
+  color:var(--ev-gris-500);
+  font-size:.78rem;
+  line-height:1.45;
+  border-top:1px solid rgba(229,231,235,.82);
+}
+#modalRevisarCuenta .ev-modal-footer{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:13px 18px;
+}
+#modalRevisarCuenta .ev-review-action{
+  min-height:42px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  border-radius:12px;
+  font-weight:850;
+}
+@media(max-width:991.98px){
+  #modalRevisarCuenta .modal-dialog{width:min(720px,calc(100vw - 24px));margin:.75rem auto}
+  #modalRevisarCuenta .ev-proof{min-height:360px}
+  #modalRevisarCuenta .ev-proof-box{min-height:260px}
+}
+@media(max-width:575.98px){
+  #modalRevisarCuenta .modal-dialog{
+    width:calc(100vw - 16px);
+    max-width:none;
+    margin:8px auto;
+    min-height:calc(100vh - 16px);
+  }
+  #modalRevisarCuenta .modal-content{max-height:calc(100vh - 16px)}
+  #modalRevisarCuenta .ev-modal-header{min-height:68px;padding:11px 12px;gap:10px}
+  .ev-review-modal-icon{width:38px;height:38px;flex-basis:38px;border-radius:12px}
+  #modalRevisarCuenta .ev-review-modal-copy .modal-title{font-size:.98rem}
+  .ev-review-modal-subtitle{font-size:.76rem}
+  #modalRevisarCuenta .ev-modal-close{width:38px;height:38px;flex-basis:38px}
+  #modalRevisarCuenta .ev-modal-body{padding:14px 12px}
+  .ev-review-profile{flex-direction:column;align-items:stretch}
+  .ev-review-badges{max-width:100%;width:100%}
+  .ev-review-status-stack{justify-content:flex-start}
+  .ev-review-status-stack .ev-badge{flex:1 1 auto;min-width:0}
+  #modalRevisarCuenta .ev-kv-item{align-items:flex-start}
+  #modalRevisarCuenta .ev-kv-item strong{max-width:58%;font-size:.86rem}
+  #modalRevisarCuenta .ev-proof{min-height:320px}
+  #modalRevisarCuenta .ev-proof-box{min-height:230px;padding:9px}
+  #modalRevisarCuenta .ev-doc-frame{height:250px}
+  #modalRevisarCuenta .ev-modal-footer{padding:11px 12px;gap:8px}
+  #modalRevisarCuenta .ev-review-action{flex:1 1 0;padding:10px 8px;font-size:.82rem}
+}
+
+.ev-table .ev-review-status-stack{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+#modalRevisarCuenta .ev-review-status-stack{display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px}
+@media(max-width:575.98px){#modalRevisarCuenta .ev-review-status-stack{justify-content:flex-start}}
 </style>

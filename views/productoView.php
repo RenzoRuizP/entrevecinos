@@ -234,7 +234,8 @@ require_once __DIR__ . '/../Config/config.php';
                 </div>
 
                 <div class="ev-publicacion-switch ev-publicacion-choice-grid">
-                  <input type="radio" class="btn-check" name="tipo_publicacion" id="tipoPublicacionProducto" value="producto" autocomplete="off" checked>
+                  <?php if (($evPublicarProductosDisponible ?? true) === true): ?>
+                  <input type="radio" class="btn-check" name="tipo_publicacion" id="tipoPublicacionProducto" value="producto" autocomplete="off" <?= (($evPublicarProductosDisponible ?? true) === true) ? 'checked' : '' ?>>
                   <label class="ev-publicacion-option" for="tipoPublicacionProducto">
                     <span class="ev-publicacion-option-ico"><i class="bi bi-bag-check"></i></span>
                     <span class="ev-publicacion-option-copy">
@@ -243,8 +244,10 @@ require_once __DIR__ . '/../Config/config.php';
                     </span>
                     <span class="ev-publicacion-option-check"><i class="bi bi-check2"></i></span>
                   </label>
+                  <?php endif; ?>
 
-                  <input type="radio" class="btn-check" name="tipo_publicacion" id="tipoPublicacionServicio" value="servicio" autocomplete="off">
+                  <?php if (($evPublicarServiciosDisponible ?? true) === true): ?>
+                  <input type="radio" class="btn-check" name="tipo_publicacion" id="tipoPublicacionServicio" value="servicio" autocomplete="off" <?= (($evPublicarProductosDisponible ?? true) !== true) ? 'checked' : '' ?>>
                   <label class="ev-publicacion-option" for="tipoPublicacionServicio">
                     <span class="ev-publicacion-option-ico"><i class="bi bi-stars"></i></span>
                     <span class="ev-publicacion-option-copy">
@@ -253,6 +256,7 @@ require_once __DIR__ . '/../Config/config.php';
                     </span>
                     <span class="ev-publicacion-option-check"><i class="bi bi-check2"></i></span>
                   </label>
+                  <?php endif; ?>
                 </div>
               </div>
 
@@ -320,18 +324,19 @@ require_once __DIR__ . '/../Config/config.php';
                   <div class="col-12 col-md-6">
                     <label class="form-label">Categoría <span class="text-danger">*</span></label>
                     <select id="comboCategoria" class="form-select" name="categoria">
-                      <option value="">Primero elige tipo</option>
+                      <option value="" selected disabled>-- Seleccionar --</option>
                     </select>
                   </div>
 
                   <div class="col-12" id="wrapTipoAtencionProductoAdd" data-ev-product-only>
-                    <label class="form-label">Tipo de atención detectado</label>
-                    <select id="tipoAtencionProducto" class="form-select" name="tipo_atencion_producto" disabled>
-                      <option value="no_requiere_preparacion" selected>No requiere preparación</option>
-                      <option value="requiere_preparacion">Requiere preparación</option>
+                    <label class="form-label" for="tipoAtencionProducto">¿Requiere preparación? <span class="text-danger">*</span></label>
+                    <select id="tipoAtencionProducto" class="form-select" name="tipo_atencion_producto" required>
+                      <option value="" selected disabled>-- Seleccionar --</option>
+                      <option value="requiere_preparacion">Sí</option>
+                      <option value="no_requiere_preparacion">No</option>
                     </select>
                     <div class="form-text" id="hintTipoAtencionProductoAdd">
-                      EV detectará automáticamente este valor según el tipo y la categoría seleccionada.
+                      Selecciona “Sí” cuando necesites preparar el producto antes de entregarlo.
                     </div>
                   </div>
                 </div>
@@ -482,18 +487,19 @@ require_once __DIR__ . '/../Config/config.php';
                   <div class="col-12 col-md-6">
                     <label class="form-label">Categoría <span class="text-danger">*</span></label>
                     <select id="edit_comboCategoria" class="form-select" name="edit_comboCategoria">
-                      <option value="">Primero elige tipo</option>
+                      <option value="" selected disabled>-- Seleccionar --</option>
                     </select>
                   </div>
 
                   <div class="col-12" id="wrapTipoAtencionProductoEdit" data-ev-product-only>
-                    <label class="form-label">Tipo de atención detectado</label>
-                    <select id="edit_tipoAtencionProducto" class="form-select" name="edit_tipo_atencion_producto" disabled>
-                      <option value="no_requiere_preparacion">No requiere preparación</option>
-                      <option value="requiere_preparacion">Requiere preparación</option>
+                    <label class="form-label" for="edit_tipoAtencionProducto">¿Requiere preparación? <span class="text-danger">*</span></label>
+                    <select id="edit_tipoAtencionProducto" class="form-select" name="edit_tipo_atencion_producto" required>
+                      <option value="" disabled>-- Seleccionar --</option>
+                      <option value="requiere_preparacion">Sí</option>
+                      <option value="no_requiere_preparacion">No</option>
                     </select>
                     <div class="form-text" id="hintTipoAtencionProductoEdit">
-                      EV detectará automáticamente este valor según el tipo y la categoría seleccionada.
+                      Selecciona “Sí” cuando necesites preparar el producto antes de entregarlo.
                     </div>
                   </div>
                 </div>

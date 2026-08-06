@@ -36,14 +36,31 @@ class marketplaceController
                 ];
             }
 
-            // ✅ Fuente de verdad del conjunto activo (usuario_residencia)
             $prod = new Producto();
-            $conjunto = $prod->obtenerNombreConjuntoActivoUsuario($codigoUsuario);
+            $rol = strtolower(trim((string)($datosToken['rol'] ?? $datosToken['nombre_rol'] ?? $datosUsuario['rol'] ?? '')));
+            $codigoRol = (int)($datosToken['codigo_rol'] ?? 0);
+            $adminRoleId = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
+            $esAdminMarketplace = ($rol === 'admin' || $rol === 'administrador' || $codigoRol === $adminRoleId);
+            $comunidadesMarketplaceAdmin = [];
+            if ($esAdminMarketplace) {
+                $comunidadesMarketplaceAdmin = $prod->listarComunidadesActivasMarketplace();
 
-            $datosUsuario['conjunto_tipo']   = $conjunto['tipo_conjunto'] ?? null;
+                /*
+                 * El administrador general consulta distintas comunidades y no debe
+                 * ingresar al Marketplace con una selección implícita. La comunidad
+                 * se define únicamente cuando el usuario la elige en el selector.
+                 */
+                $conjunto = [
+                    'tipo_conjunto' => null,
+                    'nombre' => 'Selecciona una comunidad',
+                    'codigo_comunidad' => 0,
+                ];
+            } else {
+                $conjunto = $prod->obtenerNombreConjuntoActivoUsuario($codigoUsuario);
+            }
+            $datosUsuario['conjunto_tipo'] = $conjunto['tipo_conjunto'] ?? null;
             $datosUsuario['conjunto_nombre'] = $conjunto['nombre'] ?? null;
-
-            // Compatibilidad (si otros módulos leen 'condominio')
+            $datosUsuario['conjunto_codigo'] = (int)($conjunto['codigo_comunidad'] ?? 0);
             $datosUsuario['condominio'] = $datosUsuario['conjunto_nombre'] ?? ($datosUsuario['condominio'] ?? null);
 
             header('X-Partial-Ok: 1');

@@ -33,6 +33,8 @@ class ProductoSoporte extends Conexion
         $q      = trim((string)($filtros['q'] ?? ''));
         $page   = max(1, (int)($filtros['page'] ?? 1));
         $size   = max(1, min(50, (int)($filtros['size'] ?? 10)));
+        $tipoConjunto = strtolower(trim((string)($filtros['tipo_conjunto'] ?? '')));
+        $codigoComunidad = max(0, (int)($filtros['codigo_comunidad'] ?? 0));
 
         $map = [
             'borrador'  => 0,
@@ -49,6 +51,13 @@ class ProductoSoporte extends Conexion
             $vis = $map[$estado] ?? 1;
             $where[] = "p.visible = :visible";
             $params[':visible'] = $vis;
+        }
+
+        if ($codigoComunidad > 0 && in_array($tipoConjunto, ['condominio', 'urbanizacion'], true)) {
+            $where[] = $tipoConjunto === 'condominio'
+                ? "p.tipo_conjunto_publicacion = 'condominio' AND p.codigo_condominio_publicacion = :codigo_comunidad"
+                : "p.tipo_conjunto_publicacion = 'urbanizacion' AND p.codigo_urbanizacion_publicacion = :codigo_comunidad";
+            $params[':codigo_comunidad'] = $codigoComunidad;
         }
 
         if ($q !== '') {
@@ -192,7 +201,7 @@ class ProductoSoporte extends Conexion
             $items[] = $r;
         }
 
-        $counts = $this->obtenerConteosSoporte();
+        $counts = $this->obtenerConteosSoporte($tipoConjunto, $codigoComunidad);
 
         return [
             'total'  => $total,
@@ -203,26 +212,37 @@ class ProductoSoporte extends Conexion
         ];
     }
 
-    private function obtenerConteosSoporte(): array
+    private function obtenerConteosSoporte(string $tipoConjunto = '', int $codigoComunidad = 0): array
     {
         $counts = [
-            'borradores' => 0,
-            'pendientes' => 0,
-            'aprobadas'  => 0,
-            'rechazadas' => 0,
-            'anuladas'   => 0,
-            'productos'  => 0,
-            'servicios'  => 0,
+            'borradores' => 0, 'pendientes' => 0, 'aprobadas' => 0,
+            'rechazadas' => 0, 'anuladas' => 0, 'productos' => 0, 'servicios' => 0,
         ];
 
         try {
-            $counts['borradores'] = (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 0")->fetchColumn() ?: 0);
-            $counts['pendientes'] = (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 1")->fetchColumn() ?: 0);
-            $counts['aprobadas']  = (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 2")->fetchColumn() ?: 0);
-            $counts['rechazadas'] = (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 3")->fetchColumn() ?: 0);
-            $counts['anuladas']   = (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE visible = 4")->fetchColumn() ?: 0);
-            $counts['productos']  = (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE tipo_publicacion = 'producto'")->fetchColumn() ?: 0);
-            $counts['servicios']  = (int)($this->dblink->query("SELECT COUNT(*) FROM producto WHERE tipo_publicacion = 'servicio'")->fetchColumn() ?: 0);
+            $scope = '';
+            $params = [];
+            if ($codigoComunidad > 0 && in_array($tipoConjunto, ['condominio', 'urbanizacion'], true)) {
+                $scope = $tipoConjunto === 'condominio'
+                    ? " AND tipo_conjunto_publicacion='condominio' AND codigo_condominio_publicacion=:comunidad"
+                    : " AND tipo_conjunto_publicacion='urbanizacion' AND codigo_urbanizacion_publicacion=:comunidad";
+                $params[':comunidad'] = $codigoComunidad;
+            }
+
+            $consultar = function (string $where) use ($scope, $params): int {
+                $st = $this->dblink->prepare("SELECT COUNT(*) FROM producto WHERE {$where}{$scope}");
+                foreach ($params as $key => $value) $st->bindValue($key, $value, PDO::PARAM_INT);
+                $st->execute();
+                return (int)($st->fetchColumn() ?: 0);
+            };
+
+            $counts['borradores'] = $consultar('visible = 0');
+            $counts['pendientes'] = $consultar('visible = 1');
+            $counts['aprobadas']  = $consultar('visible = 2');
+            $counts['rechazadas'] = $consultar('visible = 3');
+            $counts['anuladas']   = $consultar('visible = 4');
+            $counts['productos']  = $consultar("tipo_publicacion = 'producto'");
+            $counts['servicios']  = $consultar("tipo_publicacion = 'servicio'");
         } catch (Throwable $e) {
             error_log('[EV][ProductoSoporte][obtenerConteosSoporte] ' . $e->getMessage());
         }

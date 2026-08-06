@@ -110,6 +110,11 @@
 
   function badge(item) {
     const estado = String(item?.estado || '').trim();
+    const proveedorRespondio = Number(item?.proveedor_respondio_chat || 0) === 1;
+
+    if (estado === 'pendiente_proveedor' && proveedorRespondio) {
+      return { cls: 'ev-ssc-badge ev-ssc-badge-success', text: 'Conversación iniciada' };
+    }
 
     if (['informacion_adicional_solicitada', 'propuesta_enviada_solicitante', 'cotizacion_final_enviada', 'servicio_realizado_proveedor', 'solucion_pendiente_confirmacion'].includes(estado)) {
       return { cls: 'ev-ssc-badge ev-ssc-badge-pending', text: estadoLegible(estado) };
@@ -315,17 +320,42 @@
     `;
   }
 
+  function cotizacionResumenHtml(item) {
+    const propuesta = item?.propuesta;
+    if (!propuesta) return '';
+
+    const version = Number(propuesta.version || 1);
+    const precio = propuesta.monto_propuesto !== null && propuesta.monto_propuesto !== undefined
+      ? formatMoney(propuesta.monto_propuesto)
+      : 'Por coordinar';
+
+    return `
+      <section class="ev-ssc-quote-summary" aria-label="Cotización final disponible">
+        <span class="ev-ssc-quote-summary-icon"><i class="bi bi-file-earmark-check"></i></span>
+        <div class="ev-ssc-quote-summary-copy">
+          <strong>Cotización final disponible</strong>
+          <small>Versión ${version} · ${escapeHtml(precio)}</small>
+        </div>
+        <span class="ev-ssc-quote-summary-status">Revisar</span>
+      </section>
+    `;
+  }
+
   function stateHtml(item) {
     const estado = String(item?.estado || '').trim();
 
     if (estado === 'pendiente_proveedor') {
+      const proveedorRespondio = Number(item?.proveedor_respondio_chat || 0) === 1;
       const segundos = item?.segundos_restantes;
 
+      if (proveedorRespondio) {
+        return '';
+      }
+
       return `
-        <div class="ev-ssc-state ev-ssc-state-wait">
-          <div class="ev-ssc-state-title">Solicitud enviada</div>
-          <div class="ev-ssc-state-text">Tu solicitud está esperando una respuesta del proveedor.</div>
-          ${segundos !== null && segundos !== undefined ? `<div class="ev-ssc-time"><i class="bi bi-clock-history"></i> ${escapeHtml(formatTiempo(segundos))} restantes</div>` : ''}
+        <div class="ev-ssc-response-window">
+          <span><i class="bi bi-clock-history"></i> Tiempo para la primera respuesta</span>
+          ${segundos !== null && segundos !== undefined ? `<strong>${escapeHtml(formatTiempo(segundos))}</strong>` : '<strong>En revisión</strong>'}
         </div>
       `;
     }
@@ -340,12 +370,7 @@
     }
 
     if (estado === 'propuesta_enviada_solicitante') {
-      return `
-        <div class="ev-ssc-state ev-ssc-state-pending">
-          <div class="ev-ssc-state-title">Tienes una cotización final por revisar</div>
-          <div class="ev-ssc-state-text">Revisa el alcance, precio final, condición de pago, fecha y horario antes de confirmar la coordinación.</div>
-        </div>
-      `;
+      return '';
     }
 
     if (estado === 'ajuste_solicitado') {
@@ -462,13 +487,21 @@
       'revision_soporte', 'servicio_confirmado_solicitante'
     ];
 
+    const etiquetaConversacion = Number(item?.proveedor_respondio_chat || 0) === 1
+      ? 'Continuar conversación'
+      : 'Abrir conversación';
+
     return `
+      ${item?.propuesta ? `
+        <button type="button" class="btn ev-ssc-btn-quote" data-ssc-action="ver-cotizacion" data-id="${id}">
+          <i class="bi bi-receipt"></i><span>Ver cotización</span>
+        </button>` : ''}
       <button type="button" class="btn ev-ssc-btn-accept ev-ssc-btn-conversation" data-ssc-action="conversacion" data-id="${id}">
-        <i class="bi bi-chat-square-text me-1"></i>Abrir conversación
+        <i class="bi bi-chat-square-text"></i><span>${etiquetaConversacion}</span>
       </button>
       ${estadosGestion.includes(estado) ? `
         <button type="button" class="btn ev-ssc-btn-outline" data-ssc-action="gestion" data-id="${id}">
-          <i class="bi bi-clipboard2-check me-1"></i>Gestionar servicio
+          <i class="bi bi-clipboard2-check"></i><span>Gestionar servicio</span>
         </button>` : ''}
     `;
   }
@@ -486,7 +519,7 @@
 
           <div class="ev-ssc-card-head-main">
             <div class="ev-ssc-card-title-row">
-              <div>
+              <div class="ev-ssc-card-title-block">
                 <div class="ev-ssc-card-title">${escapeHtml(titulo)}</div>
                 <div class="ev-ssc-card-meta">
                   Solicitud #${Number(item?.codigo_solicitud_servicio || 0)} · ${escapeHtml(formatFecha(item?.created_at, true))}
@@ -527,7 +560,7 @@
             </div>
           </div>
 
-          ${propuestaHtml(item?.propuesta)}
+          ${cotizacionResumenHtml(item)}
           ${stateHtml(item)}
 
           <div class="ev-ssc-actions">${actionsHtml(item)}</div>
@@ -1034,6 +1067,27 @@ ${propuesta.fecha_propuesta ? `<strong>Fecha:</strong> ${escapeHtml(formatFecha(
     await notify('error', 'No se pudo abrir', 'Gestión no disponible', 'No se pudo cargar la gestión del servicio.');
   }
 
+  async function mostrarCotizacion(item) {
+    if (!window.Swal?.fire || !item?.propuesta) return;
+
+    await Swal.fire(swalConfig({
+      title: 'Cotización final',
+      html: `
+        <div class="ev-ssc-quote-modal-intro">
+          <span><i class="bi bi-receipt-cutoff"></i></span>
+          <div>
+            <strong>${escapeHtml(item?.titulo_servicio || 'Servicio')}</strong>
+            <small>Revisa todos los términos antes de aceptar, solicitar un ajuste o rechazar.</small>
+          </div>
+        </div>
+        ${propuestaHtml(item.propuesta)}
+      `,
+      width: 760,
+      confirmButtonText: '<i class="bi bi-x-circle"></i> Cerrar',
+      showCancelButton: false
+    }));
+  }
+
   async function detalle(item) {
     if (await asegurarConversacionServicio()) {
       window.EVServicioConversacion.open(Number(item?.codigo_solicitud_servicio || 0));
@@ -1064,6 +1118,7 @@ ${propuesta.fecha_propuesta ? `<strong>Fecha:</strong> ${escapeHtml(formatFecha(
     if (!id || !item) return;
 
     if (action === 'conversacion' || action === 'detalle') await detalle(item);
+    if (action === 'ver-cotizacion') await mostrarCotizacion(item);
     if (action === 'gestion') await abrirGestion(item);
     if (action === 'responder-informacion') await responderInformacion(item);
     if (action === 'aceptar-propuesta') await aceptarPropuesta(item);

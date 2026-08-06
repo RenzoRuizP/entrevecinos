@@ -1155,35 +1155,14 @@
     bind();
     load();
   }
-
-  function startObserver() {
-    if (state.observerStarted || !document.body) return;
-    state.observerStarted = true;
-
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        for (const node of mutation.addedNodes) {
-          if (!(node instanceof Element)) continue;
-          if (node.matches?.('#evConfiguracionPlataforma') || node.querySelector?.('#evConfiguracionPlataforma')) {
-            init();
-            return;
-          }
-        }
-      }
-    });
-
-    observer.observe(document.body, {childList: true, subtree: true});
-  }
-
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       init();
-      startObserver();
     }, {once: true});
   } else {
     init();
-    startObserver();
   }
 
   document.addEventListener('ev:partial-loaded', init);
+  document.addEventListener('ev:content-loaded', init);
 })();

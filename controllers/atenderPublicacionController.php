@@ -2,6 +2,7 @@
 // controllers/atenderPublicacionController.php
 
 require_once __DIR__ . '/../models/SesionJWT.php';
+require_once __DIR__ . '/../models/Producto.php';
 
 class atenderPublicacionController
 {
@@ -64,6 +65,11 @@ class atenderPublicacionController
             echo "Error interno: no se encontró la vista views/AtenderPublicacionView.php.";
             return;
         }
+
+        $esAdministradorGeneralConsulta = (int)($u['codigo_rol'] ?? 0) === 1;
+        $comunidadesConsultaAdmin = $esAdministradorGeneralConsulta ? (new Producto())->listarComunidadesActivasMarketplace() : [];
+        $evAdminScopeModule = 'publicaciones';
+        $evAdminScopeDescription = 'Consulta publicaciones pendientes, aprobadas o rechazadas dentro de una comunidad específica.';
 
         require $viewPath;
     }

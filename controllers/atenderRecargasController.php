@@ -3,6 +3,7 @@
 
 require_once __DIR__ . '/../models/SesionJWT.php';
 require_once __DIR__ . '/../models/User.php';
+require_once __DIR__ . '/../models/Producto.php';
 
 class atenderRecargasController
 {
@@ -38,6 +39,11 @@ class atenderRecargasController
             if (!$datosUsuario) {
                 return $this->resolverNoAutorizado('usuario_no_encontrado');
             }
+
+            $esAdministradorGeneralConsulta = $rol === 1;
+            $comunidadesConsultaAdmin = $esAdministradorGeneralConsulta ? (new Producto())->listarComunidadesActivasMarketplace() : [];
+            $evAdminScopeModule = 'recargas';
+            $evAdminScopeDescription = 'Revisa solicitudes de recarga de vecinos pertenecientes a la comunidad seleccionada.';
 
             header('X-Partial-Ok: 1');
             require __DIR__ . '/../views/AtenderRecargasView.php';

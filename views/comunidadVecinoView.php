@@ -18,6 +18,10 @@ if ($nombreComunidad === '') {
     $nombreComunidad = 'Tu comunidad';
 }
 
+$esAdminComunidadActivo = !empty($esAdminComunidad);
+$codigoComunidadActual = (int)($comunidad['codigo_comunidad'] ?? 0);
+$hayComunidadSeleccionada = !$esAdminComunidadActivo || ($codigoComunidadActual > 0 && in_array($tipoConjunto, ['urbanizacion', 'condominio'], true));
+
 $nombreVisible = $nombreComunidad;
 
 if (in_array($tipoConjunto, ['urbanizacion', 'condominio'], true)) {
@@ -46,6 +50,9 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
   class="ev-cv-shell fade-in"
   id="evComunidadVecino"
   data-comunidad="<?= htmlspecialchars($nombreVisible, ENT_QUOTES, 'UTF-8') ?>"
+  data-tipo-conjunto="<?= htmlspecialchars($tipoConjunto, ENT_QUOTES, 'UTF-8') ?>"
+  data-codigo-comunidad="<?= (int)($comunidad['codigo_comunidad'] ?? 0) ?>"
+  data-es-admin="<?= !empty($esAdminComunidad) ? '1' : '0' ?>"
   aria-label="Novedades de mi comunidad"
 >
   <header class="ev-cv-hero">
@@ -54,11 +61,12 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
         <i class="bi bi-people-fill"></i> Comunidad
       </span>
 
-      <h1>Novedades de tu comunidad</h1>
+      <h1><?= !empty($esAdminComunidad) ? 'Novedades de comunidad' : 'Novedades de tu comunidad' ?></h1>
 
       <p>
-        Comunicados, noticias y eventos oficiales para mantenerte informado
-        sobre lo que sucede cerca de ti.
+        <?= !empty($esAdminComunidad)
+          ? 'Consulta comunicados, noticias y eventos oficiales de cualquier comunidad registrada en EV.'
+          : 'Comunicados, noticias y eventos oficiales para mantenerte informado sobre lo que sucede cerca de ti.' ?>
       </p>
     </div>
 
@@ -66,11 +74,25 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
       <i class="<?= htmlspecialchars($iconoComunidad, ENT_QUOTES, 'UTF-8') ?>"></i>
 
       <div>
-        <small>Tu comunidad</small>
-        <strong><?= htmlspecialchars($nombreVisible, ENT_QUOTES, 'UTF-8') ?></strong>
+        <small id="evCvCommunityLabel"><?= $esAdminComunidadActivo ? ($hayComunidadSeleccionada ? 'Comunidad consultada' : 'Comunidad por consultar') : 'Tu comunidad' ?></small>
+        <strong id="evCvCommunityName"><?= htmlspecialchars($hayComunidadSeleccionada ? $nombreVisible : 'Sin comunidad seleccionada', ENT_QUOTES, 'UTF-8') ?></strong>
       </div>
     </div>
   </header>
+
+  <?php if (!empty($esAdminComunidad)): ?>
+  <section class="ev-cv-admin-selector" aria-label="Seleccionar comunidad">
+    <div class="ev-cv-admin-selector-copy"><span><i class="bi bi-buildings"></i></span><div><strong>Comunidad a consultar</strong><small>Selecciona un condominio o una urbanización sin cambiar tu sesión administrativa.</small></div></div>
+    <label><span>Condominio o urbanización</span><select id="evCvComunidadAdmin" class="ev-searchable-select" data-search-placeholder="Buscar condominio o urbanización">
+      <option value="" <?= !$hayComunidadSeleccionada ? 'selected' : '' ?>>Buscar condominio o urbanización</option>
+      <?php foreach (($comunidadesAdmin ?? []) as $item): ?>
+        <option value="<?= htmlspecialchars((string)$item['tipo_conjunto'].'|'.(string)$item['codigo_comunidad'], ENT_QUOTES, 'UTF-8') ?>" <?= ($hayComunidadSeleccionada && (string)$item['tipo_conjunto']===$tipoConjunto && (int)$item['codigo_comunidad']===$codigoComunidadActual)?'selected':'' ?>>
+          <?= htmlspecialchars(($item['tipo_conjunto']==='urbanizacion'?'Urbanización':'Condominio').' · '.$item['nombre_comunidad'].' · '.($item['nombre_distrito']??''), ENT_QUOTES, 'UTF-8') ?>
+        </option>
+      <?php endforeach; ?>
+    </select></label>
+  </section>
+  <?php endif; ?>
 
   <section class="ev-cv-toolbar" aria-label="Filtros de novedades">
     <div class="ev-cv-filter">
@@ -186,7 +208,7 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
 
               <span class="ev-cv-modal-community">
                 <i class="<?= htmlspecialchars($iconoComunidad, ENT_QUOTES, 'UTF-8') ?>"></i>
-                <?= htmlspecialchars($nombreVisible, ENT_QUOTES, 'UTF-8') ?>
+                <span id="evCvModalCommunityName"><?= htmlspecialchars($nombreVisible, ENT_QUOTES, 'UTF-8') ?></span>
               </span>
             </div>
           </div>
@@ -267,7 +289,7 @@ $jsVersion = @filemtime($jsPathAbs) ?: (defined('EV_APP_VER') ? EV_APP_VER : tim
         <footer class="ev-cv-modal-footer">
           <span>
             <i class="bi bi-shield-check"></i>
-            Contenido oficial de <?= htmlspecialchars($nombreVisible, ENT_QUOTES, 'UTF-8') ?>
+            Contenido oficial de <span id="evCvFooterCommunityName"><?= htmlspecialchars($nombreVisible, ENT_QUOTES, 'UTF-8') ?></span>
           </span>
 
           <button type="button" data-bs-dismiss="modal">

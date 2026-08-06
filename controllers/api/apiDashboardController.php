@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/Dashboard.php';
+require_once __DIR__ . '/../../models/ConfiguracionPlataforma.php';
 
 final class apiDashboardController
 {
@@ -47,6 +48,15 @@ final class apiDashboardController
             $codigoUsuario = $this->obtenerUsuarioAuth();
             $model = new Dashboard();
             $resultado = $model->obtenerDashboardVecino($codigoUsuario);
+
+            $estadoBilletera = (new ConfiguracionPlataforma())->obtenerEstadoBilleteraUsuario($codigoUsuario);
+            $billeteraDisponible = (bool)($estadoBilletera['billetera_disponible'] ?? false);
+            if (isset($resultado['data']) && is_array($resultado['data'])) {
+                $resultado['data']['configuracion_operativa']['billetera_disponible'] = $billeteraDisponible;
+                if (!$billeteraDisponible && isset($resultado['data']['resumen']) && is_array($resultado['data']['resumen'])) {
+                    unset($resultado['data']['resumen']['saldo_billetera']);
+                }
+            }
 
             $this->json($resultado['ok'] ? 200 : 500, $resultado);
         } catch (Throwable $e) {

@@ -87,6 +87,7 @@ function ev_ver($pathAbs) {
   <?php include_once __DIR__ . '/estilos.view.php'; ?>
   <?php include_once __DIR__ . '/estilos/menuPrincipalEstilo.php'; ?>
   <?php include_once __DIR__ . '/estilos/menuArribaEstilo.php'; ?>
+  <?php include_once __DIR__ . '/estilos/evLoadingGlobalEstilo.php'; ?>
 
   <?php if (in_array($rolUsuarioRaw, ['soporte', 'admin'], true)): ?>
     <?php include_once __DIR__ . '/estilos/soporteDashboardEstilo.php'; ?>
@@ -432,9 +433,9 @@ function ev_ver($pathAbs) {
         <?php if ($evGoto !== ''): ?>
 
           <div class="ev-shell-loading" aria-busy="true" aria-live="polite">
-            <div class="ev-box">
-              <div class="ev-spin" aria-hidden="true"></div>
-              <div>Cargando módulo...</div>
+            <div class="ev-global-loading-compact">
+              <span class="ev-global-loading-spinner" aria-hidden="true"></span>
+              <strong class="ev-global-loading-text">Cargando...</strong>
             </div>
           </div>
 

@@ -20,6 +20,8 @@ window.BASE_URL = window.BASE_URL ?? <?= json_encode(rtrim(BASE_URL, '/'), JSON_
     <button type="button" class="btn ev-as-refresh" id="evAsRefresh"><i class="bi bi-arrow-clockwise me-1"></i>Actualizar</button>
   </section>
 
+  <?php require __DIR__ . '/partials/adminCommunitySelector.php'; ?>
+
   <section class="ev-as-summary mb-4" aria-label="Resumen de incidencias de servicios">
     <article><span>Incidencias abiertas</span><strong id="evAsKpiAbiertas">0</strong><small>Requieren seguimiento</small></article>
     <article><span>Pendientes de soporte</span><strong id="evAsKpiPendientes">0</strong><small>Esperan primera atención</small></article>

@@ -5,6 +5,7 @@ require_once __DIR__ . '/../Config/config.php';
 require_once __DIR__ . '/../models/SesionJWT.php';
 require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../models/Producto.php';
+require_once __DIR__ . '/../models/ConfiguracionPlataforma.php';
 
 class billeteraController
 {
@@ -20,6 +21,18 @@ class billeteraController
 
             if ($codigoUsuario <= 0 || $email === '') {
                 return $this->resolverNoAutorizado('token_invalido');
+            }
+
+            /*
+             * La disponibilidad se valida en servidor. Ocultar el enlace del menú
+             * no es suficiente porque una URL directa no debe reactivar la billetera.
+             */
+            $estadoBilletera = (new ConfiguracionPlataforma())->obtenerEstadoBilleteraUsuario($codigoUsuario);
+            $evBilleteraDisponible = (bool)($estadoBilletera['billetera_disponible'] ?? false);
+            $evRecargasDisponibles = (bool)($estadoBilletera['recargas_disponibles'] ?? false);
+
+            if (!$evBilleteraDisponible && !ConfiguracionPlataforma::esAdmin($datosToken)) {
+                return $this->resolverNoDisponible();
             }
 
             // 2) Intentar enriquecer con User.php, pero SIN bloquear la vista si falla
@@ -82,6 +95,26 @@ class billeteraController
     // ------------------------------
     // Helpers privados
     // ------------------------------
+    private function resolverNoDisponible()
+    {
+        $redirect = rtrim(BASE_URL, '/') . '/MenuPrincipal';
+
+        if ($this->esPeticionParcial()) {
+            http_response_code(403);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'ok' => false,
+                'error' => 'FUNCIONALIDAD_NO_DISPONIBLE',
+                'mensaje' => 'La billetera no está disponible para tu comunidad en este momento.',
+                'redirect' => $redirect,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            return;
+        }
+
+        header('Location: ' . $redirect, true, 302);
+        return;
+    }
+
     private function resolverNoAutorizado(string $motivo = 'no_autorizado')
     {
         if ($this->esPeticionParcial()) {

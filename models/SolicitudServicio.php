@@ -878,6 +878,7 @@ class SolicitudServicio extends Conexion
             'mensaje_solicitante' => (string)($row['mensaje_solicitante'] ?? ''),
             'estado' => $estado,
             'estado_texto' => $this->etiquetaEstadoServicio($estado),
+            'proveedor_respondio_chat' => (int)($row['proveedor_respondio_chat'] ?? 0) === 1 ? 1 : 0,
             'estado_anterior' => (string)($row['estado_anterior'] ?? ''),
             'motivo_estado' => (string)($row['motivo_estado'] ?? ''),
             'fecha_limite_respuesta' => $row['fecha_limite_respuesta'] ?? null,
@@ -942,6 +943,14 @@ class SolicitudServicio extends Conexion
                     pr.requisitos,
                     pr.mensaje_proveedor,
                     pr.created_at AS propuesta_created_at,
+                    EXISTS (
+                        SELECT 1
+                        FROM solicitud_servicio_interaccion sci
+                        WHERE sci.codigo_solicitud_servicio = ss.codigo_solicitud_servicio
+                          AND sci.rol_autor = 'proveedor'
+                          AND sci.tipo_interaccion = 'mensaje_proveedor'
+                        LIMIT 1
+                    ) AS proveedor_respondio_chat,
                     COALESCE(nsn.novedades_no_leidas, 0) AS novedades_no_leidas,
                     nsu.codigo_notificacion AS novedad_codigo_notificacion,
                     nsu.subcategoria AS novedad_subcategoria,
@@ -1510,6 +1519,14 @@ class SolicitudServicio extends Conexion
                     pr.requisitos,
                     pr.mensaje_proveedor,
                     pr.created_at AS propuesta_created_at,
+                    EXISTS (
+                        SELECT 1
+                        FROM solicitud_servicio_interaccion sci
+                        WHERE sci.codigo_solicitud_servicio = ss.codigo_solicitud_servicio
+                          AND sci.rol_autor = 'proveedor'
+                          AND sci.tipo_interaccion = 'mensaje_proveedor'
+                        LIMIT 1
+                    ) AS proveedor_respondio_chat,
                     COALESCE(nsn.novedades_no_leidas, 0) AS novedades_no_leidas,
                     nsu.codigo_notificacion AS novedad_codigo_notificacion,
                     nsu.subcategoria AS novedad_subcategoria,

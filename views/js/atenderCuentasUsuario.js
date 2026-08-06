@@ -4,9 +4,7 @@
 
   const baseUrl = (window.EV?.baseUrl ?? window.BASE_URL ?? "").replace(/\/+$/, "");
   const PENDING_SUPPORT_RESIDENCE_KEY = "ev_notificacion_residencia_soporte_pendiente";
-
-  let observer = null;
-  let modalInstance = null;
+let modalInstance = null;
   let currentId = null;
   let currentKind = "usuario"; // usuario | residencia
 
@@ -152,13 +150,13 @@
 
     if (esCambioResidencia) {
       if (estSol === "observada") {
-        return `<div class="d-flex flex-column align-items-center gap-1">
+        return `<div class="ev-review-status-stack">
           <span class="ev-badge ev-off"><i class="bi bi-exclamation-triangle"></i> Observada</span>
           <span class="ev-badge ev-res"><i class="bi bi-house-door"></i> Cambio de residencia</span>
         </div>`;
       }
       if (estSol === "pendiente") {
-        return `<div class="d-flex flex-column align-items-center gap-1">
+        return `<div class="ev-review-status-stack">
           <span class="ev-badge ev-review"><i class="bi bi-hourglass-split"></i> En revisión</span>
           <span class="ev-badge ev-res"><i class="bi bi-house-door"></i> Cambio de residencia</span>
         </div>`;
@@ -313,14 +311,17 @@
       lbl.textContent = isResidencia ? "Cambio de residencia" : "Cuenta de usuario";
     }
 
-    if (btnObs) btnObs.textContent = "Observar";
-    if (btnApr) btnApr.textContent = isResidencia ? "Aprobar cambio" : "Activar";
-    if (btnIna) btnIna.textContent = isResidencia ? "Rechazar" : "Desactivar";
+    if (btnObs) btnObs.innerHTML = '<i class="bi bi-exclamation-circle"></i><span>Observar</span>';
+    if (btnApr) btnApr.innerHTML = `<i class="bi bi-check2-circle"></i><span>${isResidencia ? "Aprobar cambio" : "Activar"}</span>`;
+    if (btnIna) btnIna.innerHTML = `<i class="bi bi-x-circle"></i><span>${isResidencia ? "Rechazar" : "Desactivar"}</span>`;
+
+    const proofTitle = byId("mProofTitle");
+    if (proofTitle) proofTitle.textContent = isResidencia ? "Recibo de la nueva residencia" : "Documento de residencia";
 
     if (hint) {
       hint.textContent = isResidencia
-        ? "Verifica que el comprobante coincida con la nueva residencia solicitada."
-        : "Verifica que el comprobante coincida con la residencia.";
+        ? "Verifica que el recibo sea legible y corresponda con la nueva residencia solicitada."
+        : "Verifica que el documento sea legible y corresponda con la residencia declarada.";
     }
   }
 
@@ -395,12 +396,13 @@
 
   function snapshotStateFromUI() {
     const c = getControls();
+    const scope = window.EVAdminCommunityScope?.get?.('cuentas') || {};
     return {
       modo: c.selModo?.value || "usuarios",
       estado: normalizarEstado(c.selEstado?.value || "revision"),
       q: (c.inpBuscar?.value || "").trim(),
-      conjunto: normalizarConjuntoUI(c.selConjunto?.value || ""),
-      conjunto_id: c.selCondominio?.value || "",
+      conjunto: scope.selected ? scope.tipo : normalizarConjuntoUI(c.selConjunto?.value || ""),
+      conjunto_id: scope.selected ? String(scope.codigo) : (c.selCondominio?.value || ""),
       page: 1,
       limit: 10,
     };
@@ -581,9 +583,13 @@
           title: "Inactivar cuenta",
           text: "La cuenta quedará inactiva y el usuario no podrá ingresar.",
           showCancelButton: true,
-          confirmButtonText: "Sí, inactivar",
-          cancelButtonText: "Cancelar",
-          confirmButtonColor: "#DC2626",
+          confirmButtonText: '<i class="bi bi-check-circle" aria-hidden="true"></i><span>Aceptar</span>',
+          cancelButtonText: '<i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancelar</span>',
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: "ev-swal-confirm",
+            cancelButton: "ev-swal-cancel",
+          },
         });
 
         if (!confirm.isConfirmed) return;
@@ -860,6 +866,14 @@
       });
     }
 
+    if (!document.body.dataset.evAuScopeBound) {
+      document.body.dataset.evAuScopeBound = "1";
+      document.addEventListener('ev:admin-community-change', (event) => {
+        if (event.detail?.module !== 'cuentas') return;
+        refresh();
+      });
+    }
+
     const initialQ = (c.inpBuscar?.value || "").trim();
     if (initialQ.length >= 3) {
       searchActive = true;
@@ -878,12 +892,7 @@
     if (q.length >= 3) load(makeGlobalSearchState(q));
     else load(snapshotStateFromUI());
   }
-
-  function bootObserver() {
-    if (observer) return;
-    observer = new MutationObserver(() => init());
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
+  document.addEventListener("ev:content-loaded", init);
 
   window.EV_AtenderCuentasUsuario = {
     init,
@@ -893,10 +902,8 @@
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
       init();
-      bootObserver();
     });
   } else {
     init();
-    bootObserver();
   }
 })();

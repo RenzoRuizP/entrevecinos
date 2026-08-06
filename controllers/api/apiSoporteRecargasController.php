@@ -82,6 +82,8 @@ final class apiSoporteRecargasController
                 'q'      => $q,
                 'page'   => $page,
                 'size'   => $size,
+                'tipo_conjunto' => (string)($_GET['tipo_conjunto'] ?? ''),
+                'codigo_comunidad' => (int)($_GET['codigo_comunidad'] ?? 0),
             ]);
 
             if (!($resp['ok'] ?? false)) {

@@ -270,7 +270,7 @@
       if (tipo === 'condominio') {
         inputDireccion.value = item?.direccion_condominio ? String(item.direccion_condominio) : '';
       } else {
-        inputDireccion.value = item?.direccion_condominio ? String(item.direccion_condominio) : '';
+        inputDireccion.value = item?.direccion_urbanizacion ? String(item.direccion_urbanizacion) : '';
       }
 
       // Mostrar dirección + comprobante

@@ -389,14 +389,13 @@
     }
 
     function getApiUrl() {
-      return (
-        baseUrl +
-        "/api/soporte/productos" +
-        "?estado=" + qs(estado) +
-        "&q=" + qs(q) +
-        "&page=" + qs(page) +
-        "&size=" + qs(size)
-      );
+      const scope = window.EVAdminCommunityScope?.get?.('publicaciones') || {};
+      const params = new URLSearchParams({ estado, q, page: String(page), size: String(size) });
+      if (scope.selected) {
+        params.set('tipo_conjunto', scope.tipo);
+        params.set('codigo_comunidad', String(scope.codigo));
+      }
+      return `${baseUrl}/api/soporte/productos?${params.toString()}`;
     }
 
     async function listar() {
@@ -886,6 +885,15 @@
 
     document.getElementById('modalPub')?.addEventListener('hidden.bs.modal', () => resetImageZoom());
 
+    if (root.dataset.evAdminScopeBound !== '1') {
+      root.dataset.evAdminScopeBound = '1';
+      document.addEventListener('ev:admin-community-change', (event) => {
+        if (event.detail?.module !== 'publicaciones') return;
+        page = 1;
+        listar();
+      });
+    }
+
     setActiveQuickButtons();
     listar();
   }
@@ -896,9 +904,6 @@
   }
 
   scanAndInit();
-
-  const mo = new MutationObserver(function () { scanAndInit(); });
-  mo.observe(document.documentElement, { childList: true, subtree: true });
 
   document.addEventListener("ev:partial-loaded", scanAndInit);
   document.addEventListener("ev:content-loaded", scanAndInit);

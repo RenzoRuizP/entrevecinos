@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../database/Conexion.php';
 require_once __DIR__ . '/Calificacion.php';
 require_once __DIR__ . '/Notificacion.php';
+require_once __DIR__ . '/ConfiguracionPlataforma.php';
 
 class Pedido extends Conexion
 {
@@ -12,7 +13,7 @@ class Pedido extends Conexion
     private const MINUTOS_GRACIA_FECHA_PROGRAMADA = 1;
     private const SEGUNDOS_RECOJO = 360;
     private const PENALIDAD_CANCELACION_COMPRADOR = 1.00;
-    private const COMISION_EV_PORCENTAJE = 0.10;
+    private const COMISION_EV_PORCENTAJE_FALLBACK = 0.10;
 
 
     // =========================================================
@@ -47,6 +48,103 @@ class Pedido extends Conexion
         $penalidad = (float)($pedido['penalidad_comprador_monto'] ?? 0);
 
         return max(0.00, round($total - $penalidad, 2));
+    }
+
+    /**
+     * Resuelve el alcance comercial de una publicación de producto. La misma
+     * fuente se usa para aplicar comisiones y débitos de billetera, evitando
+     * que una configuración específica de condominio o urbanización quede
+     * reemplazada por la regla global.
+     */
+    private function obtenerAlcanceConfiguracionProducto(int $codigoProducto, array $contexto = []): array
+    {
+        $publicacion = $contexto;
+        $tieneAlcance = trim((string)($publicacion['tipo_conjunto_publicacion'] ?? '')) !== '';
+
+        if (!$tieneAlcance && $codigoProducto > 0) {
+            $sql = "
+                SELECT
+                    tipo_conjunto_publicacion,
+                    codigo_condominio_publicacion,
+                    codigo_urbanizacion_publicacion
+                FROM producto
+                WHERE codigo_producto = :codigo_producto
+                LIMIT 1
+            ";
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
+            $st->execute();
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+            if (is_array($row)) {
+                $publicacion = array_merge($publicacion, $row);
+            }
+        }
+
+        return (new ConfiguracionPlataforma())->obtenerAlcancePublicacion($publicacion);
+    }
+
+    private function obtenerReglaMonetizacionProducto(string $clave, int $codigoProducto, array $contexto = []): array
+    {
+        $alcance = $this->obtenerAlcanceConfiguracionProducto($codigoProducto, $contexto);
+        return (new ConfiguracionPlataforma())->obtenerMonetizacionPorAlcance(
+            $clave,
+            (string)$alcance['tipo_alcance'],
+            (int)$alcance['codigo_alcance']
+        );
+    }
+
+    private function obtenerPorcentajeComisionProducto(array $pedido): float
+    {
+        try {
+            $regla = $this->obtenerReglaMonetizacionProducto(
+                ConfiguracionPlataforma::MON_COMISION_PRODUCTO,
+                (int)($pedido['codigo_producto'] ?? 0),
+                $pedido
+            );
+            $porcentaje = (float)($regla['valor_decimal'] ?? (self::COMISION_EV_PORCENTAJE_FALLBACK * 100));
+            return max(0.0, min(100.0, $porcentaje)) / 100;
+        } catch (Throwable $e) {
+            error_log('[EV][Pedido][obtenerPorcentajeComisionProducto] ' . $e->getMessage());
+            return self::COMISION_EV_PORCENTAJE_FALLBACK;
+        }
+    }
+
+    private function debitoBilleteraPreparadoHabilitado(int $codigoUsuarioComprador, int $codigoProducto, array $producto): bool
+    {
+        try {
+            $regla = $this->obtenerReglaMonetizacionProducto(
+                ConfiguracionPlataforma::MON_DESCUENTO_BILLETERA_PEDIDO,
+                $codigoProducto,
+                $producto
+            );
+            if (!(bool)($regla['valor_booleano'] ?? false)) {
+                return false;
+            }
+
+            $estadoBilletera = (new ConfiguracionPlataforma())->obtenerEstadoBilleteraUsuario($codigoUsuarioComprador);
+            return (bool)($estadoBilletera['billetera_disponible'] ?? false);
+        } catch (Throwable $e) {
+            error_log('[EV][Pedido][debitoBilleteraPreparadoHabilitado] ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    private function actualizarEstadoComisionPedido(int $codigoPedido, float $monto, bool $aplicada, bool $pendiente): void
+    {
+        $sql = "
+            UPDATE pedido
+            SET
+                comision_ev_monto = :monto,
+                comision_ev_aplicada = :aplicada,
+                comision_ev_pendiente = :pendiente
+            WHERE codigo_pedido = :codigo_pedido
+        ";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':monto', round(max(0.0, $monto), 2));
+        $st->bindValue(':aplicada', $aplicada ? 1 : 0, PDO::PARAM_INT);
+        $st->bindValue(':pendiente', $pendiente ? 1 : 0, PDO::PARAM_INT);
+        $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+        $st->execute();
     }
 
     private function obtenerConceptoMovimiento(string $origen, string $descripcion): string
@@ -224,9 +322,25 @@ class Pedido extends Conexion
         }
 
         $base = $this->baseComisionPedido($pedido);
-        $monto = round($base * self::COMISION_EV_PORCENTAJE, 2);
+        $porcentaje = $this->obtenerPorcentajeComisionProducto($pedido);
+        $monto = round($base * $porcentaje, 2);
 
-        if ($monto <= 0) return;
+        // Una comisión configurada en 0 % queda registrada como resuelta y no
+        // genera movimientos ni deudas pendientes para el vendedor.
+        if ($monto <= 0 || $porcentaje <= 0) {
+            $this->actualizarEstadoComisionPedido($codigoPedido, 0.0, true, false);
+            return;
+        }
+
+        // Si la billetera no está operativa en la comunidad del vendedor, la
+        // comisión se conserva como pendiente en lugar de efectuar un débito
+        // oculto sobre un módulo deshabilitado.
+        $estadoBilleteraVendedor = (new ConfiguracionPlataforma())->obtenerEstadoBilleteraUsuario($codigoVendedor);
+        if (!(bool)($estadoBilleteraVendedor['billetera_disponible'] ?? false)) {
+            $this->registrarComisionPendienteVendedor($codigoPedido, $codigoVendedor, $monto);
+            $this->actualizarEstadoComisionPedido($codigoPedido, $monto, false, true);
+            return;
+        }
 
         $billetera = $this->obtenerOBilleteraBloqueada($codigoVendedor);
         $codigoBilletera = (int)$billetera['codigo_billetera'];
@@ -247,35 +361,13 @@ class Pedido extends Conexion
             );
             $this->actualizarSaldoBilletera($codigoBilletera, $saldoDespues);
 
-            $sql = "
-                UPDATE pedido
-                SET
-                    comision_ev_monto = :monto,
-                    comision_ev_aplicada = 1,
-                    comision_ev_pendiente = 0
-                WHERE codigo_pedido = :codigo_pedido
-            ";
-            $st = $this->dblink->prepare($sql);
-            $st->bindValue(':monto', $monto);
-            $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
-            $st->execute();
+            $this->actualizarEstadoComisionPedido($codigoPedido, $monto, true, false);
             return;
         }
 
         $this->registrarComisionPendienteVendedor($codigoPedido, $codigoVendedor, $monto);
 
-        $sql = "
-            UPDATE pedido
-            SET
-                comision_ev_monto = :monto,
-                comision_ev_aplicada = 0,
-                comision_ev_pendiente = 1
-            WHERE codigo_pedido = :codigo_pedido
-        ";
-        $st = $this->dblink->prepare($sql);
-        $st->bindValue(':monto', $monto);
-        $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
-        $st->execute();
+        $this->actualizarEstadoComisionPedido($codigoPedido, $monto, false, true);
     }
 
     private function textoEstadoPedidoEV(string $estado): string
@@ -1847,8 +1939,12 @@ class Pedido extends Conexion
         $requierePrep   = (int)($producto['requiere_preparacion'] ?? 0);
         $codigoVendedor = (int)($producto['codigo_usuario_vendedor'] ?? 0);
 
-        // Regla EV 2.0: producto preparado exige billetera; no preparado queda en efectivo por defecto.
-        $metodoPago = ($requierePrep === 1) ? 'billetera' : 'efectivo';
+        // La configuración comercial decide si un producto preparado
+        // descuenta el importe desde la billetera. Si la regla o la billetera
+        // están deshabilitadas, el pedido continúa con pago en efectivo.
+        $usarBilleteraPreparado = $requierePrep === 1
+            && $this->debitoBilleteraPreparadoHabilitado($codigoUsuarioComprador, $codigoProducto, $producto);
+        $metodoPago = $usarBilleteraPreparado ? 'billetera' : 'efectivo';
         $penalidadReservada = 0.00;
         $total = $subtotalProducto;
 
@@ -1997,7 +2093,7 @@ class Pedido extends Conexion
                 $this->reservarPenalidadesPendientesParaPedido($codigoUsuarioComprador, $codigoPedido);
             }
 
-            if ($requierePrep === 1) {
+            if ($usarBilleteraPreparado) {
                 $debito = $this->debitarBilleteraPorSolicitudPreparada(
                     $codigoUsuarioComprador,
                     $codigoPedido,
@@ -2063,8 +2159,8 @@ class Pedido extends Conexion
                     'requiere_preparacion'          => $requierePrep,
                     'metodo_pago'                   => $metodoPago,
                     'penalidad_comprador_monto'     => $penalidadReservada,
-                    'monto_descontado_billetera'    => $requierePrep === 1 ? $subtotalProducto : 0,
-                    'descuento_billetera_aplicado'  => $requierePrep === 1 ? 1 : 0,
+                    'monto_descontado_billetera'    => $usarBilleteraPreparado ? $subtotalProducto : 0,
+                    'descuento_billetera_aplicado'  => $usarBilleteraPreparado ? 1 : 0,
                     'devolucion_billetera_aplicada' => 0,
                     'fecha_limite_respuesta'        => $fechaLimite,
                     'created_at'                    => date('Y-m-d H:i:s')
@@ -3559,8 +3655,11 @@ class Pedido extends Conexion
                 'codigo_categoria'        => (int)($row['codigo_categoria'] ?? 0),
                 'tipo_nombre'             => (string)($row['tipo_nombre'] ?? ''),
                 'categoria_nombre'        => (string)($row['categoria_nombre'] ?? ''),
-                'imagen_portada'          => (string)($row['imagen_portada'] ?? ''),
-                'requiere_preparacion'    => ((string)($row['tipo_atencion_producto'] ?? '') === 'requiere_preparacion') ? 1 : 0
+                'imagen_portada'                    => (string)($row['imagen_portada'] ?? ''),
+                'tipo_conjunto_publicacion'          => (string)($row['tipo_conjunto_publicacion'] ?? ''),
+                'codigo_condominio_publicacion'      => (int)($row['codigo_condominio_publicacion'] ?? 0),
+                'codigo_urbanizacion_publicacion'    => (int)($row['codigo_urbanizacion_publicacion'] ?? 0),
+                'requiere_preparacion'               => ((string)($row['tipo_atencion_producto'] ?? '') === 'requiere_preparacion') ? 1 : 0
             ]
         ];
     }

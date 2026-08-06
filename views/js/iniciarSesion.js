@@ -1,16 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
   const formLogin = document.getElementById('formLogin');
-  const spinnerOverlay = document.getElementById('spinnerOverlay');
-
   if (!formLogin) return;
 
   const emailInput = document.getElementById('email');
   const claveInput = document.getElementById('clave');
-
-  const showSpinner = (show) => {
-    if (!spinnerOverlay) return;
-    spinnerOverlay.style.display = show ? 'flex' : 'none';
-  };
 
   // BASE_URL robusto
   const BASE_URL = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/+$/, '');
@@ -20,6 +13,13 @@ document.addEventListener('DOMContentLoaded', () => {
     typeof navigator !== 'undefined' && navigator && navigator.onLine === false;
 
   const SwalButtonOrange = '#EA7C12';
+
+  const escapeHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 
   const swalNetworkError = (retryFn) => {
     Swal.fire({
@@ -104,7 +104,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isOffline()) return swalNetworkError(doLogin);
 
     const formData = new FormData(formLogin);
-    showSpinner(true);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 12000);
@@ -136,22 +135,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       })
       .then((data) => {
-        showSpinner(false);
-
         // Éxito
         if (data.status === 'SI') {
           Swal.fire({
             title: data.title || '¡Bienvenido!',
-            text: data.message || 'Inicio de sesión exitoso.',
-            icon: 'success',
+            html: `
+              <div class="ev-swal-registro__success" aria-hidden="true"><i class="bi bi-check-lg"></i></div>
+              <p class="ev-swal-registro__lead">Acceso confirmado</p>
+              <p class="ev-swal-registro__text">${escapeHtml(data.message || 'Estamos preparando tu espacio en Entre Vecinos.')}</p>
+              <div class="ev-swal-login__loading" role="status" aria-live="polite">
+                <span class="ev-swal-login__spinner" aria-hidden="true"></span>
+                <strong>Cargando...</strong>
+              </div>
+            `,
             showConfirmButton: false,
-            timer: 1600,
-            didOpen: () => Swal.showLoading()
+            timer: 1450,
+            timerProgressBar: false,
+            background: '#FFFFFF',
+            customClass: {
+              popup: 'ev-swal-registro ev-swal-login'
+            },
+            showClass: { popup: 'swal2-show ev-swal-registro--show' },
+            hideClass: { popup: 'swal2-hide' },
+            allowOutsideClick: false,
+            allowEscapeKey: false
           }).then(() => {
-            showSpinner(true);
-            setTimeout(() => {
-              window.location.href = data.redirect;
-            }, 700);
+            window.location.href = data.redirect;
           });
           return;
         }
@@ -171,8 +180,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       })
       .catch((err) => {
-        showSpinner(false);
-
         if (err && err.name === 'AbortError') {
           return swalNetworkError(doLogin);
         }

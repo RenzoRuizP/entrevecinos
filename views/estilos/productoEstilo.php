@@ -2346,4 +2346,59 @@
   }
 }
 
+
+/* ============================================================
+   EV V8 — PUBLICACIÓN CENTRADA Y DESCRIPCIÓN EXPANDIBLE
+============================================================ */
+#tablaPublicaciones tbody td[data-label="Publicación"]{
+  text-align:center !important;
+  vertical-align:middle !important;
+}
+
+#tablaPublicaciones tbody td[data-label="Publicación"] > .ev-chip{
+  display:flex !important;
+  width:max-content !important;
+  min-width:104px;
+  margin:0 auto !important;
+  align-items:center;
+  justify-content:center;
+}
+
+.ev-preview-summary-toggle{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  margin-top:7px;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:var(--ev-naranja-oscuro);
+  font-size:.78rem;
+  line-height:1.2;
+  font-weight:900;
+  cursor:pointer;
+  text-decoration:none;
+}
+.ev-preview-summary-toggle:hover,
+.ev-preview-summary-toggle:focus-visible{
+  color:var(--ev-naranja);
+  text-decoration:underline;
+  outline:0;
+}
+.ev-preview-summary-toggle[hidden]{display:none !important;}
+
+@media(max-width:768px){
+  #tablaPublicaciones tbody td[data-label="Publicación"]{
+    text-align:center !important;
+  }
+  #tablaPublicaciones tbody td[data-label="Publicación"]::before{
+    text-align:center !important;
+  }
+  #tablaPublicaciones tbody td[data-label="Publicación"] > .ev-chip{
+    width:min(100%,118px) !important;
+    min-width:104px;
+    margin-inline:auto !important;
+  }
+}
+
 </style>

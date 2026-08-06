@@ -317,6 +317,22 @@ class Producto extends Conexion
                  ) ";
     }
 
+    /**
+     * Consulta administrativa del Marketplace.
+     * El administrador puede auditar publicaciones aprobadas aunque el vendedor
+     * tenga desactivada temporalmente la recepción de pedidos. Esta excepción no
+     * altera lo que ven los vecinos compradores.
+     */
+    private function whereMarketplaceAdministrativo(string $aliasProducto = 'p', string $aliasUsuario = 'u'): string
+    {
+        $aliasProducto = preg_replace('/[^a-zA-Z0-9_]/', '', $aliasProducto) ?: 'p';
+        $aliasUsuario  = preg_replace('/[^a-zA-Z0-9_]/', '', $aliasUsuario) ?: 'u';
+
+        return " {$aliasProducto}.visible = 2
+                 AND {$aliasUsuario}.estado = 2
+                 AND {$aliasProducto}.estado_residencial_publicacion = 'activa' ";
+    }
+
     /* ==========================================================
        CREAR PUBLICACIÓN (visible=0 borrador)
        - Guarda snapshot residencial
@@ -1179,8 +1195,9 @@ class Producto extends Conexion
         }
 
         if ($hasQ) {
-            $where .= " AND (p.titulo LIKE :q OR p.descripcion LIKE :q) ";
-            $params[':q'] = '%' . $q . '%';
+            $where .= " AND (p.titulo LIKE :q_titulo OR p.descripcion LIKE :q_descripcion) ";
+            $params[':q_titulo'] = '%' . $q . '%';
+            $params[':q_descripcion'] = '%' . $q . '%';
         }
 
         $sqlTotal = "
@@ -1307,8 +1324,9 @@ class Producto extends Conexion
         }
 
         if ($hasQ) {
-            $where .= " AND (p.titulo LIKE :q OR p.descripcion LIKE :q) ";
-            $params[':q'] = '%' . $q . '%';
+            $where .= " AND (p.titulo LIKE :q_titulo OR p.descripcion LIKE :q_descripcion) ";
+            $params[':q_titulo'] = '%' . $q . '%';
+            $params[':q_descripcion'] = '%' . $q . '%';
         }
 
         $sqlTotal = "
@@ -1368,6 +1386,53 @@ class Producto extends Conexion
             'size'  => $size,
             'items' => $items
         ];
+    }
+
+    public function listarComunidadesActivasMarketplace(): array
+    {
+        $sql = "SELECT * FROM (
+            SELECT 'condominio' tipo_conjunto,c.codigo_condominio codigo_comunidad,c.nombre_condominio nombre,
+                   d.nombre_distrito,pr.nombre_provincia,dep.nombre_departamento
+            FROM condominio c LEFT JOIN ubigeo_distrito d ON d.codigo_distrito=c.codigo_distrito
+            LEFT JOIN ubigeo_provincia pr ON pr.codigo_provincia=d.codigo_provincia
+            LEFT JOIN ubigeo_departamento dep ON dep.codigo_departamento=pr.codigo_departamento WHERE c.estado='A'
+            UNION ALL
+            SELECT 'urbanizacion',u.codigo_urbanizacion,u.nombre_urbanizacion,d.nombre_distrito,pr.nombre_provincia,dep.nombre_departamento
+            FROM urbanizacion u LEFT JOIN ubigeo_distrito d ON d.codigo_distrito=u.codigo_distrito
+            LEFT JOIN ubigeo_provincia pr ON pr.codigo_provincia=d.codigo_provincia
+            LEFT JOIN ubigeo_departamento dep ON dep.codigo_departamento=pr.codigo_departamento WHERE u.estado='A'
+        ) x ORDER BY nombre_departamento,nombre_provincia,nombre_distrito,nombre";
+        return $this->dblink->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function obtenerComunidadMarketplace(string $tipoConjunto,int $codigoComunidad): ?array
+    {
+        foreach($this->listarComunidadesActivasMarketplace() as $c){
+            if((string)$c['tipo_conjunto']===$tipoConjunto && (int)$c['codigo_comunidad']===$codigoComunidad){
+                return ['tipo_conjunto'=>$tipoConjunto,'nombre'=>(string)$c['nombre'],'codigo_comunidad'=>$codigoComunidad,'nombre_distrito'=>(string)($c['nombre_distrito']??'')];
+            }
+        }
+        return null;
+    }
+
+    public function listarMarketplaceFiltradoPorComunidad(
+        string $tipoConjunto,int $codigoComunidad,?int $tipo,?int $categoria,string $q,int $page,int $size,?string $tipoPublicacion=null
+    ): array {
+        $tipoConjunto=strtolower(trim($tipoConjunto));$codigoComunidad=max(0,$codigoComunidad);
+        $page=max(1,$page);$size=max(1,min(50,$size));$off=($page-1)*$size;
+        if(!in_array($tipoConjunto,['condominio','urbanizacion'],true)||$codigoComunidad<=0)return ['total'=>0,'page'=>$page,'size'=>$size,'items'=>[]];
+        $q=trim($q);$tipoPublicacion=$this->normalizarTipoPublicacionFiltro($tipoPublicacion);
+        $where=" WHERE ".$this->whereMarketplaceAdministrativo('p','u')." ";$params=[];
+        if($tipoConjunto==='condominio'){$where.=" AND p.tipo_conjunto_publicacion='condominio' AND p.codigo_condominio_publicacion=:cond ";$params[':cond']=$codigoComunidad;}
+        else{$where.=" AND p.tipo_conjunto_publicacion='urbanizacion' AND p.codigo_urbanizacion_publicacion=:urb ";$params[':urb']=$codigoComunidad;}
+        if($tipoPublicacion!==null){$where.=" AND p.tipo_publicacion=:tipo_publicacion ";$params[':tipo_publicacion']=$tipoPublicacion;}
+        if($tipo!==null&&$tipo>0){$where.=" AND p.codigo_tipo=:tipo ";$params[':tipo']=$tipo;}
+        if($categoria!==null&&$categoria>0){$where.=" AND p.codigo_categoria=:cat ";$params[':cat']=$categoria;}
+        if($q!==''){$where.=" AND (p.titulo LIKE :q_titulo OR p.descripcion LIKE :q_descripcion) ";$params[':q_titulo']='%'.$q.'%';$params[':q_descripcion']='%'.$q.'%';}
+        $st=$this->dblink->prepare("SELECT COUNT(*) FROM producto p INNER JOIN usuario u ON u.codigo_usuario=p.codigo_usuario {$where}");$this->bindMarketplaceParams($st,$params);$st->execute();$total=(int)$st->fetchColumn();
+        $sql="SELECT p.codigo_producto,p.tipo_publicacion,p.titulo,p.descripcion,p.estado,p.precio,p.tipo_atencion_producto,p.visible,p.codigo_usuario,p.codigo_tipo,p.codigo_categoria,p.imagen_portada,p.codigo_usuario_residencia,p.tipo_conjunto_publicacion,p.codigo_condominio_publicacion,p.codigo_urbanizacion_publicacion,p.estado_residencial_publicacion,COALESCE(u.disponibilidad_pedidos,0) disponibilidad_pedidos_vendedor,t.nombre tipo_nombre,c.nombre categoria_nombre,DATE_FORMAT(p.created_at,'%d/%m/%Y %H:%i') create_at FROM producto p INNER JOIN usuario u ON u.codigo_usuario=p.codigo_usuario LEFT JOIN tipo t ON t.codigo_tipo=p.codigo_tipo LEFT JOIN categoria c ON c.codigo_categoria=p.codigo_categoria {$where} ORDER BY p.created_at DESC LIMIT :lim OFFSET :off";
+        $st=$this->dblink->prepare($sql);$this->bindMarketplaceParams($st,$params);$st->bindValue(':lim',$size,PDO::PARAM_INT);$st->bindValue(':off',$off,PDO::PARAM_INT);$st->execute();
+        return ['total'=>$total,'page'=>$page,'size'=>$size,'items'=>$st->fetchAll(PDO::FETCH_ASSOC)?:[]];
     }
 
     private function normalizarTipoPublicacionFiltro(?string $tipoPublicacion): ?string
@@ -1798,4 +1863,11 @@ class Producto extends Conexion
 
         return $fila;
     }
+    public function obtenerDetalleMarketplaceAdmin(int $codigoProducto,int $codigoUsuarioViewer): ?array
+    {
+        $sql="SELECT p.codigo_producto,p.tipo_publicacion,p.titulo,p.descripcion,p.estado,p.precio,p.tipo_atencion_producto,p.visible,p.codigo_usuario,p.codigo_tipo,p.codigo_categoria,p.imagen_portada,p.codigo_usuario_residencia,p.tipo_conjunto_publicacion,p.codigo_condominio_publicacion,p.codigo_urbanizacion_publicacion,p.estado_residencial_publicacion,COALESCE(u.disponibilidad_pedidos,0) disponibilidad_pedidos_vendedor,p.updated_at,p.created_at,t.nombre tipo_nombre,c.nombre categoria_nombre,u.nombre vendedor_nombre,u.estado vendedor_estado FROM producto p INNER JOIN usuario u ON u.codigo_usuario=p.codigo_usuario LEFT JOIN tipo t ON t.codigo_tipo=p.codigo_tipo LEFT JOIN categoria c ON c.codigo_categoria=p.codigo_categoria WHERE p.codigo_producto=:id AND ".$this->whereMarketplaceAdministrativo('p','u')." LIMIT 1";
+        $st=$this->dblink->prepare($sql);$st->execute([':id'=>$codigoProducto]);$fila=$st->fetch(PDO::FETCH_ASSOC);if(!$fila)return null;
+        $fila['tipo_publicacion']=$fila['tipo_publicacion']??'producto';$fila['es_producto_propio']=((int)$fila['codigo_usuario']===$codigoUsuarioViewer)?1:0;$fila['requiere_preparacion']=((string)($fila['tipo_atencion_producto']??'')==='requiere_preparacion')?1:0;return $fila;
+    }
+
 }

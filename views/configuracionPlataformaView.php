@@ -179,3 +179,4 @@ require_once __DIR__ . '/../Config/config.php';
     </div>
   </section>
 </section>
+<script src="<?= rtrim(BASE_URL, '/') ?>/views/js/configuracionPlataforma.js?v=<?= rawurlencode((string)(defined('EV_APP_VER') ? EV_APP_VER : '1.0.0')) ?>"></script>

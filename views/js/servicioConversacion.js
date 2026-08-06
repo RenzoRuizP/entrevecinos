@@ -128,13 +128,13 @@
       #ev-sc-shell.ev-show{display:flex}
       #ev-sc-shell *{box-sizing:border-box}
       #ev-sc-shell .ev-sc-modal{width:min(1180px,100%);height:min(850px,calc(100dvh - 32px));min-height:0;display:flex;flex-direction:column;overflow:hidden;border:0;border-radius:26px;background:#F4F7F5;box-shadow:0 32px 90px rgba(15,23,42,.34);font-family:inherit}
-      #ev-sc-shell .ev-sc-head{position:relative;z-index:3;flex:0 0 auto;min-height:74px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 20px;background:linear-gradient(135deg,#0F592F 0%,#128447 57%,#16A34A 100%);color:#fff}
-      #ev-sc-shell .ev-sc-head-left{display:flex;align-items:center;gap:12px;min-width:0}
-      #ev-sc-shell .ev-sc-icon{width:42px;height:42px;display:grid;place-items:center;flex:0 0 auto;border:1px solid rgba(255,255,255,.22);border-radius:14px;background:rgba(255,255,255,.13);font-size:1.18rem}
-      #ev-sc-shell .ev-sc-title{font-weight:900;font-size:1.04rem;line-height:1.22;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      #ev-sc-shell .ev-sc-sub{margin-top:2px;color:rgba(255,255,255,.78);font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      #ev-sc-shell .ev-sc-close{width:38px;height:38px;display:grid;place-items:center;border:0;border-radius:10px;color:#fff;background:transparent;font-size:1.45rem;line-height:1;cursor:pointer;transition:background-color .15s ease,opacity .15s ease}
-      #ev-sc-shell .ev-sc-close:hover,#ev-sc-shell .ev-sc-close:focus-visible{background:rgba(255,255,255,.12);opacity:.88;transform:none;outline:0}
+      #ev-sc-shell .ev-sc-head{position:relative;z-index:3;flex:0 0 auto;min-height:64px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 22px;background:linear-gradient(135deg,#0F592F 0%,#128447 57%,#16A34A 100%);color:#fff}
+      #ev-sc-shell .ev-sc-head-left{display:flex;align-items:center;gap:9px;min-width:0}
+      #ev-sc-shell .ev-sc-icon{width:auto;height:auto;display:inline-grid;place-items:center;flex:0 0 auto;border:0;border-radius:0;background:transparent;font-size:1rem;line-height:1}
+      #ev-sc-shell .ev-sc-title{font-weight:850;font-size:1rem;line-height:1.22;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      #ev-sc-shell .ev-sc-sub{margin-top:2px;color:rgba(255,255,255,.80);font-size:.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      #ev-sc-shell .ev-sc-close{box-sizing:content-box;width:1em;height:1em;padding:.5rem;border:0;border-radius:.375rem;opacity:1;filter:brightness(0) invert(1);background-color:transparent;background-size:1em;cursor:pointer;transition:background-color .15s ease,opacity .15s ease}
+      #ev-sc-shell .ev-sc-close:hover,#ev-sc-shell .ev-sc-close:focus-visible{background-color:rgba(255,255,255,.10);opacity:1;transform:none;outline:0;box-shadow:none}
       #ev-sc-shell .ev-sc-grid{flex:1 1 auto;min-height:0;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) 350px}
       #ev-sc-shell .ev-sc-main{min-width:0;min-height:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #E2E8F0;background:#F8FAF9}
       #ev-sc-shell .ev-sc-context{flex:0 0 auto;padding:13px 16px;border-bottom:1px solid #E6ECE8;background:#fff}
@@ -167,12 +167,12 @@
       #ev-sc-shell .ev-sc-compose{position:relative;z-index:2;flex:0 0 auto;padding:12px 14px;border-top:1px solid #E3EAE5;background:#fff;box-shadow:0 -10px 22px rgba(15,23,42,.045)}
       #ev-sc-shell .ev-sc-compose-row{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:8px;align-items:end}
       #ev-sc-shell .ev-sc-attach,#ev-sc-shell .ev-sc-send{border:0;border-radius:13px;cursor:pointer;font-weight:900;transition:.16s ease}
-      #ev-sc-shell .ev-sc-file-input{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
       #ev-sc-shell .ev-sc-attach{position:relative;overflow:hidden;height:42px;display:grid;place-items:center;color:#0F592F;background:#ECFDF3;border:1px solid rgba(22,163,74,.18)}
       #ev-sc-shell .ev-sc-send{min-height:42px;padding:0 15px;color:#fff;background:linear-gradient(135deg,#D97706,#EA7C12);box-shadow:0 10px 20px rgba(217,119,6,.28)}
       #ev-sc-shell .ev-sc-attach:hover{transform:translateY(-1px);filter:brightness(1.03)}
       #ev-sc-shell .ev-sc-attach.has-files{color:#fff;background:linear-gradient(135deg,#0F592F,#16A34A);border-color:transparent;box-shadow:0 8px 18px rgba(15,89,47,.20)}
-      #ev-sc-shell .ev-sc-file-input{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;opacity:0;cursor:pointer;font-size:100px}
+      #ev-sc-shell .ev-sc-file-input{position:absolute!important;inset:0!important;display:block!important;width:100%!important;height:100%!important;margin:0!important;padding:0!important;opacity:0!important;overflow:hidden!important;clip:auto!important;white-space:normal!important;border:0!important;cursor:pointer!important;font-size:100px!important;z-index:2}
+      #ev-sc-shell .ev-sc-attach>i{pointer-events:none}
       #ev-sc-shell .ev-sc-attach:focus-within,#ev-sc-shell .ev-sc-attach:focus-visible{outline:3px solid rgba(234,124,18,.22);outline-offset:2px}
       #ev-sc-shell .ev-sc-send:hover{transform:translateY(-1px);background:linear-gradient(135deg,#C46B05,#D46F0F);box-shadow:0 14px 26px rgba(217,119,6,.36);filter:brightness(1.02)}
       #ev-sc-shell .ev-sc-input{min-height:42px;max-height:110px;resize:vertical;padding:10px 11px;border:1px solid #D8E3DB;border-radius:13px;background:#fff;color:#1F2937;font:inherit;font-size:.84rem;outline:0}
@@ -215,6 +215,15 @@
       #ev-sc-shell .ev-sc-form textarea{min-height:72px;resize:vertical}
       #ev-sc-shell .ev-sc-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
       #ev-sc-shell .ev-sc-form-note{padding:9px 10px;border:1px solid rgba(234,124,18,.24);border-radius:12px;color:#92400E;background:#FFF9ED;font-size:.72rem;line-height:1.42}
+      .ev-sc-dialog-copy{margin:0 0 12px;color:#64748B;font-size:.84rem;line-height:1.5;text-align:left}
+      .ev-sc-cancel-options{display:grid;gap:8px;text-align:left}
+      .ev-sc-cancel-option{display:flex;align-items:center;gap:10px;min-height:44px;padding:10px 12px;border:1px solid #E2E8F0;border-radius:13px;background:#fff;color:#334155;font-size:.82rem;font-weight:750;cursor:pointer;transition:.15s ease}
+      .ev-sc-cancel-option:hover,.ev-sc-cancel-option.is-selected{border-color:rgba(234,124,18,.48);background:#FFF9F0;box-shadow:0 7px 18px rgba(234,124,18,.08)}
+      .ev-sc-cancel-option input{position:absolute;opacity:0;pointer-events:none}
+      .ev-sc-cancel-dot{width:18px;height:18px;flex:0 0 auto;border:2px solid #CBD5E1;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 4px #fff}
+      .ev-sc-cancel-option.is-selected .ev-sc-cancel-dot{border-color:#EA7C12;background:#EA7C12}
+      .ev-sc-cancel-other{display:grid;gap:6px;margin-top:12px;text-align:left}.ev-sc-cancel-other[hidden]{display:none!important}
+      .ev-sc-cancel-other label{color:#334155;font-size:.76rem;font-weight:900}.ev-sc-cancel-other textarea{width:100%;min-height:92px;padding:10px 11px;border:1px solid #CFE9D9;border-radius:13px;resize:vertical;outline:0;font:inherit}.ev-sc-cancel-other textarea:focus{border-color:#16A34A;box-shadow:0 0 0 4px rgba(22,163,74,.12)}
       #ev-sc-shell .ev-sc-hidden{display:none!important}
       @media(max-width:900px){#ev-sc-shell{padding:0}#ev-sc-shell .ev-sc-modal{width:100%;height:100dvh;border-radius:0}#ev-sc-shell .ev-sc-grid{display:flex;flex-direction:column;min-height:0;overflow:hidden}#ev-sc-shell .ev-sc-main{min-height:0;flex:1 1 auto;border-right:0;border-bottom:1px solid #E2E8F0}#ev-sc-shell .ev-sc-side{display:block;min-height:0;max-height:42dvh;flex:0 0 auto;overflow:auto;padding:12px}#ev-sc-shell .ev-sc-bubble{max-width:88%}}
       /* Refinamiento UX/UI EV: jerarquía de conversación y cotización. */
@@ -300,6 +309,96 @@
         #ev-sc-shell .ev-sc-quote-upload>i{display:none}
         #ev-sc-shell .ev-sc-form-grid{grid-template-columns:1fr}
       }
+
+
+      /* EV — cierre visual final del chat: premium, limpio y consistente. */
+      #ev-sc-shell .ev-sc-modal{
+        width:min(1160px,100%);
+        border:1px solid rgba(15,89,47,.72);
+        background:#0F592F;
+        isolation:isolate;
+        outline:1px solid rgba(15,89,47,.18);
+      }
+      #ev-sc-shell .ev-sc-head{
+        min-height:68px;
+        margin:-1px -1px 0;
+        width:calc(100% + 2px);
+        padding:12px 18px;
+        border-radius:25px 25px 0 0;
+        background:linear-gradient(135deg,#0F592F 0%,#0E7A43 54%,#16A34A 100%);
+        box-shadow:0 10px 24px rgba(15,89,47,.18);
+      }
+      #ev-sc-shell .ev-sc-head-left{gap:11px}
+      #ev-sc-shell .ev-sc-icon{
+        width:38px;
+        height:38px;
+        border:1px solid rgba(255,255,255,.24);
+        border-radius:12px;
+        background:rgba(255,255,255,.10);
+        font-size:1rem;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
+      }
+      #ev-sc-shell .ev-sc-title{font-size:1.04rem;font-weight:900;letter-spacing:-.012em}
+      #ev-sc-shell .ev-sc-sub{font-size:.73rem;color:rgba(255,255,255,.82)}
+      #ev-sc-shell .ev-sc-close{
+        width:38px!important;
+        height:38px!important;
+        min-width:38px!important;
+        min-height:38px!important;
+        flex:0 0 38px!important;
+        padding:0!important;
+        border-radius:10px!important;
+        background-size:14px 14px!important;
+        filter:invert(1) grayscale(1) brightness(2)!important;
+      }
+      #ev-sc-shell .ev-sc-grid{background:#F5F8F6}
+      #ev-sc-shell .ev-sc-main{background:#F7FAF8}
+      #ev-sc-shell .ev-sc-context{padding:13px 18px;background:linear-gradient(180deg,#FFFFFF,#FCFEFD)}
+      #ev-sc-shell .ev-sc-cover{width:50px;height:50px;border-radius:15px;box-shadow:0 8px 18px rgba(15,23,42,.08)}
+      #ev-sc-shell .ev-sc-name{font-size:1rem;letter-spacing:-.012em}
+      #ev-sc-shell .ev-sc-thread{
+        padding:20px 24px 24px;
+        background:radial-gradient(circle at 90% 4%,rgba(22,163,74,.08),transparent 29%),linear-gradient(180deg,#F9FCFA 0%,#EEF5F0 100%);
+      }
+      #ev-sc-shell .ev-sc-message{margin-bottom:15px}
+      #ev-sc-shell .ev-sc-bubble{
+        max-width:min(76%,640px);
+        padding:12px 14px;
+        border-color:#DDE7E0;
+        border-radius:19px 19px 19px 6px;
+        background:rgba(255,255,255,.98);
+        box-shadow:0 10px 24px rgba(15,23,42,.055);
+      }
+      #ev-sc-shell .ev-sc-message.me .ev-sc-bubble{
+        border-color:rgba(22,163,74,.23);
+        border-radius:19px 19px 6px 19px;
+        background:linear-gradient(135deg,#E8F8EE,#FBFFFC);
+      }
+      #ev-sc-shell .ev-sc-bubble-initial{max-width:min(86%,720px);border-color:rgba(234,124,18,.26);background:linear-gradient(135deg,#FFF8EE,#FFFFFF)}
+      #ev-sc-shell .ev-sc-author{font-size:.72rem}
+      #ev-sc-shell .ev-sc-text{font-size:.89rem;line-height:1.58}
+      #ev-sc-shell .ev-sc-time{font-size:.67rem}
+      #ev-sc-shell .ev-sc-side{padding:15px;background:linear-gradient(180deg,#FCFEFD,#F5F9F6)}
+      #ev-sc-shell .ev-sc-card{border-color:#DEE8E1;border-radius:18px;box-shadow:0 10px 24px rgba(15,23,42,.05)}
+      #ev-sc-shell .ev-sc-compose{padding:12px 15px 11px;background:linear-gradient(180deg,#FFFFFF,#FBFDFC)}
+      #ev-sc-shell .ev-sc-compose-row{grid-template-columns:44px minmax(0,1fr) auto;gap:9px}
+      #ev-sc-shell .ev-sc-attach,#ev-sc-shell .ev-sc-input,#ev-sc-shell .ev-sc-send{min-height:50px;border-radius:14px}
+      #ev-sc-shell .ev-sc-attach{height:50px}
+      #ev-sc-shell .ev-sc-input{padding:12px 13px}
+      #ev-sc-shell .ev-sc-send{padding-inline:16px}
+      @media(max-width:900px){
+        #ev-sc-shell .ev-sc-modal{border:0;outline:0;background:#F5F8F6}
+        #ev-sc-shell .ev-sc-head{margin:0;width:100%;border-radius:0}
+        #ev-sc-shell .ev-sc-bubble{max-width:88%}
+      }
+      @media(max-width:560px){
+        #ev-sc-shell .ev-sc-head{min-height:62px;padding:10px 12px}
+        #ev-sc-shell .ev-sc-icon{width:34px;height:34px;border-radius:11px}
+        #ev-sc-shell .ev-sc-title{font-size:.96rem}
+        #ev-sc-shell .ev-sc-thread{padding:13px 11px 16px}
+        #ev-sc-shell .ev-sc-bubble,#ev-sc-shell .ev-sc-bubble-initial{max-width:92%;padding:11px 12px}
+        #ev-sc-shell .ev-sc-compose{padding:10px 10px max(10px,env(safe-area-inset-bottom))}
+      }
     `;
 
     const root = document.createElement('div');
@@ -315,7 +414,7 @@
               <div id="evScSub" class="ev-sc-sub">Cargando…</div>
             </div>
           </div>
-          <button type="button" class="ev-sc-close" aria-label="Cerrar">×</button>
+          <button type="button" class="btn-close btn-close-white ev-sc-close" aria-label="Cerrar"></button>
         </header>
         <div class="ev-sc-grid">
           <main class="ev-sc-main">
@@ -680,20 +779,169 @@
     if (!window.Swal?.fire) {
       return { isConfirmed: window.confirm(options.text || title), value: options.defaultValue || '' };
     }
-    return Swal.fire({
+
+    const config = {
       title,
       text: options.text || '',
+      html: options.html || undefined,
       input: options.input || undefined,
       inputValue: options.defaultValue || '',
       inputLabel: options.inputLabel || '',
       inputPlaceholder: options.placeholder || '',
       inputAttributes: options.inputAttributes || {},
       showCancelButton: true,
-      confirmButtonText: options.confirmText || 'Continuar',
-      cancelButtonText: 'Cancelar',
+      confirmButtonText: options.confirmText || '<i class="bi bi-check2-circle"></i> Continuar',
+      cancelButtonText: options.cancelText || '<i class="bi bi-x-circle"></i> Cancelar',
       confirmButtonColor: '#EA7C12',
-      preConfirm: options.preConfirm
+      preConfirm: options.preConfirm,
+      didOpen: options.didOpen,
+      allowOutsideClick: false,
+      allowEscapeKey: false
+    };
+
+    // SweetAlert2 prioriza `html`; no enviamos `text` cuando existe contenido enriquecido.
+    if (options.html) delete config.text;
+    return Swal.fire(config);
+  }
+
+  function cancellationOptionsHtml() {
+    const options = [
+      ['ya_no_necesito', 'Ya no necesito el servicio'],
+      ['sin_acuerdo', 'No llegamos a un acuerdo'],
+      ['sin_respuesta', 'No recibí respuesta a tiempo'],
+      ['cambio_necesidad', 'Cambiaron mis necesidades'],
+      ['otra_alternativa', 'Encontré otra alternativa'],
+      ['fecha_horario', 'La fecha o el horario ya no me convienen'],
+      ['otro', 'Otro motivo']
+    ];
+
+    return `
+      <div class="ev-sc-cancel-form" id="evScCancelForm">
+        <p class="ev-sc-dialog-copy">Selecciona el motivo que mejor describe por qué deseas cancelar la coordinación.</p>
+        <div class="ev-sc-cancel-options" role="radiogroup" aria-label="Motivo de cancelación">
+          ${options.map(([value, label]) => `
+            <label class="ev-sc-cancel-option">
+              <input type="radio" name="ev_sc_cancel_reason" value="${value}">
+              <span class="ev-sc-cancel-dot" aria-hidden="true"></span>
+              <span>${label}</span>
+            </label>
+          `).join('')}
+        </div>
+        <div class="ev-sc-cancel-other" id="evScCancelOther" hidden>
+          <label for="evScCancelOtherText">Cuéntanos el motivo</label>
+          <textarea id="evScCancelOtherText" maxlength="500" placeholder="Describe brevemente por qué deseas cancelar."></textarea>
+        </div>
+      </div>`;
+  }
+
+  async function askCancellationReason() {
+    return ask('Cancelar coordinación', {
+      html: cancellationOptionsHtml(),
+      confirmText: '<i class="bi bi-check2-circle"></i> Aceptar',
+      cancelText: '<i class="bi bi-x-circle"></i> Cancelar',
+      didOpen: (popup) => {
+        const otherWrap = popup.querySelector('#evScCancelOther');
+        const otherText = popup.querySelector('#evScCancelOtherText');
+        popup.querySelectorAll('input[name="ev_sc_cancel_reason"]').forEach((radio) => {
+          radio.addEventListener('change', () => {
+            popup.querySelectorAll('.ev-sc-cancel-option').forEach((label) => label.classList.remove('is-selected'));
+            radio.closest('.ev-sc-cancel-option')?.classList.add('is-selected');
+            const isOther = radio.value === 'otro';
+            if (otherWrap) otherWrap.hidden = !isOther;
+            if (!isOther && otherText) otherText.value = '';
+            if (isOther) window.setTimeout(() => otherText?.focus(), 50);
+          });
+        });
+      },
+      preConfirm: () => {
+        const selected = document.querySelector('input[name="ev_sc_cancel_reason"]:checked');
+        if (!selected) {
+          Swal.showValidationMessage('Selecciona un motivo de cancelación.');
+          return false;
+        }
+
+        const labels = {
+          ya_no_necesito: 'Ya no necesito el servicio',
+          sin_acuerdo: 'No llegamos a un acuerdo',
+          sin_respuesta: 'No recibí respuesta a tiempo',
+          cambio_necesidad: 'Cambiaron mis necesidades',
+          otra_alternativa: 'Encontré otra alternativa',
+          fecha_horario: 'La fecha o el horario ya no me convienen',
+          otro: 'Otro motivo'
+        };
+        const detail = String(document.getElementById('evScCancelOtherText')?.value || '').trim();
+        if (selected.value === 'otro' && detail.length < 5) {
+          Swal.showValidationMessage('Describe el otro motivo con al menos 5 caracteres.');
+          return false;
+        }
+
+        return selected.value === 'otro'
+          ? `${labels.otro}: ${detail}`
+          : labels[selected.value] || 'Cancelación solicitada por el usuario';
+      }
     });
+  }
+
+  function structuredReasonDialogOptions(config) {
+    const key = String(config.key || 'reason').replace(/[^a-z0-9_-]/gi, '');
+    const inputName = `ev_sc_${key}_reason`;
+    const otherWrapId = `evSc${key}Other`;
+    const otherTextId = `evSc${key}OtherText`;
+    const options = Array.isArray(config.options) ? config.options : [];
+    const labels = Object.fromEntries(options);
+
+    return {
+      html: `
+        <div class="ev-sc-cancel-form" id="evSc${key}Form">
+          <p class="ev-sc-dialog-copy">${esc(config.intro || 'Selecciona la opción que mejor describe tu solicitud.')}</p>
+          <div class="ev-sc-cancel-options" role="radiogroup" aria-label="${esc(config.ariaLabel || 'Motivo')}">
+            ${options.map(([value, label]) => `
+              <label class="ev-sc-cancel-option">
+                <input type="radio" name="${inputName}" value="${esc(value)}">
+                <span class="ev-sc-cancel-dot" aria-hidden="true"></span>
+                <span>${esc(label)}</span>
+              </label>
+            `).join('')}
+          </div>
+          <div class="ev-sc-cancel-other" id="${otherWrapId}" hidden>
+            <label for="${otherTextId}">${esc(config.otherLabel || 'Describe el motivo')}</label>
+            <textarea id="${otherTextId}" maxlength="${Number(config.maxLength || 500)}" placeholder="${esc(config.otherPlaceholder || 'Escribe un detalle breve y claro.')}"></textarea>
+          </div>
+        </div>`,
+      confirmText: config.confirmText || '<i class="bi bi-check2-circle"></i> Continuar',
+      cancelText: '<i class="bi bi-x-circle"></i> Cancelar',
+      didOpen: (popup) => {
+        const otherWrap = popup.querySelector(`#${otherWrapId}`);
+        const otherText = popup.querySelector(`#${otherTextId}`);
+        popup.querySelectorAll(`input[name="${inputName}"]`).forEach((radio) => {
+          radio.addEventListener('change', () => {
+            popup.querySelectorAll('.ev-sc-cancel-option').forEach((label) => label.classList.remove('is-selected'));
+            radio.closest('.ev-sc-cancel-option')?.classList.add('is-selected');
+            const isOther = radio.value === 'otro';
+            if (otherWrap) otherWrap.hidden = !isOther;
+            if (!isOther && otherText) otherText.value = '';
+            if (isOther) window.setTimeout(() => otherText?.focus(), 50);
+          });
+        });
+      },
+      preConfirm: () => {
+        const popup = Swal.getPopup();
+        const selected = popup?.querySelector(`input[name="${inputName}"]:checked`);
+        if (!selected) {
+          Swal.showValidationMessage(config.selectMessage || 'Selecciona un motivo.');
+          return false;
+        }
+        const detail = String(popup?.querySelector(`#${otherTextId}`)?.value || '').trim();
+        const minLength = Number(config.minLength || 5);
+        if (selected.value === 'otro' && detail.length < minLength) {
+          Swal.showValidationMessage(config.otherValidation || `Describe el otro motivo con al menos ${minLength} caracteres.`);
+          return false;
+        }
+        return selected.value === 'otro'
+          ? `${labels.otro || 'Otro motivo'}: ${detail}`
+          : labels[selected.value] || 'Motivo seleccionado por el usuario';
+      }
+    };
   }
 
   async function ejecutarAccionConConfirmacion(titulo, opciones, ejecutar) {
@@ -986,69 +1234,105 @@
 
   async function acceptQuote() {
     await ejecutarAccionConConfirmacion('Aceptar cotización final', {
-      text: 'Confirma solo si el servicio incluido, precio final total, fecha, horario y condición de pago son correctos.',
-      confirmText: 'Aceptar cotización'
+      text: 'Revisa que el servicio, el precio final, la fecha, el horario y la forma de pago coincidan con lo acordado. Al aceptar, la coordinación quedará confirmada y registrada.',
+      confirmText: '<i class="bi bi-check2-circle"></i> Aceptar',
+      cancelText: '<i class="bi bi-x-circle"></i> Cancelar'
     }, async (_resultado, codigoSolicitud) => {
       await request(`${BASE}/api/servicios/solicitudes/${codigoSolicitud}/aceptar-cotizacion-final`, new URLSearchParams());
     });
   }
 
   async function adjustQuote() {
-    await ejecutarAccionConConfirmacion('Solicitar ajuste', {
-      input: 'textarea',
-      inputLabel: 'Detalle del ajuste solicitado',
-      confirmText: 'Enviar ajuste',
-      inputAttributes: { maxlength: 1500 },
-      preConfirm: (value) => {
-        const text = String(value || '').trim();
-        if (text.length < 8) {
-          Swal.showValidationMessage('Explica el ajuste con al menos 8 caracteres.');
-          return false;
-        }
-        return text;
-      }
-    }, async (resultado, codigoSolicitud) => {
+    const dialogOptions = structuredReasonDialogOptions({
+      key: 'adjust',
+      intro: 'Selecciona qué aspecto de la cotización debe modificar el proveedor.',
+      ariaLabel: 'Motivo del ajuste',
+      confirmText: '<i class="bi bi-send"></i> Enviar',
+      selectMessage: 'Selecciona el ajuste que necesitas.',
+      otherLabel: 'Describe el ajuste solicitado',
+      otherPlaceholder: 'Indica con claridad qué debe cambiar el proveedor.',
+      otherValidation: 'Describe el ajuste con al menos 8 caracteres.',
+      minLength: 8,
+      maxLength: 1500,
+      options: [
+        ['precio', 'Revisar el precio final'],
+        ['alcance', 'Modificar el servicio o alcance incluido'],
+        ['fecha', 'Cambiar la fecha acordada'],
+        ['horario', 'Cambiar el horario'],
+        ['forma_pago', 'Revisar la forma de pago'],
+        ['detalle_requisito', 'Aclarar una condición o requisito'],
+        ['otro', 'Otro ajuste']
+      ]
+    });
+
+    await ejecutarAccionConConfirmacion('Solicitar ajuste', dialogOptions, async (resultado, codigoSolicitud) => {
       await request(`${BASE}/api/servicios/solicitudes/${codigoSolicitud}/solicitar-ajuste-cotizacion`, new URLSearchParams({ mensaje: resultado.value }));
     });
   }
 
   async function rejectQuote() {
-    await ejecutarAccionConConfirmacion('Rechazar cotización final', {
-      input: 'textarea',
-      inputLabel: 'Motivo del rechazo',
-      confirmText: 'Rechazar cotización',
-      inputAttributes: { maxlength: 500 },
-      preConfirm: (value) => {
-        const text = String(value || '').trim();
-        if (text.length < 5) {
-          Swal.showValidationMessage('Indica un motivo breve.');
-          return false;
-        }
-        return text;
-      }
-    }, async (resultado, codigoSolicitud) => {
+    const dialogOptions = structuredReasonDialogOptions({
+      key: 'reject',
+      intro: 'Selecciona el motivo principal por el que no aceptarás esta cotización.',
+      ariaLabel: 'Motivo del rechazo',
+      confirmText: '<i class="bi bi-x-circle"></i> Rechazar',
+      selectMessage: 'Selecciona un motivo de rechazo.',
+      otherLabel: 'Describe el motivo del rechazo',
+      otherPlaceholder: 'Explica brevemente por qué rechazas la cotización.',
+      otherValidation: 'Describe el otro motivo con al menos 5 caracteres.',
+      minLength: 5,
+      maxLength: 500,
+      options: [
+        ['precio', 'El precio final no me conviene'],
+        ['alcance', 'El servicio incluido no coincide con lo solicitado'],
+        ['fecha_horario', 'La fecha o el horario no me convienen'],
+        ['forma_pago', 'No estoy de acuerdo con la forma de pago'],
+        ['informacion_incompleta', 'La cotización tiene información incompleta'],
+        ['ya_no_necesito', 'Ya no necesito el servicio'],
+        ['otro', 'Otro motivo']
+      ]
+    });
+
+    await ejecutarAccionConConfirmacion('Rechazar cotización final', dialogOptions, async (resultado, codigoSolicitud) => {
       await request(`${BASE}/api/servicios/solicitudes/${codigoSolicitud}/rechazar-cotizacion-final`, new URLSearchParams({ motivo: resultado.value }));
     });
   }
 
   async function cancel(role) {
-    await ejecutarAccionConConfirmacion('Cancelar coordinación', {
-      input: 'textarea',
-      inputLabel: 'Motivo de cancelación',
-      confirmText: 'Cancelar coordinación',
-      inputAttributes: { maxlength: 500 },
-      preConfirm: (value) => {
-        const text = String(value || '').trim();
-        if (text.length < 5) {
-          Swal.showValidationMessage('Indica un motivo de al menos 5 caracteres.');
-          return false;
-        }
-        return text;
-      }
-    }, async (resultado, codigoSolicitud) => {
+    if (accionEnCurso) return false;
+
+    const codigoSolicitud = idSolicitudActivo();
+    const estabaVisible = ocultarConversacionParaDialogo();
+    let resultado;
+    try {
+      resultado = await askCancellationReason();
+    } catch (error) {
+      restaurarConversacionDespuesDeDialogo(estabaVisible);
+      throw error;
+    }
+
+    if (!resultado?.isConfirmed || !resultado.value) {
+      restaurarConversacionDespuesDeDialogo(estabaVisible);
+      return false;
+    }
+
+    accionEnCurso = true;
+    try {
       const endpoint = role === 'proveedor' ? 'cancelar-proveedor' : 'cancelar';
-      await request(`${BASE}/api/servicios/solicitudes/${codigoSolicitud}/${endpoint}`, new URLSearchParams({ motivo: resultado.value }));
-    });
+      await request(
+        `${BASE}/api/servicios/solicitudes/${codigoSolicitud}/${endpoint}`,
+        new URLSearchParams({ motivo: String(resultado.value) })
+      );
+      restaurarConversacionDespuesDeDialogo(estabaVisible);
+      await load(true);
+      return true;
+    } catch (error) {
+      await toast('error', error?.message || 'No se pudo cancelar la coordinación.');
+      restaurarConversacionDespuesDeDialogo(estabaVisible);
+      return false;
+    } finally {
+      accionEnCurso = false;
+    }
   }
 
   async function markCompleted() {

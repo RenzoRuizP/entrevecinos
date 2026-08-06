@@ -1355,4 +1355,154 @@ body.ev-co-page{
     padding:26px 20px 22px !important;
   }
 }
+
+
+/* ===================================================
+   CUENTA OBSERVADA / REVISIÓN — cierre visual EV 2026
+=================================================== */
+body.ev-co-page{
+  background:
+    radial-gradient(circle at 12% 10%,rgba(22,163,74,.055),transparent 28%),
+    radial-gradient(circle at 90% 8%,rgba(234,124,18,.05),transparent 25%),
+    #F6F8F7!important;
+}
+.ev-co-card{
+  position:relative;
+  border-color:rgba(15,89,47,.10);
+  box-shadow:0 32px 78px rgba(15,23,42,.105),0 8px 24px rgba(15,23,42,.045);
+}
+.ev-co-card::before{
+  content:"";
+  position:absolute;
+  inset:0 0 auto;
+  height:4px;
+  background:linear-gradient(90deg,var(--ev-verde-oscuro),var(--ev-verde-claro) 62%,var(--ev-naranja));
+  z-index:2;
+}
+.ev-co-card-inner{
+  position:relative;
+  background:
+    linear-gradient(135deg,rgba(255,247,237,.34),transparent 27%),
+    linear-gradient(225deg,rgba(240,253,244,.55),transparent 32%),
+    #fff;
+}
+body.is-review .ev-co-wrap{max-width:1080px}
+body.is-review .ev-co-card-inner{padding:40px 42px 34px}
+body.is-review .ev-co-hero{
+  padding:4px 6px 10px;
+  margin-bottom:20px;
+}
+.ev-title{
+  letter-spacing:-.035em;
+  text-wrap:balance;
+}
+.ev-subtitle{
+  max-width:760px;
+  color:#64748B;
+  line-height:1.65;
+}
+.ev-status-banner{
+  border-color:rgba(22,163,74,.20);
+  background:linear-gradient(100deg,#F0FDF4 0%,#FFFFFF 72%);
+  box-shadow:0 9px 24px rgba(15,89,47,.05);
+}
+.ev-timeline{
+  position:relative;
+  border-color:rgba(15,89,47,.10);
+  background:rgba(255,255,255,.88);
+  box-shadow:0 15px 34px rgba(15,23,42,.045);
+}
+.ev-step.is-active .ev-step-dot{
+  box-shadow:0 0 0 6px rgba(234,124,18,.12),0 10px 22px rgba(234,124,18,.18);
+}
+.ev-info-card{
+  min-height:142px;
+  border-color:rgba(15,89,47,.10);
+  background:rgba(255,255,255,.92);
+  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
+}
+.ev-info-card:hover{
+  transform:translateY(-2px);
+  border-color:rgba(234,124,18,.24);
+  box-shadow:0 14px 30px rgba(15,23,42,.07);
+}
+.ev-co-footer{
+  border-color:rgba(15,89,47,.12);
+  background:linear-gradient(100deg,#F7FFF9,#FFFFFF);
+  box-shadow:0 12px 30px rgba(15,23,42,.04);
+}
+.ev-observed-grid{gap:26px}
+.ev-observed-main,
+.ev-observed-side{min-width:0}
+.ev-observation-card{
+  border-color:rgba(234,124,18,.24);
+  background:linear-gradient(135deg,#FFF9F2,#FFFFFF 78%);
+  box-shadow:0 13px 30px rgba(234,124,18,.07);
+}
+.ev-observation-message{
+  border-left:3px solid var(--ev-naranja);
+  background:#fff;
+}
+.ev-next-card,
+.ev-form-card,
+.ev-support-mini-premium{
+  border-color:rgba(15,89,47,.11);
+  background:rgba(255,255,255,.94);
+  box-shadow:0 15px 34px rgba(15,23,42,.05);
+}
+.ev-form-card{position:relative;overflow:hidden}
+.ev-form-card::before{
+  content:"";
+  position:absolute;
+  inset:0 0 auto;
+  height:3px;
+  background:linear-gradient(90deg,var(--ev-verde),var(--ev-naranja));
+}
+.ev-upload-zone{
+  border-color:rgba(22,163,74,.24);
+  background:linear-gradient(135deg,#FAFFFC,#FFFFFF);
+  transition:border-color .18s ease,background .18s ease,box-shadow .18s ease,transform .18s ease;
+}
+.ev-upload-zone:hover,
+.ev-upload-zone:focus-within{
+  transform:translateY(-1px);
+  border-color:var(--ev-verde-claro);
+  background:#F4FFF8;
+  box-shadow:0 0 0 4px rgba(22,163,74,.08),0 12px 24px rgba(15,89,47,.06);
+}
+.ev-actions{gap:10px}
+.ev-actions .btn{min-height:46px}
+@media(max-width:991.98px){
+  body.is-review .ev-co-card-inner{padding:32px 28px 26px}
+  .ev-info-card{min-height:0}
+}
+@media(max-width:767.98px){
+  .ev-co-shell{padding-top:24px}
+  body.is-review .ev-co-card-inner{padding:27px 20px 20px}
+  .ev-co-hero,.ev-co-hero-compact{
+    text-align:left;
+    justify-items:start;
+  }
+  .ev-hero-visual{margin:0}
+  .ev-eyebrow{margin-left:0;margin-right:0}
+  .ev-subtitle{margin-left:0;margin-right:0}
+  .ev-timeline{padding:17px 16px}
+  .ev-info-grid{gap:12px}
+  .ev-info-card{padding:16px}
+}
+@media(max-width:575.98px){
+  body.ev-co-page{padding:8px}
+  .ev-co-shell{min-height:calc(100vh - 16px);padding:12px 0 18px}
+  .ev-brand-pill{margin-bottom:10px}
+  .ev-co-card{border-radius:22px}
+  body.is-review .ev-co-card-inner,.ev-co-card-inner{padding:24px 14px 15px}
+  .ev-title,.ev-observed-main .ev-title{font-size:1.58rem;line-height:1.18}
+  .ev-subtitle{font-size:.86rem;line-height:1.55}
+  .ev-co-hero,.ev-co-hero-compact{gap:13px;margin-bottom:14px}
+  .ev-hero-visual,.ev-co-hero-compact .ev-hero-visual{width:82px;height:82px}
+  .ev-hero-orb,.ev-co-hero-compact .ev-hero-orb{width:52px;height:52px;border-radius:17px;font-size:1.35rem}
+  .ev-status-banner,.ev-observation-card,.ev-next-card,.ev-form-card,.ev-support-mini,.ev-timeline,.ev-info-card,.ev-co-footer{border-radius:16px}
+  .ev-footer-actions{display:grid;grid-template-columns:1fr;gap:8px}
+  .ev-footer-actions .btn,.ev-actions .btn{width:100%}
+}
 </style>

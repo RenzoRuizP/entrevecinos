@@ -8,9 +8,9 @@ $porTipo = [];
 foreach ($documentos as $doc) {
     $porTipo[(string)($doc['tipo'] ?? '')] = $doc;
 }
+
 $terminos = $porTipo['terminos_condiciones'] ?? [];
 $privacidad = $porTipo['politica_privacidad'] ?? [];
-$modoBorrador = !empty($legalConfig['modo_borrador']);
 $responsable = $legalConfig['responsable'] ?? [];
 $operacion = $legalConfig['operacion'] ?? [];
 ?>
@@ -30,92 +30,119 @@ $operacion = $legalConfig['operacion'] ?? [];
 <body class="ev-al-body">
   <main class="ev-al-page">
     <div class="ev-al-shell">
-      <div class="ev-al-brand">
+      <a class="ev-al-brand" href="<?= BASE_URL ?>" aria-label="Ir al inicio de Entre Vecinos">
         <img src="<?= BASE_URL ?>resources/images/logo/logo_ev_transparente_corregido_recortado.png" alt="Entre Vecinos">
-      </div>
+        <span>Entre Vecinos</span>
+      </a>
 
       <section class="ev-al-card" aria-labelledby="evAlTitle">
         <header class="ev-al-header">
-          <div class="ev-al-header__icon"><i class="bi bi-file-earmark-check"></i></div>
-          <h1 id="evAlTitle">Revisa y acepta los documentos vigentes</h1>
-          <p>Actualizamos el marco de uso y privacidad de EV. Para continuar, revisa ambos documentos y registra tu aceptación.</p>
+          <div class="ev-al-header__copy">
+            <span class="ev-al-header__icon" aria-hidden="true"><i class="bi bi-file-earmark-check"></i></span>
+            <div>
+              <span class="ev-al-kicker">DOCUMENTOS LEGALES</span>
+              <h1 id="evAlTitle">Revisa y acepta los documentos vigentes</h1>
+              <p>Antes de continuar en Entre Vecinos, revisa los Términos y Condiciones y la Política de Privacidad. Tu aceptación quedará registrada de forma segura.</p>
+            </div>
+          </div>
+          <div class="ev-al-header__status" aria-label="Dos documentos vigentes">
+            <strong>2</strong>
+            <span>documentos<br>vigentes</span>
+          </div>
         </header>
 
         <div class="ev-al-body-content">
-          <?php if ($modoBorrador): ?>
-            <div class="ev-al-notice">
-              <i class="bi bi-exclamation-triangle-fill"></i>
-              <div><strong>Versión de prepublicación:</strong> la identidad y los canales oficiales ya fueron incorporados. Antes de habilitar registros reales debe completarse la inscripción del banco de datos personales, consignarse su código y realizarse la validación jurídica final.</div>
+          <section class="ev-al-section" aria-labelledby="evAlDocsTitle">
+            <div class="ev-al-section-head">
+              <div>
+                <span class="ev-al-section-kicker">PASO 1</span>
+                <h2 id="evAlDocsTitle">Consulta los documentos</h2>
+                <p>Abre cada documento en una pestaña nueva y revisa su contenido antes de aceptar.</p>
+              </div>
             </div>
-          <?php endif; ?>
 
-          <div class="ev-al-docs">
-            <article class="ev-al-doc">
-              <div class="ev-al-doc__top">
-                <div class="ev-al-doc__icon"><i class="bi bi-file-text"></i></div>
-                <div>
-                  <h2><?= htmlspecialchars((string)($terminos['titulo'] ?? 'Términos y Condiciones'), ENT_QUOTES, 'UTF-8') ?></h2>
-                  <div class="ev-al-version">Versión <?= htmlspecialchars((string)($terminos['version'] ?? '1.0'), ENT_QUOTES, 'UTF-8') ?></div>
+            <div class="ev-al-docs">
+              <article class="ev-al-doc">
+                <div class="ev-al-doc__top">
+                  <span class="ev-al-doc__icon" aria-hidden="true"><i class="bi bi-file-text"></i></span>
+                  <div class="ev-al-doc__heading">
+                    <span class="ev-al-version">VERSIÓN <?= htmlspecialchars((string)($terminos['version'] ?? '1.0'), ENT_QUOTES, 'UTF-8') ?></span>
+                    <h3><?= htmlspecialchars((string)($terminos['titulo'] ?? 'Términos y Condiciones de Uso de Entre Vecinos'), ENT_QUOTES, 'UTF-8') ?></h3>
+                  </div>
                 </div>
-              </div>
-              <p>Regula el registro, uso de la cuenta, productos, servicios, pagos, incidencias, calificaciones y responsabilidades dentro de EV.</p>
-              <a href="<?= BASE_URL ?>legal/terminos-y-condiciones" target="_blank" rel="noopener">
-                Leer documento completo <i class="bi bi-box-arrow-up-right"></i>
-              </a>
-            </article>
+                <p>Define las reglas de registro, uso de la cuenta, publicaciones, operaciones, incidencias, calificaciones y responsabilidades dentro de EV.</p>
+                <a href="<?= BASE_URL ?>legal/terminos-y-condiciones" target="_blank" rel="noopener">
+                  <span>Leer documento completo</span>
+                  <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+                </a>
+              </article>
 
-            <article class="ev-al-doc">
-              <div class="ev-al-doc__top">
-                <div class="ev-al-doc__icon"><i class="bi bi-shield-lock"></i></div>
-                <div>
-                  <h2><?= htmlspecialchars((string)($privacidad['titulo'] ?? 'Política de Privacidad'), ENT_QUOTES, 'UTF-8') ?></h2>
-                  <div class="ev-al-version">Versión <?= htmlspecialchars((string)($privacidad['version'] ?? '1.0'), ENT_QUOTES, 'UTF-8') ?></div>
+              <article class="ev-al-doc">
+                <div class="ev-al-doc__top">
+                  <span class="ev-al-doc__icon" aria-hidden="true"><i class="bi bi-shield-lock"></i></span>
+                  <div class="ev-al-doc__heading">
+                    <span class="ev-al-version">VERSIÓN <?= htmlspecialchars((string)($privacidad['version'] ?? '1.0'), ENT_QUOTES, 'UTF-8') ?></span>
+                    <h3><?= htmlspecialchars((string)($privacidad['titulo'] ?? 'Política de Privacidad y Tratamiento de Datos Personales'), ENT_QUOTES, 'UTF-8') ?></h3>
+                  </div>
                 </div>
-              </div>
-              <p>Explica qué datos utiliza EV, para qué finalidades, cómo se protegen y cómo ejercer los derechos sobre la información personal.</p>
-              <a href="<?= BASE_URL ?>legal/politica-de-privacidad" target="_blank" rel="noopener">
-                Leer documento completo <i class="bi bi-box-arrow-up-right"></i>
-              </a>
-            </article>
-          </div>
+                <p>Explica qué información utiliza EV, para qué finalidades, cómo se protege y cómo puedes ejercer tus derechos sobre tus datos personales.</p>
+                <a href="<?= BASE_URL ?>legal/politica-de-privacidad" target="_blank" rel="noopener">
+                  <span>Leer documento completo</span>
+                  <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+                </a>
+              </article>
+            </div>
+          </section>
 
           <details class="ev-al-privacy-summary">
             <summary>
               <span><i class="bi bi-info-circle"></i> Aviso breve de privacidad</span>
-              <i class="bi bi-chevron-down"></i>
+              <i class="bi bi-chevron-down" aria-hidden="true"></i>
             </summary>
-            <div>
-              <p><strong>Responsable:</strong> <?= htmlspecialchars((string)($responsable['nombre_legal'] ?? ''), ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars((string)($responsable['documento_tributario'] ?? ''), ENT_QUOTES, 'UTF-8') ?>.</p>
-              <p><strong>Uso de tus datos:</strong> cuenta, validación de residencia, operaciones, notificaciones, soporte, seguridad y cumplimiento.</p>
-              <p><strong>Alojamiento:</strong> <?= htmlspecialchars((string)($operacion['ubicacion_alojamiento'] ?? 'São Paulo, Brasil'), ENT_QUOTES, 'UTF-8') ?>.</p>
-              <p><strong>Derechos y consultas:</strong> <a href="mailto:<?= htmlspecialchars((string)($responsable['correo_privacidad'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($responsable['correo_privacidad'] ?? ''), ENT_QUOTES, 'UTF-8') ?></a>.</p>
+            <div class="ev-al-privacy-grid">
+              <p><strong>Responsable</strong><span><?= htmlspecialchars((string)($responsable['nombre_legal'] ?? 'Entre Vecinos'), ENT_QUOTES, 'UTF-8') ?><?= !empty($responsable['documento_tributario']) ? ', ' . htmlspecialchars((string)$responsable['documento_tributario'], ENT_QUOTES, 'UTF-8') : '' ?>.</span></p>
+              <p><strong>Uso principal</strong><span>Registro, validación de residencia, operaciones, notificaciones, soporte, seguridad y cumplimiento.</span></p>
+              <p><strong>Alojamiento</strong><span><?= htmlspecialchars((string)($operacion['ubicacion_alojamiento'] ?? 'São Paulo, Brasil'), ENT_QUOTES, 'UTF-8') ?>.</span></p>
+              <p><strong>Consultas</strong><span><a href="mailto:<?= htmlspecialchars((string)($responsable['correo_privacidad'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)($responsable['correo_privacidad'] ?? ''), ENT_QUOTES, 'UTF-8') ?></a></span></p>
             </div>
           </details>
 
           <form id="formAceptacionLegal" novalidate>
-            <div class="ev-al-consents">
-              <div class="ev-al-check" id="wrapAceptaTerminos">
-                <input type="checkbox" id="aceptaTerminosLegal" name="acepta_terminos" value="1" required>
-                <label for="aceptaTerminosLegal">
-                  <?= htmlspecialchars((string)($terminos['texto_consentimiento'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
-                  <a href="<?= BASE_URL ?>legal/terminos-y-condiciones" target="_blank" rel="noopener">Leer Términos</a>.
-                </label>
+            <section class="ev-al-consent-panel" aria-labelledby="evAlConsentTitle">
+              <div class="ev-al-section-head ev-al-section-head--consent">
+                <div>
+                  <span class="ev-al-section-kicker">PASO 2</span>
+                  <h2 id="evAlConsentTitle">Confirma tu aceptación</h2>
+                  <p>Ambos consentimientos son obligatorios e independientes.</p>
+                </div>
+                <span class="ev-al-secure-badge"><i class="bi bi-shield-check"></i> Registro seguro</span>
               </div>
 
-              <div class="ev-al-check" id="wrapAceptaPrivacidad">
-                <input type="checkbox" id="aceptaPrivacidadLegal" name="acepta_privacidad" value="1" required>
-                <label for="aceptaPrivacidadLegal">
-                  <?= htmlspecialchars((string)($privacidad['texto_consentimiento'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
-                  <a href="<?= BASE_URL ?>legal/politica-de-privacidad" target="_blank" rel="noopener">Leer Política</a>.
-                </label>
-              </div>
-            </div>
+              <div class="ev-al-consents">
+                <div class="ev-al-check" id="wrapAceptaTerminos">
+                  <input type="checkbox" id="aceptaTerminosLegal" name="acepta_terminos" value="1" required>
+                  <label for="aceptaTerminosLegal">
+                    <?= htmlspecialchars((string)($terminos['texto_consentimiento'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                    <a href="<?= BASE_URL ?>legal/terminos-y-condiciones" target="_blank" rel="noopener">Leer Términos</a>.
+                  </label>
+                </div>
 
-            <p class="ev-al-help"><i class="bi bi-info-circle"></i> Ambos consentimientos son obligatorios. Los checkboxes comienzan desmarcados y EV registrará la versión, fecha, hora y evidencia técnica de la aceptación.</p>
+                <div class="ev-al-check" id="wrapAceptaPrivacidad">
+                  <input type="checkbox" id="aceptaPrivacidadLegal" name="acepta_privacidad" value="1" required>
+                  <label for="aceptaPrivacidadLegal">
+                    <?= htmlspecialchars((string)($privacidad['texto_consentimiento'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+                    <a href="<?= BASE_URL ?>legal/politica-de-privacidad" target="_blank" rel="noopener">Leer Política</a>.
+                  </label>
+                </div>
+              </div>
+
+              <p class="ev-al-help"><i class="bi bi-info-circle"></i><span>EV registrará la versión aceptada, la fecha, la hora y la evidencia técnica correspondiente.</span></p>
+            </section>
 
             <div class="ev-al-actions">
               <a class="ev-al-btn ev-al-btn--ghost" href="<?= BASE_URL ?>logout">
-                <i class="bi bi-box-arrow-left"></i> Cerrar sesión
+                <i class="bi bi-box-arrow-left"></i>
+                <span>Cerrar sesión</span>
               </a>
               <button class="ev-al-btn ev-al-btn--primary" type="submit" id="btnAceptarLegal" disabled>
                 <i class="bi bi-check2-circle"></i>
@@ -131,6 +158,6 @@ $operacion = $legalConfig['operacion'] ?? [];
   </main>
 
   <script>window.BASE_URL = <?= json_encode(BASE_URL, JSON_UNESCAPED_SLASHES) ?>;</script>
-  <script src="<?= BASE_URL ?>views/js/aceptacionLegal.js"></script>
+  <script src="<?= BASE_URL ?>views/js/aceptacionLegal.js?v=<?= @filemtime(__DIR__ . '/js/aceptacionLegal.js') ?: time() ?>"></script>
 </body>
 </html>

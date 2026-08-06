@@ -579,18 +579,6 @@
       }, 700);
     }, true);
 
-    const observer = new MutationObserver(() => {
-      if (dashboardExiste()) {
-        if (!pollingTimer) init();
-      } else {
-        detenerPolling();
-      }
-    });
-
-    observer.observe(document.documentElement, {
-      childList: true,
-      subtree: true
-    });
   }
 
   window.EV_SoporteDashboard = window.EV_SoporteDashboard || {};

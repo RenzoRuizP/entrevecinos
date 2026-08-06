@@ -1,0 +1,9 @@
+views/MenuPrincipalView.php
+views/login.php
+views/js/menuIzquierda.js
+views/js/evSweetAlert.js
+views/estilos/dashboardGerencialEstilo.php
+views/estilos/login.estilo.php
+views/estilos/evLoadingGlobalEstilo.php
+docs/EV_CORRECCIONES_LOADING_CIERRES_20260805.md
+docs/EV_ARCHIVOS_MODIFICADOS_LOADING_CIERRES_20260805.txt

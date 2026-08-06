@@ -46,9 +46,7 @@ class ConfiguracionPlataforma extends Conexion
         return [
             '/marketplace' => self::FUNC_MARKETPLACE,
             '/mis-pedidos-comprador' => self::FUNC_COMPRAR_PRODUCTOS,
-            '/mis-pedidos-vendedor' => self::FUNC_COMPRAR_PRODUCTOS,
             '/mis-solicitudes-servicio-comprador' => self::FUNC_SOLICITAR_SERVICIOS,
-            '/mis-solicitudes-servicio-vendedor' => self::FUNC_SOLICITAR_SERVICIOS,
             '/billetera' => self::FUNC_BILLETERA,
         ];
     }
@@ -167,6 +165,39 @@ class ConfiguracionPlataforma extends Conexion
             error_log('[EV][ConfiguracionPlataforma][obtenerAlcanceUsuario] ' . $e->getMessage());
             return self::normalizarAlcance(self::ALCANCE_GLOBAL, 0);
         }
+    }
+
+    /**
+     * Resuelve en una sola operación el estado efectivo de la billetera y las
+     * recargas para la residencia activa del vecino. El resultado se utiliza
+     * tanto en las vistas como en las API para evitar controles únicamente
+     * visuales.
+     */
+    public function obtenerEstadoBilleteraUsuario(int $codigoUsuario): array
+    {
+        $alcance = $this->obtenerAlcanceUsuario($codigoUsuario);
+        $tipo = (string)$alcance['tipo_alcance'];
+        $codigo = (int)$alcance['codigo_alcance'];
+
+        $funcionalidad = $this->obtenerFuncionalidadPorAlcance(self::FUNC_BILLETERA, $tipo, $codigo);
+        $visibilidad = $this->obtenerMonetizacionPorAlcance(self::MON_BILLETERA_VISIBLE, $tipo, $codigo);
+        $recargas = $this->obtenerMonetizacionPorAlcance(self::MON_RECARGAS, $tipo, $codigo);
+
+        $billeteraHabilitada = (bool)($funcionalidad['habilitada'] ?? false);
+        $billeteraVisible = (bool)($visibilidad['valor_booleano'] ?? false);
+        $recargasHabilitadas = (bool)($recargas['valor_booleano'] ?? false);
+
+        return [
+            'alcance' => $alcance,
+            'funcionalidad' => $funcionalidad,
+            'visibilidad' => $visibilidad,
+            'recargas' => $recargas,
+            'billetera_habilitada' => $billeteraHabilitada,
+            'billetera_visible' => $billeteraVisible,
+            'billetera_disponible' => $billeteraHabilitada && $billeteraVisible,
+            'recargas_habilitadas' => $recargasHabilitadas,
+            'recargas_disponibles' => $billeteraHabilitada && $billeteraVisible && $recargasHabilitadas,
+        ];
     }
 
     public function obtenerAlcancePublicacion(array $publicacion): array

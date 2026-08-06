@@ -129,11 +129,12 @@ final class SoporteUsuarios extends Conexion
 
             if ($conjuntoId > 0) {
                 $where[] = "(
-                    (rs.codigo_solicitud IS NOT NULL AND rs.codigo_condominio = :conjunto_id)
+                    (rs.codigo_solicitud IS NOT NULL AND rs.codigo_condominio = :conjunto_solicitud_id)
                     OR
-                    (rs.codigo_solicitud IS NULL AND rv.codigo_condominio = :conjunto_id)
+                    (rs.codigo_solicitud IS NULL AND rv.codigo_condominio = :conjunto_vigente_id)
                 )";
-                $params[':conjunto_id'] = $conjuntoId;
+                $params[':conjunto_solicitud_id'] = $conjuntoId;
+                $params[':conjunto_vigente_id'] = $conjuntoId;
             }
         } elseif ($conjunto === 'urbanizacion') {
             $where[] = "(
@@ -144,11 +145,12 @@ final class SoporteUsuarios extends Conexion
 
             if ($conjuntoId > 0) {
                 $where[] = "(
-                    (rs.codigo_solicitud IS NOT NULL AND rs.codigo_urbanizacion = :conjunto_id)
+                    (rs.codigo_solicitud IS NOT NULL AND rs.codigo_urbanizacion = :conjunto_solicitud_id)
                     OR
-                    (rs.codigo_solicitud IS NULL AND rv.codigo_urbanizacion = :conjunto_id)
+                    (rs.codigo_solicitud IS NULL AND rv.codigo_urbanizacion = :conjunto_vigente_id)
                 )";
-                $params[':conjunto_id'] = $conjuntoId;
+                $params[':conjunto_solicitud_id'] = $conjuntoId;
+                $params[':conjunto_vigente_id'] = $conjuntoId;
             }
         }
 

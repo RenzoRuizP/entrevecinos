@@ -58,6 +58,8 @@ $baseUrl = rtrim(BASE_URL, '/');
     </div>
   </div>
 
+  <?php require __DIR__ . '/partials/adminCommunitySelector.php'; ?>
+
   <div class="card ev-card mb-4">
     <div class="ev-card-header">
       <div class="ev-card-header-row">
@@ -88,7 +90,7 @@ $baseUrl = rtrim(BASE_URL, '/');
           </select>
         </div>
 
-        <div class="col-12 col-lg-3">
+        <div class="col-12 col-lg-3<?= !empty($esAdministradorGeneralConsulta) ? ' d-none' : '' ?>">
           <label class="form-label fw-semibold">Conjunto</label>
           <select class="form-select ev-input" id="filtroConjunto">
             <option value="todos" selected>Todos</option>
@@ -97,7 +99,7 @@ $baseUrl = rtrim(BASE_URL, '/');
           </select>
         </div>
 
-        <div class="col-12 col-lg-3">
+        <div class="col-12 col-lg-3<?= !empty($esAdministradorGeneralConsulta) ? ' d-none' : '' ?>">
           <label class="form-label fw-semibold">Condominio / Urbanización</label>
           <select class="form-select ev-input" id="filtroCondominio">
             <option value="" selected>Selecciona...</option>
@@ -176,23 +178,29 @@ $baseUrl = rtrim(BASE_URL, '/');
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content ev-modal">
       <div class="modal-header ev-modal-header">
-        <div class="d-flex flex-column">
-          <h5 class="modal-title mb-1">Revisar registro</h5>
-          <small class="text-white-50" id="mModalTipoRevision">Cuenta de usuario</small>
+        <div class="ev-review-modal-heading">
+          <span class="ev-review-modal-icon" aria-hidden="true"><i class="bi bi-person-check"></i></span>
+          <div class="ev-review-modal-copy">
+            <h5 class="modal-title">Revisar registro</h5>
+            <span class="ev-review-modal-subtitle" id="mModalTipoRevision">Cuenta de usuario</span>
+          </div>
         </div>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        <button type="button" class="btn-close btn-close-white ev-modal-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
 
       <div class="modal-body ev-modal-body">
         <div class="row g-3">
           <div class="col-12 col-lg-5">
             <div class="ev-kv">
-              <div class="d-flex align-items-start justify-content-between gap-2">
-                <div>
-                  <div class="fw-bold" id="mNombre">—</div>
-                  <div class="text-muted small" id="mEmail">—</div>
+              <div class="ev-review-profile">
+                <div class="ev-review-person">
+                  <span class="ev-review-avatar" aria-hidden="true"><i class="bi bi-person"></i></span>
+                  <div class="ev-review-person-copy">
+                    <div class="fw-bold" id="mNombre">—</div>
+                    <div class="text-muted small" id="mEmail">—</div>
+                  </div>
                 </div>
-                <div id="mBadgeEstado"></div>
+                <div id="mBadgeEstado" class="ev-review-badges"></div>
               </div>
 
               <div class="mt-2 ev-kv-item"><span>Documento</span><strong id="mDoc">—</strong></div>
@@ -222,18 +230,18 @@ $baseUrl = rtrim(BASE_URL, '/');
           <div class="col-12 col-lg-7">
             <div class="ev-proof">
               <div class="ev-proof-title d-flex align-items-center justify-content-between">
-                <span>Comprobante</span>
-                <a href="#" target="_blank" id="mLinkComprobante" class="small" style="display:none;">Abrir</a>
+                <span id="mProofTitle">Documento de residencia</span>
+                <a href="#" target="_blank" id="mLinkComprobante" class="small ev-proof-open" style="display:none;"><i class="bi bi-box-arrow-up-right"></i> Abrir archivo</a>
               </div>
 
               <div class="ev-proof-box">
-                <img id="mImgComprobante" src="" alt="Comprobante" class="img-fluid rounded-3 border" style="display:none; max-height: 420px;">
+                <img id="mImgComprobante" src="" alt="Documento de residencia" class="img-fluid rounded-3 border" style="display:none; max-height: 420px;">
                 <iframe id="mPdfComprobante" class="ev-doc-frame" style="display:none;" src=""></iframe>
-                <div id="mNoComprobante" class="ev-proof-empty">No hay comprobante adjunto.</div>
+                <div id="mNoComprobante" class="ev-proof-empty">No hay un documento adjunto.</div>
               </div>
 
               <div class="ev-proof-hint">
-                Si el documento es PDF se mostrará en visor. Si es imagen, se previsualiza.
+                Revisa que el archivo sea legible y coincida con la dirección declarada.
               </div>
             </div>
           </div>
@@ -241,8 +249,8 @@ $baseUrl = rtrim(BASE_URL, '/');
       </div>
 
       <div class="modal-footer ev-modal-footer">
-        <button type="button" class="btn btn-outline-danger" id="btnModalInactivar">Desactivar</button>
-        <button type="button" class="btn ev-btn-orange" id="btnModalAprobar">Activar</button>
+        <button type="button" class="btn btn-outline-danger ev-review-action" id="btnModalInactivar"><i class="bi bi-x-circle"></i><span>Desactivar</span></button>
+        <button type="button" class="btn ev-btn-orange ev-review-action" id="btnModalAprobar"><i class="bi bi-check2-circle"></i><span>Activar</span></button>
       </div>
     </div>
   </div>

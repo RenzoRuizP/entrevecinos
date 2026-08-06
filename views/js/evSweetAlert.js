@@ -255,6 +255,40 @@
         box-shadow: 0 12px 24px rgba(15,23,42,.09) !important;
       }
 
+      /* Alineación precisa de icono y texto en acciones EV. */
+      .swal2-confirm.ev-swal-confirm,
+      .swal2-confirm.ev-mp-swal-confirm,
+      .swal2-confirm.ev-mpv-swal-confirm,
+      .swal2-confirm.ev-mpc-swal-confirm,
+      .swal2-confirm.btn-ev-orange,
+      .swal2-cancel.ev-swal-cancel,
+      .swal2-cancel.ev-mp-swal-cancel,
+      .swal2-cancel.ev-mpv-swal-cancel,
+      .swal2-cancel.ev-mpc-swal-cancel,
+      .swal2-cancel.btn-ev-outline{
+        display:inline-flex !important;
+        align-items:center !important;
+        justify-content:center !important;
+        gap:8px !important;
+        line-height:1.1 !important;
+        white-space:nowrap !important;
+      }
+      .swal2-confirm.ev-swal-confirm i,
+      .swal2-cancel.ev-swal-cancel i{
+        display:inline-grid !important;
+        place-items:center !important;
+        flex:0 0 auto !important;
+        margin:0 !important;
+        font-size:1rem !important;
+        line-height:1 !important;
+      }
+      .swal2-confirm.ev-swal-confirm span,
+      .swal2-cancel.ev-swal-cancel span{
+        display:inline-block !important;
+        margin:0 !important;
+        line-height:1.1 !important;
+      }
+
       .swal2-select,
       .swal2-textarea,
       .swal2-input{
