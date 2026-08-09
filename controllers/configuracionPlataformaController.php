@@ -12,11 +12,17 @@ class configuracionPlataformaController
             session_start();
         }
 
-        $token = $_COOKIE['auth_token'] ?? null;
-        $usuario = $token ? SesionJWT::verificarToken((string)$token) : null;
+        $usuario = $GLOBALS['EV_AUTH'] ?? null;
+        if (!is_array($usuario)) {
+            $token = $_COOKIE['auth_token'] ?? null;
+            $usuario = $token ? SesionJWT::verificarToken((string)$token) : null;
+        }
         $rol = strtolower(trim((string)($usuario['rol'] ?? $usuario['nombre_rol'] ?? '')));
+        $codigoRol = (int)($usuario['codigo_rol'] ?? 0);
+        $adminRoleId = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
+        $esAdministradorGeneral = in_array($rol, ['admin', 'administrador'], true) || $codigoRol === $adminRoleId;
 
-        if (!is_array($usuario) || $rol !== 'admin') {
+        if (!is_array($usuario) || !$esAdministradorGeneral) {
             if ($this->esParcial()) {
                 http_response_code(403);
                 header('Content-Type: application/json; charset=utf-8');

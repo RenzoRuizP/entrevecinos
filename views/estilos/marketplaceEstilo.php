@@ -3271,4 +3271,294 @@ body.modal-open .ev-mp-card{
   .ev-mp-quote-price-ref{padding:10px 0 0;border-left:0;border-top:1px solid #E9EEF1;}
 }
 
+
+/* ==========================================================
+   EV — SOLICITUD DE SERVICIO: CUERPO DESPLAZABLE Y FOOTER FIJO
+========================================================== */
+#mp_modal_solicitud_servicio .ev-mp-modal-dialog{
+  height:auto;
+  max-height:calc(100dvh - 24px);
+  margin-top:12px;
+  margin-bottom:12px;
+}
+#mp_modal_solicitud_servicio .ev-mp-modal-content{
+  height:auto;
+  max-height:calc(100dvh - 24px);
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+#mp_modal_solicitud_servicio #mp_form_solicitud_servicio{
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+#mp_modal_solicitud_servicio .ev-mp-modal-body{
+  flex:0 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
+#mp_modal_solicitud_servicio .ev-mp-service-file-list:empty{display:none;margin:0}
+#mp_modal_solicitud_servicio .ev-mp-service-file-list:not(:empty){margin-top:8px}
+#mp_modal_solicitud_servicio .ev-mp-service-request-card>.row{margin-bottom:0}
+#mp_modal_solicitud_servicio .ev-mp-modal-footer .btn-ev-neutral,
+#mp_modal_solicitud_servicio .ev-mp-modal-footer .btn-ev-primary{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+
+#mp_modal_solicitud_servicio .ev-mp-modal-footer{
+  position:relative;
+  z-index:3;
+  flex:0 0 auto;
+  margin:0;
+  border-top:1px solid rgba(229,231,235,.96);
+  box-shadow:0 -10px 24px rgba(15,23,42,.05);
+  padding-bottom:max(14px,env(safe-area-inset-bottom));
+}
+@media(max-width:575.98px){
+  #mp_modal_solicitud_servicio{
+    padding:0 !important;
+  }
+  #mp_modal_solicitud_servicio .ev-mp-modal-dialog{
+    width:calc(100% - 16px);
+    height:auto;
+    max-height:calc(100dvh - 16px);
+    margin:8px auto;
+    align-items:center;
+  }
+  #mp_modal_solicitud_servicio .ev-mp-modal-content{
+    height:auto;
+    max-height:calc(100dvh - 16px);
+    border-radius:22px;
+  }
+  #mp_modal_solicitud_servicio .ev-mp-modal-body{
+    padding:14px 12px 18px;
+  }
+  #mp_modal_solicitud_servicio .ev-mp-modal-footer{
+    display:grid !important;
+    grid-template-columns:1fr 1fr;
+    gap:10px !important;
+    padding:12px 14px max(14px,env(safe-area-inset-bottom));
+  }
+  #mp_modal_solicitud_servicio .ev-mp-modal-footer .btn-ev-neutral,
+  #mp_modal_solicitud_servicio .ev-mp-modal-footer .btn-ev-primary{
+    width:100%;
+    min-width:0;
+  }
+}
+
+</style>
+<style>
+/* Administrador EV: selector de comunidad para consulta global de Marketplace. */
+.ev-mp-admin-community{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,560px);gap:16px;align-items:center;margin-top:16px;padding:14px 16px;border:1px solid rgba(148,163,184,.18);border-radius:18px;background:linear-gradient(135deg,#FFFFFF,#F5FCF7);box-shadow:0 10px 24px rgba(15,23,42,.045)}
+.ev-mp-admin-community-copy{display:flex;align-items:center;gap:11px;min-width:0}.ev-mp-admin-community-copy>span{width:42px;height:42px;display:grid;place-items:center;flex:0 0 auto;border-radius:14px;color:#0F592F;background:#DCFCE7;border:1px solid rgba(22,163,74,.18)}.ev-mp-admin-community-copy strong{display:block;color:#0F592F;font-weight:950}.ev-mp-admin-community-copy small{display:block;margin-top:2px;color:#64748B;font-size:.75rem;line-height:1.4}.ev-mp-admin-community label{display:grid;gap:6px}.ev-mp-admin-community label>span{font-size:.72rem;color:#334155;font-weight:900}.ev-mp-admin-community select{min-height:43px;width:100%;padding:9px 12px;border:1px solid #CFE9D9;border-radius:13px;background:#fff;color:#111827;font:inherit;font-weight:750;outline:0}.ev-mp-admin-community select:focus{border-color:#16A34A;box-shadow:0 0 0 4px rgba(22,163,74,.12)}
+@media(max-width:800px){.ev-mp-admin-community{grid-template-columns:1fr}.ev-mp-admin-community select{font-size:.84rem}}
+</style>
+
+
+<style>
+/* ============================================================
+   EV 2026-08 — selector de alcance del Marketplace
+   Activo anaranjado EV y preselección suave, en web y móvil.
+============================================================ */
+.ev-mp-seg-btn{
+  color:#5F6B7A!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  transition:color .16s ease,background-color .16s ease,box-shadow .16s ease!important;
+}
+.ev-mp-seg-btn:not(.active):hover,
+.ev-mp-seg-btn:not(.active):focus-visible{
+  color:#9A4B05!important;
+  background:#FFF1E2!important;
+  box-shadow:inset 0 0 0 1px rgba(234,124,18,.16)!important;
+  outline:0;
+}
+.ev-mp-seg-btn.active,
+.ev-mp-seg-btn.active:hover,
+.ev-mp-seg-btn.active:focus-visible{
+  color:#fff!important;
+  background:linear-gradient(135deg,#EA7C12 0%,#F59E0B 100%)!important;
+  box-shadow:0 9px 20px rgba(234,124,18,.25)!important;
+  outline:0;
+}
+</style>
+
+
+<style>
+/* EV 2026-08-06 — Lectura ligera en los selectores Ordenar y Categoría. */
+.ev-mp-sort-wrapper .ev-mp-select-trigger,
+.ev-mp-cat-producto .ev-mp-select-trigger,
+.ev-mp-sort-wrapper .ev-mp-select-value,
+.ev-mp-cat-producto .ev-mp-select-value{
+  font-weight:500 !important;
+}
+.ev-mp-sort-wrapper .ev-mp-select-option,
+.ev-mp-cat-producto .ev-mp-select-option{
+  font-weight:500 !important;
+}
+.ev-mp-sort-wrapper .ev-mp-select-option.is-active,
+.ev-mp-cat-producto .ev-mp-select-option.is-active{
+  font-weight:600 !important;
+}
+
+</style>
+
+
+<style>
+/* ============================================================
+   EV 2026-08-06 — Cierre y acciones estándar del detalle
+============================================================ */
+#mp_modal_detalle .ev-mp-modal-header .btn-close.ev-modal-close-icon{
+  appearance:none !important;
+  -webkit-appearance:none !important;
+  box-sizing:border-box !important;
+  width:38px !important;
+  height:38px !important;
+  min-width:38px !important;
+  min-height:38px !important;
+  flex:0 0 38px !important;
+  margin:0 !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:10px !important;
+  color:#fff !important;
+  background-color:transparent !important;
+  background-position:center !important;
+  background-repeat:no-repeat !important;
+  background-size:14px 14px !important;
+  filter:invert(1) grayscale(1) brightness(2) !important;
+  box-shadow:none !important;
+  opacity:1 !important;
+  transform:none !important;
+  cursor:pointer !important;
+  transition:background-color .13s ease, opacity .13s ease !important;
+}
+#mp_modal_detalle .ev-mp-modal-header .btn-close.ev-modal-close-icon::before,
+#mp_modal_detalle .ev-mp-modal-header .btn-close.ev-modal-close-icon::after{
+  display:none !important;
+  content:none !important;
+}
+#mp_modal_detalle .ev-mp-modal-header .btn-close.ev-modal-close-icon:hover,
+#mp_modal_detalle .ev-mp-modal-header .btn-close.ev-modal-close-icon:focus-visible{
+  background-color:rgba(15,89,47,.44) !important;
+  border:0 !important;
+  box-shadow:none !important;
+  opacity:1 !important;
+  transform:none !important;
+  outline:0 !important;
+}
+#mp_modal_detalle .ev-mp-modal-footer .btn-ev-neutral,
+#mp_modal_detalle .ev-mp-modal-footer .btn-ev-primary{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:8px !important;
+}
+#mp_modal_detalle .ev-mp-modal-footer .btn-ev-neutral i,
+#mp_modal_detalle .ev-mp-modal-footer .btn-ev-primary i{
+  margin:0 !important;
+  line-height:1 !important;
+}
+</style>
+
+<style>
+/* EV 2026-08-09 — foco de formularios y acciones de modal consistentes. */
+#mp_modal_solicitud .form-control:focus,
+#mp_modal_solicitud .form-select:focus,
+#mp_modal_solicitud textarea.form-control:focus,
+#mp_modal_solicitud input.form-control:focus{
+  border-color:#16A34A !important;
+  box-shadow:0 0 0 4px rgba(22,163,74,.13) !important;
+  outline:0 !important;
+}
+#mp_modal_solicitud .form-control:focus-visible,
+#mp_modal_solicitud .form-select:focus-visible{outline:0 !important;}
+#mp_modal_detalle .ev-mp-modal-footer .btn-ev-neutral,
+#mp_modal_detalle .ev-mp-modal-footer .btn-ev-primary,
+#mp_modal_solicitud .ev-mp-modal-footer .btn-ev-neutral,
+#mp_modal_solicitud .ev-mp-modal-footer .btn-ev-primary{
+  display:inline-flex !important;align-items:center !important;justify-content:center !important;gap:8px !important;
+}
+#mp_modal_detalle .ev-mp-modal-footer i,
+#mp_modal_solicitud .ev-mp-modal-footer i{margin:0 !important;line-height:1 !important;flex:0 0 auto !important;}
+@media (max-width:575.98px){
+  #mp_modal_detalle .ev-mp-modal-footer .btn-ev-neutral,
+  #mp_modal_detalle .ev-mp-modal-footer .btn-ev-primary,
+  #mp_modal_solicitud .ev-mp-modal-footer .btn-ev-neutral,
+  #mp_modal_solicitud .ev-mp-modal-footer .btn-ev-primary{width:100%;}
+}
+</style>
+
+
+<style>
+/* ============================================================
+   EV 2026-08-09 — Cierre definitivo del modal Detalle de publicación
+   Corrige la colisión de reglas históricas del btn-close y replica
+   el cierre visible del modal Solicitar cotización.
+============================================================ */
+#mp_modal_detalle .ev-mp-modal-header .btn-close.ev-modal-close-icon{
+  appearance:none !important;
+  -webkit-appearance:none !important;
+  position:relative !important;
+  box-sizing:border-box !important;
+  width:38px !important;
+  height:38px !important;
+  min-width:38px !important;
+  min-height:38px !important;
+  flex:0 0 38px !important;
+  margin:0 !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:10px !important;
+  background-color:transparent !important;
+  background-image:none !important;
+  filter:none !important;
+  opacity:1 !important;
+  box-shadow:none !important;
+  transform:none !important;
+  cursor:pointer !important;
+  transition:background-color .13s ease, box-shadow .13s ease !important;
+}
+#mp_modal_detalle .ev-mp-modal-header .btn-close.ev-modal-close-icon::before,
+#mp_modal_detalle .ev-mp-modal-header .btn-close.ev-modal-close-icon::after{
+  display:block !important;
+  content:'' !important;
+  position:absolute !important;
+  left:50% !important;
+  top:50% !important;
+  width:18px !important;
+  height:2px !important;
+  border-radius:999px !important;
+  background:#fff !important;
+  transform-origin:center !important;
+  pointer-events:none !important;
+}
+#mp_modal_detalle .ev-mp-modal-header .btn-close.ev-modal-close-icon::before{
+  transform:translate(-50%,-50%) rotate(45deg) !important;
+}
+#mp_modal_detalle .ev-mp-modal-header .btn-close.ev-modal-close-icon::after{
+  transform:translate(-50%,-50%) rotate(-45deg) !important;
+}
+#mp_modal_detalle .ev-mp-modal-header .btn-close.ev-modal-close-icon:hover,
+#mp_modal_detalle .ev-mp-modal-header .btn-close.ev-modal-close-icon:focus-visible{
+  background-color:rgba(255,255,255,.14) !important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08) !important;
+  outline:0 !important;
+  transform:none !important;
+}
+#mp_modal_detalle .ev-mp-modal-header .btn-close.ev-modal-close-icon:active{
+  background-color:rgba(15,89,47,.42) !important;
+}
+@media(max-width:575.98px){
+  #mp_modal_detalle .ev-mp-modal-header .btn-close.ev-modal-close-icon{
+    width:36px !important;
+    height:36px !important;
+    min-width:36px !important;
+    min-height:36px !important;
+    flex-basis:36px !important;
+  }
+}
 </style>

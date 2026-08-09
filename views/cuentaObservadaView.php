@@ -69,37 +69,37 @@ if (!empty($fechaObservacion)) {
  */
 if ($esCambioResidenciaObservada) {
     $eyebrowObservado      = 'ACCIÓN REQUERIDA';
-    $tituloObservado       = 'Sube tu comprobante corregido';
-    $subtituloObservado    = 'Tu solicitud fue observada por soporte. Revisa el motivo indicado y envía un archivo actualizado para continuar con la validación.';
+    $tituloObservado       = 'Sube tu recibo corregido';
+    $subtituloObservado    = 'Tu cambio de residencia necesita una corrección. Revisa la observación y envía un recibo actualizado para continuar.';
     $tituloObservacionBox  = 'Motivo de observación';
-    $fallbackObservacion   = 'Se encontró una observación en tu solicitud. Por favor, vuelve a cargar el comprobante corregido para continuar con la validación.';
-    $tituloFormulario      = 'Enviar comprobante';
-    $textoFormulario       = 'Sube el comprobante corregido en PDF, JPG, JPEG o PNG.';
+    $fallbackObservacion   = 'Se encontró una observación en tu solicitud. Adjunta un recibo corregido y legible para continuar con la validación.';
+    $tituloFormulario      = 'Enviar recibo';
+    $textoFormulario       = 'Sube el recibo corregido en PDF, JPG, JPEG o PNG.';
     $step1Titulo           = 'Lee la observación';
     $step1Texto            = 'Revisa el motivo indicado.';
-    $step2Titulo           = 'Adjunta el comprobante';
+    $step2Titulo           = 'Adjunta el recibo';
     $step2Texto            = 'Sube un archivo válido y legible.';
     $step3Titulo           = 'Nueva revisión';
     $step3Texto            = 'Soporte evaluará tu solicitud.';
-    $successTitulo         = 'Comprobante enviado correctamente';
+    $successTitulo         = 'Recibo enviado correctamente';
     $successTexto          = 'Recibimos tu archivo. El equipo volverá a revisar tu solicitud a la brevedad.';
     $tipoSubsanacionValue  = 'cambio_residencia';
     $heroIcon              = 'bi-file-earmark-arrow-up';
 } else {
     $eyebrowObservado      = 'ACCIÓN REQUERIDA';
-    $tituloObservado       = 'Sube tu comprobante corregido';
+    $tituloObservado       = 'Sube tu recibo corregido';
     $subtituloObservado    = 'Tu cuenta fue observada por soporte. Revisa el motivo indicado y envía un archivo actualizado para continuar con la validación.';
     $tituloObservacionBox  = 'Motivo de observación';
-    $fallbackObservacion   = 'Se encontró una observación en tu registro. Por favor, vuelve a cargar el comprobante corregido para continuar con la validación.';
-    $tituloFormulario      = 'Enviar comprobante';
-    $textoFormulario       = 'Sube el comprobante corregido en PDF, JPG, JPEG o PNG.';
+    $fallbackObservacion   = 'Se encontró una observación en tu registro. Vuelve a cargar un recibo corregido y legible para continuar con la validación.';
+    $tituloFormulario      = 'Enviar recibo';
+    $textoFormulario       = 'Sube el recibo corregido en PDF, JPG, JPEG o PNG.';
     $step1Titulo           = 'Lee la observación';
     $step1Texto            = 'Revisa el motivo indicado.';
-    $step2Titulo           = 'Adjunta el comprobante';
+    $step2Titulo           = 'Adjunta el recibo';
     $step2Texto            = 'Sube un archivo válido y legible.';
     $step3Titulo           = 'Nueva revisión';
     $step3Texto            = 'Soporte evaluará tu cuenta.';
-    $successTitulo         = 'Comprobante enviado correctamente';
+    $successTitulo         = 'Recibo enviado correctamente';
     $successTexto          = 'Recibimos tu archivo. El equipo volverá a revisar tu información a la brevedad.';
     $tipoSubsanacionValue  = 'cuenta';
     $heroIcon              = 'bi-file-earmark-arrow-up';
@@ -108,14 +108,14 @@ if ($esCambioResidenciaObservada) {
 if ($esCambioResidenciaPendiente) {
     $eyebrowRevision       = 'SOLICITUD EN REVISIÓN';
     $tituloRevision        = 'Estamos validando tu solicitud';
-    $subtituloRevision     = 'Recibimos tu comprobante corregido. Soporte lo revisará y te avisaremos cuando haya una respuesta.';
+    $subtituloRevision     = 'Recibimos tu recibo corregido. Soporte lo revisará y te avisaremos cuando haya una respuesta.';
     $bannerTitulo          = 'Revisión en proceso';
     $bannerTexto           = 'Te notificaremos si la solicitud es aprobada o si necesitas corregir algún dato.';
     $timeline1Titulo       = 'Solicitud enviada';
     $timeline2Titulo       = 'Revisión de soporte';
     $timeline3Titulo       = 'Cambio aprobado';
     $cardEstadoStrong      = 'En revisión';
-    $cardEstadoTexto       = 'Tu comprobante corregido fue recibido correctamente.';
+    $cardEstadoTexto       = 'Tu recibo corregido fue recibido correctamente.';
     $cardResultadoStrong   = 'Aprobación u observación';
     $cardResultadoTexto    = 'Verás el resultado cuando soporte finalice la revisión.';
     $revisionIcon          = 'bi-house-check';
@@ -134,6 +134,9 @@ if ($esCambioResidenciaPendiente) {
     $cardResultadoTexto    = 'Verás el resultado cuando soporte finalice la revisión.';
     $revisionIcon          = 'bi-hourglass-split';
 }
+
+$documentoVisible = 'recibo';
+$documentoVisibleTitulo = ucfirst($documentoVisible);
 
 /**
  * Logo EV:
@@ -156,6 +159,7 @@ $tieneLogo  = file_exists($logoFsPath);
 
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="<?= BASE_URL ?>views/js/evSweetAlert.js?v=<?= @filemtime(__DIR__ . '/js/evSweetAlert.js') ?: time() ?>"></script>
 
     <!-- Estilos -->
     <?php
@@ -240,7 +244,7 @@ $tieneLogo  = file_exists($logoFsPath);
                                             <?php if ($fechaObservacionTexto !== ''): ?>
                                                 Revisado el <?= htmlspecialchars($fechaObservacionTexto, ENT_QUOTES, 'UTF-8') ?>
                                             <?php else: ?>
-                                                Revisa el detalle antes de volver a enviar tu comprobante.
+                                                Revisa el detalle antes de volver a enviar tu <?= htmlspecialchars($documentoVisible, ENT_QUOTES, 'UTF-8') ?>.
                                             <?php endif; ?>
                                         </p>
                                     </div>
@@ -320,7 +324,7 @@ $tieneLogo  = file_exists($logoFsPath);
 
                                     <div class="ev-upload-block">
                                         <label class="form-label ev-label" for="evComprobante">
-                                            Comprobante corregido
+                                            <?= htmlspecialchars($documentoVisibleTitulo, ENT_QUOTES, 'UTF-8') ?> corregido
                                         </label>
 
                                         <input
@@ -359,7 +363,7 @@ $tieneLogo  = file_exists($logoFsPath);
                                     <div class="ev-actions">
                                         <button type="submit" class="btn ev-btn-primary">
                                             <i class="bi bi-upload"></i>
-                                            Enviar comprobante
+                                            Enviar <?= htmlspecialchars($documentoVisible, ENT_QUOTES, 'UTF-8') ?>
                                         </button>
 
                                         <a href="<?= htmlspecialchars($baseUrl . '/logout', ENT_QUOTES, 'UTF-8') ?>" class="btn ev-btn-secondary">
@@ -386,7 +390,7 @@ $tieneLogo  = file_exists($logoFsPath);
                                 <i class="bi bi-headset"></i>
                                 <div>
                                     <strong>¿Necesitas ayuda?</strong>
-                                    <div>Lee el motivo indicado y adjunta el comprobante corregido.</div>
+                                    <div>Lee el motivo indicado y adjunta el <?= htmlspecialchars($documentoVisible, ENT_QUOTES, 'UTF-8') ?> corregido.</div>
                                 </div>
                             </div>
                         </aside>

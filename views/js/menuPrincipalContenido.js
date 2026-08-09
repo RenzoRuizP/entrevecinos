@@ -278,25 +278,39 @@
 
       btnAyuda.addEventListener('click', async (e) => {
         e.preventDefault();
+        e.stopPropagation();
 
         if (window.Swal?.fire) {
           await Swal.fire({
             title: 'Ayuda EV',
             html: `
-              <div style="width:68px;height:68px;margin:0 auto 14px;display:grid;place-items:center;border-radius:22px;background:linear-gradient(135deg,#ECFDF3,#FFFFFF);border:1px solid rgba(22,163,74,.24);color:#0F592F;font-size:1.8rem;box-shadow:0 14px 28px rgba(15,89,47,.10)" aria-hidden="true"><i class="bi bi-question-lg"></i></div>
-              <div style="line-height:1.55;color:#4B5563">
-                ¿Necesitas ayuda? Comunícate con <strong style="color:#0F592F">Soporte EV</strong> por WhatsApp al
-                <a href="https://wa.me/51956969182" target="_blank" rel="noopener noreferrer" style="color:#0E7A43;font-weight:800;text-decoration:none">956 969 182</a>.
-                Estaremos atentos para orientarte.
+              <div class="ev-help-modal-icon" aria-hidden="true"><i class="bi bi-headset"></i></div>
+              <div class="ev-help-modal-copy">
+                <strong>Estamos para ayudarte</strong>
+                <p>Escríbenos por WhatsApp y cuéntanos brevemente qué necesitas. El equipo de Soporte EV te orientará.</p>
+                <a class="ev-help-modal-contact" href="https://wa.me/51956969182" target="_blank" rel="noopener noreferrer"><i class="bi bi-whatsapp"></i><span>956 969 182</span></a>
               </div>
             `,
             confirmButtonText: 'Aceptar',
-            confirmButtonColor: '#EA7C12'
+            confirmButtonColor: '#EA7C12',
+            showConfirmButton: true,
+            showCancelButton: false,
+            showDenyButton: false,
+            showCloseButton: false,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            customClass: {
+              popup: 'ev-help-modal-popup',
+              title: 'ev-help-modal-title',
+              htmlContainer: 'ev-help-modal-html',
+              confirmButton: 'ev-help-modal-confirm',
+              closeButton: 'ev-swal-close'
+            }
           });
           return;
         }
 
-        alert('Ayuda EV\n\n¿Necesitas ayuda? Comunícate con Soporte EV por WhatsApp al 956 969 182. Estaremos atentos para orientarte.');
+        alert('Ayuda EV\n\nEscríbenos por WhatsApp al 956 969 182 y cuéntanos brevemente qué necesitas. Soporte EV te orientará.');
       });
     }
   }
@@ -349,7 +363,8 @@
 
         <button type="button"
                 class="ev-sidebar-footer-link ev-sidebar-footer-link-logout"
-                onclick="window.location.href='${BASE}/logout'">
+                data-ev-logout="1"
+                data-logout-url="${BASE}/logout">
           <i class="bi bi-box-arrow-right"></i>
           <span>Cerrar sesión</span>
         </button>

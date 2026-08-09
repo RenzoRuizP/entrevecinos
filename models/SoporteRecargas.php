@@ -219,6 +219,8 @@ final class SoporteRecargas extends Conexion
         $q      = trim((string)($filtros['q'] ?? ''));
         $page   = (int)($filtros['page'] ?? 1);
         $size   = (int)($filtros['size'] ?? 10);
+        $tipoConjunto = strtolower(trim((string)($filtros['tipo_conjunto'] ?? '')));
+        $codigoComunidad = max(0, (int)($filtros['codigo_comunidad'] ?? 0));
 
         if ($page < 1) $page = 1;
         if ($size < 5) $size = 5;
@@ -240,6 +242,13 @@ final class SoporteRecargas extends Conexion
             }
         }
 
+        if ($codigoComunidad > 0 && in_array($tipoConjunto, ['condominio', 'urbanizacion'], true)) {
+            $where .= $tipoConjunto === 'condominio'
+                ? " AND ur.tipo_conjunto='condominio' AND ur.codigo_condominio=:codigo_comunidad "
+                : " AND ur.tipo_conjunto='urbanizacion' AND ur.codigo_urbanizacion=:codigo_comunidad ";
+            $params[':codigo_comunidad'] = $codigoComunidad;
+        }
+
         if ($q !== '') {
             $where .= " AND (
                 u.nombre LIKE :q OR
@@ -256,6 +265,13 @@ final class SoporteRecargas extends Conexion
             SELECT COUNT(*)
             FROM recarga_saldo r
             INNER JOIN usuario u ON u.codigo_usuario = r.codigo_usuario
+            LEFT JOIN usuario_residencia ur ON ur.codigo_usuario = u.codigo_usuario
+              AND ur.estado = 1
+              AND ur.codigo_usuario_residencia = (
+                SELECT MAX(ur2.codigo_usuario_residencia)
+                FROM usuario_residencia ur2
+                WHERE ur2.codigo_usuario = u.codigo_usuario AND ur2.estado = 1
+              )
             {$where}
         ";
         $stc = $this->dblink->prepare($sqlCount);
@@ -263,8 +279,16 @@ final class SoporteRecargas extends Conexion
         $stc->execute();
         $total = (int)$stc->fetchColumn();
 
-        $sqlPend = "SELECT COUNT(*) FROM recarga_saldo WHERE estado='pendiente'";
-        $pendientes = (int)$this->dblink->query($sqlPend)->fetchColumn();
+        $sqlPend = "SELECT COUNT(*) FROM recarga_saldo r INNER JOIN usuario u ON u.codigo_usuario=r.codigo_usuario LEFT JOIN usuario_residencia ur ON ur.codigo_usuario=u.codigo_usuario AND ur.estado=1 AND ur.codigo_usuario_residencia=(SELECT MAX(ur2.codigo_usuario_residencia) FROM usuario_residencia ur2 WHERE ur2.codigo_usuario=u.codigo_usuario AND ur2.estado=1) WHERE r.estado='pendiente'";
+        $pendParams = [];
+        if ($codigoComunidad > 0 && in_array($tipoConjunto, ['condominio','urbanizacion'], true)) {
+            $sqlPend .= $tipoConjunto === 'condominio' ? " AND ur.tipo_conjunto='condominio' AND ur.codigo_condominio=:pc" : " AND ur.tipo_conjunto='urbanizacion' AND ur.codigo_urbanizacion=:pc";
+            $pendParams[':pc'] = $codigoComunidad;
+        }
+        $stPend = $this->dblink->prepare($sqlPend);
+        foreach ($pendParams as $key => $value) $stPend->bindValue($key, $value, PDO::PARAM_INT);
+        $stPend->execute();
+        $pendientes = (int)$stPend->fetchColumn();
 
         $sql = "
             SELECT
@@ -290,6 +314,13 @@ final class SoporteRecargas extends Conexion
 
             FROM recarga_saldo r
             INNER JOIN usuario u ON u.codigo_usuario = r.codigo_usuario
+            LEFT JOIN usuario_residencia ur ON ur.codigo_usuario = u.codigo_usuario
+              AND ur.estado = 1
+              AND ur.codigo_usuario_residencia = (
+                SELECT MAX(ur2.codigo_usuario_residencia)
+                FROM usuario_residencia ur2
+                WHERE ur2.codigo_usuario = u.codigo_usuario AND ur2.estado = 1
+              )
             {$where}
             ORDER BY r.fecha_creacion DESC, r.codigo_recarga DESC
             LIMIT :lim OFFSET :off

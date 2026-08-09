@@ -100,7 +100,6 @@ $homeUrl = $baseUrl . '/MenuPrincipal';
         <div class="dropdown-menu dropdown-menu-end ev-notification-dropdown" aria-labelledby="evNotificationButton">
           <div class="ev-notification-head">
             <div>
-              <span class="ev-notification-kicker">ENTRE VECINOS</span>
               <h6>Notificaciones</h6>
             </div>
             <button type="button" class="ev-notification-refresh" id="evNotificationRefresh" aria-label="Actualizar notificaciones" title="Actualizar">
@@ -188,27 +187,21 @@ $homeUrl = $baseUrl . '/MenuPrincipal';
             </div>
           </li>
 
-          <li class="ev-user-dropdown-legal">
-            <span class="ev-user-dropdown-legal-title">
-              <i class="bi bi-shield-check" aria-hidden="true"></i>
-              Documentos legales
-            </span>
-
-            <a href="<?= htmlspecialchars($baseUrl . '/legal/terminos-y-condiciones', ENT_QUOTES, 'UTF-8') ?>"
-               target="_blank"
-               rel="noopener"
-               class="ev-user-dropdown-legal-link">
-              <span>Términos y Condiciones</span>
-              <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
-            </a>
-
-            <a href="<?= htmlspecialchars($baseUrl . '/legal/politica-de-privacidad', ENT_QUOTES, 'UTF-8') ?>"
-               target="_blank"
-               rel="noopener"
-               class="ev-user-dropdown-legal-link">
-              <span>Política de Privacidad</span>
-              <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
-            </a>
+          <li class="ev-user-dropdown-action-wrap">
+            <button
+              type="button"
+              class="ev-user-dropdown-action"
+              data-ev-avatar-action="1"
+              aria-label="Actualizar foto de perfil">
+              <span class="ev-user-dropdown-action-icon" aria-hidden="true">
+                <i class="bi bi-camera"></i>
+              </span>
+              <span class="ev-user-dropdown-action-copy">
+                <strong>Actualizar foto de perfil</strong>
+                <small>Personaliza la imagen de tu cuenta.</small>
+              </span>
+              <i class="bi bi-chevron-right ev-user-dropdown-action-arrow" aria-hidden="true"></i>
+            </button>
           </li>
         </ul>
       </li>

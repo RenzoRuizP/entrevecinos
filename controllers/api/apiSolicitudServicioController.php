@@ -424,7 +424,19 @@ class apiSolicitudServicioController
     /** POST /api/servicios/solicitudes/{id}/cancelar-proveedor */
     public function cancelarProveedor(int $codigoSolicitud): void
     {
-        $this->cancelar($codigoSolicitud);
+        if (!$this->validarMetodo('POST')) return;
+        try {
+            $input = $this->leerInput();
+            $resultado = (new SolicitudServicio())->cancelarCoordinacionProveedor(
+                $codigoSolicitud,
+                $this->exigirRolVecino(),
+                (string)($input['motivo_cancelacion'] ?? $input['motivo'] ?? '')
+            );
+            $this->responderResultado($resultado);
+        } catch (Throwable $e) {
+            error_log('[EV][apiSolicitudServicioController][cancelarProveedor] ' . $e->getMessage());
+            $this->json(500, ['ok'=>false,'error'=>'SERVER_ERROR','mensaje'=>'No se pudo cancelar la coordinación.']);
+        }
     }
 
     /** POST /api/servicios/solicitudes/{id}/marcar-realizado */

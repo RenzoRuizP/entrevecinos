@@ -765,7 +765,12 @@
 }
 
 .ev-mpc-btn-primary,
-.ev-mpc-btn-outline{
+.ev-mpc-btn-outline,
+.ev-mpc-btn-detail{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
   border-radius:14px;
   padding:.74rem .98rem;
   font-weight:850;
@@ -780,6 +785,13 @@
   box-shadow:0 12px 24px rgba(234,124,18,.20);
 }
 
+.ev-mpc-btn-detail{
+  background:linear-gradient(135deg, var(--ev-naranja), #F59E0B);
+  border:none;
+  color:#fff;
+  box-shadow:0 12px 24px rgba(234,124,18,.20);
+}
+
 .ev-mpc-btn-outline{
   border:1px solid rgba(22,163,74,.18);
   background:rgba(255,255,255,.96);
@@ -788,7 +800,8 @@
 }
 
 .ev-mpc-btn-outline:hover,
-.ev-mpc-btn-primary:hover{
+.ev-mpc-btn-primary:hover,
+.ev-mpc-btn-detail:hover{
   transform:translateY(-1px);
   filter:brightness(1.02);
 }
@@ -798,6 +811,12 @@
   border-color:rgba(22,163,74,.32);
   box-shadow:0 14px 24px rgba(15,23,42,.08);
   color:var(--ev-verde-oscuro);
+}
+
+.ev-mpc-btn-detail:hover,
+.ev-mpc-btn-detail:focus-visible{
+  color:#fff;
+  box-shadow:0 16px 30px rgba(234,124,18,.30);
 }
 
 .ev-mpc-swal-popup{

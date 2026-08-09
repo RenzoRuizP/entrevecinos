@@ -99,6 +99,8 @@ class apiSoporteProductosController
                 'q' => $q,
                 'page' => $page,
                 'size' => $size,
+                'tipo_conjunto' => $this->getString('tipo_conjunto', ''),
+                'codigo_comunidad' => $this->getInt('codigo_comunidad', 0),
             ]);
 
             $this->json(200, [

@@ -25,11 +25,14 @@ class apiConfiguracionPlataformaController
         }
 
         $rol = strtolower(trim((string)($auth['rol'] ?? $auth['nombre_rol'] ?? '')));
+        $codigoRol = (int)($auth['codigo_rol'] ?? 0);
+        $adminRoleId = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
+        $esAdministradorGeneral = in_array($rol, ['admin', 'administrador'], true) || $codigoRol === $adminRoleId;
         if (!is_array($auth) || (int)($auth['codigo_usuario'] ?? 0) <= 0) {
             $this->json(401, ['ok' => false, 'error' => 'UNAUTHORIZED', 'mensaje' => 'Tu sesión no es válida.']);
             exit;
         }
-        if ($rol !== 'admin') {
+        if (!$esAdministradorGeneral) {
             $this->json(403, ['ok' => false, 'error' => 'FORBIDDEN', 'mensaje' => 'Solo el administrador general puede modificar esta configuración.']);
             exit;
         }

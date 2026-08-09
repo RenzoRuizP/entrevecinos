@@ -115,8 +115,13 @@ final class SoporteUsuarios extends Conexion
         }
 
         if ($q !== '') {
-            $where[] = "(u.nombre LIKE :q OR u.email LIKE :q OR u.documento LIKE :q)";
-            $params[':q'] = "%{$q}%";
+            // PDO/MySQL con prepares nativos no permite reutilizar el mismo placeholder nombrado
+            // varias veces en una sentencia. Usamos parámetros independientes para evitar HY093.
+            $where[] = "(u.nombre LIKE :q_nombre OR u.email LIKE :q_email OR u.documento LIKE :q_documento)";
+            $likeQ = "%{$q}%";
+            $params[':q_nombre'] = $likeQ;
+            $params[':q_email'] = $likeQ;
+            $params[':q_documento'] = $likeQ;
         }
 
         // Filtro conjunto: prioriza solicitud abierta; si no hay, usa vigente
@@ -129,11 +134,12 @@ final class SoporteUsuarios extends Conexion
 
             if ($conjuntoId > 0) {
                 $where[] = "(
-                    (rs.codigo_solicitud IS NOT NULL AND rs.codigo_condominio = :conjunto_id)
+                    (rs.codigo_solicitud IS NOT NULL AND rs.codigo_condominio = :conjunto_solicitud_id)
                     OR
-                    (rs.codigo_solicitud IS NULL AND rv.codigo_condominio = :conjunto_id)
+                    (rs.codigo_solicitud IS NULL AND rv.codigo_condominio = :conjunto_vigente_id)
                 )";
-                $params[':conjunto_id'] = $conjuntoId;
+                $params[':conjunto_solicitud_id'] = $conjuntoId;
+                $params[':conjunto_vigente_id'] = $conjuntoId;
             }
         } elseif ($conjunto === 'urbanizacion') {
             $where[] = "(
@@ -144,11 +150,12 @@ final class SoporteUsuarios extends Conexion
 
             if ($conjuntoId > 0) {
                 $where[] = "(
-                    (rs.codigo_solicitud IS NOT NULL AND rs.codigo_urbanizacion = :conjunto_id)
+                    (rs.codigo_solicitud IS NOT NULL AND rs.codigo_urbanizacion = :conjunto_solicitud_id)
                     OR
-                    (rs.codigo_solicitud IS NULL AND rv.codigo_urbanizacion = :conjunto_id)
+                    (rs.codigo_solicitud IS NULL AND rv.codigo_urbanizacion = :conjunto_vigente_id)
                 )";
-                $params[':conjunto_id'] = $conjuntoId;
+                $params[':conjunto_solicitud_id'] = $conjuntoId;
+                $params[':conjunto_vigente_id'] = $conjuntoId;
             }
         }
 

@@ -180,6 +180,12 @@ function evRenderSecurityAlertPage(
                 margin-top:14px !important;
             }
 
+            /* Seguridad: estas pantallas tienen una sola acción. */
+            .swal2-cancel,
+            .swal2-deny{
+                display:none !important;
+            }
+
             .swal2-confirm.ev-auth-confirm{
                 background:linear-gradient(135deg, var(--ev-naranja), #F59E0B) !important;
                 color:#fff !important;
@@ -241,6 +247,10 @@ function evRenderSecurityAlertPage(
                 text: <?php echo json_encode($text); ?>,
                 confirmButtonText: <?php echo json_encode($confirmText); ?>,
                 confirmButtonColor: <?php echo json_encode($confirmColor); ?>,
+                showConfirmButton: true,
+                showCancelButton: false,
+                showDenyButton: false,
+                showCloseButton: false,
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 allowEnterKey: true,
@@ -268,9 +278,9 @@ function evRenderSesionFinalizada(string $loginUrl): void
         401,
         'Sesión finalizada | Entre Vecinos',
         'info',
-        'Tu sesión ha finalizado',
-        'Por tu seguridad, la sesión expiró. Vuelve a iniciar sesión.',
-        'Ir al login',
+        'Sesión finalizada',
+        'Tu sesión expiró o ya no es válida. Vuelve a iniciar sesión.',
+        'Aceptar',
         '#EA7C12',
         $loginUrl
     );
@@ -629,12 +639,160 @@ function evUsuarioTieneAceptacionLegalPendiente(int $codigoUsuario): bool
     }
 }
 
+/**
+ * Resuelve y aplica las funcionalidades configuradas para la residencia activa
+ * del vecino. Este control complementa el filtrado del menú y evita que una
+ * llamada directa a una URL o API omita la configuración administrativa.
+ */
+function evEvaluarConfiguracionOperativaVecino(string $uri, string $method, int $codigoUsuario): array
+{
+    if ($codigoUsuario <= 0 || !class_exists('ConfiguracionPlataforma')) {
+        return ['permitido' => true];
+    }
+
+    static $cache = [];
+    if (!isset($cache[$codigoUsuario])) {
+        $model = new ConfiguracionPlataforma();
+        $alcance = $model->obtenerAlcanceUsuario($codigoUsuario);
+        $cache[$codigoUsuario] = [
+            'model' => $model,
+            'alcance' => $alcance,
+            'funciones' => [],
+            'monetizacion' => [],
+        ];
+    }
+
+    $ctx =& $cache[$codigoUsuario];
+    /** @var ConfiguracionPlataforma $model */
+    $model = $ctx['model'];
+    $alcance = $ctx['alcance'];
+    $tipo = (string)$alcance['tipo_alcance'];
+    $codigo = (int)$alcance['codigo_alcance'];
+
+    $funcion = static function (string $clave) use (&$ctx, $model, $tipo, $codigo): bool {
+        if (!array_key_exists($clave, $ctx['funciones'])) {
+            $resuelta = $model->obtenerFuncionalidadPorAlcance($clave, $tipo, $codigo);
+            $ctx['funciones'][$clave] = (bool)($resuelta['habilitada'] ?? false);
+        }
+        return (bool)$ctx['funciones'][$clave];
+    };
+
+    $monetizacion = static function (string $clave) use (&$ctx, $model, $tipo, $codigo): bool {
+        if (!array_key_exists($clave, $ctx['monetizacion'])) {
+            $resuelta = $model->obtenerMonetizacionPorAlcance($clave, $tipo, $codigo);
+            $ctx['monetizacion'][$clave] = (bool)($resuelta['valor_booleano'] ?? false);
+        }
+        return (bool)$ctx['monetizacion'][$clave];
+    };
+
+    $bloqueado = static function (string $codigoError, string $mensaje): array {
+        return ['permitido' => false, 'error' => $codigoError, 'mensaje' => $mensaje];
+    };
+
+    $method = strtoupper($method);
+
+    if (
+        $uri === '/marketplace'
+        || $uri === '/api/producto/marketplace'
+        || str_starts_with($uri, '/api/marketplace/')
+    ) {
+        if (!$funcion(ConfiguracionPlataforma::FUNC_MARKETPLACE)) {
+            return $bloqueado('MARKETPLACE_NO_DISPONIBLE', 'El Marketplace no está disponible para tu comunidad en este momento.');
+        }
+    }
+
+    if ($uri === '/mis-pedidos-comprador' || ($method === 'POST' && preg_match('#^/api/pedidos/registrar/?$#', $uri))) {
+        if (!$funcion(ConfiguracionPlataforma::FUNC_COMPRAR_PRODUCTOS)) {
+            return $bloqueado('COMPRAS_NO_DISPONIBLES', 'Las compras de productos no están disponibles para tu comunidad en este momento.');
+        }
+    }
+
+    if ($uri === '/mis-solicitudes-servicio-comprador' || ($method === 'POST' && $uri === '/api/servicios/solicitudes')) {
+        if (!$funcion(ConfiguracionPlataforma::FUNC_SOLICITAR_SERVICIOS)) {
+            return $bloqueado('SOLICITUDES_SERVICIO_NO_DISPONIBLES', 'Las solicitudes de servicios no están disponibles para tu comunidad en este momento.');
+        }
+    }
+
+    if ($uri === '/publicacion' || $uri === '/producto') {
+        $publicarProducto = $funcion(ConfiguracionPlataforma::FUNC_PUBLICAR_PRODUCTOS);
+        $publicarServicio = $funcion(ConfiguracionPlataforma::FUNC_PUBLICAR_SERVICIOS);
+        if (!$publicarProducto && !$publicarServicio) {
+            return $bloqueado('PUBLICACIONES_NO_DISPONIBLES', 'La creación de publicaciones no está disponible para tu comunidad en este momento.');
+        }
+    }
+
+    if ($method === 'POST' && $uri === '/api/producto/registrar') {
+        $tipoPublicacion = strtolower(trim((string)($_POST['tipo_publicacion'] ?? 'producto')));
+        $clave = $tipoPublicacion === 'servicio'
+            ? ConfiguracionPlataforma::FUNC_PUBLICAR_SERVICIOS
+            : ConfiguracionPlataforma::FUNC_PUBLICAR_PRODUCTOS;
+        if (!$funcion($clave)) {
+            return $bloqueado(
+                $tipoPublicacion === 'servicio' ? 'PUBLICAR_SERVICIOS_NO_DISPONIBLE' : 'PUBLICAR_PRODUCTOS_NO_DISPONIBLE',
+                $tipoPublicacion === 'servicio'
+                    ? 'La publicación de servicios no está disponible para tu comunidad en este momento.'
+                    : 'La publicación de productos no está disponible para tu comunidad en este momento.'
+            );
+        }
+    }
+
+    $esRutaBilletera = $uri === '/billetera' || str_starts_with($uri, '/api/billetera/');
+    $esRutaRecarga = str_starts_with($uri, '/api/recargas/');
+    if ($esRutaBilletera || $esRutaRecarga) {
+        $billeteraDisponible = $funcion(ConfiguracionPlataforma::FUNC_BILLETERA)
+            && $monetizacion(ConfiguracionPlataforma::MON_BILLETERA_VISIBLE);
+        if (!$billeteraDisponible) {
+            return $bloqueado('BILLETERA_NO_DISPONIBLE', 'La billetera no está disponible para tu comunidad en este momento.');
+        }
+
+        if ($esRutaRecarga && $method === 'POST' && !$monetizacion(ConfiguracionPlataforma::MON_RECARGAS)) {
+            return $bloqueado('RECARGAS_NO_DISPONIBLES', 'Las recargas no están disponibles para tu comunidad en este momento.');
+        }
+    }
+
+    return ['permitido' => true];
+}
+
+function evResponderFuncionalidadNoDisponible(array $control, string $type, string $baseUrl): void
+{
+    $mensaje = (string)($control['mensaje'] ?? 'Esta funcionalidad no está disponible para tu comunidad.');
+    $error = (string)($control['error'] ?? 'FUNCIONALIDAD_NO_DISPONIBLE');
+    $redirect = rtrim($baseUrl, '/') . '/MenuPrincipal';
+
+    if ($type === 'json') {
+        evJsonResponse(403, [
+            'ok' => false,
+            'error' => $error,
+            'mensaje' => $mensaje,
+            'redirect' => $redirect,
+        ]);
+    }
+
+    if (esPeticionParcial()) {
+        http_response_code(403);
+        header('Content-Type: text/html; charset=utf-8');
+        $mensajeSeguro = htmlspecialchars($mensaje, ENT_QUOTES, 'UTF-8');
+        $redirectSeguro = htmlspecialchars($redirect, ENT_QUOTES, 'UTF-8');
+        echo '<section class="ev-feature-unavailable" style="max-width:860px;margin:32px auto;padding:32px;border:1px solid #d7eadf;border-radius:24px;background:#fff;box-shadow:0 18px 45px rgba(15,89,47,.10);font-family:Poppins,system-ui,sans-serif;text-align:center">'
+            . '<span style="display:inline-grid;place-items:center;width:56px;height:56px;border-radius:18px;background:#edf9f2;color:#0e7a43;font-size:26px"><i class="bi bi-shield-lock"></i></span>'
+            . '<h2 style="margin:18px 0 8px;color:#0f592f;font-size:24px">Funcionalidad no disponible</h2>'
+            . '<p style="margin:0 auto 22px;max-width:620px;color:#667085;line-height:1.65">' . $mensajeSeguro . '</p>'
+            . '<a href="' . $redirectSeguro . '" style="display:inline-flex;align-items:center;gap:7px;border:0;border-radius:14px;padding:12px 22px;background:#ea7c12;color:#fff;font-weight:700;text-decoration:none;box-shadow:0 12px 24px rgba(234,124,18,.24)"><i class="bi bi-house-door"></i> Volver al inicio</a>'
+            . '</section>';
+        exit;
+    }
+
+    header('Location: ' . $redirect, true, 302);
+    exit;
+}
+
 // ============================================================
 // 1) Dependencias
 // ============================================================
 safeRequire(__DIR__ . '/Config/config.php', true);
 safeRequire(__DIR__ . '/models/SesionJWT.php', true);
 safeRequire(__DIR__ . '/database/Conexion.php');
+safeRequire(__DIR__ . '/models/ConfiguracionPlataforma.php');
 
 if (!defined('EV_ADMIN_ROLE_ID')) {
     define('EV_ADMIN_ROLE_ID', 1);
@@ -672,6 +830,8 @@ safeRequire(__DIR__ . '/controllers/api/apiDocumentosLegalesController.php');
 safeRequire(__DIR__ . '/controllers/comunidadGestionController.php');
 safeRequire(__DIR__ . '/controllers/comunidadModeracionController.php');
 safeRequire(__DIR__ . '/controllers/comunidadVecinoController.php');
+safeRequire(__DIR__ . '/controllers/configuracionPlataformaController.php');
+safeRequire(__DIR__ . '/controllers/dashboardGerencialController.php');
 
 safeRequire(__DIR__ . '/controllers/cuentaObservadaController.php');
 safeRequire(__DIR__ . '/controllers/api/apiCuentaObservadaController.php');
@@ -711,6 +871,8 @@ safeRequire(__DIR__ . '/controllers/api/apiSoporteLibroReclamacionesController.p
 safeRequire(__DIR__ . '/controllers/api/apiDisponibilidadPedidosController.php');
 safeRequire(__DIR__ . '/controllers/api/apiComunidadController.php');
 safeRequire(__DIR__ . '/controllers/api/apiComunidadVecinoController.php');
+safeRequire(__DIR__ . '/controllers/api/apiConfiguracionPlataformaController.php');
+safeRequire(__DIR__ . '/controllers/api/apiDashboardGerencialController.php');
 
 safeRequire(__DIR__ . '/controllers/misPedidosCompradorController.php');
 safeRequire(__DIR__ . '/controllers/misPedidosVendedorController.php');
@@ -835,6 +997,8 @@ $routes = [
     // COMUNIDAD - VISTA PARA VECINOS
     // ---------------------------
     ['GET', '#^/comunidad$#', [comunidadVecinoController::class, 'index'], 'html'],
+    ['GET', '#^/configuracion-plataforma$#', [configuracionPlataformaController::class, 'index'], 'html'],
+    ['GET', '#^/dashboard-gerencial$#', [dashboardGerencialController::class, 'index'], 'html'],
 
     // ---------------------------
     // VISTAS SOPORTE
@@ -870,6 +1034,17 @@ $routes = [
     // ---------------------------
     ['GET', '#^/api/comunidad/vecino/publicaciones$#', [apiComunidadVecinoController::class, 'listar'], 'json'],
     ['GET', '#^/api/comunidad/vecino/publicaciones/(\d+)$#', [apiComunidadVecinoController::class, 'detalle'], 'json'],
+    ['GET', '#^/api/comunidad/vecino/comunidades$#', [apiComunidadVecinoController::class, 'comunidades'], 'json'],
+
+    // Administración general: configuración y dashboard gerencial
+    ['GET',  '#^/api/admin/configuracion-plataforma$#', [apiConfiguracionPlataformaController::class, 'obtener'], 'json'],
+    ['GET',  '#^/api/admin/configuracion-plataforma/alcances$#', [apiConfiguracionPlataformaController::class, 'buscarAlcances'], 'json'],
+    ['POST', '#^/api/admin/configuracion-plataforma/funcionalidad$#', [apiConfiguracionPlataformaController::class, 'guardarFuncionalidad'], 'json'],
+    ['POST', '#^/api/admin/configuracion-plataforma/monetizacion$#', [apiConfiguracionPlataformaController::class, 'guardarMonetizacion'], 'json'],
+    ['POST', '#^/api/admin/configuracion-plataforma/aplicar-piloto$#', [apiConfiguracionPlataformaController::class, 'aplicarPiloto'], 'json'],
+    ['GET',  '#^/api/admin/dashboard-gerencial$#', [apiDashboardGerencialController::class, 'resumen'], 'json'],
+    ['GET',  '#^/api/admin/dashboard-gerencial/catalogos$#', [apiDashboardGerencialController::class, 'catalogos'], 'json'],
+    ['POST', '#^/api/admin/dashboard-gerencial/meta$#', [apiDashboardGerencialController::class, 'guardarMeta'], 'json'],
 
     // ---------------------------
     // USUARIO
@@ -905,6 +1080,7 @@ $routes = [
     ['POST', '#^/api/producto/(\d+)/anular$#', [apiProductoController::class, 'anularProducto'], 'json'],
     ['POST', '#^/api/producto/(\d+)/publicar$#', [apiProductoController::class, 'publicarProducto'], 'json'],
     ['GET',  '#^/api/producto/marketplace$#', [apiProductoController::class, 'listarMarketplace'], 'json'],
+    ['GET',  '#^/api/admin/marketplace/comunidades$#', [apiProductoController::class, 'listarComunidadesMarketplaceAdmin'], 'json'],
 
     // ---------------------------
     // SOLICITUDES DE SERVICIO
@@ -1234,6 +1410,13 @@ foreach ($routes as $r) {
 
                 header('Location: ' . $redirect, true, 302);
                 exit;
+            }
+        }
+
+        if ($esVecino && $codigoUsuario > 0) {
+            $controlOperativo = evEvaluarConfiguracionOperativaVecino($uri, $method, $codigoUsuario);
+            if (!(bool)($controlOperativo['permitido'] ?? true)) {
+                evResponderFuncionalidadNoDisponible($controlOperativo, $type, $baseUrl);
             }
         }
     }

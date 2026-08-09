@@ -1088,8 +1088,35 @@
     }
   }
 
+  function ensureOrderAlertStyles() {
+    const ID = 'ev-shell-order-alert-style';
+    if (document.getElementById(ID)) return;
+    const style = document.createElement('style');
+    style.id = ID;
+    style.textContent = `
+      .ev-shell-order-alert-popup{width:min(92vw,560px)!important;}
+      .ev-shell-order-alert{text-align:left;max-width:450px;margin:0 auto;display:grid;gap:12px;}
+      .ev-shell-order-alert__product{border:1px solid #E5E7EB;background:#fff;border-radius:18px;padding:14px 16px;box-shadow:0 10px 24px rgba(15,23,42,.06);}
+      .ev-shell-order-alert__product span{display:block;color:#64748B;font-size:.72rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;}
+      .ev-shell-order-alert__product strong{display:block;color:#111827;font-weight:900;line-height:1.35;overflow-wrap:anywhere;}
+      .ev-shell-order-alert__status{display:flex;align-items:center;gap:12px;border:1px solid rgba(234,124,18,.24);background:#FFF8F0;border-radius:18px;padding:13px 14px;color:#9A3412;}
+      .ev-shell-order-alert__status>i{width:42px;height:42px;display:grid;place-items:center;flex:0 0 42px;border-radius:14px;background:#fff;border:1px solid #FED7AA;color:#EA7C12;font-size:1.12rem;}
+      .ev-shell-order-alert__status strong{display:block;color:#0F592F;font-size:.96rem;font-weight:900;margin-bottom:2px;}
+      .ev-shell-order-alert__status span{display:block;color:#6B7280;font-size:.84rem;line-height:1.4;}
+      .ev-shell-order-alert__message{margin:0;color:#475569;font-size:.94rem;line-height:1.58;}
+      .ev-shell-order-alert__date{display:inline-flex;align-items:center;gap:7px;color:#6B7280;font-size:.82rem;font-weight:800;}
+      @media(max-width:575.98px){
+        .ev-shell-order-alert{gap:10px;}
+        .ev-shell-order-alert__product,.ev-shell-order-alert__status{border-radius:15px;padding:12px;}
+        .ev-shell-order-alert__status{align-items:flex-start;}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   async function mostrarAlertaAvanceCompradorGlobal(alerta) {
     if (!window.Swal?.fire || !alerta) return;
+    ensureOrderAlertStyles();
 
     const id = Number(alerta.codigo_notificacion || 0);
     if (!id && alerta._sintetica !== true) return;
@@ -1126,26 +1153,43 @@
     const icon = obtenerIconoSwalAlertaComprador(estado);
     const confirmText = obtenerTextoBotonAlertaComprador(estado);
 
+    const esPuntoEntrega = estado === 'en_punto_entrega';
     const r = await Swal.fire({
       icon,
       title: titulo,
       html: `
-        <div style="text-align:left; max-width:440px; margin:0 auto;">
-          <div style="border:1px solid #E5E7EB;background:#FFFFFF;border-radius:18px;padding:14px 16px;box-shadow:0 10px 24px rgba(15,23,42,.06);margin-bottom:12px;">
-            <div style="color:#0F592F;font-size:.78rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Pedido</div>
-            <div style="color:#111827; font-weight:900; line-height:1.35;">${escapeHtml(producto)}</div>
+        <div class="ev-shell-order-alert${esPuntoEntrega ? ' is-pickup' : ''}">
+          <div class="ev-shell-order-alert__product">
+            <span>Pedido</span>
+            <strong>${escapeHtml(producto)}</strong>
           </div>
-          <div style="color:#475569;font-size:.96rem;line-height:1.55;margin-bottom:${fecha ? '10px' : '0'};">${escapeHtml(mensaje)}</div>
-          ${fecha ? `<div style="color:#6B7280; font-size:.84rem; font-weight:700;">${escapeHtml(fecha)}</div>` : ''}
+          ${esPuntoEntrega ? `
+            <div class="ev-shell-order-alert__status">
+              <i class="bi bi-geo-alt" aria-hidden="true"></i>
+              <div>
+                <strong>Listo para recoger</strong>
+                <span>Tienes hasta 6 minutos para confirmar la recepción.</span>
+              </div>
+            </div>
+          ` : ''}
+          <p class="ev-shell-order-alert__message">${escapeHtml(mensaje)}</p>
+          ${fecha ? `<div class="ev-shell-order-alert__date"><i class="bi bi-clock" aria-hidden="true"></i>${escapeHtml(fecha)}</div>` : ''}
         </div>
       `,
       showCancelButton: true,
-      confirmButtonText: confirmText,
-      cancelButtonText: 'Entendido',
-      confirmButtonColor: '#EA7C12',
-      cancelButtonColor: '#6B7280',
+      confirmButtonText: `<i class="bi bi-eye" aria-hidden="true"></i><span>${escapeHtml(confirmText)}</span>`,
+      cancelButtonText: '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Entendido</span>',
+      buttonsStyling: false,
+      customClass: {
+        container: 'ev-swal-container',
+        popup: 'ev-swal-popup ev-shell-order-alert-popup',
+        title: 'ev-swal-title',
+        htmlContainer: 'ev-swal-html',
+        confirmButton: 'ev-swal-confirm',
+        cancelButton: 'ev-swal-cancel'
+      },
       allowOutsideClick: false,
-      allowEscapeKey: true
+      allowEscapeKey: false
     });
 
     await marcarLeidaPromise;

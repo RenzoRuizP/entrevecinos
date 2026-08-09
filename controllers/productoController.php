@@ -3,6 +3,7 @@
 
 require_once __DIR__ . '/../models/SesionJWT.php';
 require_once __DIR__ . '/../models/User.php';
+require_once __DIR__ . '/../models/ConfiguracionPlataforma.php';
 
 class productoController
 {
@@ -29,6 +30,20 @@ class productoController
             if (!$datosUsuario) {
                 return $this->resolverNoAutorizado('usuario_no_encontrado');
             }
+
+            $codigoUsuario = (int)($datosUsuario['codigo_usuario'] ?? $datosToken['codigo_usuario'] ?? 0);
+            $configuracion = new ConfiguracionPlataforma();
+            $alcance = $configuracion->obtenerAlcanceUsuario($codigoUsuario);
+            $evPublicarProductosDisponible = (bool)($configuracion->obtenerFuncionalidadPorAlcance(
+                ConfiguracionPlataforma::FUNC_PUBLICAR_PRODUCTOS,
+                (string)$alcance['tipo_alcance'],
+                (int)$alcance['codigo_alcance']
+            )['habilitada'] ?? false);
+            $evPublicarServiciosDisponible = (bool)($configuracion->obtenerFuncionalidadPorAlcance(
+                ConfiguracionPlataforma::FUNC_PUBLICAR_SERVICIOS,
+                (string)$alcance['tipo_alcance'],
+                (int)$alcance['codigo_alcance']
+            )['habilitada'] ?? false);
 
             // 3) SIEMPRE devolver el parcial (evitamos redirecciones al panel)
             //    La vista usa $datosUsuario y BASE_URL para renderizar el formulario

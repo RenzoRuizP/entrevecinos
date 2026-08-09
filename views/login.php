@@ -22,20 +22,17 @@ $evOperacionLegal = $evLegalConfig['operacion'] ?? [];
 
   <!-- SweetAlert2 -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="<?= BASE_URL ?>views/js/evSweetAlert.js?v=<?= @filemtime(__DIR__ . '/js/evSweetAlert.js') ?: time() ?>"></script>
 
   <!-- Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 
   <!-- Estilos globales y del login -->
   <?php include_once VIEW_STYLE_PATH . 'login.estilo.php'; ?>
+  <?php include_once VIEW_STYLE_PATH . 'evLoadingGlobalEstilo.php'; ?>
 </head>
 
 <body class="login-body">
-
-  <!-- Spinner -->
-  <div class="spinner-overlay" id="spinnerOverlay">
-    <div class="spinner"></div>
-  </div>
 
   <!-- Contenedor principal -->
   <div class="login-shell">
@@ -226,13 +223,16 @@ $evOperacionLegal = $evLegalConfig['operacion'] ?? [];
   <div class="modal fade" id="crear_usuario" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
       <div class="modal-content shadow-lg border-0 ev-register-modal">
-        <div class="modal-header bg-success text-white">
-          <h5 class="modal-title">
-            <i class="bi bi-person-plus me-2" aria-hidden="true"></i>
-            Crear mi usuario
-          </h5>
+        <div class="modal-header ev-register-modal__header">
+          <div class="ev-register-modal__heading">
+            <span class="ev-register-modal__icon" aria-hidden="true"><i class="bi bi-person-plus"></i></span>
+            <div class="ev-register-modal__copy">
+              <h5 class="modal-title">Crear mi usuario</h5>
+              <span class="ev-register-modal__subtitle">Registro de vecino</span>
+            </div>
+          </div>
 
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          <button type="button" class="btn-close btn-close-white ev-modal-close-icon" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
 
         <form id="formCrearUsuario" novalidate>
@@ -476,24 +476,18 @@ $evOperacionLegal = $evLegalConfig['operacion'] ?? [];
             <!-- Paso 4 -->
             <div class="step d-none" id="formStep4">
               <div class="ev-register-legal">
-                <div class="ev-register-legal__heading">
-                  <div class="ev-register-legal__icon">
-                    <i class="bi bi-shield-check" aria-hidden="true"></i>
-                  </div>
-                  <div>
-                    <span class="ev-register-legal__eyebrow">Último paso</span>
-                    <h6 class="fw-bold text-success mb-1">Revisa y acepta</h6>
-                    <p class="mb-0">Lee los documentos vigentes y confirma las dos aceptaciones para enviar tu solicitud.</p>
-                  </div>
-                </div>
-
                 <section class="ev-register-legal__review" aria-labelledby="evLegalReviewTitle">
                   <div class="ev-register-legal__section-title">
                     <div>
-                      <span class="ev-register-legal__section-kicker">Documentos</span>
-                      <h6 id="evLegalReviewTitle">Información que debes revisar</h6>
+                      <span class="ev-register-legal__section-kicker">Paso 4 de 4 · Documentos legales</span>
+                      <h6 id="evLegalReviewTitle">Revisa los documentos vigentes</h6>
                     </div>
-                    <span class="ev-register-legal__section-badge">Versión vigente</span>
+                    <span class="ev-register-legal__section-badge"><i class="bi bi-shield-check" aria-hidden="true"></i> Información protegida</span>
+                  </div>
+
+                  <div class="ev-register-legal__intro" role="note">
+                    <span><i class="bi bi-shield-lock" aria-hidden="true"></i></span>
+                    <p>Antes de enviar tu registro, revisa cómo funciona EV y cómo protegemos tus datos. Cada documento se abre en una pestaña nueva.</p>
                   </div>
 
                   <div class="ev-register-legal__docs">
@@ -535,8 +529,8 @@ $evOperacionLegal = $evLegalConfig['operacion'] ?? [];
                   <div class="ev-register-legal__consent-heading">
                     <span class="ev-register-legal__consent-icon"><i class="bi bi-check2-square" aria-hidden="true"></i></span>
                     <div>
-                      <h6 id="evConsentTitle">Tus aceptaciones</h6>
-                      <p>Marca ambas casillas. Son independientes y obligatorias.</p>
+                      <h6 id="evConsentTitle">Confirma tus aceptaciones</h6>
+                      <p>Marca cada casilla por separado para autorizar el registro y el tratamiento de tus datos.</p>
                     </div>
                   </div>
 
@@ -568,21 +562,23 @@ $evOperacionLegal = $evLegalConfig['operacion'] ?? [];
 
           </div>
 
-          <div class="modal-footer justify-content-between">
-            <button type="button" class="btn btn-outline-secondary" id="btnAnterior" disabled>
-              <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>
-              Anterior
-            </button>
+          <div class="modal-footer ev-register-modal__footer">
+            <div class="ev-register-modal__actions">
+              <button type="button" class="btn btn-outline-secondary" id="btnAnterior" disabled>
+                <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                <span>Anterior</span>
+              </button>
 
-            <button type="button" class="btn btn-success" id="btnSiguiente">
-              Siguiente
-              <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i>
-            </button>
+              <button type="button" class="btn btn-success" id="btnSiguiente">
+                <span>Siguiente</span>
+                <i class="bi bi-arrow-right" aria-hidden="true"></i>
+              </button>
 
-            <button type="submit" class="btn btn-success d-none" id="btnRegistrar" disabled>
-              <i class="bi bi-check-circle me-1" aria-hidden="true"></i>
-              Registrar
-            </button>
+              <button type="submit" class="btn btn-success d-none" id="btnRegistrar" disabled>
+                <i class="bi bi-check-circle" aria-hidden="true"></i>
+                <span>Registrar</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -605,10 +601,6 @@ $evOperacionLegal = $evLegalConfig['operacion'] ?? [];
       if (event.persisted) window.location.reload();
     });
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const overlay = document.getElementById("spinnerOverlay");
-      if (overlay) overlay.style.display = "none";
-    });
   </script>
 </body>
 </html>

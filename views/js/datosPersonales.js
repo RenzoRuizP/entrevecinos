@@ -43,7 +43,16 @@
 
   function swalOk(title, text) {
     if (!safeSwal()) { alert(`${title}\n\n${text}`); return; }
-    Swal.fire({ icon: "success", title, text, confirmButtonColor: "#115C41" });
+    Swal.fire({
+      icon: "success",
+      title,
+      text,
+      showCancelButton: false,
+      showDenyButton: false,
+      confirmButtonText: "Aceptar",
+      confirmButtonColor: "#EA7C12",
+      allowOutsideClick: false
+    });
   }
 
   function swalInfo(title, text) {
@@ -809,7 +818,7 @@
 
     const file = $("#dpDocDomicilio", container);
     const f = file?.files?.[0] || null;
-    if (!f) return swalWarn("Adjunta un comprobante", "Para cambiar de domicilio debes adjuntar un comprobante.");
+    if (!f) return swalWarn("Adjunta un recibo", "Para cambiar de domicilio debes adjuntar un recibo de luz, internet o agua.");
 
     const max = 5 * 1024 * 1024;
     const okType = /^(application\/pdf|image\/jpeg|image\/png)$/i.test(f.type);
@@ -840,7 +849,7 @@
       const data2 = await res2.json().catch(() => ({}));
       if (!res2.ok) throw new Error(data2.message || data2.mensaje || data2.error || `HTTP ${res2.status}`);
 
-      swalOk("Solicitud enviada", "Tu solicitud de cambio de domicilio fue enviada. Un administrador la revisará.");
+      swalOk("Solicitud enviada", "Tu solicitud de cambio de domicilio fue enviada para su revisión.");
       document.dispatchEvent(new CustomEvent("ev:notificaciones-globales-actualizar"));
     } catch (e) {
       console.error("[EV][Paso2] Error:", e);
@@ -1043,11 +1052,4 @@
     initAll();
   });
 
-  const observerTarget = document.getElementById("contenido-principal") || document.body;
-  if (observerTarget && typeof MutationObserver !== "undefined") {
-    const observer = new MutationObserver(() => {
-      initAll();
-    });
-    observer.observe(observerTarget, { childList: true, subtree: true });
-  }
 })();

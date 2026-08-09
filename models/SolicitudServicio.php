@@ -878,6 +878,7 @@ class SolicitudServicio extends Conexion
             'mensaje_solicitante' => (string)($row['mensaje_solicitante'] ?? ''),
             'estado' => $estado,
             'estado_texto' => $this->etiquetaEstadoServicio($estado),
+            'proveedor_respondio_chat' => (int)($row['proveedor_respondio_chat'] ?? 0) === 1 ? 1 : 0,
             'estado_anterior' => (string)($row['estado_anterior'] ?? ''),
             'motivo_estado' => (string)($row['motivo_estado'] ?? ''),
             'fecha_limite_respuesta' => $row['fecha_limite_respuesta'] ?? null,
@@ -942,6 +943,14 @@ class SolicitudServicio extends Conexion
                     pr.requisitos,
                     pr.mensaje_proveedor,
                     pr.created_at AS propuesta_created_at,
+                    EXISTS (
+                        SELECT 1
+                        FROM solicitud_servicio_interaccion sci
+                        WHERE sci.codigo_solicitud_servicio = ss.codigo_solicitud_servicio
+                          AND sci.rol_autor = 'proveedor'
+                          AND sci.tipo_interaccion = 'mensaje_proveedor'
+                        LIMIT 1
+                    ) AS proveedor_respondio_chat,
                     COALESCE(nsn.novedades_no_leidas, 0) AS novedades_no_leidas,
                     nsu.codigo_notificacion AS novedad_codigo_notificacion,
                     nsu.subcategoria AS novedad_subcategoria,
@@ -1279,9 +1288,17 @@ class SolicitudServicio extends Conexion
             }
 
             $estadoActual = (string)($solicitud['estado'] ?? '');
-            if (!$this->estadoPermiteRespuestaProveedor($estadoActual)) {
+            $estadosRechazoProveedor = [
+                'pendiente_proveedor',
+                'informacion_adicional_solicitada',
+                'ajuste_solicitado',
+                'ajuste_cotizacion_solicitado',
+                'cotizacion_final_enviada',
+                'cotizacion_vencida',
+            ];
+            if (!in_array($estadoActual, $estadosRechazoProveedor, true)) {
                 $this->dblink->rollBack();
-                return ['ok' => false, 'error' => 'ESTADO_NO_PERMITE_ACCION', 'mensaje' => 'La solicitud ya no permite registrar un rechazo.'];
+                return ['ok' => false, 'error' => 'ESTADO_NO_PERMITE_ACCION', 'mensaje' => 'La solicitud ya no permite cerrarse desde la negociación.'];
             }
 
             $sql = "
@@ -1510,6 +1527,14 @@ class SolicitudServicio extends Conexion
                     pr.requisitos,
                     pr.mensaje_proveedor,
                     pr.created_at AS propuesta_created_at,
+                    EXISTS (
+                        SELECT 1
+                        FROM solicitud_servicio_interaccion sci
+                        WHERE sci.codigo_solicitud_servicio = ss.codigo_solicitud_servicio
+                          AND sci.rol_autor = 'proveedor'
+                          AND sci.tipo_interaccion = 'mensaje_proveedor'
+                        LIMIT 1
+                    ) AS proveedor_respondio_chat,
                     COALESCE(nsn.novedades_no_leidas, 0) AS novedades_no_leidas,
                     nsu.codigo_notificacion AS novedad_codigo_notificacion,
                     nsu.subcategoria AS novedad_subcategoria,
@@ -2490,7 +2515,7 @@ class SolicitudServicio extends Conexion
     {
         $mensaje = $this->textoLimpio($mensaje, 1500);
         if (mb_strlen($mensaje, 'UTF-8') < 8) {
-            return ['ok' => false, 'error' => 'MENSAJE_AJUSTE_REQUERIDO', 'mensaje' => 'Explica qué necesitas ajustar en la cotización final.'];
+            return ['ok' => false, 'error' => 'MENSAJE_AJUSTE_REQUERIDO', 'mensaje' => 'Explica qué necesitas ajustar o indica que deseas una nueva cotización.'];
         }
 
         try {
@@ -2501,50 +2526,83 @@ class SolicitudServicio extends Conexion
                 $this->dblink->rollBack();
                 return ['ok' => false, 'error' => 'SOLICITUD_NO_ENCONTRADA', 'mensaje' => 'La solicitud no existe o no te pertenece.'];
             }
-            if ((string)$solicitud['estado'] !== 'cotizacion_final_enviada') {
+
+            $estadoActual = (string)$solicitud['estado'];
+            $esRenovacion = $estadoActual === 'cotizacion_vencida';
+            if (!in_array($estadoActual, ['cotizacion_final_enviada', 'cotizacion_vencida'], true)) {
                 $this->dblink->rollBack();
-                return ['ok' => false, 'error' => 'ESTADO_NO_PERMITE_ACCION', 'mensaje' => 'No hay una cotización final disponible para solicitar ajuste.'];
-            }
-            $propuesta = $this->obtenerPropuestaVigenteBloqueada($codigoSolicitud);
-            if (!$propuesta) {
-                $this->dblink->rollBack();
-                return ['ok' => false, 'error' => 'PROPUESTA_NO_ENCONTRADA', 'mensaje' => 'No se encontró la cotización final vigente.'];
+                return ['ok' => false, 'error' => 'ESTADO_NO_PERMITE_ACCION', 'mensaje' => 'La solicitud no tiene una cotización disponible para ajustar o renovar.'];
             }
 
-            $stP = $this->dblink->prepare("
-                UPDATE solicitud_servicio_propuesta
-                SET estado = 'requiere_actualizacion',
-                    motivo_estado = :motivo,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE codigo_solicitud_servicio_propuesta = :propuesta
-                  AND estado = 'vigente'
-            ");
-            $stP->execute([':motivo' => $mensaje, ':propuesta' => (int)$propuesta['codigo_solicitud_servicio_propuesta']]);
+            $propuesta = null;
+            if (!$esRenovacion) {
+                $propuesta = $this->obtenerPropuestaVigenteBloqueada($codigoSolicitud);
+                if (!$propuesta) {
+                    $this->dblink->rollBack();
+                    return ['ok' => false, 'error' => 'PROPUESTA_NO_ENCONTRADA', 'mensaje' => 'No se encontró la cotización final vigente.'];
+                }
+
+                $stP = $this->dblink->prepare("
+                    UPDATE solicitud_servicio_propuesta
+                    SET estado = 'requiere_actualizacion',
+                        motivo_estado = :motivo,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE codigo_solicitud_servicio_propuesta = :propuesta
+                      AND estado = 'vigente'
+                ");
+                $stP->execute([':motivo' => $mensaje, ':propuesta' => (int)$propuesta['codigo_solicitud_servicio_propuesta']]);
+            }
 
             $stS = $this->dblink->prepare("
                 UPDATE solicitud_servicio
                 SET estado = 'ajuste_cotizacion_solicitado',
-                    estado_anterior = 'cotizacion_final_enviada',
+                    estado_anterior = :estado_anterior,
                     motivo_estado = :motivo,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE codigo_solicitud_servicio = :solicitud
             ");
-            $stS->execute([':motivo' => $mensaje, ':solicitud' => $codigoSolicitud]);
+            $stS->execute([
+                ':estado_anterior' => $estadoActual,
+                ':motivo' => $mensaje,
+                ':solicitud' => $codigoSolicitud,
+            ]);
+
+            $meta = ['estado_anterior' => $estadoActual, 'renovacion_por_vencimiento' => $esRenovacion ? 1 : 0];
+            if ($propuesta) {
+                $meta['codigo_solicitud_servicio_propuesta'] = (int)$propuesta['codigo_solicitud_servicio_propuesta'];
+                $meta['version'] = (int)$propuesta['version'];
+            }
 
             $this->registrarInteraccion(
-                $codigoSolicitud, $codigoSolicitante, 'solicitante', 'ajuste_cotizacion_solicitado', $mensaje,
-                ['codigo_solicitud_servicio_propuesta' => (int)$propuesta['codigo_solicitud_servicio_propuesta'], 'version' => (int)$propuesta['version']]
+                $codigoSolicitud,
+                $codigoSolicitante,
+                'solicitante',
+                $esRenovacion ? 'nueva_cotizacion_solicitada' : 'ajuste_cotizacion_solicitado',
+                $mensaje,
+                $meta
             );
+
             $this->registrarNotificacionProveedor(
-                $solicitud, 'ajuste_cotizacion_solicitado', 'El comprador solicitó un ajuste',
-                'El comprador solicitó ajustar la cotización final para “' . (string)$solicitud['titulo_servicio'] . '”.'
+                $solicitud,
+                $esRenovacion ? 'nueva_cotizacion_solicitada' : 'ajuste_cotizacion_solicitado',
+                $esRenovacion ? 'El comprador solicitó una nueva cotización' : 'El comprador solicitó un ajuste',
+                $esRenovacion
+                    ? 'La cotización anterior venció y el comprador solicitó una nueva versión para “' . (string)$solicitud['titulo_servicio'] . '”.'
+                    : 'El comprador solicitó ajustar la cotización final para “' . (string)$solicitud['titulo_servicio'] . '”.'
             );
+
             $this->dblink->commit();
-            return ['ok' => true, 'mensaje' => 'Tu solicitud de ajuste fue enviada al proveedor.', 'estado' => 'ajuste_cotizacion_solicitado'];
+            return [
+                'ok' => true,
+                'mensaje' => $esRenovacion
+                    ? 'Solicitaste una nueva cotización. El proveedor fue notificado.'
+                    : 'Tu solicitud de ajuste fue enviada al proveedor.',
+                'estado' => 'ajuste_cotizacion_solicitado'
+            ];
         } catch (Throwable $e) {
             if ($this->dblink->inTransaction()) $this->dblink->rollBack();
             error_log('[EV][SolicitudServicio][solicitarAjusteCotizacionFinal] ' . $e->getMessage());
-            return ['ok' => false, 'error' => 'ERROR_SOLICITAR_AJUSTE_COTIZACION', 'mensaje' => 'No se pudo solicitar el ajuste de la cotización.'];
+            return ['ok' => false, 'error' => 'ERROR_SOLICITAR_AJUSTE_COTIZACION', 'mensaje' => 'No se pudo registrar la solicitud de actualización de la cotización.'];
         }
     }
 

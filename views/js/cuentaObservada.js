@@ -89,7 +89,7 @@
     if (!file) {
       return {
         ok: false,
-        mensaje: "Debes seleccionar un comprobante."
+        mensaje: "Debes seleccionar un recibo."
       };
     }
 
@@ -185,7 +185,7 @@
     if (!tieneSweetAlert()) return;
 
     Swal.fire({
-      title: "Enviando comprobante",
+      title: "Enviando recibo",
       text: "Estamos procesando tu archivo. No cierres esta ventana.",
       allowOutsideClick: false,
       allowEscapeKey: false,
@@ -227,8 +227,8 @@
       tipoObservacion === "cambio_residencia";
 
     const titulo = esResidencia
-      ? "Cambio de residencia reenviado"
-      : "Comprobante reenviado";
+      ? "Recibo reenviado"
+      : "Recibo reenviado";
 
     const texto = mensajeBackend || (
       esResidencia
@@ -301,7 +301,7 @@
       const json = await leerJsonSeguro(resp);
 
       if (!resp.ok || json.ok !== true) {
-        const msg = json?.mensaje || "No se pudo reenviar el comprobante.";
+        const msg = json?.mensaje || "No se pudo reenviar el recibo.";
         throw new Error(msg);
       }
 
@@ -316,7 +316,7 @@
       await mostrarAlerta({
         icon: "error",
         title: "No se pudo enviar",
-        text: err?.message || "Ocurrió un error al reenviar el comprobante."
+        text: err?.message || "Ocurrió un error al reenviar el recibo."
       });
     } finally {
       setSubmitting(form, false);
@@ -328,12 +328,12 @@
 
     let title = "Información de revisión";
     let html = `
-      <div style="text-align:left">
+      <div style="text-align:left;line-height:1.55">
         <p style="margin-bottom:10px">
-          La revisión ayuda a validar que cada vecino pertenezca a la comunidad indicada.
+          Durante esta revisión, Soporte EV verificará que tus datos y el recibo de domicilio correspondan a la comunidad registrada.
         </p>
         <p style="margin-bottom:0">
-          Cuando soporte termine de revisar tu información, el sistema actualizará el estado de tu cuenta.
+          Cuando termine la evaluación, recibirás una notificación con el resultado o con las correcciones necesarias.
         </p>
       </div>
     `;
@@ -343,13 +343,13 @@
       html = `
         <div style="text-align:left">
           <p style="margin-bottom:10px">
-            Soporte encontró un detalle pendiente en tu solicitud de cambio de residencia.
+            Soporte EV identificó un dato que debe corregirse en tu solicitud de cambio de residencia.
           </p>
           <p style="margin-bottom:10px">
-            Revisa la observación, adjunta el comprobante corregido y vuelve a enviarlo.
+            Revisa la observación, adjunta el recibo corregido y vuelve a enviarlo.
           </p>
           <p style="margin-bottom:0">
-            Luego tu solicitud regresará a revisión.
+            Después de enviarlo, la solicitud volverá automáticamente a revisión.
           </p>
         </div>
       `;
@@ -358,13 +358,13 @@
       html = `
         <div style="text-align:left">
           <p style="margin-bottom:10px">
-            Soporte encontró un detalle pendiente en tu registro.
+            Soporte EV identificó un dato que debe corregirse en tu registro.
           </p>
           <p style="margin-bottom:10px">
-            Revisa la observación, adjunta el comprobante corregido y vuelve a enviarlo.
+            Revisa la observación, adjunta el recibo corregido y vuelve a enviarlo.
           </p>
           <p style="margin-bottom:0">
-            Luego tu cuenta regresará a revisión.
+            Después de enviarlo, tu cuenta volverá automáticamente a revisión.
           </p>
         </div>
       `;
@@ -373,10 +373,10 @@
       html = `
         <div style="text-align:left">
           <p style="margin-bottom:10px">
-            Tu solicitud de cambio de residencia está siendo validada por soporte.
+            Soporte EV está validando tu solicitud de cambio de residencia y el recibo enviado.
           </p>
           <p style="margin-bottom:0">
-            Si el comprobante coincide con la nueva residencia, el cambio podrá ser aprobado.
+            Al finalizar la revisión, recibirás una notificación con el resultado o con cualquier corrección necesaria.
           </p>
         </div>
       `;

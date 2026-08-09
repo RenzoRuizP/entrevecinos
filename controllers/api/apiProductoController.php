@@ -8,6 +8,7 @@ require_once __DIR__ . '/../../Config/config.php';
 require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/Producto.php';
 require_once __DIR__ . '/../../models/ProductoSoporte.php';
+require_once __DIR__ . '/../../models/ConfiguracionPlataforma.php';
 
 class apiProductoController
 {
@@ -20,29 +21,63 @@ class apiProductoController
         echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
-    private function obtenerUsuarioAuth(): int
+    private function obtenerAuth(): array
     {
         $token = $_COOKIE['auth_token'] ?? null;
         $r = SesionJWT::verificarTokenDetallado($token);
-
         if (!$r['ok'] || empty($r['data']['codigo_usuario'])) {
             $error = $r['error'] ?? 'TOKEN_INVALIDO';
-
             $msg = match ($error) {
                 'TOKEN_AUSENTE'  => 'Token no encontrado. Vuelve a iniciar sesión.',
                 'TOKEN_EXPIRADO' => 'Tu sesión expiró. Vuelve a iniciar sesión.',
                 default          => 'Token inválido. Vuelve a iniciar sesión.',
             };
-
-            $this->json(401, [
-                'ok'      => false,
-                'error'   => $error,
-                'mensaje' => $msg,
-            ]);
+            $this->json(401, ['ok'=>false,'error'=>$error,'mensaje'=>$msg]);
             exit;
         }
+        return is_array($r['data']) ? $r['data'] : [];
+    }
 
-        return (int)$r['data']['codigo_usuario'];
+    private function obtenerUsuarioAuth(): int
+    {
+        return (int)($this->obtenerAuth()['codigo_usuario'] ?? 0);
+    }
+
+    private function esAdministrador(array $auth): bool
+    {
+        $rol = strtolower(trim((string)($auth['rol'] ?? $auth['nombre_rol'] ?? '')));
+        $codigoRol = (int)($auth['codigo_rol'] ?? 0);
+        $adminRoleId = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
+
+        return in_array($rol, ['admin', 'administrador'], true) || $codigoRol === $adminRoleId;
+    }
+
+    public function listarComunidadesMarketplaceAdmin(): void
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') { $this->json(405,['ok'=>false,'mensaje'=>'Método no permitido']); return; }
+        $auth=$this->obtenerAuth();
+        if (!$this->esAdministrador($auth)) { $this->json(403,['ok'=>false,'mensaje'=>'Disponible únicamente para Administrador EV.']); return; }
+        try{$this->json(200,['ok'=>true,'data'=>(new Producto())->listarComunidadesActivasMarketplace()]);}
+        catch(Throwable $e){error_log('[EV][MarketplaceAdmin][comunidades] '.$e->getMessage());$this->json(500,['ok'=>false,'mensaje'=>'No se pudieron cargar las comunidades.']);}
+    }
+
+    private function publicacionPermitidaPorConfiguracion(int $codigoUsuario, string $tipoPublicacion): array
+    {
+        $configuracion = new ConfiguracionPlataforma();
+        $alcance = $configuracion->obtenerAlcanceUsuario($codigoUsuario);
+        $clave = $tipoPublicacion === 'servicio'
+            ? ConfiguracionPlataforma::FUNC_PUBLICAR_SERVICIOS
+            : ConfiguracionPlataforma::FUNC_PUBLICAR_PRODUCTOS;
+        $resuelta = $configuracion->obtenerFuncionalidadPorAlcance(
+            $clave,
+            (string)$alcance['tipo_alcance'],
+            (int)$alcance['codigo_alcance']
+        );
+
+        return [
+            'permitida' => (bool)($resuelta['habilitada'] ?? false),
+            'mensaje' => trim((string)($resuelta['mensaje_usuario'] ?? '')),
+        ];
     }
 
     private function toIntOrNull($v): ?int
@@ -351,7 +386,9 @@ class apiProductoController
         }
 
         try {
-            $codigoUsuario = $this->obtenerUsuarioAuth();
+            $auth = $this->obtenerAuth();
+            $codigoUsuario = (int)($auth['codigo_usuario'] ?? 0);
+            $rol = strtolower(trim((string)($auth['rol'] ?? $auth['nombre_rol'] ?? '')));
 
             $tipoPublicacion = $this->normalizarTipoPublicacion($_POST['tipo_publicacion'] ?? 'producto');
             $label = $this->etiquetaPublicacion($tipoPublicacion);
@@ -378,7 +415,9 @@ class apiProductoController
             $prod = new Producto();
 
             try {
-                $tipoAtencionProducto = $prod->resolverTipoAtencionPorCategoria(
+                // Valida que la categoría pertenezca al tipo de publicación,
+                // pero la decisión de preparación la toma expresamente el vecino.
+                $prod->resolverTipoAtencionPorCategoria(
                     (int)$categoria,
                     (int)$tipo,
                     $tipoPublicacion
@@ -391,6 +430,18 @@ class apiProductoController
                 ]);
                 return;
             }
+
+            $tipoAtencionRaw = (string)($_POST['tipo_atencion_producto'] ?? '');
+            if ($tipoPublicacion === 'producto'
+                && !in_array(strtolower(trim($tipoAtencionRaw)), ['requiere_preparacion', 'no_requiere_preparacion'], true)) {
+                $this->json(400, [
+                    'ok'      => false,
+                    'campo'   => 'tipo_atencion_producto',
+                    'mensaje' => 'Indica si el producto requiere preparación antes de entregarlo.',
+                ]);
+                return;
+            }
+            $tipoAtencionProducto = $this->normalizarTipoAtencionProducto($tipoAtencionRaw, $tipoPublicacion);
 
             $resActiva = $prod->obtenerResidenciaActivaUsuario($codigoUsuario);
             if (!$resActiva) {
@@ -499,6 +550,23 @@ class apiProductoController
             $tipoPublicacion = $this->normalizarTipoPublicacion($detalle['tipo_publicacion'] ?? 'producto');
             $label = $this->etiquetaPublicacion($tipoPublicacion);
 
+            $controlPublicacion = $this->publicacionPermitidaPorConfiguracion($codigoUsuario, $tipoPublicacion);
+            if (!($controlPublicacion['permitida'] ?? false)) {
+                $mensajeConfigurado = trim((string)($controlPublicacion['mensaje'] ?? ''));
+                $this->json(403, [
+                    'ok' => false,
+                    'error' => $tipoPublicacion === 'servicio'
+                        ? 'PUBLICAR_SERVICIOS_NO_DISPONIBLE'
+                        : 'PUBLICAR_PRODUCTOS_NO_DISPONIBLE',
+                    'mensaje' => $mensajeConfigurado !== ''
+                        ? $mensajeConfigurado
+                        : ($tipoPublicacion === 'servicio'
+                            ? 'La publicación de servicios no está disponible para tu comunidad en este momento.'
+                            : 'La publicación de productos no está disponible para tu comunidad en este momento.'),
+                ]);
+                return;
+            }
+
             if ($visibleActual !== 0) {
                 $msg = match ($visibleActual) {
                     1 => "El {$label} ya está en estado Pendiente de aprobación.",
@@ -596,8 +664,9 @@ class apiProductoController
             ]);
             return;
 
-        } catch (Exception $e) {
-            $this->json(500, ['ok' => false, 'error' => $e->getMessage()]);
+        } catch (Throwable $e) {
+            error_log('[EV][Marketplace][listar] ' . $e->getMessage());
+            $this->json(500, ['ok' => false, 'mensaje' => 'No se pudo cargar el Marketplace.', 'error' => (defined('EV_ENTORNO') && EV_ENTORNO === 'local') ? $e->getMessage() : null]);
             return;
         }
     }
@@ -709,7 +778,9 @@ class apiProductoController
             $estado = $this->normalizarEstadoPublicacion($_POST['estado'] ?? 'NoAplica', $tipoPublicacion);
 
             try {
-                $tipoAtencionProducto = $model->resolverTipoAtencionPorCategoria(
+                // Conserva la validación catálogo/tipo sin sobrescribir la
+                // selección manual de preparación realizada por el vecino.
+                $model->resolverTipoAtencionPorCategoria(
                     (int)$categoria,
                     (int)$tipo,
                     $tipoPublicacion
@@ -722,6 +793,18 @@ class apiProductoController
                 ]);
                 return;
             }
+
+            $tipoAtencionRaw = (string)($_POST['tipo_atencion_producto'] ?? '');
+            if ($tipoPublicacion === 'producto'
+                && !in_array(strtolower(trim($tipoAtencionRaw)), ['requiere_preparacion', 'no_requiere_preparacion'], true)) {
+                $this->json(400, [
+                    'ok'      => false,
+                    'campo'   => 'tipo_atencion_producto',
+                    'mensaje' => 'Indica si el producto requiere preparación antes de entregarlo.',
+                ]);
+                return;
+            }
+            $tipoAtencionProducto = $this->normalizarTipoAtencionProducto($tipoAtencionRaw, $tipoPublicacion);
 
             $this->aplicarDatosAProducto(
                 $model,
@@ -889,7 +972,9 @@ class apiProductoController
         }
 
         try {
-            $codigoUsuario = $this->obtenerUsuarioAuth();
+            $auth = $this->obtenerAuth();
+            $codigoUsuario = (int)($auth['codigo_usuario'] ?? 0);
+            $esAdministrador = $this->esAdministrador($auth);
 
             $tipo      = $this->toIntOrNull($_GET['tipo'] ?? null);
             $categoria = $this->toIntOrNull($_GET['categoria'] ?? null);
@@ -905,27 +990,46 @@ class apiProductoController
 
             $model = new Producto();
 
-            $resActiva = $model->obtenerResidenciaActivaUsuario($codigoUsuario);
-            if (!$resActiva) {
-                $this->json(409, [
-                    'ok'       => false,
-                    'error'    => 'SIN_RESIDENCIA_ACTIVA',
-                    'mensaje'  => 'No se encontró una residencia activa para tu usuario. Completa tu residencia para ver el Marketplace.',
-                    'redirect' => rtrim(BASE_URL, '/') . '/mi-perfil',
-                ]);
-                return;
-            }
+            if ($esAdministrador) {
+                $tipoConjunto = strtolower(trim((string)($_GET['tipo_conjunto'] ?? '')));
+                $codigoComunidad = (int)($_GET['codigo_comunidad'] ?? 0);
+                if (!in_array($tipoConjunto, ['condominio', 'urbanizacion'], true) || $codigoComunidad <= 0) {
+                    $this->json(422, [
+                        'ok' => false,
+                        'error' => 'COMUNIDAD_REQUERIDA',
+                        'mensaje' => 'Selecciona un condominio o una urbanización para consultar el Marketplace.',
+                    ]);
+                    return;
+                }
 
-            $conjunto = $model->obtenerNombreConjuntoActivoUsuario($codigoUsuario);
-            $res = $model->listarMarketplaceFiltradoPorResidencia(
-                $codigoUsuario,
-                $tipo,
-                $categoria,
-                $q,
-                $page,
-                $size,
-                $tipoPublicacion
-            );
+                $conjunto = $model->obtenerComunidadMarketplace($tipoConjunto, $codigoComunidad);
+                if (!$conjunto) {
+                    $this->json(404, [
+                        'ok' => false,
+                        'error' => 'COMUNIDAD_NO_ENCONTRADA',
+                        'mensaje' => 'La comunidad seleccionada no está disponible.',
+                    ]);
+                    return;
+                }
+
+                $res = $model->listarMarketplaceFiltradoPorComunidad(
+                    $tipoConjunto,
+                    $codigoComunidad,
+                    $tipo,
+                    $categoria,
+                    $q,
+                    $page,
+                    $size,
+                    $tipoPublicacion
+                );
+            } else {
+                $resActiva = $model->obtenerResidenciaActivaUsuario($codigoUsuario);
+                if (!$resActiva) {
+                    $this->json(409,['ok'=>false,'error'=>'SIN_RESIDENCIA_ACTIVA','mensaje'=>'No se encontró una residencia activa para tu usuario. Completa tu residencia para ver el Marketplace.','redirect'=>rtrim(BASE_URL,'/').'/mi-perfil']);return;
+                }
+                $conjunto = $model->obtenerNombreConjuntoActivoUsuario($codigoUsuario);
+                $res = $model->listarMarketplaceFiltradoPorResidencia($codigoUsuario,$tipo,$categoria,$q,$page,$size,$tipoPublicacion);
+            }
 
             $items = $res['items'] ?? [];
             $total = (int)($res['total'] ?? count($items));
@@ -957,8 +1061,16 @@ class apiProductoController
             ]);
             return;
 
-        } catch (Exception $e) {
-            $this->json(500, ['ok' => false, 'error' => $e->getMessage()]);
+        } catch (Throwable $e) {
+            error_log('[EV][Marketplace][listar] ' . $e->getMessage());
+            $payload = [
+                'ok' => false,
+                'mensaje' => 'No se pudo cargar el Marketplace.',
+            ];
+            if (defined('EV_APP_ENV') && strtolower((string)EV_APP_ENV) === 'local') {
+                $payload['error'] = $e->getMessage();
+            }
+            $this->json(500, $payload);
             return;
         }
     }
@@ -971,7 +1083,9 @@ class apiProductoController
                 return;
             }
 
-            $codigoUsuarioViewer = $this->obtenerUsuarioAuth();
+            $auth = $this->obtenerAuth();
+            $codigoUsuarioViewer = (int)($auth['codigo_usuario'] ?? 0);
+            $esAdministrador = $this->esAdministrador($auth);
             $codigoProducto = (int)$id;
 
             if ($codigoProducto <= 0) {
@@ -981,18 +1095,13 @@ class apiProductoController
 
             $model = new Producto();
 
-            $resActiva = $model->obtenerResidenciaActivaUsuario($codigoUsuarioViewer);
-            if (!$resActiva) {
-                $this->json(409, [
-                    'ok'       => false,
-                    'error'    => 'SIN_RESIDENCIA_ACTIVA',
-                    'mensaje'  => 'No se encontró una residencia activa para tu usuario.',
-                    'redirect' => rtrim(BASE_URL, '/') . '/mi-perfil',
-                ]);
-                return;
+            if($esAdministrador){
+                $detalle=$model->obtenerDetalleMarketplaceAdmin($codigoProducto,$codigoUsuarioViewer);
+            }else{
+                $resActiva=$model->obtenerResidenciaActivaUsuario($codigoUsuarioViewer);
+                if(!$resActiva){$this->json(409,['ok'=>false,'error'=>'SIN_RESIDENCIA_ACTIVA','mensaje'=>'No se encontró una residencia activa para tu usuario.','redirect'=>rtrim(BASE_URL,'/').'/mi-perfil']);return;}
+                $detalle=$model->obtenerDetalleMarketplacePorResidencia($codigoProducto,$codigoUsuarioViewer);
             }
-
-            $detalle = $model->obtenerDetalleMarketplacePorResidencia($codigoProducto, $codigoUsuarioViewer);
             if (!$detalle) {
                 $this->json(404, [
                     'ok'      => false,

@@ -543,10 +543,17 @@
     return Swal.fire(swalBaseConfig(Object.assign({
       title,
       html: htmlMessage(tipo, subtitle, text, extra.htmlExtra || ''),
-      confirmButtonText: extra.confirmButtonText || 'Entendido',
+      confirmButtonText: actionButtonHtml(extra.confirmButtonText || 'Aceptar', 'confirm'),
       showCancelButton: !!extra.showCancelButton,
-      cancelButtonText: extra.cancelButtonText || 'Cancelar'
+      cancelButtonText: actionButtonHtml(extra.cancelButtonText || 'Cancelar', 'cancel')
     }, extra || {})));
+  }
+
+  function actionButtonHtml(label, type = 'confirm') {
+    const text = String(label || '').trim();
+    if (/<i\b/i.test(text)) return text;
+    const icon = type === 'cancel' ? 'bi-x-circle' : 'bi-check2-circle';
+    return `<i class="bi ${icon}" aria-hidden="true"></i><span>${escapeHtml(text)}</span>`;
   }
 
   async function confirmAction({ title, subtitle, text, productText, note, confirmText, cancelText }) {
@@ -563,8 +570,8 @@
         htmlProductNote('Pedido', productText || 'Solicitud seleccionada', note || '')
       ),
       showCancelButton: true,
-      confirmButtonText: confirmText || 'Sí, continuar',
-      cancelButtonText: cancelText || 'Cancelar'
+      confirmButtonText: actionButtonHtml(confirmText || 'Aceptar', 'confirm'),
+      cancelButtonText: actionButtonHtml(cancelText || 'Cancelar', 'cancel')
     }));
 
     return !!result.isConfirmed;
@@ -803,11 +810,13 @@
     }
 
     if (estado === 'cola_aceptada') {
+      const posicion = Number(item.posicion_cola || 0);
+      const posicionTexto = posicion > 0 ? ` ocupa la posición ${posicion} de tu cola` : ' está en tu cola de atención';
       return `
         <div class="ev-mpv-state-box ev-mpv-state-box-info">
-          <div class="ev-mpv-state-title">Solicitud en cola</div>
+          <div class="ev-mpv-state-title">Pedido en espera</div>
           <div class="ev-mpv-state-text">
-            Este pedido aún no está aceptado por el vendedor. Quedó en espera y avanzará cuando se libere el turno actual.
+            Esta solicitud${posicionTexto}. Cuando finalices el pedido actual, quedará disponible para que la revises y decidas si deseas aceptarla.
           </div>
         </div>
       `;
@@ -1621,7 +1630,7 @@
       text: 'Al aceptarlo, este pedido pasará al flujo de atención y seguirá ocupando tu turno actual.',
       productText: item.titulo_publicacion || `Pedido #${id}`,
       note: 'Mientras este pedido siga activo, las siguientes solicitudes permanecerán en cola hasta que el turno se libere.',
-      confirmText: 'Sí, aceptar',
+      confirmText: 'Aceptar',
       cancelText: 'Cancelar'
     });
 
@@ -1751,7 +1760,7 @@
         title: 'Marcar punto de entrega',
         subtitle: 'Confirmar llegada al destino',
         text: 'Usa esta opción cuando ya llegaste al punto acordado con el comprador.',
-        confirmText: 'Sí, marcar punto de entrega'
+        confirmText: 'Aceptar'
       },
       entregado_vendedor: {
         title: 'Marcar entregado',
@@ -2221,16 +2230,21 @@
 
     await Swal.fire(swalBaseConfig({
       title: 'Detalle del pedido',
+      showCloseButton: false,
+      closeButtonAriaLabel: 'Cerrar',
       html: buildDetalleHtml(item),
       width: 860,
-      confirmButtonText: 'Cerrar',
+      confirmButtonText: '<i class="bi bi-x-circle" aria-hidden="true"></i><span>Cerrar</span>',
+      showCancelButton: false,
+      showDenyButton: false,
       customClass: {
         container: 'ev-mpv-swal-container ev-swal-container',
         popup: 'ev-mpv-swal-popup-premium ev-mpv-swal-popup-detail ev-swal-popup ev-swal-popup-detail',
         title: 'ev-mpv-swal-title ev-swal-title',
         htmlContainer: 'ev-mpv-swal-html ev-swal-html',
         confirmButton: 'ev-mpv-swal-confirm ev-swal-confirm',
-        cancelButton: 'ev-mpv-swal-cancel ev-swal-cancel'
+        cancelButton: 'ev-mpv-swal-cancel ev-swal-cancel',
+        closeButton: 'ev-swal-close'
       }
     }));
   }

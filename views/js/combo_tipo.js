@@ -123,50 +123,37 @@
     if (!campo) return;
 
     const tipoPublicacion = getTipoPublicacionPar(comboTipo);
+    const hint = getHintTipoAtencion(comboCategoria);
 
     if (tipoPublicacion === "servicio") {
       campo.value = "no_requiere_preparacion";
-      campo.dataset.evAutoTipoAtencion = "no_requiere_preparacion";
       campo.disabled = true;
+      campo.removeAttribute("required");
+      delete campo.dataset.evAutoTipoAtencion;
 
-      const hint = getHintTipoAtencion(comboCategoria);
       if (hint) {
-        hint.textContent = "EV detectó que esta publicación es un servicio; no usa preparación de producto.";
+        hint.textContent = "Los servicios no utilizan preparación de producto.";
       }
       return;
     }
 
-    const selected = comboCategoria?.selectedOptions?.[0] || null;
-    const tipoNombre = comboTipo?.selectedOptions?.[0]?.textContent || "";
-    const categoriaNombre = selected?.textContent || "";
+    /*
+     * La decisión pertenece al vecino. Los cambios de tipo o categoría no
+     * deben sobrescribir la selección manual ni inferirla automáticamente.
+     */
+    campo.disabled = false;
+    campo.required = true;
+    delete campo.dataset.evAutoTipoAtencion;
 
-    let requiere = false;
-    if (selected && selected.value) {
-      const raw = selected.dataset.requierePreparacion;
-      requiere = raw === "1"
-        ? true
-        : raw === "0"
-          ? false
-          : reglaPreparacionFallback(tipoNombre, categoriaNombre);
-    }
-
-    const valor = requiere ? "requiere_preparacion" : "no_requiere_preparacion";
-    campo.value = valor;
-    campo.dataset.evAutoTipoAtencion = valor;
-    campo.disabled = true;
-
-    const hint = getHintTipoAtencion(comboCategoria);
     if (hint) {
-      hint.textContent = requiere
-        ? "EV detectó que esta categoría requiere preparación antes de la entrega."
-        : "EV detectó que esta categoría no requiere preparación previa.";
+      hint.textContent = "Selecciona “Sí” cuando necesites preparar el producto antes de entregarlo.";
     }
   }
 
   function renderCategorias(comboTipo, comboCategoria, data, selectedValue = "") {
     if (!comboCategoria) return;
 
-    resetSelect(comboCategoria, "Selecciona una categoría", false);
+    resetSelect(comboCategoria, "Seleccionar", false);
 
     const grupos = new Map();
 

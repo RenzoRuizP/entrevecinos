@@ -6,6 +6,7 @@ require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/User.php';
 require_once __DIR__ . '/../../models/RecargaSaldo.php';
 require_once __DIR__ . '/../../models/Notificacion.php';
+require_once __DIR__ . '/../../models/ConfiguracionPlataforma.php';
 
 class apiRecargaSaldoController
 {
@@ -23,6 +24,11 @@ class apiRecargaSaldoController
                     'error'   => 'USUARIO_NO_ENCONTRADO',
                     'mensaje' => 'No se pudo identificar al usuario. Vuelve a iniciar sesión.'
                 ], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            if (!$this->recargasDisponiblesParaUsuario((int)$usuarioAuth['codigo_usuario'])) {
+                $this->responderRecargasNoDisponibles();
                 return;
             }
 
@@ -178,6 +184,11 @@ class apiRecargaSaldoController
                     'error'   => 'CODIGO_INVALIDO',
                     'mensaje' => 'La recarga a subsanar no es válida.'
                 ], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            if (!$this->recargasDisponiblesParaUsuario((int)$usuarioAuth['codigo_usuario'])) {
+                $this->responderRecargasNoDisponibles();
                 return;
             }
 
@@ -377,6 +388,32 @@ class apiRecargaSaldoController
             ], JSON_UNESCAPED_UNICODE);
             return;
         }
+    }
+
+    private function recargasDisponiblesParaUsuario(int $codigoUsuario): bool
+    {
+        if ($codigoUsuario <= 0) {
+            return false;
+        }
+
+        try {
+            $estado = (new ConfiguracionPlataforma())->obtenerEstadoBilleteraUsuario($codigoUsuario);
+            return (bool)($estado['recargas_disponibles'] ?? false);
+        } catch (Throwable $e) {
+            error_log('[EV][apiRecargaSaldoController::recargasDisponiblesParaUsuario] ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    private function responderRecargasNoDisponibles(): void
+    {
+        http_response_code(403);
+        echo json_encode([
+            'ok' => false,
+            'error' => 'RECARGAS_NO_DISPONIBLES',
+            'mensaje' => 'Las recargas no están disponibles para tu comunidad en este momento.',
+            'redirect' => rtrim(BASE_URL, '/') . '/MenuPrincipal',
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     private function obtenerUsuarioAuth(): ?array

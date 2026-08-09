@@ -4,6 +4,7 @@
 
   const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/$/, '');
   const LOG_PREFIX = '[BILLETERA]';
+  const RECARGAS_DISPONIBLES = window.EV_WALLET_CONFIG?.recargasDisponibles !== false;
 
   const BC_NAME = 'EV_CHANNEL';
   let bc = null;
@@ -321,7 +322,7 @@
     }
 
     if (refs.btnEnviarRecarga) {
-      refs.btnEnviarRecarga.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Confirmar recarga';
+      refs.btnEnviarRecarga.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Guardar';
     }
 
     if (refs.recargaImagenHelp) {
@@ -337,11 +338,19 @@
   }
 
   function abrirModalNuevaRecarga() {
+    if (!RECARGAS_DISPONIBLES) {
+      swalInfo('Las recargas no están disponibles para tu comunidad en este momento.');
+      return;
+    }
     resetModalRecarga();
     actualizarQRDesdeSelect();
   }
 
   function abrirModalSubsanar(id) {
+    if (!RECARGAS_DISPONIBLES) {
+      swalInfo('Las recargas no están disponibles para tu comunidad en este momento.');
+      return;
+    }
     const rec = (state.misRecargas || []).find((x) => String(x.id) === String(id));
     if (!rec) {
       swalErr('No se pudo cargar la recarga observada.');
@@ -509,7 +518,7 @@
     const rows = state.misRecargas.map((r) => {
       const est = String(r.estado || '').toLowerCase();
       const comentario = (r.comentario_soporte || '').trim();
-      const puedeSubsanar = (est === 'observada');
+      const puedeSubsanar = RECARGAS_DISPONIBLES && (est === 'observada');
 
       const comentarioHtml = (est === 'observada' || est === 'rechazada')
         ? `
@@ -623,6 +632,10 @@
   }
 
   async function enviarRecarga() {
+    if (!RECARGAS_DISPONIBLES) {
+      swalInfo('Las recargas no están disponibles para tu comunidad en este momento.');
+      return;
+    }
     if (!refs.recargaForm || !refs.btnEnviarRecarga) return;
 
     const modo = (refs.recargaModo?.value || 'crear').toLowerCase();
@@ -657,10 +670,10 @@
     const confirmar = await (window.Swal?.fire
       ? swalFireEV({
           icon: 'question',
-          title: esSubsanacion ? 'Reenviar recarga' : 'Confirmar recarga',
+          title: esSubsanacion ? 'Reenviar recarga' : 'Guardar recarga',
           text: confirmarTexto,
           showCancelButton: true,
-          confirmButtonText: esSubsanacion ? 'Sí, reenviar' : 'Sí, confirmar',
+          confirmButtonText: esSubsanacion ? 'Sí, reenviar' : 'Sí, guardar',
           cancelButtonText: 'Cancelar'
         })
       : Promise.resolve({ isConfirmed: confirm('¿Confirmas la operación?') })
@@ -842,14 +855,7 @@
     inicializarVista();
   });
 
-  const observer = new MutationObserver(() => {
-    const wrapperActual = document.querySelector('.ev-wallet-wrapper');
-    if (wrapperActual && wrapperActual !== refs.wrapper) {
-      inicializarVista();
-    }
-  });
-
-  observer.observe(document.body, { childList: true, subtree: true });
+  document.addEventListener('ev:content-loaded', inicializarVista);
 
   window.EVWallet = { init: inicializarVista };
 })();

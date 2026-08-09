@@ -5,9 +5,6 @@
 // ================================================
 
 (function () {
-  // Contenedor principal donde se inyectan las vistas
-  const mainContainer = document.getElementById("contenido-principal") || document.body;
-
   // Función que adjunta eventos a la vista de credenciales
   function attachCredencialesHandlers() {
     const form = document.getElementById("formCambiarContrasena");
@@ -111,12 +108,6 @@
     attachCredencialesHandlers();
   });
 
-  // Observar cambios en el contenedor principal para detectar
-  // cuando se inyecta la vista de credenciales vía AJAX
-  if (mainContainer && window.MutationObserver) {
-    const observer = new MutationObserver(() => {
-      attachCredencialesHandlers();
-    });
-    observer.observe(mainContainer, { childList: true, subtree: true });
-  }
+  // Las vistas dinámicas notifican una sola vez cuando finaliza la navegación AJAX.
+  document.addEventListener("ev:content-loaded", attachCredencialesHandlers);
 })();

@@ -23,6 +23,8 @@ require_once __DIR__ . '/../Config/config.php';
     </div>
   </div>
 
+  <?php require __DIR__ . '/partials/adminCommunitySelector.php'; ?>
+
   <!-- FILTROS -->
   <div class="ev-card ev-filters mb-3">
     <div class="ev-card-header">

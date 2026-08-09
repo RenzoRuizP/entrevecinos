@@ -84,6 +84,20 @@
         max-width: 860px !important;
       }
 
+      /*
+       * Política global EV: ningún SweetAlert muestra botón de cierre (X).
+       * SweetAlert2 mantiene el elemento .swal2-close en el DOM aun cuando
+       * showCloseButton=false. Por eso la regla debe ocultarlo también por CSS;
+       * nunca se debe forzar su display desde el tema visual.
+       */
+      .swal2-popup .swal2-close,
+      .swal2-popup .swal2-close.ev-swal-close{
+        display:none !important;
+        visibility:hidden !important;
+        opacity:0 !important;
+        pointer-events:none !important;
+      }
+
       .swal2-popup.ev-swal-popup::before,
       .swal2-popup.ev-mp-swal-popup::before,
       .swal2-popup.ev-mp-swal-popup-seguimiento::before,
@@ -255,6 +269,53 @@
         box-shadow: 0 12px 24px rgba(15,23,42,.09) !important;
       }
 
+      /* Alineación precisa de icono y texto en acciones EV. */
+      .swal2-confirm.ev-swal-confirm,
+      .swal2-confirm.ev-mp-swal-confirm,
+      .swal2-confirm.ev-mpv-swal-confirm,
+      .swal2-confirm.ev-mpc-swal-confirm,
+      .swal2-confirm.btn-ev-orange,
+      .swal2-cancel.ev-swal-cancel,
+      .swal2-cancel.ev-mp-swal-cancel,
+      .swal2-cancel.ev-mpv-swal-cancel,
+      .swal2-cancel.ev-mpc-swal-cancel,
+      .swal2-cancel.btn-ev-outline{
+        display:inline-flex;
+        align-items:center !important;
+        justify-content:center !important;
+        gap:8px !important;
+        line-height:1.1 !important;
+        white-space:nowrap !important;
+      }
+      .swal2-confirm.ev-swal-confirm i,
+      .swal2-cancel.ev-swal-cancel i{
+        display:inline-grid !important;
+        place-items:center !important;
+        flex:0 0 auto !important;
+        margin:0 !important;
+        font-size:1rem !important;
+        line-height:1 !important;
+      }
+      .swal2-confirm.ev-swal-confirm span,
+      .swal2-cancel.ev-swal-cancel span{
+        display:inline-block !important;
+        margin:0 !important;
+        line-height:1.1 !important;
+      }
+
+      /*
+       * SweetAlert2 oculta acciones con style="display: none".
+       * Nunca debemos reabrirlas desde el tema EV. Esta salvaguarda evita
+       * que un !important de alineación vuelva a mostrar Cancel/Denegar.
+       */
+      .swal2-popup .swal2-cancel[style*="display: none"],
+      .swal2-popup .swal2-deny[style*="display: none"],
+      .swal2-popup .swal2-confirm[style*="display: none"],
+      .swal2-popup.ev-swal-nocancel .swal2-cancel,
+      .swal2-popup.ev-swal-nocancel .swal2-deny{
+        display:none !important;
+      }
+
       .swal2-select,
       .swal2-textarea,
       .swal2-input{
@@ -406,7 +467,8 @@
     title: 'ev-swal-title',
     htmlContainer: 'ev-swal-html',
     confirmButton: 'ev-swal-confirm',
-    cancelButton: 'ev-swal-cancel'
+    cancelButton: 'ev-swal-cancel',
+    closeButton: 'ev-swal-close'
   };
 
   function mergeCustomClass(userClasses) {
@@ -461,9 +523,51 @@
       delete config.icon;
     }
 
-    // Política global EV: cierre únicamente mediante acciones explícitas.
+    // Política global EV para SweetAlert:
+    // - los mensajes se cierran únicamente mediante acciones explícitas;
+    // - ningún SweetAlert muestra botón X;
+    // - los modales de formulario conservan su propio cierre estándar EV.
     config.allowOutsideClick = false;
     config.allowEscapeKey = false;
+    config.showCloseButton = false;
+
+    // Elimina variantes antiguas que convertían algunos SweetAlert en una
+    // cabecera verde tipo modal. El SweetAlert conserva el diseño premium
+    // EV de mensaje (blanco + línea cromática superior).
+    if (config.customClass && typeof config.customClass.popup === 'string') {
+      config.customClass.popup = config.customClass.popup
+        .split(/\s+/)
+        .filter((cls) => cls && cls !== 'ev-swal-headered' && cls !== 'ev-swal-headered--dedupe')
+        .join(' ');
+    }
+
+    /*
+     * Reglas de consistencia para mensajes transversales.
+     * Se fuerzan aquí para evitar que un módulo vuelva a introducir botones
+     * o textos heredados de SweetAlert2 (OK / Cancel) en futuras llamadas.
+     */
+    const normalizedTitle = String(config.title || '').trim().toLocaleLowerCase('es');
+
+    if (normalizedTitle === 'sesión finalizada' || normalizedTitle === 'tu sesión ha finalizado') {
+      config.showCancelButton = false;
+      config.showDenyButton = false;
+      config.showConfirmButton = true;
+      config.confirmButtonText = 'Aceptar';
+      config.showCloseButton = false;
+      config.customClass.popup = classJoin(config.customClass.popup, 'ev-swal-nocancel');
+    }
+
+    if (normalizedTitle === 'ayuda ev' || normalizedTitle === 'foto actualizada') {
+      config.showCancelButton = false;
+      config.showDenyButton = false;
+      config.showConfirmButton = true;
+      config.confirmButtonText = 'Aceptar';
+      config.customClass.popup = classJoin(config.customClass.popup, 'ev-swal-nocancel');
+    }
+
+    if (normalizedTitle === '¿deseas cerrar sesión?') {
+      config.showCloseButton = false;
+    }
 
     return config;
   }

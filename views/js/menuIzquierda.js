@@ -126,6 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let overlayRefCount = 0;
   let overlayWatchdog = null;
+  let overlayShowTimer = null;
 
   function ensureEvOverlay() {
     let ov = document.getElementById('ev-nav-overlay');
@@ -133,47 +134,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ov = document.createElement('div');
     ov.id = 'ev-nav-overlay';
+    ov.className = 'ev-global-loading-overlay';
     ov.setAttribute('aria-hidden', 'true');
-    ov.style.cssText = `
-      position: fixed; inset: 0;
-      display: none;
-      align-items: center; justify-content: center;
-      background: rgba(255,255,255,0.65);
-      backdrop-filter: blur(2px);
-      z-index: 99999;
-    `;
+    ov.setAttribute('role', 'status');
+    ov.setAttribute('aria-live', 'polite');
 
     const box = document.createElement('div');
-    box.style.cssText = `
-      display:flex; align-items:center; gap:10px;
-      padding:14px 18px;
-      border-radius:999px;
-      background:rgba(255,255,255,0.92);
-      border:1px solid rgba(15,89,47,0.10);
-      box-shadow:0 18px 45px rgba(0,0,0,0.12), 0 6px 12px rgba(0,0,0,0.06);
-      font-family:Poppins, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      color:#0F592F;
-      font-weight:600;
-    `;
+    box.className = 'ev-global-loading-compact';
 
-    const spinner = document.createElement('div');
-    spinner.style.cssText = `
-      width:30px; height:30px;
-      border-radius:50%;
-      border:4px solid rgba(22,163,74,0.18);
-      border-top-color:rgba(15,89,47,0.95);
-      animation:evspin .8s linear infinite;
-    `;
+    const spinner = document.createElement('span');
+    spinner.className = 'ev-global-loading-spinner';
+    spinner.setAttribute('aria-hidden', 'true');
 
-    const txt = document.createElement('div');
+    const txt = document.createElement('strong');
+    txt.className = 'ev-global-loading-text';
     txt.textContent = 'Cargando...';
-
-    const style = document.createElement('style');
-    style.textContent = '@keyframes evspin{to{transform:rotate(360deg)}}';
 
     box.appendChild(spinner);
     box.appendChild(txt);
-    ov.appendChild(style);
     ov.appendChild(box);
     document.body.appendChild(ov);
 
@@ -182,14 +160,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function showEvOverlay() {
     overlayRefCount = Math.max(0, overlayRefCount) + 1;
-    ensureEvOverlay().style.display = 'flex';
+    const ov = ensureEvOverlay();
+
+    if (overlayShowTimer) clearTimeout(overlayShowTimer);
+    overlayShowTimer = setTimeout(() => {
+      overlayShowTimer = null;
+      if (overlayRefCount > 0) ov.style.display = 'flex';
+    }, 120);
 
     if (overlayWatchdog) clearTimeout(overlayWatchdog);
-
     overlayWatchdog = setTimeout(() => {
       overlayRefCount = 0;
-      const ov = document.getElementById('ev-nav-overlay');
-      if (ov) ov.style.display = 'none';
+      if (overlayShowTimer) {
+        clearTimeout(overlayShowTimer);
+        overlayShowTimer = null;
+      }
+      ov.style.display = 'none';
     }, 20000);
   }
 
@@ -201,6 +187,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (overlayRefCount === 0) {
+      if (overlayShowTimer) {
+        clearTimeout(overlayShowTimer);
+        overlayShowTimer = null;
+      }
+
       const ov = document.getElementById('ev-nav-overlay');
       if (ov) ov.style.display = 'none';
 
@@ -212,29 +203,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function killLegacyLoaders() {
-    const selectors = [
+    const legacySelector = [
       '#spinner-overlay', '#loading-overlay', '#loader-overlay', '#global-loader', '#ev-loading',
       '.spinner-overlay', '.loading-overlay', '.loader-overlay', '.global-loader', '.preloader',
       '#preloader', '.page-loader', '#page-loader', '.overlay-loading', '#overlay-loading',
       '.ajax-loading', '#ajax-loading'
-    ];
+    ].join(',');
 
-    selectors.forEach((sel) => {
-      document.querySelectorAll(sel).forEach((el) => {
-        try { el.style.display = 'none'; } catch (_) {}
-        try { el.classList.add('d-none'); } catch (_) {}
-        try { el.classList.remove('show'); } catch (_) {}
-      });
+    document.querySelectorAll(legacySelector).forEach((el) => {
+      if (el.id === 'ev-nav-overlay') return;
+      el.style.display = 'none';
+      el.classList.add('d-none');
+      el.classList.remove('show');
     });
 
-    document.querySelectorAll('[aria-busy="true"], [data-loading="true"], [data-loader="true"]').forEach((el) => {
-      try { el.setAttribute('aria-busy', 'false'); } catch (_) {}
-      try { el.dataset.loading = 'false'; } catch (_) {}
-      try { el.style.display = 'none'; } catch (_) {}
-      try { el.classList.add('d-none'); } catch (_) {}
-    });
-
-    document.body.classList.remove('loading', 'is-loading', 'modal-open');
+    document.body.classList.remove('loading', 'is-loading');
     document.documentElement.classList.remove('loading', 'is-loading');
   }
 
@@ -702,7 +685,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const { res, signal } = await fetchWithTimeout(finalUrl, {
         timeoutMs: 15000,
         method: 'GET',
-        cache: 'no-store',
+        cache: 'no-cache',
         credentials: 'include',
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
@@ -824,7 +807,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  document.addEventListener('click', (e) => {
+  document.addEventListener('click', async (e) => {
     if (window.__EV_AUTH_REDIRECTING__ === true) return;
 
     const parent = e.target.closest('#sidebar .menu-parent-link');
@@ -835,6 +818,71 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const logoutButton = e.target.closest('[data-ev-logout], .ev-sidebar-footer-link-logout');
+    if (logoutButton) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (logoutButton.dataset.evLogoutBusy === '1') return;
+
+      const confirmar = window.Swal?.fire
+        ? await Swal.fire({
+            icon: 'question',
+            title: '¿Deseas cerrar sesión?',
+            text: 'Tu sesión se cerrará de forma segura y tendrás que ingresar nuevamente para volver a Entre Vecinos.',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, cerrar sesión',
+            cancelButtonText: 'No, permanecer',
+            confirmButtonColor: '#EA7C12',
+            cancelButtonColor: '#6B7280',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showCloseButton: false,
+            customClass: { closeButton: 'ev-swal-close' },
+            reverseButtons: true
+          })
+        : { isConfirmed: window.confirm('¿Deseas cerrar sesión?') };
+
+      if (!confirmar?.isConfirmed) return;
+
+      logoutButton.dataset.evLogoutBusy = '1';
+      logoutButton.disabled = true;
+      try {
+        const url = logoutButton.dataset.logoutUrl || `${BASE}/logout`;
+        const response = await fetch(url, {
+          method: 'POST',
+          credentials: 'include',
+          cache: 'no-store',
+          headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data?.ok === false) {
+          throw new Error(data?.mensaje || data?.message || 'No se pudo cerrar sesión.');
+        }
+        window.location.replace(data?.redirect || `${BASE}/login`);
+      } catch (error) {
+        logoutButton.dataset.evLogoutBusy = '0';
+        logoutButton.disabled = false;
+        if (window.Swal?.fire) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'No se pudo cerrar sesión',
+            text: error?.message || 'Inténtalo nuevamente.',
+            confirmButtonText: 'Aceptar',
+            confirmButtonColor: '#EA7C12',
+            allowOutsideClick: false,
+            allowEscapeKey: false
+          });
+        } else {
+          window.alert(error?.message || 'No se pudo cerrar sesión.');
+        }
+      }
+      return;
+    }
+
     const ayuda = e.target.closest('#btnEvAyudaSidebar');
     if (ayuda) {
       e.preventDefault();
@@ -842,18 +890,25 @@ document.addEventListener('DOMContentLoaded', () => {
         Swal.fire({
           title: 'Ayuda EV',
           html: `
-            <div style="width:68px;height:68px;margin:0 auto 14px;display:grid;place-items:center;border-radius:22px;background:linear-gradient(135deg,#ECFDF3,#FFFFFF);border:1px solid rgba(22,163,74,.24);color:#0F592F;font-size:1.8rem;box-shadow:0 14px 28px rgba(15,89,47,.10)" aria-hidden="true"><i class="bi bi-question-lg"></i></div>
-            <div style="line-height:1.55;color:#4B5563">
-              ¿Necesitas ayuda? Comunícate con <strong style="color:#0F592F">Soporte EV</strong> por WhatsApp al
-              <a href="https://wa.me/51956969182" target="_blank" rel="noopener noreferrer" style="color:#0E7A43;font-weight:800;text-decoration:none">956 969 182</a>.
-              Estaremos atentos para orientarte.
+            <div class="ev-help-modal-icon" aria-hidden="true"><i class="bi bi-headset"></i></div>
+            <div class="ev-help-modal-copy">
+              <strong>Estamos para ayudarte</strong>
+              <p>Escríbenos por WhatsApp y cuéntanos brevemente qué necesitas. El equipo de Soporte EV te orientará.</p>
+              <a class="ev-help-modal-contact" href="https://wa.me/51956969182" target="_blank" rel="noopener noreferrer"><i class="bi bi-whatsapp"></i><span>956 969 182</span></a>
             </div>
           `,
           confirmButtonText: 'Aceptar',
-          confirmButtonColor: '#EA7C12'
+          confirmButtonColor: '#EA7C12',
+          showConfirmButton: true,
+          showCancelButton: false,
+          showDenyButton: false,
+          showCloseButton: false,
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          customClass: { popup: 'ev-help-modal-popup', title: 'ev-help-modal-title', htmlContainer: 'ev-help-modal-html', confirmButton: 'ev-help-modal-confirm', closeButton: 'ev-swal-close' }
         });
       } else {
-        alert('Ayuda EV\n\n¿Necesitas ayuda? Comunícate con Soporte EV por WhatsApp al 956 969 182. Estaremos atentos para orientarte.');
+        alert('Ayuda EV\n\nEscríbenos por WhatsApp al 956 969 182 y cuéntanos brevemente qué necesitas. Soporte EV te orientará.');
       }
       return;
     }

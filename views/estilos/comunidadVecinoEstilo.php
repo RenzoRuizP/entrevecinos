@@ -1535,3 +1535,12 @@
 }
 
 </style>
+<style>
+/* Administrador EV: selector global y acabado premium de Comunidad. */
+.ev-cv-admin-selector{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,520px);gap:16px;align-items:center;margin-top:14px;padding:15px 17px;border:1px solid rgba(148,163,184,.18);border-radius:20px;background:#fff;box-shadow:0 12px 30px rgba(15,23,42,.055)}
+.ev-cv-admin-selector-copy{display:flex;align-items:center;gap:11px;min-width:0}.ev-cv-admin-selector-copy>span{width:42px;height:42px;display:grid;place-items:center;flex:0 0 auto;border-radius:14px;color:#0F592F;background:#ECFDF3;border:1px solid rgba(22,163,74,.16)}.ev-cv-admin-selector-copy strong{display:block;color:#0F592F;font-weight:950}.ev-cv-admin-selector-copy small{display:block;margin-top:2px;color:#6B7280;line-height:1.4}.ev-cv-admin-selector label{display:grid;gap:6px}.ev-cv-admin-selector label>span{color:#334155;font-size:.75rem;font-weight:900}.ev-cv-admin-selector select{width:100%;min-height:44px;padding:9px 12px;border:1px solid #CFE9D9;border-radius:13px;background:#fff;color:#111827;font:inherit;font-weight:750;outline:0}.ev-cv-admin-selector select:focus{border-color:#16A34A;box-shadow:0 0 0 4px rgba(22,163,74,.12)}
+.ev-cv-toolbar{padding:14px 16px;border:1px solid rgba(148,163,184,.18);border-radius:20px;background:#fff;box-shadow:0 12px 30px rgba(15,23,42,.05)}
+.ev-cv-filter{display:grid;gap:6px}.ev-cv-filter label{color:#334155;font-size:.75rem;font-weight:900}.ev-cv-filter-select{min-height:42px;padding:9px 12px;border:1px solid #CFE9D9;border-radius:13px;background:#fff;color:#111827;font:inherit;font-weight:750;outline:0}.ev-cv-filter-select:focus{border-color:#16A34A;box-shadow:0 0 0 4px rgba(22,163,74,.12)}
+.ev-cv-search button{background:linear-gradient(135deg,#EA7C12,#F59E0B)!important;box-shadow:0 12px 24px rgba(234,124,18,.19)!important}
+@media(max-width:800px){.ev-cv-admin-selector{grid-template-columns:1fr}.ev-cv-toolbar{grid-template-columns:1fr!important}.ev-cv-admin-selector select{font-size:.86rem}}
+</style>

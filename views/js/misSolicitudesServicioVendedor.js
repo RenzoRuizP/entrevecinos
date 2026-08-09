@@ -235,6 +235,12 @@
     if (estado === 'ajuste_solicitado') {
       return `<div class="ev-ssv-state ev-ssv-state-pending"><div class="ev-ssv-state-title">El comprador pidió un ajuste</div><div class="ev-ssv-state-text">Revisa la solicitud y emite una nueva cotización final desde la conversación.</div></div>`;
     }
+    if (estado === 'ajuste_cotizacion_solicitado') {
+      return `<div class="ev-ssv-state ev-ssv-state-pending"><div class="ev-ssv-state-title">Nueva cotización solicitada</div><div class="ev-ssv-state-text">El comprador pidió actualizar las condiciones. Abre la conversación y emite una nueva cotización final.</div></div>`;
+    }
+    if (estado === 'cotizacion_vencida') {
+      return `<div class="ev-ssv-state ev-ssv-state-wait"><div class="ev-ssv-state-title">Cotización vencida</div><div class="ev-ssv-state-text">La versión anterior quedó desactivada y ya no puede aceptarse. Puedes emitir una nueva cotización si aún deseas continuar o cerrar la negociación desde la conversación.</div></div>`;
+    }
     if (estado === 'coordinacion_confirmada') {
       return `<div class="ev-ssv-state ev-ssv-state-success"><div class="ev-ssv-state-title">Pendiente de ejecución</div><div class="ev-ssv-state-text">La cotización fue aceptada. Abre la gestión para iniciar, reprogramar o registrar la ejecución del servicio.</div></div>`;
     }

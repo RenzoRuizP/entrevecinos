@@ -3,6 +3,7 @@
 
 require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/Billetera.php';
+require_once __DIR__ . '/../../models/ConfiguracionPlataforma.php';
 
 class apiBilleteraController
 {
@@ -31,7 +32,40 @@ class apiBilleteraController
             exit;
         }
 
-        return (int)$usuario['codigo_usuario'];
+        $codigoUsuario = (int)$usuario['codigo_usuario'];
+        $estadoBilletera = (new ConfiguracionPlataforma())->obtenerEstadoBilleteraUsuario($codigoUsuario);
+
+        if (!(bool)($estadoBilletera['billetera_disponible'] ?? false)) {
+            $this->json(403, [
+                'ok' => false,
+                'error' => 'BILLETERA_NO_DISPONIBLE',
+                'mensaje' => 'La billetera no está disponible para tu comunidad en este momento.',
+                'redirect' => rtrim(defined('BASE_URL') ? BASE_URL : '/', '/') . '/MenuPrincipal',
+            ]);
+            exit;
+        }
+
+        return $codigoUsuario;
+    }
+
+    private function asegurarDestacadasDisponibles(int $codigoUsuario): void
+    {
+        $configuracion = new ConfiguracionPlataforma();
+        $alcance = $configuracion->obtenerAlcanceUsuario($codigoUsuario);
+        $regla = $configuracion->obtenerMonetizacionPorAlcance(
+            ConfiguracionPlataforma::MON_DESTACADAS,
+            (string)$alcance['tipo_alcance'],
+            (int)$alcance['codigo_alcance']
+        );
+
+        if (!(bool)($regla['valor_booleano'] ?? false)) {
+            $this->json(403, [
+                'ok' => false,
+                'error' => 'PUBLICACIONES_DESTACADAS_NO_DISPONIBLES',
+                'mensaje' => 'Las publicaciones destacadas no están disponibles para tu comunidad en este momento.',
+            ]);
+            exit;
+        }
     }
 
     private function leerJsonBody(): array
@@ -129,6 +163,7 @@ class apiBilleteraController
 
         try {
             $codigoUsuario = $this->obtenerUsuarioAuth();
+            $this->asegurarDestacadasDisponibles($codigoUsuario);
 
             $json = $this->leerJsonBody();
             $codigoPublicacion = isset($json['codigo_publicacion'])
@@ -177,6 +212,7 @@ class apiBilleteraController
 
         try {
             $codigoUsuario = $this->obtenerUsuarioAuth();
+            $this->asegurarDestacadasDisponibles($codigoUsuario);
 
             $json = $this->leerJsonBody();
             $codigoProducto = isset($json['codigo_producto'])

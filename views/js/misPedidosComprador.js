@@ -862,7 +862,7 @@
     }
 
     acciones.push(`
-      <button type="button" class="btn ev-mpc-btn-outline" data-action="detalle" data-id="${Number(item.codigo_pedido || 0)}">
+      <button type="button" class="btn ev-mpc-btn-detail" data-action="detalle" data-id="${Number(item.codigo_pedido || 0)}">
         <i class="bi bi-eye me-1"></i>Ver detalle
       </button>
     `);
@@ -1130,8 +1130,8 @@
       title: 'Aceptar espera en cola',
       text: '¿Deseas continuar esperando en la cola de atención del vendedor?',
       showCancelButton: true,
-      confirmButtonText: 'Sí, aceptar',
-      cancelButtonText: 'Cancelar',
+      confirmButtonText: '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Aceptar</span>',
+      cancelButtonText: '<i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancelar</span>',
       confirmButtonColor: '#EA7C12'
     });
 
@@ -1532,9 +1532,13 @@
 
     await Swal.fire({
       title: 'Detalle del pedido',
+      showCloseButton: false,
+      closeButtonAriaLabel: 'Cerrar',
       html: buildDetalleHtml(item),
       width: 880,
-      confirmButtonText: 'Cerrar',
+      confirmButtonText: '<i class="bi bi-x-circle" aria-hidden="true"></i><span>Cerrar</span>',
+      showCancelButton: false,
+      showDenyButton: false,
       buttonsStyling: false,
       customClass: {
         container: 'ev-mpc-swal-container ev-swal-container',
@@ -1542,7 +1546,8 @@
         title: 'ev-mpc-swal-title ev-swal-title',
         htmlContainer: 'ev-mpc-swal-html ev-swal-html',
         confirmButton: 'ev-mpc-swal-confirm ev-swal-confirm',
-        cancelButton: 'ev-mpc-swal-cancel ev-swal-cancel'
+        cancelButton: 'ev-mpc-swal-cancel ev-swal-cancel',
+        closeButton: 'ev-swal-close'
       }
     });
   }

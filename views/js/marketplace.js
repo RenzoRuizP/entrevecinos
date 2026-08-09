@@ -21,9 +21,14 @@
   const SEGUNDOS_CANCELACION_SOLICITUD = 120;
   const SEGUNDOS_TIMEOUT_SOLICITUD = 240;
 
-  const CONDO_NOMBRE_RESUMEN = (typeof window !== 'undefined' && window.EV_CONDOMINIO_NOMBRE)
+  let CONDO_NOMBRE_RESUMEN = (typeof window !== 'undefined' && window.EV_CONDOMINIO_NOMBRE)
     ? window.EV_CONDOMINIO_NOMBRE
     : 'tu condominio';
+
+  let marketplaceAdmin = false;
+  let marketplaceTipoConjunto = String(window.EV_MARKETPLACE_TIPO || '');
+  let marketplaceCodigoComunidad = Number(window.EV_MARKETPLACE_CODIGO || 0);
+  let marketplaceSearchTimer = null;
 
   let refs = {
     gridAllWrapper: null,
@@ -44,8 +49,85 @@
     emptyProductos: null,
     wrapServicios: null,
     wrapProductos: null,
-    wrapCategoriaProductos: null
+    wrapCategoriaProductos: null,
+    selectComunidadAdmin: null
   };
+
+  function sincronizarContextoMarketplaceDesdeVista() {
+    marketplaceAdmin = window.EV_MARKETPLACE_ADMIN === true || !!refs.selectComunidadAdmin;
+
+    let tipo = String(window.EV_MARKETPLACE_TIPO || marketplaceTipoConjunto || '').trim().toLowerCase();
+    let codigo = Number(window.EV_MARKETPLACE_CODIGO || marketplaceCodigoComunidad || 0);
+
+    if (refs.selectComunidadAdmin) {
+      const valorSeleccionado = String(refs.selectComunidadAdmin.value || '').trim();
+      if (valorSeleccionado === '') {
+        tipo = '';
+        codigo = 0;
+      } else {
+        const [tipoSeleccionado, codigoSeleccionado] = valorSeleccionado.split('|');
+        tipo = String(tipoSeleccionado || '').trim().toLowerCase();
+        codigo = Number(codigoSeleccionado || 0);
+      }
+    }
+
+    marketplaceTipoConjunto = tipo;
+    marketplaceCodigoComunidad = codigo;
+    window.EV_MARKETPLACE_ADMIN = marketplaceAdmin;
+    window.EV_MARKETPLACE_TIPO = marketplaceTipoConjunto;
+    window.EV_MARKETPLACE_CODIGO = marketplaceCodigoComunidad;
+
+    const activeScope = refs.scopeButtons.find((button) => button.classList.contains('active'));
+    scope = activeScope?.dataset?.scope || 'todos';
+    criterioOrden = refs.selectOrdenar?.value || 'recientes';
+    categoriaFiltroValor = String(refs.selectCategoriaProductos?.value || '0');
+    textoBusqueda = refs.searchInput?.value || '';
+  }
+
+  function adminSinComunidadSeleccionada() {
+    return marketplaceAdmin && (!marketplaceTipoConjunto || marketplaceCodigoComunidad <= 0);
+  }
+
+  function actualizarEstadoVacioPorSeleccion() {
+    const sinSeleccion = adminSinComunidadSeleccionada();
+    const mensajeServicios = sinSeleccion
+      ? 'Selecciona una comunidad para consultar sus servicios.'
+      : 'Aún no hay servicios publicados en tu conjunto.';
+    const mensajeProductos = sinSeleccion
+      ? 'Selecciona una comunidad para consultar sus productos.'
+      : 'Aún no hay productos publicados en tu conjunto.';
+
+    const spanServicios = refs.emptyServicios?.querySelector('span');
+    const spanProductos = refs.emptyProductos?.querySelector('span');
+    if (spanServicios) spanServicios.textContent = mensajeServicios;
+    if (spanProductos) spanProductos.textContent = mensajeProductos;
+  }
+
+  function mostrarMarketplacePendienteDeComunidad() {
+    publicaciones = [];
+    CONDO_NOMBRE_RESUMEN = 'Sin comunidad seleccionada';
+
+    if (refs.gridServicios) refs.gridServicios.innerHTML = '';
+    if (refs.gridProductos) refs.gridProductos.innerHTML = '';
+    if (refs.countServicios) refs.countServicios.textContent = '0';
+    if (refs.countProductos) refs.countProductos.textContent = '0';
+    if (refs.emptyState) refs.emptyState.style.display = 'none';
+
+    const mostrarServicios = (scope === 'todos' || scope === 'servicios');
+    const mostrarProductos = (scope === 'todos' || scope === 'productos');
+    if (refs.wrapServicios) refs.wrapServicios.style.display = mostrarServicios ? '' : 'none';
+    if (refs.wrapProductos) refs.wrapProductos.style.display = mostrarProductos ? '' : 'none';
+    if (refs.emptyServicios) refs.emptyServicios.style.display = mostrarServicios ? 'flex' : 'none';
+    if (refs.emptyProductos) refs.emptyProductos.style.display = mostrarProductos ? 'flex' : 'none';
+
+    actualizarEstadoVacioPorSeleccion();
+    setResumen('Selecciona una comunidad para consultar su marketplace.');
+
+    const nameEl = document.getElementById('mp_conjunto_nombre');
+    const labelEl = document.getElementById('mp_conjunto_label');
+    if (nameEl) nameEl.textContent = 'Sin comunidad seleccionada';
+    if (labelEl) labelEl.textContent = 'Comunidad por consultar';
+  }
 
   let publicaciones = [];
   let textoBusqueda = '';
@@ -1216,6 +1298,7 @@
 
   function capturarRefs() {
     refs.gridAllWrapper       = document.getElementById('mp_grid_publicaciones');
+    refs.selectComunidadAdmin = document.getElementById('mp_comunidad_admin');
     refs.gridServicios        = document.getElementById('mp_grid_servicios');
     refs.gridProductos        = document.getElementById('mp_grid_productos');
     refs.countServicios       = document.getElementById('mp_count_servicios');
@@ -1840,8 +1923,8 @@
             posicionCola: Number(solicitud?.posicion_cola || 0)
           }),
           showCancelButton: true,
-          confirmButtonText: 'Sí, esperar',
-          cancelButtonText: 'No, cancelar'
+          confirmButtonText: '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Aceptar</span>',
+          cancelButtonText: '<i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancelar</span>'
         }));
 
         if (deseaEsperar.isConfirmed) {
@@ -2392,6 +2475,19 @@
 
     modalEl.dataset.evTipoPublicacion = esServicio ? 'servicio' : 'producto';
 
+    if (marketplaceAdmin) {
+      if (btnPedirDetalle) {
+        btnPedirDetalle.classList.add('d-none');
+        btnPedirDetalle.disabled = true;
+        btnPedirDetalle.setAttribute('aria-hidden', 'true');
+      }
+      if (avisoServicio) {
+        avisoServicio.classList.remove('d-none');
+        avisoServicio.innerHTML = `<i class="bi bi-shield-check"></i><div><strong>Consulta administrativa</strong><span>El Administrador EV puede revisar la publicación, pero no iniciar pedidos ni solicitudes.</span></div>`;
+      }
+      return;
+    }
+
     if (esServicio) {
       if (avisoServicio) {
         avisoServicio.classList.remove('d-none');
@@ -2408,7 +2504,7 @@
         btnPedirDetalle.classList.remove('d-none');
         btnPedirDetalle.disabled = false;
         btnPedirDetalle.removeAttribute('aria-hidden');
-        btnPedirDetalle.textContent = 'Solicitar servicio';
+        btnPedirDetalle.innerHTML = '<i class="bi bi-chat-left-text" aria-hidden="true"></i><span>Solicitar</span>';
       }
       return;
     }
@@ -2422,7 +2518,7 @@
       btnPedirDetalle.classList.remove('d-none');
       btnPedirDetalle.disabled = false;
       btnPedirDetalle.removeAttribute('aria-hidden');
-      btnPedirDetalle.textContent = 'Pedir ahora';
+      btnPedirDetalle.innerHTML = '<i class="bi bi-bag-plus" aria-hidden="true"></i><span>Pedir ahora</span>';
     }
   }
 
@@ -3180,8 +3276,8 @@
             posicionCola: Number(data?.posicion_cola || 0)
           }),
           showCancelButton: true,
-          confirmButtonText: 'Sí, esperar',
-          cancelButtonText: 'No, cancelar'
+          confirmButtonText: '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Aceptar</span>',
+          cancelButtonText: '<i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancelar</span>'
         }));
 
         if (deseaEsperar.isConfirmed) {
@@ -3355,15 +3451,17 @@
         ? 'Disponible'
         : 'No disponible';
 
-    const accionesHtml = esServicio
-      ? `
-          <button type="button" class="btn ev-mp-btn-detalle">Ver detalle</button>
-          <button type="button" class="btn ev-mp-btn-servicio">Solicitar servicio</button>
-        `
-      : `
-          <button type="button" class="btn btn-outline-success ev-mp-btn-detalle">Ver detalle</button>
-          <button type="button" class="btn btn-success ev-mp-btn-pedir" ${vendedorDisponible ? '' : 'disabled aria-disabled="true" title="El vendedor no está disponible"'}>Pedir ahora</button>
-        `;
+    const accionesHtml = marketplaceAdmin
+      ? `<button type="button" class="btn btn-outline-success ev-mp-btn-detalle w-100"><i class="bi bi-eye"></i> Ver detalle</button>`
+      : esServicio
+        ? `
+            <button type="button" class="btn ev-mp-btn-detalle">Ver detalle</button>
+            <button type="button" class="btn ev-mp-btn-servicio">Solicitar</button>
+          `
+        : `
+            <button type="button" class="btn btn-outline-success ev-mp-btn-detalle">Ver detalle</button>
+            <button type="button" class="btn btn-success ev-mp-btn-pedir" ${vendedorDisponible ? '' : 'disabled aria-disabled="true" title="El vendedor no está disponible"'}>Pedir ahora</button>
+          `;
 
     return `
       <div class="ev-mp-card ${esServicio ? 'ev-mp-card-servicio' : 'ev-mp-card-producto'}" data-id="${escapeHtml(String(id))}" data-tipo-publicacion="${esServicio ? 'servicio' : 'producto'}">
@@ -3805,12 +3903,31 @@
 
     if (!refs.gridAllWrapper) return;
 
+    if (adminSinComunidadSeleccionada()) {
+      mostrarMarketplacePendienteDeComunidad();
+      return;
+    }
+
+    actualizarEstadoVacioPorSeleccion();
+
     if (!esSilent) {
       showLoadingMarketplace();
       setResumen('Cargando publicaciones…');
     }
 
-    const url = `${BASE}/api/producto/marketplace`;
+    const query = new URLSearchParams();
+    if (marketplaceAdmin && marketplaceTipoConjunto && marketplaceCodigoComunidad > 0) {
+      query.set('tipo_conjunto', marketplaceTipoConjunto);
+      query.set('codigo_comunidad', String(marketplaceCodigoComunidad));
+    }
+    query.set('page', '1');
+    query.set('size', '50');
+    if (scope === 'productos') query.set('tipo_publicacion', 'producto');
+    if (scope === 'servicios') query.set('tipo_publicacion', 'servicio');
+    if (categoriaFiltroValor && categoriaFiltroValor !== '0') query.set('categoria', categoriaFiltroValor);
+    if (String(textoBusqueda || '').trim() !== '') query.set('q', String(textoBusqueda).trim());
+
+    const url = `${BASE}/api/producto/marketplace${query.toString() ? `?${query}` : ''}`;
 
     try {
       const { resp, text, json } = await fetchJsonRobusto(url, {
@@ -3854,6 +3971,14 @@
           aplicarYRedibujar();
         }
         return;
+      }
+
+      if (json.conjunto && typeof json.conjunto === 'object') {
+        CONDO_NOMBRE_RESUMEN = String(json.conjunto.nombre || CONDO_NOMBRE_RESUMEN);
+        const nameEl = document.getElementById('mp_conjunto_nombre');
+        const labelEl = document.getElementById('mp_conjunto_label');
+        if (nameEl) nameEl.textContent = CONDO_NOMBRE_RESUMEN;
+        if (labelEl && marketplaceAdmin) labelEl.textContent = 'Comunidad consultada';
       }
 
       const rawList = normalizarListaDesdeAPI(json);
@@ -3939,11 +4064,42 @@
   }
 
   function bindEvents() {
+    if (refs.selectComunidadAdmin && !refs.selectComunidadAdmin.dataset.boundMarketplace) {
+      refs.selectComunidadAdmin.dataset.boundMarketplace = '1';
+      refs.selectComunidadAdmin.addEventListener('change', async () => {
+        const valor = String(refs.selectComunidadAdmin.value || '').trim();
+        const [tipo, codigo] = valor.split('|');
+        marketplaceTipoConjunto = valor ? String(tipo || '').trim().toLowerCase() : '';
+        marketplaceCodigoComunidad = valor ? Number(codigo || 0) : 0;
+        window.EV_MARKETPLACE_TIPO = marketplaceTipoConjunto;
+        window.EV_MARKETPLACE_CODIGO = marketplaceCodigoComunidad;
+
+        textoBusqueda = '';
+        if (refs.searchInput) refs.searchInput.value = '';
+        categoriaFiltroValor = '0';
+
+        if (adminSinComunidadSeleccionada()) {
+          mostrarMarketplacePendienteDeComunidad();
+          return;
+        }
+
+        const label = String(refs.selectComunidadAdmin.options[refs.selectComunidadAdmin.selectedIndex]?.text || '');
+        CONDO_NOMBRE_RESUMEN = label.replace(/^(Urbanización|Condominio)\s*·\s*/i, '').split(' · ')[0] || 'comunidad seleccionada';
+        const nameEl = document.getElementById('mp_conjunto_nombre');
+        const labelEl = document.getElementById('mp_conjunto_label');
+        if (nameEl) nameEl.textContent = CONDO_NOMBRE_RESUMEN;
+        if (labelEl) labelEl.textContent = 'Comunidad consultada';
+        await cargarPublicaciones();
+      });
+    }
+
     if (refs.searchInput && !refs.searchInput.dataset.boundMarketplace) {
       refs.searchInput.dataset.boundMarketplace = '1';
       refs.searchInput.addEventListener('input', () => {
         textoBusqueda = refs.searchInput.value || '';
         aplicarYRedibujar();
+        if (marketplaceSearchTimer) window.clearTimeout(marketplaceSearchTimer);
+        marketplaceSearchTimer = window.setTimeout(() => cargarPublicaciones(), 280);
       });
     }
 
@@ -3969,22 +4125,19 @@
         categoriaFiltroValor = '0';
 
         closeCustomSelects();
-        Promise.resolve(cargarCategoriasPorScope()).then(() => {
-          if (refs.selectCategoriaProductos && refs.selectCategoriaProductos.options.length <= 1) {
-            cargarCategoriasDesdePublicacionesFallback();
-          }
+        Promise.resolve(cargarCategoriasPorScope()).then(async () => {
           refreshCustomSelect('mp_categoria_producto');
-          aplicarYRedibujar();
+          await cargarPublicaciones();
         });
       });
     });
 
     if (refs.selectCategoriaProductos && !refs.selectCategoriaProductos.dataset.boundMarketplace) {
       refs.selectCategoriaProductos.dataset.boundMarketplace = '1';
-      refs.selectCategoriaProductos.addEventListener('change', () => {
+      refs.selectCategoriaProductos.addEventListener('change', async () => {
         categoriaFiltroValor = String(refs.selectCategoriaProductos.value || '0');
         refreshCustomSelect('mp_categoria_producto');
-        aplicarYRedibujar();
+        await cargarPublicaciones();
       });
     }
 
@@ -4060,6 +4213,8 @@
     }
 
     ensureGridCSS();
+    window.EVSearchableSelect?.init?.(document.querySelector('.ev-mp-wrapper') || document);
+    sincronizarContextoMarketplaceDesdeVista();
     bindEvents();
     initCustomSelects();
     bindSolicitudModalEvents();
@@ -4085,22 +4240,6 @@
   }
 
   document.addEventListener('DOMContentLoaded', initMarketplace);
-
-  const observer = new MutationObserver(() => {
-    const gridWrapper = document.getElementById('mp_grid_publicaciones');
-
-    if (gridWrapper && gridWrapper !== refs.gridAllWrapper) {
-      initMarketplace();
-      return;
-    }
-
-    if (!gridWrapper && refs.gridAllWrapper) {
-      detenerPollingDisponibilidad();
-      refs.gridAllWrapper = null;
-    }
-  });
-
-  observer.observe(document.body, { childList: true, subtree: true });
 
   window.EVMarketplace = {
     init: initMarketplace,

@@ -3,6 +3,9 @@ require_once __DIR__ . '/../Config/config.php';
 ?>
 <script>
   window.BASE_URL = "<?= rtrim(BASE_URL, '/'); ?>";
+  window.EV_WALLET_CONFIG = Object.freeze({
+    recargasDisponibles: <?= (($evRecargasDisponibles ?? true) === true) ? 'true' : 'false' ?>
+  });
 </script>
 
 <?php include_once __DIR__ . '/estilos/billeteraEstilo.php'; ?>
@@ -56,6 +59,7 @@ require_once __DIR__ . '/../Config/config.php';
       </div>
 
       <div class="ev-wallet-head-actions">
+        <?php if (($evRecargasDisponibles ?? true) === true): ?>
         <button
           type="button"
           class="btn ev-wallet-btn-primary"
@@ -65,6 +69,12 @@ require_once __DIR__ . '/../Config/config.php';
           <i class="bi bi-plus-circle"></i>
           <span>Recargar saldo</span>
         </button>
+        <?php else: ?>
+        <span class="ev-wallet-feature-status" role="status">
+          <i class="bi bi-info-circle"></i>
+          Recargas no disponibles en tu comunidad
+        </span>
+        <?php endif; ?>
 
         <button
           type="button"
@@ -130,6 +140,7 @@ require_once __DIR__ . '/../Config/config.php';
   </section>
 </div>
 
+<?php if (($evRecargasDisponibles ?? true) === true): ?>
 <div class="modal fade ev-modal ev-modal-login" id="modalRecargarSaldo" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content ev-modal-content">
@@ -236,7 +247,7 @@ require_once __DIR__ . '/../Config/config.php';
         </form>
       </div>
 
-      <div class="modal-footer ev-login-modal-footer justify-content-between">
+      <div class="modal-footer ev-login-modal-footer ev-wallet-recarga-actions justify-content-end">
         <button
           type="button"
           class="btn ev-btn-modal-outline"
@@ -245,13 +256,15 @@ require_once __DIR__ . '/../Config/config.php';
         </button>
 
         <button type="button" class="btn ev-btn-modal-primary" id="btnEnviarRecarga">
-          <i class="bi bi-check-circle-fill me-1"></i> Confirmar recarga
+          <i class="bi bi-check-circle-fill me-1"></i> Guardar
         </button>
       </div>
 
     </div>
   </div>
 </div>
+
+<?php endif; ?>
 
 <div class="modal fade ev-modal ev-modal-login" id="modalSoporteBilletera" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-centered">

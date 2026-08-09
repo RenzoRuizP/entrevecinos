@@ -351,6 +351,8 @@ document.addEventListener('DOMContentLoaded', () => {
       Swal.fire({
         icon: 'info',
         title: 'Detalle del pedido',
+        showCloseButton: false,
+        closeButtonAriaLabel: 'Cerrar',
         text: `Aquí se mostraría un modal con el detalle completo del pedido #${pedidoId}.`,
         confirmButtonText: 'Cerrar'
       });

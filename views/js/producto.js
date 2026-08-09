@@ -358,25 +358,49 @@
   }
 
   /*
-   * Prepara únicamente el texto que se muestra en la vista previa.
-   * No modifica el textarea ni la descripción enviada a la API.
+   * Actualiza la descripción de la vista previa sin modificar el texto real
+   * que se enviará a la API. Cuando es extensa, ofrece Mostrar más/menos.
    */
-  function prepararDescripcionPreview(texto, limite = 190) {
-    const valor = String(texto ?? '').trim();
+  function normalizarDescripcionPreview(texto) {
+    const valor = String(texto ?? '').trim() || 'La descripción aparecerá aquí.';
+    return valor.replace(/(\S{18})(?=\S)/g, '$1\u200B');
+  }
 
-    if (!valor) {
-      return 'La descripción aparecerá aquí.';
-    }
+  function actualizarDescripcionPreview(textEl, toggleEl, texto, limite = 190) {
+    if (!textEl) return;
 
-    const resumen = valor.length > limite
+    const valor = normalizarDescripcionPreview(texto);
+    const esPlaceholder = valor === 'La descripción aparecerá aquí.';
+    const debeRecortar = !esPlaceholder && valor.length > limite;
+
+    textEl.dataset.evFullText = valor;
+    textEl.dataset.evExpanded = '0';
+    textEl.textContent = debeRecortar
       ? `${valor.slice(0, limite).trimEnd()}…`
       : valor;
 
-    /*
-     * Inserta un salto invisible cada 18 caracteres dentro de una palabra
-     * excesivamente larga. Así el card no se desborda sin tocar CSS.
-     */
-    return resumen.replace(/(\S{18})(?=\S)/g, '$1\u200B');
+    if (!toggleEl) return;
+    toggleEl.hidden = !debeRecortar;
+    toggleEl.textContent = 'Mostrar más';
+    toggleEl.setAttribute('aria-expanded', 'false');
+
+    if (toggleEl.dataset.evPreviewToggleBound !== '1') {
+      toggleEl.dataset.evPreviewToggleBound = '1';
+      toggleEl.addEventListener('click', () => {
+        const targetId = toggleEl.getAttribute('aria-controls');
+        const target = targetId ? document.getElementById(targetId) : null;
+        if (!target) return;
+
+        const expanded = target.dataset.evExpanded === '1';
+        const fullText = target.dataset.evFullText || '';
+        target.dataset.evExpanded = expanded ? '0' : '1';
+        target.textContent = expanded
+          ? `${fullText.slice(0, limite).trimEnd()}…`
+          : fullText;
+        toggleEl.textContent = expanded ? 'Mostrar más' : 'Mostrar menos';
+        toggleEl.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+      });
+    }
   }
 
   function actualizarOpcionesTipoPublicacionVisual(modal, tipo) {
@@ -476,8 +500,9 @@
       }
       if (tipoAtencion) {
         tipoAtencion.value = 'no_requiere_preparacion';
-        tipoAtencion.dataset.evAutoTipoAtencion = 'no_requiere_preparacion';
         tipoAtencion.disabled = true;
+        tipoAtencion.removeAttribute('required');
+        delete tipoAtencion.dataset.evAutoTipoAtencion;
       }
     } else {
       if (estado) {
@@ -485,12 +510,9 @@
         if (!estado.value || estado.value === 'NoAplica') estado.value = 'Nuevo';
       }
       if (tipoAtencion) {
-        // El vendedor no decide este campo: lo define EV según la categoría.
-        tipoAtencion.disabled = true;
-        if (!tipoAtencion.value) tipoAtencion.value = 'no_requiere_preparacion';
-        if (!tipoAtencion.dataset.evAutoTipoAtencion) {
-          tipoAtencion.dataset.evAutoTipoAtencion = tipoAtencion.value;
-        }
+        tipoAtencion.disabled = false;
+        tipoAtencion.required = true;
+        delete tipoAtencion.dataset.evAutoTipoAtencion;
       }
     }
 
@@ -537,9 +559,11 @@
     }
 
     if (tipoAtencion) {
-      tipoAtencion.value = 'no_requiere_preparacion';
-      tipoAtencion.dataset.evAutoTipoAtencion = 'no_requiere_preparacion';
-      tipoAtencion.disabled = true;
+      tipoAtencion.value = tipo === 'servicio' ? 'no_requiere_preparacion' : '';
+      tipoAtencion.disabled = tipo === 'servicio';
+      if (tipo === 'servicio') tipoAtencion.removeAttribute('required');
+      else tipoAtencion.required = true;
+      delete tipoAtencion.dataset.evAutoTipoAtencion;
     }
 
     /*
@@ -790,6 +814,7 @@
           <div id="evMetaPriceAdd" class="ev-preview-summary-price">S/ 0.00</div>
           <div class="ev-preview-summary-label">Detalles</div>
           <p id="evMetaDescAdd" class="ev-preview-summary-desc">La descripción aparecerá aquí.</p>
+          <button id="evMetaDescToggleAdd" type="button" class="ev-preview-summary-toggle" aria-controls="evMetaDescAdd" aria-expanded="false" hidden>Mostrar más</button>
         </div>
 
         <div class="ev-preview-tips">
@@ -807,6 +832,7 @@
     evAddPreview.metaTitle = document.getElementById('evMetaTitleAdd');
     evAddPreview.metaPrice = document.getElementById('evMetaPriceAdd');
     evAddPreview.metaDesc  = document.getElementById('evMetaDescAdd');
+    evAddPreview.metaDescToggle = document.getElementById('evMetaDescToggleAdd');
     evAddPreview.inited    = true;
 
     const modal = document.getElementById('modalAgregarPublicacion');
@@ -830,7 +856,7 @@
 
         evAddPreview.metaTitle.textContent = title;
         evAddPreview.metaPrice.textContent = `S/ ${precio}`;
-        evAddPreview.metaDesc.textContent = prepararDescripcionPreview(desc);
+        actualizarDescripcionPreview(evAddPreview.metaDesc, evAddPreview.metaDescToggle, desc);
       };
 
       modal.querySelector('input[name="titulo"]')?.addEventListener('input', updateMetaLive);
@@ -1111,6 +1137,7 @@
           <div id="evMetaPriceEdit" class="ev-preview-summary-price">S/ 0.00</div>
           <div class="ev-preview-summary-label">Detalles</div>
           <p id="evMetaDescEdit" class="ev-preview-summary-desc">La descripción aparecerá aquí.</p>
+          <button id="evMetaDescToggleEdit" type="button" class="ev-preview-summary-toggle" aria-controls="evMetaDescEdit" aria-expanded="false" hidden>Mostrar más</button>
         </div>
 
         <div class="ev-preview-tips">
@@ -1128,6 +1155,7 @@
     evEditPreview.metaTitle = document.getElementById('evMetaTitleEdit');
     evEditPreview.metaPrice = document.getElementById('evMetaPriceEdit');
     evEditPreview.metaDesc  = document.getElementById('evMetaDescEdit');
+    evEditPreview.metaDescToggle = document.getElementById('evMetaDescToggleEdit');
     evEditPreview.inited    = true;
 
     const modal = document.getElementById('modalEditarPublicacion');
@@ -1145,7 +1173,7 @@
 
         evEditPreview.metaTitle.textContent = title;
         evEditPreview.metaPrice.textContent = `S/ ${precio}`;
-        evEditPreview.metaDesc.textContent = prepararDescripcionPreview(desc);
+        actualizarDescripcionPreview(evEditPreview.metaDesc, evEditPreview.metaDescToggle, desc);
       };
 
       modal.querySelector('#edit_titulo')?.addEventListener('input', updateMetaLive);
@@ -1173,7 +1201,7 @@
 
     st.metaTitle.textContent = titulo;
     st.metaPrice.textContent = `S/ ${precio}`;
-    st.metaDesc.textContent = prepararDescripcionPreview(desc);
+    actualizarDescripcionPreview(st.metaDesc, st.metaDescToggle, desc);
 
     const mainBox = st.mainImg?.closest('.ev-preview-main');
 
@@ -1609,7 +1637,7 @@
         current.includes('selecciona una categoría') ||
         current.includes('selecciona una categoria')
       ) {
-        first.textContent = 'Primero elige tipo';
+        first.textContent = '-- Seleccionar --';
       }
     });
   }
@@ -1705,7 +1733,7 @@
     }
 
     if (data.tipoPublicacion === 'producto' && !String(data.tipoAtencionProducto || '').trim()) {
-      add('tipoAtencion', 'Selecciona el tipo de atención.');
+      add('tipoAtencion', 'Selecciona si el producto requiere preparación.');
     }
 
     if (!String(data.descripcion || '').trim()) {
@@ -1755,7 +1783,7 @@
     const tipoAtencionSelect = form.querySelector('#tipoAtencionProducto');
     const tipoAtencionProducto = tipoPublicacion === 'servicio'
       ? 'no_requiere_preparacion'
-      : (tipoAtencionSelect?.dataset?.evAutoTipoAtencion || tipoAtencionSelect?.value || 'no_requiere_preparacion');
+      : String(tipoAtencionSelect?.value || '').trim();
 
     const precio = Number(precioRaw || 0);
     if (!evValidatePublicacionForm(form, false, {
@@ -1851,7 +1879,7 @@
     const tipoAtencionSelect = form.querySelector('#edit_tipoAtencionProducto');
     const tipoAtencionProducto = tipoPublicacion === 'servicio'
       ? 'no_requiere_preparacion'
-      : (tipoAtencionSelect?.dataset?.evAutoTipoAtencion || tipoAtencionSelect?.value || 'no_requiere_preparacion');
+      : String(tipoAtencionSelect?.value || '').trim();
 
     if (!id) {
       evNotify('error','Error','No se encontró el código de la publicación.');
@@ -2473,9 +2501,5 @@
   }
 
   document.addEventListener('ev:content-loaded', initIfNeeded);
-
-  const target = document.getElementById('contenido-principal') || document.body;
-  const obs = new MutationObserver(() => { initIfNeeded(); });
-  obs.observe(target, { childList: true, subtree: true });
 
 })();

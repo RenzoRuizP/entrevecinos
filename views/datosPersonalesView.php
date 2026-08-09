@@ -326,7 +326,7 @@ $urlLibroPerfil = (string)($enlacesLegalesPerfil['libro_reclamaciones']
             </div>
 
             <div class="col-12" id="wrapComprobanteActual" <?= $comprobante ? '' : 'style="display:none;"' ?>>
-              <label class="form-label ev-form-label mb-2">Comprobante actual</label>
+              <label class="form-label ev-form-label mb-2">Recibo actual</label>
               <div class="ev-file-row">
                 <div class="ev-file-info">
                   <i class="bi bi-paperclip"></i>
@@ -336,7 +336,7 @@ $urlLibroPerfil = (string)($enlacesLegalesPerfil['libro_reclamaciones']
                     target="_blank"
                     rel="noopener"
                   >
-                    Ver comprobante adjunto
+                    Ver recibo adjunto
                   </a>
                   <small class="text-muted ms-2" id="dpComprobantePath"><?= htmlspecialchars($comprobante, ENT_QUOTES, 'UTF-8'); ?></small>
                 </div>
@@ -345,7 +345,7 @@ $urlLibroPerfil = (string)($enlacesLegalesPerfil['libro_reclamaciones']
 
             <div class="col-12 d-none" id="wrapUploadDomicilio">
               <label for="dpDocDomicilio" class="form-label ev-form-label">
-                Nuevo comprobante de domicilio (obligatorio si cambias residencia)
+                Nuevo recibo de domicilio (obligatorio si cambias residencia)
               </label>
 
               <input

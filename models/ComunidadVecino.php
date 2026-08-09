@@ -9,6 +9,7 @@ require_once __DIR__ . '/../database/Conexion.php';
 final class ComunidadVecino extends Conexion
 {
     private const ROL_VECINO = 'vecino';
+    private const ROL_ADMIN = 'admin';
 
     private function rol(array $auth): string
     {
@@ -20,15 +21,92 @@ final class ComunidadVecino extends Conexion
         return (int)($auth['codigo_usuario'] ?? 0);
     }
 
-    private function validarVecino(array $auth): void
+    private function validarConsulta(array $auth): void
     {
         if ($this->codigoUsuario($auth) <= 0) {
             throw new RuntimeException('Tu sesión ha finalizado. Vuelve a iniciar sesión.');
         }
 
-        if ($this->rol($auth) !== self::ROL_VECINO) {
+        if ($this->rol($auth) !== self::ROL_VECINO && !$this->esAdmin($auth)) {
             throw new RuntimeException('No tienes permisos para consultar esta vista de Comunidad.');
         }
+    }
+
+    private function esAdmin(array $auth): bool
+    {
+        $rol = $this->rol($auth);
+        $codigoRol = (int)($auth['codigo_rol'] ?? 0);
+        $adminRoleId = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
+        return in_array($rol, [self::ROL_ADMIN, 'administrador'], true) || $codigoRol === $adminRoleId;
+    }
+
+    public function listarComunidadesActivas(): array
+    {
+        $sql = "SELECT * FROM (
+            SELECT 'condominio' tipo_conjunto, c.codigo_condominio codigo_comunidad,
+                   c.nombre_condominio nombre_comunidad, c.direccion_condominio direccion,
+                   d.codigo_distrito, d.nombre_distrito, pr.codigo_provincia, pr.nombre_provincia,
+                   dep.codigo_departamento, dep.nombre_departamento
+            FROM condominio c
+            LEFT JOIN ubigeo_distrito d ON d.codigo_distrito=c.codigo_distrito
+            LEFT JOIN ubigeo_provincia pr ON pr.codigo_provincia=d.codigo_provincia
+            LEFT JOIN ubigeo_departamento dep ON dep.codigo_departamento=pr.codigo_departamento
+            WHERE c.estado='A'
+            UNION ALL
+            SELECT 'urbanizacion', u.codigo_urbanizacion, u.nombre_urbanizacion, u.direccion_urbanizacion,
+                   d.codigo_distrito, d.nombre_distrito, pr.codigo_provincia, pr.nombre_provincia,
+                   dep.codigo_departamento, dep.nombre_departamento
+            FROM urbanizacion u
+            LEFT JOIN ubigeo_distrito d ON d.codigo_distrito=u.codigo_distrito
+            LEFT JOIN ubigeo_provincia pr ON pr.codigo_provincia=d.codigo_provincia
+            LEFT JOIN ubigeo_departamento dep ON dep.codigo_departamento=pr.codigo_departamento
+            WHERE u.estado='A'
+        ) x ORDER BY nombre_departamento,nombre_provincia,nombre_distrito,nombre_comunidad";
+        return $this->dblink->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function obtenerComunidadAdmin(string $tipo, int $codigo): array
+    {
+        $tipo = strtolower(trim($tipo));
+        if (!in_array($tipo, ['condominio','urbanizacion'], true) || $codigo <= 0) {
+            throw new DomainException('Selecciona un condominio o una urbanización para consultar sus novedades.');
+        }
+
+        if ($tipo === 'condominio') {
+            $sql = "SELECT c.codigo_condominio codigo_comunidad,c.nombre_condominio nombre_comunidad,c.direccion_condominio direccion,
+                           d.nombre_distrito,pr.nombre_provincia,dep.nombre_departamento
+                    FROM condominio c LEFT JOIN ubigeo_distrito d ON d.codigo_distrito=c.codigo_distrito
+                    LEFT JOIN ubigeo_provincia pr ON pr.codigo_provincia=d.codigo_provincia
+                    LEFT JOIN ubigeo_departamento dep ON dep.codigo_departamento=pr.codigo_departamento
+                    WHERE c.codigo_condominio=:codigo AND c.estado='A' LIMIT 1";
+        } else {
+            $sql = "SELECT u.codigo_urbanizacion codigo_comunidad,u.nombre_urbanizacion nombre_comunidad,u.direccion_urbanizacion direccion,
+                           d.nombre_distrito,pr.nombre_provincia,dep.nombre_departamento
+                    FROM urbanizacion u LEFT JOIN ubigeo_distrito d ON d.codigo_distrito=u.codigo_distrito
+                    LEFT JOIN ubigeo_provincia pr ON pr.codigo_provincia=d.codigo_provincia
+                    LEFT JOIN ubigeo_departamento dep ON dep.codigo_departamento=pr.codigo_departamento
+                    WHERE u.codigo_urbanizacion=:codigo AND u.estado='A' LIMIT 1";
+        }
+        $st=$this->dblink->prepare($sql);$st->execute([':codigo'=>$codigo]);$row=$st->fetch(PDO::FETCH_ASSOC);
+        if(!is_array($row)) throw new DomainException('La comunidad seleccionada no está disponible.');
+        return [
+            'tipo_conjunto'=>$tipo,'codigo_comunidad'=>(int)$row['codigo_comunidad'],
+            'codigo_condominio'=>$tipo==='condominio'?(int)$row['codigo_comunidad']:null,
+            'codigo_urbanizacion'=>$tipo==='urbanizacion'?(int)$row['codigo_comunidad']:null,
+            'nombre_comunidad'=>(string)$row['nombre_comunidad'],
+            'etiqueta_tipo'=>$tipo==='urbanizacion'?'Urbanización':'Condominio',
+            'direccion'=>(string)($row['direccion']??''),'nombre_distrito'=>(string)($row['nombre_distrito']??''),
+            'nombre_provincia'=>(string)($row['nombre_provincia']??''),'nombre_departamento'=>(string)($row['nombre_departamento']??'')
+        ];
+    }
+
+    public function resolverComunidad(array $auth, array $filtros=[]): array
+    {
+        $this->validarConsulta($auth);
+        if ($this->esAdmin($auth)) {
+            return $this->obtenerComunidadAdmin((string)($filtros['tipo_conjunto']??''),(int)($filtros['codigo_comunidad']??0));
+        }
+        return $this->obtenerComunidadActual($auth);
     }
 
     /**
@@ -38,7 +116,7 @@ final class ComunidadVecino extends Conexion
      */
     public function obtenerComunidadActual(array $auth): array
     {
-        $this->validarVecino($auth);
+        $this->validarConsulta($auth);
 
         $sql = "
             SELECT
@@ -137,7 +215,7 @@ final class ComunidadVecino extends Conexion
 
     public function listarPublicaciones(array $auth, array $filtros = []): array
     {
-        $comunidad = $this->obtenerComunidadActual($auth);
+        $comunidad = $this->resolverComunidad($auth, $filtros);
 
         $tipo = strtolower(trim((string)($filtros['tipo'] ?? 'all')));
         $q = trim((string)($filtros['q'] ?? ''));
@@ -251,13 +329,13 @@ final class ComunidadVecino extends Conexion
         ];
     }
 
-    public function obtenerPublicacion(array $auth, int $codigoPublicacion): ?array
+    public function obtenerPublicacion(array $auth, int $codigoPublicacion, array $filtros = []): ?array
     {
         if ($codigoPublicacion <= 0) {
             throw new InvalidArgumentException('Identificador de publicación inválido.');
         }
 
-        $comunidad = $this->obtenerComunidadActual($auth);
+        $comunidad = $this->resolverComunidad($auth, $filtros);
 
         $params = [':codigo_publicacion' => $codigoPublicacion];
         $where = $this->filtroVisibleSql($comunidad, $params);

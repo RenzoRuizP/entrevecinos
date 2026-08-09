@@ -56,6 +56,37 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function showRegistrationError(title, text) {
+    return Swal.fire({
+      title: escapeHtml(title || "No se pudo registrar"),
+      html: `
+        <div class="ev-swal-registro__error" aria-hidden="true"><i class="bi bi-x-lg"></i></div>
+        <p class="ev-swal-registro__lead">Revisa la información ingresada</p>
+        <p class="ev-swal-registro__text">${escapeHtml(text || "No fue posible completar el registro. Intenta nuevamente.")}</p>
+      `,
+      confirmButtonText: "Aceptar",
+      background: "#FFFFFF",
+      customClass: {
+        popup: "ev-swal-registro ev-swal-registro--error",
+        confirmButton: "ev-swal-registro__confirm",
+      },
+      buttonsStyling: false,
+      showClass: { popup: "swal2-show ev-swal-registro--show" },
+      hideClass: { popup: "swal2-hide" },
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+    });
+  }
+
   function setSending(sending) {
     if (!btnRegistrar) return;
 
@@ -228,61 +259,53 @@ document.addEventListener("DOMContentLoaded", () => {
       const result = await readJsonSafe(response);
 
       if (response.status === 409) {
-        Swal.fire({
-          icon: "error",
-          title: result?.title || "No se pudo registrar",
-          text: result?.message || "Ya existe una cuenta con esos datos. Verifica e inténtalo nuevamente.",
-          confirmButtonText: "OK",
-          confirmButtonColor: EV_ORANGE,
-          allowOutsideClick: false,
-          allowEscapeKey: true,
-        });
+        await showRegistrationError(
+          result?.title || "No se pudo registrar",
+          result?.message || "Ya existe una cuenta con esos datos. Inicia sesión o utiliza otro correo."
+        );
         return;
       }
 
       if (!response.ok) {
-        Swal.fire({
-          icon: "error",
-          title: "No se pudo registrar",
-          text: result?.message || `Ocurrió un error (HTTP ${response.status}). Intenta nuevamente.`,
-          confirmButtonColor: EV_ORANGE,
-        });
+        await showRegistrationError(
+          "No se pudo registrar",
+          result?.message || `Ocurrió un error (HTTP ${response.status}). Intenta nuevamente.`
+        );
         return;
       }
 
       if (result?.success) {
         Swal.fire({
-          title: "¡Registro enviado!",
-          text: result.message || "Tu registro fue enviado correctamente.",
-          icon: "success",
-          iconColor: "#0E7A43",
+          title: "Registro enviado",
+          html: `
+            <div class="ev-swal-registro__success" aria-hidden="true"><i class="bi bi-check-lg"></i></div>
+            <p class="ev-swal-registro__lead">Tu solicitud fue registrada correctamente.</p>
+            <p class="ev-swal-registro__text">Soporte revisará la información y te avisaremos cuando tu cuenta esté lista.</p>
+          `,
           confirmButtonText: "Aceptar",
-          confirmButtonColor: "#0E7A43",
           background: "#FFFFFF",
           customClass: {
             popup: "ev-swal-registro",
             confirmButton: "ev-swal-registro__confirm",
           },
           buttonsStyling: false,
+          showClass: { popup: "swal2-show ev-swal-registro--show" },
+          hideClass: { popup: "swal2-hide" },
           allowOutsideClick: false,
           allowEscapeKey: false,
         }).then(() => (window.location.href = base + "/"));
       } else {
-        Swal.fire({
-          icon: "error",
-          title: "No se pudo registrar",
-          text: result?.message || "No se pudo registrar. Intenta nuevamente.",
-          confirmButtonColor: EV_ORANGE,
-        });
+        await showRegistrationError(
+          "No se pudo registrar",
+          result?.message || "No fue posible completar el registro. Intenta nuevamente."
+        );
       }
     } catch (err) {
       console.error("Fetch error:", err);
-      Swal.fire({
-        icon: "error",
-        title: "Conexión",
-        text: "No se pudo conectar con el servidor. Intenta nuevamente.",
-        confirmButtonColor: EV_ORANGE,
-      });
+      await showRegistrationError(
+        "No se pudo conectar",
+        "Verifica tu conexión e intenta nuevamente."
+      );
     } finally {
       setSending(false);
     }

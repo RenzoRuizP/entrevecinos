@@ -417,7 +417,8 @@
         title: 'ev-rp-swal-title',
         htmlContainer: 'ev-rp-swal-html',
         confirmButton: 'ev-rp-swal-confirm',
-        cancelButton: 'ev-rp-swal-cancel'
+        cancelButton: 'ev-rp-swal-cancel',
+        closeButton: 'ev-swal-close'
       }
     }, opts || {});
   }
@@ -1196,8 +1197,8 @@
       text: 'Al aceptarlo, este pedido pasará al flujo de atención y seguirá ocupando tu turno actual.',
       productText: item.titulo_publicacion || item.titulo_producto || `Pedido #${codigoPedido}`,
       note: 'Mientras este pedido siga activo, las siguientes solicitudes permanecerán en cola hasta que el turno se libere.',
-      confirmText: 'Sí, aceptar',
-      cancelText: 'Cancelar'
+      confirmText: '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Aceptar</span>',
+      cancelText: '<i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancelar</span>'
     });
 
     if (!ok) return;
@@ -1265,7 +1266,7 @@
         title: 'Marcar punto de entrega',
         subtitle: 'Confirmar llegada al destino',
         text: 'Usa esta opción cuando ya llegaste al punto acordado con el comprador.',
-        confirmText: 'Sí, marcar punto'
+        confirmText: '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Aceptar</span>'
       },
       entregado_vendedor: {
         title: 'Marcar entregado',
@@ -1408,10 +1409,14 @@
 
     await Swal.fire(swalBaseConfig({
       title: 'Detalle del pedido',
+      showCloseButton: false,
+      closeButtonAriaLabel: 'Cerrar',
       html: construirHtmlDetalle(item),
       width: 760,
       showConfirmButton: true,
-      confirmButtonText: 'Cerrar'
+      confirmButtonText: '<i class="bi bi-x-circle" aria-hidden="true"></i><span>Cerrar</span>',
+      showCancelButton: false,
+      showDenyButton: false
     }));
   }
 

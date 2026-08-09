@@ -418,7 +418,7 @@ final class CuentaObservada extends Conexion
 
                     return [
                         'ok' => false,
-                        'mensaje' => 'No se pudo registrar el nuevo comprobante de residencia.'
+                        'mensaje' => 'No se pudo registrar el nuevo recibo de residencia.'
                     ];
                 }
 
@@ -432,7 +432,7 @@ final class CuentaObservada extends Conexion
 
                 return [
                     'ok' => true,
-                    'mensaje' => 'Comprobante reenviado correctamente. Tu cambio de residencia vuelve a revisión.',
+                    'mensaje' => 'Recibo reenviado correctamente. Tu cambio de residencia vuelve a revisión.',
                     'data' => [
                         'codigo_usuario'                => $codigoUsuario,
                         'tipo_subsanacion'              => 'cambio_residencia',

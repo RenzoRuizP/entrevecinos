@@ -447,20 +447,11 @@
   align-items:center;
   justify-content:space-between;
   gap:12px;
-  padding:16px 17px 13px;
+  padding:17px;
   color:#fff;
   background:
     radial-gradient(circle at 88% 15%,rgba(255,255,255,.18),transparent 35%),
     linear-gradient(135deg,#0F592F,#0E7A43 58%,#16A34A);
-}
-
-.ev-notification-kicker{
-  display:block;
-  margin-bottom:3px;
-  color:rgba(255,255,255,.74);
-  font-size:.64rem;
-  font-weight:950;
-  letter-spacing:.12em;
 }
 
 .ev-notification-head h6{
@@ -539,23 +530,24 @@
 }
 
 .ev-notification-item:last-child{border-bottom:0}
-.ev-notification-item:hover{background:#F8FCF9}
+.ev-notification-item:hover,
+.ev-notification-item:focus-visible{
+  outline:none;
+  background:linear-gradient(90deg,#FFF7ED 0%,#FFFBF5 62%,#FFFFFF 100%);
+  box-shadow:inset 4px 0 0 #EA7C12;
+}
+.ev-notification-item.is-unread:hover,
+.ev-notification-item.is-unread:focus-visible{
+  background:linear-gradient(90deg,#FFF1E6 0%,#FFF8F0 58%,#FFFFFF 100%);
+}
 .ev-notification-item:active{transform:scale(.995)}
 .ev-notification-item:disabled{opacity:.72;cursor:wait}
 
 .ev-notification-item.is-unread{
-  background:linear-gradient(90deg,#F0FDF4 0%,#FFFFFF 42%);
+  background:#fff;
 }
 
-.ev-notification-item.is-unread::before{
-  content:"";
-  position:absolute;
-  top:0;
-  bottom:0;
-  left:0;
-  width:3px;
-  background:linear-gradient(180deg,#16A34A,#EA7C12);
-}
+.ev-notification-item.is-unread::before{display:none;content:none;}
 
 .ev-notification-icon{
   width:40px;
@@ -836,7 +828,7 @@
 }
 
 .ev-user-dropdown-card{
-  padding:18px 18px 16px;
+  padding:20px 18px 18px;
   background:
     radial-gradient(circle at 75% 30%,rgba(255,255,255,.08),transparent 60%),
     radial-gradient(circle at 20% 80%,rgba(0,0,0,.08),transparent 70%),
@@ -882,13 +874,13 @@
 }
 
 .ev-user-dropdown-hint{
-  margin:13px auto 0;
+  margin:14px auto 0;
   display:inline-flex;
   align-items:center;
   justify-content:center;
   gap:7px;
   max-width:100%;
-  min-height:34px;
+  min-height:38px;
   padding:8px 12px;
   border-radius:999px;
   color:#ECFDF5;
@@ -900,60 +892,80 @@
 }
 
 
-.ev-user-dropdown-legal{
-  display:grid;
-  gap:6px;
-  padding:13px 14px 14px;
+.ev-user-dropdown-action-wrap{
+  padding:12px;
   background:#FFFFFF;
 }
 
-.ev-user-dropdown-legal-title{
-  display:flex;
+.ev-user-dropdown-action{
+  width:100%;
+  min-height:58px;
+  display:grid;
+  grid-template-columns:38px minmax(0,1fr) 18px;
   align-items:center;
-  gap:7px;
-  margin-bottom:2px;
+  gap:10px;
+  padding:10px 11px;
+  border:1px solid rgba(15,89,47,.15);
+  border-radius:15px;
+  color:#0F592F;
+  background:linear-gradient(135deg,#FFFFFF 0%,#F6FFF9 100%);
+  text-align:left;
+  box-shadow:0 8px 22px rgba(15,23,42,.045);
+  transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease;
+}
+
+.ev-user-dropdown-action:hover,
+.ev-user-dropdown-action:focus-visible{
+  outline:none;
+  transform:translateY(-1px);
+  border-color:rgba(234,124,18,.38);
+  background:linear-gradient(135deg,#FFF7ED 0%,#FFFFFF 100%);
+  box-shadow:0 12px 28px rgba(234,124,18,.12);
+}
+
+.ev-user-dropdown-action-icon{
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border-radius:13px;
+  color:#C46B05;
+  background:#FFF3E4;
+  border:1px solid #FED7AA;
+  font-size:1rem;
+}
+
+.ev-user-dropdown-action-copy{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.ev-user-dropdown-action-copy strong{
+  color:#0F592F;
+  font-size:.79rem;
+  line-height:1.2;
+  font-weight:900;
+}
+
+.ev-user-dropdown-action-copy small{
   color:#64748B;
   font-size:.68rem;
-  font-weight:950;
-  letter-spacing:.06em;
-  text-transform:uppercase;
+  line-height:1.3;
+  font-weight:700;
 }
 
-.ev-user-dropdown-legal-title .bi{
-  color:#16A34A;
-  font-size:.8rem;
-}
-
-.ev-user-dropdown-legal-link{
-  min-height:38px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  padding:8px 10px;
-  border:1px solid #E2E8F0;
-  border-radius:11px;
-  color:#334155;
-  background:#F8FAFC;
-  font-size:.77rem;
-  font-weight:850;
-  line-height:1.25;
-  text-decoration:none;
-  transition:background .16s ease,border-color .16s ease,color .16s ease,transform .16s ease;
-}
-
-.ev-user-dropdown-legal-link:hover,
-.ev-user-dropdown-legal-link:focus-visible{
-  color:#0F592F;
-  background:#F0FDF4;
-  border-color:#BBF7D0;
-  transform:translateY(-1px);
-}
-
-.ev-user-dropdown-legal-link .bi{
-  flex:0 0 auto;
+.ev-user-dropdown-action-arrow{
   color:#94A3B8;
-  font-size:.72rem;
+  font-size:.76rem;
+  transition:transform .16s ease,color .16s ease;
+}
+
+.ev-user-dropdown-action:hover .ev-user-dropdown-action-arrow,
+.ev-user-dropdown-action:focus-visible .ev-user-dropdown-action-arrow{
+  color:#EA7C12;
+  transform:translateX(2px);
 }
 
 /* ============================================================
@@ -1244,11 +1256,11 @@
   justify-content:center;
   gap:9px;
   padding:9px 13px;
-  border:1px solid rgba(22,163,74,.18);
+  border:1px solid #E5E7EB;
   border-radius:13px;
   color:#0F592F;
-  background:linear-gradient(180deg,#FFFFFF,#F6FCF8);
-  box-shadow:0 7px 16px rgba(15,23,42,.045);
+  background:#FFFFFF;
+  box-shadow:none;
   font-size:.78rem;
   font-weight:950;
   text-decoration:none;
@@ -1256,11 +1268,11 @@
 }
 
 .ev-notification-view-all:hover,
-.ev-notification-view-all:focus{
+.ev-notification-view-all:focus-visible{
   color:#fff;
-  background:linear-gradient(135deg,#0F592F,#16A34A);
-  border-color:rgba(22,163,74,.35);
-  box-shadow:0 11px 22px rgba(15,89,47,.18);
+  background:linear-gradient(135deg,#EA7C12,#F59E0B);
+  border-color:rgba(234,124,18,.55);
+  box-shadow:0 13px 26px rgba(234,124,18,.28);
   transform:translateY(-1px);
   outline:none;
 }
@@ -1270,7 +1282,7 @@
 }
 
 .ev-notification-view-all:hover i,
-.ev-notification-view-all:focus i{
+.ev-notification-view-all:focus-visible i{
   transform:translateX(3px);
 }
 
@@ -1280,5 +1292,66 @@
   font-size:.65rem;
   line-height:1.35;
   font-weight:750;
+}
+</style>
+<style>
+/* EV — panel de notificaciones adaptable y sin recortes */
+.ev-notification-menu,
+.ev-topbar-user-tools,
+.app-header.navbar > .container-fluid{
+  overflow:visible !important;
+}
+.ev-notification-dropdown.show{
+  display:flex !important;
+  flex-direction:column;
+}
+.ev-notification-dropdown .ev-notification-head,
+.ev-notification-dropdown .ev-notification-summary,
+.ev-notification-dropdown .ev-notification-foot{
+  flex:0 0 auto;
+}
+.ev-notification-dropdown .ev-notification-list{
+  flex:1 1 auto;
+  min-height:0;
+  max-height:none;
+}
+@media (max-width:991.98px){
+  .ev-notification-menu{position:static !important}
+  .ev-notification-dropdown{
+    position:fixed !important;
+    inset:calc(var(--ev-topbar-h) + 6px) 8px auto auto !important;
+    width:min(400px,calc(100vw - 16px)) !important;
+    max-width:calc(100vw - 16px) !important;
+    max-height:calc(100dvh - var(--ev-topbar-h) - 14px) !important;
+    margin:0 !important;
+    transform:none !important;
+    overflow:hidden !important;
+    z-index:2140 !important;
+  }
+}
+@media (max-width:575.98px){
+  .ev-notification-dropdown{
+    inset:calc(var(--ev-topbar-h) + 6px) 8px auto 8px !important;
+    width:auto !important;
+    max-width:none !important;
+    border-radius:17px !important;
+  }
+  .ev-notification-head{padding:14px 15px 12px}
+  .ev-notification-summary{padding:9px 14px}
+  .ev-notification-item{grid-template-columns:40px minmax(0,1fr) 14px;padding:12px 12px;gap:9px}
+  .ev-notification-foot{padding:9px 10px 10px}
+}
+@supports (padding: max(0px)){
+  @media (max-width:991.98px){
+    .ev-notification-dropdown{
+      inset:calc(var(--ev-topbar-h) + env(safe-area-inset-top,0px) + 6px) max(8px,env(safe-area-inset-right,0px)) auto auto !important;
+      max-height:calc(100dvh - var(--ev-topbar-h) - env(safe-area-inset-top,0px) - 14px) !important;
+    }
+  }
+  @media (max-width:575.98px){
+    .ev-notification-dropdown{
+      inset:calc(var(--ev-topbar-h) + env(safe-area-inset-top,0px) + 6px) max(8px,env(safe-area-inset-right,0px)) auto max(8px,env(safe-area-inset-left,0px)) !important;
+    }
+  }
 }
 </style>
