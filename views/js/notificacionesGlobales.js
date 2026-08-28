@@ -14,6 +14,9 @@
   const FETCH_TIMEOUT_MS = 8000;
   const MAX_ITEMS = 8;
   const PENDING_SERVICE_KEY = 'ev_notificacion_servicio_pendiente';
+  const PENDING_ORDER_KEY = 'ev_notificacion_pedido_destino';
+  const PENDING_PUBLICATION_KEY = 'ev_notificacion_publicacion_destino';
+  const PENDING_WALLET_KEY = 'ev_notificacion_billetera_destino';
   const PENDING_SUPPORT_RESIDENCE_KEY = 'ev_notificacion_residencia_soporte_pendiente';
 
   const RUTAS_PERMITIDAS = new Set([
@@ -271,6 +274,50 @@
     try { window.bootstrap.Dropdown.getOrCreateInstance(button).hide(); } catch (_) {}
   }
 
+  function guardarDestinoEntidad(item, payload, ruta) {
+    const categoria = String(item?.categoria || '').trim().toLowerCase();
+    const referenciaId = Number(item?.referencia_id || 0);
+    const now = Date.now();
+
+    try {
+      if (categoria === 'pedido' || categoria === 'pedidos') {
+        const codigoPedido = Number(payload?.codigo_pedido || payload?.id_pedido || referenciaId || 0);
+        if (codigoPedido > 0) {
+          const rolDestino = String(payload?.rol_destino || '').trim().toLowerCase();
+          const rol = ruta === '/mis-pedidos-vendedor' || rolDestino === 'vendedor'
+            ? 'vendedor'
+            : 'comprador';
+          sessionStorage.setItem(PENDING_ORDER_KEY, JSON.stringify({
+            codigo_pedido: codigoPedido,
+            rol,
+            created_at: now
+          }));
+        }
+      }
+
+      if (categoria === 'publicacion') {
+        const codigoProducto = Number(payload?.codigo_producto || payload?.codigo_publicacion || referenciaId || 0);
+        if (codigoProducto > 0 && (ruta === '/publicacion' || ruta === '/atender-publicacion')) {
+          sessionStorage.setItem(PENDING_PUBLICATION_KEY, JSON.stringify({
+            codigo_producto: codigoProducto,
+            ruta,
+            created_at: now
+          }));
+        }
+      }
+
+      if (categoria === 'billetera') {
+        const codigoRecarga = Number(payload?.codigo_recarga || payload?.recarga_id || referenciaId || 0);
+        if (codigoRecarga > 0 && ruta === '/billetera') {
+          sessionStorage.setItem(PENDING_WALLET_KEY, JSON.stringify({
+            codigo_recarga: codigoRecarga,
+            created_at: now
+          }));
+        }
+      }
+    } catch (_) {}
+  }
+
   function guardarResidenciaSoportePendiente(item, payload, ruta) {
     const categoria = String(item?.categoria || '').toLowerCase();
     const subcategoria = String(item?.subcategoria || '').toLowerCase();
@@ -344,6 +391,7 @@
   async function navegarNotificacion(item) {
     const payload = parsePayload(item);
     const ruta = rutaPorCategoria(item, payload);
+    guardarDestinoEntidad(item, payload, ruta);
     guardarServicioPendiente(item, payload, ruta);
     guardarResidenciaSoportePendiente(item, payload, ruta);
     cerrarDropdown();

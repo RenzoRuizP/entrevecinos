@@ -1026,9 +1026,8 @@
   border-top:3px solid #EA7C12 !important;
 }
 
-/* Toast cola premium */
-.ev-mp-toast-popup,
-.ev-mp-toast-cola-popup{
+/* Toast compacto premium */
+.ev-mp-toast-popup{
   width:360px !important;
   min-width:360px !important;
   max-width:360px !important;
@@ -1040,98 +1039,10 @@
   background:linear-gradient(90deg, #0F592F 0%, #16A34A 62%, #EA7C12 100%) top/100% 4px no-repeat, #ffffff !important;
 }
 
-.ev-mp-toast-html,
-.ev-mp-toast-cola-html{
+.ev-mp-toast-html{
   margin:0 !important;
   padding:0 !important;
 }
-
-.ev-mp-toast-cola{
-  padding:14px 16px 14px 14px;
-  display:flex;
-  align-items:flex-start;
-  gap:12px;
-  text-align:left;
-}
-
-.ev-mp-toast-cola-icon{
-  flex:0 0 34px;
-  width:34px;
-  height:34px;
-  min-width:34px;
-  border-radius:12px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:#ECFDF3;
-  border:1px solid rgba(15,89,47,.08);
-  color:#0F592F;
-  font-size:15px;
-  margin-top:2px;
-}
-
-.ev-mp-toast-cola-content,
-.ev-mp-toast-cola-copy{
-  flex:1;
-  min-width:0;
-}
-
-.ev-mp-toast-cola-title{
-  margin:0 0 4px;
-  font-size:15px;
-  line-height:1.2;
-  font-weight:800;
-  color:#0F592F;
-}
-
-.ev-mp-toast-cola-text{
-  margin:0;
-  font-size:13px;
-  line-height:1.35;
-  color:#5B6470;
-}
-
-.ev-mp-toast-cola-text + .ev-mp-toast-cola-text{ margin-top:2px; }
-.ev-mp-toast-cola-text--strong,
-.ev-mp-toast-cola-posicion{
-  margin:2px 0 0;
-  font-size:13px;
-  font-weight:800;
-  line-height:1.35;
-  color:#0F592F;
-}
-
-.ev-mp-toast-cola-actions{ margin-top:8px; }
-
-.ev-mp-toast-cola-link{
-  border:0;
-  background:transparent;
-  padding:0;
-  font-size:13px;
-  font-weight:800;
-  color:#EA7C12;
-  cursor:pointer;
-  text-decoration:none;
-  line-height:1.2;
-  transition:color .18s ease, transform .18s ease;
-}
-
-.ev-mp-toast-cola-link::before{
-  content:'→ ';
-  font-size:13px;
-  font-weight:900;
-  line-height:1;
-}
-
-.ev-mp-toast-cola-link:hover,
-.ev-mp-toast-cola-link:focus{
-  color:#C96A10;
-  text-decoration:underline;
-  outline:none;
-  box-shadow:none;
-}
-
-.ev-mp-toast-cola-link:active{ transform:translateY(1px); }
 
 @media(max-width:575.98px){
   .ev-mp-modal-body{
@@ -1177,16 +1088,12 @@
     min-width:0 !important;
   }
 
-  .ev-mp-toast-popup,
-  .ev-mp-toast-cola-popup{
+  .ev-mp-toast-popup{
     width:min(92vw, 360px) !important;
     min-width:min(92vw, 360px) !important;
     max-width:min(92vw, 360px) !important;
   }
 
-  .ev-mp-toast-cola{
-    padding:13px 14px;
-  }
 }
 
 

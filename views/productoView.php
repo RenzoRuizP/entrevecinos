@@ -24,11 +24,6 @@ require_once __DIR__ . '/../Config/config.php';
           </div>
         </div>
 
-        <div class="ev-mp-hero-right">
-          <button id="btnAgregarPublicacion" type="button" class="btn ev-btn-orange">
-            <i class="bi bi-plus-circle me-1"></i> Agregar
-          </button>
-        </div>
       </div>
 
       <div class="ev-mp-hero-bottom ev-mp-hero-bottom--meta-only">
@@ -142,9 +137,13 @@ require_once __DIR__ . '/../Config/config.php';
   </div>
 
   <div class="ev-card">
-    <div class="ev-card-header ev-card-header-row">
+    <div class="ev-card-header ev-card-header-row ev-publicaciones-card-header">
       <h2 class="ev-card-title mb-0">Publicaciones</h2>
-      <div class="ev-table-meta" id="evLblFooterLeft">Mostrando 0 de 0</div>
+      <div class="ev-publicaciones-header-actions">
+        <button id="btnAgregarPublicacion" type="button" class="btn ev-btn-orange">
+          <i class="bi bi-plus-circle me-1"></i> Agregar
+        </button>
+      </div>
     </div>
 
     <div class="ev-table-wrap">

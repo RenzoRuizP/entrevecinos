@@ -8,6 +8,7 @@
   const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/+$/, '');
   const POLLING_MS = 6500;
   const SUPPRESS_KEY = 'ev_pedidos_alertas_suprimidas_v1';
+  const NOTIF_ORDER_TARGET_KEY = 'ev_notificacion_pedido_destino';
   const SUPPRESS_TTL_MS = 2 * 60 * 1000;
 
   let timer = null;
@@ -88,6 +89,21 @@
     } catch (_) {
       return window.location.pathname || '';
     }
+  }
+
+  function guardarPedidoDestino(alerta, ruta) {
+    const codigoPedido = extraerPedidoId(alerta);
+    if (codigoPedido <= 0) return;
+    const payload = alerta?.payload && typeof alerta.payload === 'object' ? alerta.payload : {};
+    const rolDestino = String(payload?.rol_destino || '').trim().toLowerCase();
+    const rol = ruta === '/mis-pedidos-vendedor' || rolDestino === 'vendedor' ? 'vendedor' : 'comprador';
+    try {
+      sessionStorage.setItem(NOTIF_ORDER_TARGET_KEY, JSON.stringify({
+        codigo_pedido: codigoPedido,
+        rol,
+        created_at: Date.now()
+      }));
+    } catch (_) {}
   }
 
   async function irARuta(ruta) {
@@ -175,6 +191,7 @@
       await marcarLeida(id);
 
       if (result.isConfirmed && ruta && !yaEstaEnRuta) {
+        guardarPedidoDestino(alerta, ruta);
         await irARuta(ruta);
       }
     } finally {

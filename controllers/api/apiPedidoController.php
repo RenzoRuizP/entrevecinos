@@ -125,7 +125,6 @@ class apiPedidoController
             $fechaHoraProgramada = $input['fecha_hora_programada'] ?? null;
             $direccionEntrega    = trim((string)($input['direccion_entrega'] ?? ''));
             $mensajeComprador    = trim((string)($input['mensaje_comprador'] ?? ''));
-            $aceptaCola          = (int)($input['acepta_cola'] ?? 0);
             $metodoPago           = trim((string)($input['metodo_pago'] ?? 'efectivo'));
 
             if ($codigoProducto <= 0) {
@@ -162,7 +161,6 @@ class apiPedidoController
                 'fecha_hora_programada'    => $fechaHoraProgramada,
                 'direccion_entrega'        => $direccionEntrega,
                 'mensaje_comprador'        => $mensajeComprador,
-                'acepta_cola'              => $aceptaCola,
                 'metodo_pago'              => $metodoPago
             ]);
 
@@ -205,7 +203,7 @@ class apiPedidoController
                 if ($error === 'SALDO_INSUFICIENTE_BILLETERA') {
                     $payload['saldo_actual'] = (float)($resultado['saldo_actual'] ?? 0);
                     $payload['monto_requerido'] = (float)($resultado['monto_requerido'] ?? 0);
-                    $payload['redirect'] = rtrim(BASE_URL, '/') . '/billetera';
+                    $payload['redirect'] = rtrim(BASE_URL, '/') . '/MenuPrincipal?ev_goto=' . rawurlencode('/billetera');
                 }
 
                 $this->json($status, $payload);
@@ -226,67 +224,6 @@ class apiPedidoController
             $this->json(500, [
                 'ok'      => false,
                 'mensaje' => 'Ocurrió un error al registrar la solicitud de pedido.'
-            ]);
-            return;
-        }
-    }
-
-    public function confirmarCola($codigoPedido): void
-    {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->json(405, [
-                'ok'      => false,
-                'mensaje' => 'Método no permitido.'
-            ]);
-            return;
-        }
-
-        try {
-            $codigoUsuarioComprador = $this->obtenerUsuarioAuth();
-            $codigoPedido = (int)$codigoPedido;
-
-            if ($codigoPedido <= 0) {
-                $this->json(400, [
-                    'ok'      => false,
-                    'mensaje' => 'Código de pedido inválido.'
-                ]);
-                return;
-            }
-
-            $model = new Pedido();
-            $resultado = $model->confirmarColaPorComprador($codigoPedido, $codigoUsuarioComprador);
-
-            if (!$resultado['ok']) {
-                $error = (string)($resultado['error'] ?? 'ERROR_CONFIRMAR_COLA');
-                $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo confirmar la cola.');
-
-                $status = match ($error) {
-                    'PEDIDO_NO_ENCONTRADO' => 404,
-                    'ESTADO_NO_CONFIRMABLE' => 409,
-                    default => 500
-                };
-
-                $this->json($status, [
-                    'ok'      => false,
-                    'error'   => $error,
-                    'mensaje' => $mensaje,
-                    'data'    => $resultado['data'] ?? null
-                ]);
-                return;
-            }
-
-            $this->json(200, [
-                'ok'      => true,
-                'mensaje' => 'Aceptaste continuar en la cola.',
-                'data'    => $resultado['data'] ?? null
-            ]);
-            return;
-        } catch (Throwable $e) {
-            error_log('[EV][apiPedidoController][confirmarCola] ' . $e->getMessage());
-
-            $this->json(500, [
-                'ok'      => false,
-                'mensaje' => 'No se pudo confirmar la cola.'
             ]);
             return;
         }
@@ -764,8 +701,7 @@ class apiPedidoController
 
                 $status = match ($error) {
                     'PEDIDO_NO_ENCONTRADO' => 404,
-                    'ESTADO_NO_ACEPTABLE',
-                    'VENDEDOR_CON_TURNO_ACTIVO' => 409,
+                    'ESTADO_NO_ACEPTABLE' => 409,
                     default => 500
                 };
 
@@ -935,6 +871,7 @@ class apiPedidoController
                     'TRANSICION_INVALIDA',
                     'ESTADO_NO_ACTUALIZABLE',
                     'RECOJO_AUN_NO_VENCIDO',
+                    'CANCELACION_VENDEDOR_NO_PERMITIDA',
                     'MOTIVO_CANCELACION_REQUERIDO' => 409,
                     'ESTADO_REQUERIDO' => 400,
                     default => 500

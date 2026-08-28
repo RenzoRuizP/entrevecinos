@@ -1,0 +1,9 @@
+models/Pedido.php
+controllers/api/apiPedidoController.php
+models/Dashboard.php
+views/js/marketplace.js
+views/js/misPedidosComprador.js
+views/js/misPedidosVendedor.js
+views/js/recibirPedidos.js
+docs/EV_PEDIDOS_CONCURRENTES_20260826.md
+docs/EV_ARCHIVOS_MODIFICADOS_PEDIDOS_CONCURRENTES_20260826.txt

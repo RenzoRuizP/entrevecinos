@@ -559,7 +559,7 @@ let modalInstance = null;
           title: "Rechazar solicitud",
           text: "La solicitud de cambio de residencia será rechazada.",
           showCancelButton: true,
-          confirmButtonText: "Sí, rechazar",
+          confirmButtonText: "Aceptar",
           cancelButtonText: "Cancelar",
           confirmButtonColor: "#DC2626",
         });
@@ -638,7 +638,7 @@ let modalInstance = null;
 
     const obs = byId("mObsTexto")?.value || "";
     if (!obs.trim()) {
-      Swal.fire({ icon: "warning", title: "Observación requerida", text: "Debes ingresar una observación." });
+      Swal.fire({ icon: "warning", title: "Observación requerida", text: "Debes ingresar una observación.", confirmButtonText: "Aceptar", confirmButtonColor: "#EA7C12", allowOutsideClick: false });
       return;
     }
 

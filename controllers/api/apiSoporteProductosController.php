@@ -278,6 +278,20 @@ class apiSoporteProductosController
                 default => 'Publicación observada. Se notificará el comentario al usuario.',
             };
 
+            try {
+                $adminId = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
+                $soporteId = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
+                $notifEquipo = new Notificacion($m->getDblink());
+                $notifEquipo->marcarLeidasPorReferenciaRoles(
+                    [$adminId, $soporteId],
+                    Notificacion::CAT_PUBLICACION,
+                    $id,
+                    'publicacion_pendiente_soporte'
+                );
+            } catch (Throwable $eNotifEquipo) {
+                error_log('[EV][apiSoporteProductosController::revisar][resolver_notificacion_soporte] ' . $eNotifEquipo->getMessage());
+            }
+
             $codigoPropietario = (int)($detalleProducto['codigo_usuario'] ?? 0);
             if ($codigoPropietario > 0) {
                 try {

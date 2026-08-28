@@ -6,6 +6,7 @@
   window.__EV_MENU_PRINCIPAL_INIT__ = true;
 
   const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/+$/, '');
+  const NOTIF_ORDER_TARGET_KEY = 'ev_notificacion_pedido_destino';
   const ROL = String(window.EV_ROL_USUARIO || '').trim().toLowerCase();
   const params = new URLSearchParams(window.location.search);
 
@@ -13,6 +14,8 @@
   const PEDIDOS_POLLING_IDLE_MS = 9000;
   const FETCH_TIMEOUT_MS = 6500;
   const UI_PAUSE_MS = 1400;
+  const PEDIDOS_ALERTAS_SUPRIMIDAS_KEY = 'ev_pedidos_alertas_suprimidas_v1';
+  const PEDIDOS_ALERTAS_SUPRIMIDAS_TTL_MS = 2 * 60 * 1000;
 
   let pedidosPollingTimer = null;
   let pedidosPollingEnCurso = false;
@@ -343,6 +346,37 @@
     return true;
   }
 
+  function alertaCompradorSuprimidaPorSeguimiento(alerta) {
+    const pedidoId = Number(
+      alerta?.payload?.codigo_pedido
+      || alerta?.referencia_id
+      || 0
+    );
+
+    if (!pedidoId) return false;
+
+    if (Number(window.__EV_MARKETPLACE_PEDIDO_SEGUIMIENTO__ || 0) === pedidoId) {
+      return true;
+    }
+
+    try {
+      const ahora = Date.now();
+      const raw = sessionStorage.getItem(PEDIDOS_ALERTAS_SUPRIMIDAS_KEY);
+      const store = raw ? JSON.parse(raw) : {};
+
+      Object.keys(store || {}).forEach((key) => {
+        if ((ahora - Number(store[key] || 0)) > PEDIDOS_ALERTAS_SUPRIMIDAS_TTL_MS) {
+          delete store[key];
+        }
+      });
+
+      sessionStorage.setItem(PEDIDOS_ALERTAS_SUPRIMIDAS_KEY, JSON.stringify(store || {}));
+      return Boolean(store && store[String(pedidoId)]);
+    } catch (_) {
+      return false;
+    }
+  }
+
   function obtenerCacheAlertasComprador() {
     try {
       const raw = sessionStorage.getItem('ev_pedidos_alertas_comprador_v3');
@@ -513,22 +547,38 @@
     return String(item?.titulo_publicacion || item?.titulo_producto || 'tu publicación').trim();
   }
 
-  async function irAMisPedidosVendedor() {
+  function guardarPedidoDestinoNotificacion(codigoPedido, rol) {
+    const id = Number(codigoPedido || 0);
+    if (id <= 0) return;
+    try {
+      sessionStorage.setItem(NOTIF_ORDER_TARGET_KEY, JSON.stringify({
+        codigo_pedido: id,
+        rol: String(rol || '').trim().toLowerCase(),
+        created_at: Date.now()
+      }));
+    } catch (_) {}
+  }
+
+  async function irAMisPedidosVendedor(codigoPedido = 0) {
     const ruta = '/mis-pedidos-vendedor';
+    guardarPedidoDestinoNotificacion(codigoPedido, 'vendedor');
 
     if (window.EVNav && typeof window.EVNav.loadPage === 'function') {
       await window.EVNav.loadPage(ruta, { pushState: true, replaceState: false });
+      window.setTimeout(() => window.EVMisPedidosVendedor?.focusPedido?.(codigoPedido), 180);
       return;
     }
 
     window.location.href = `${BASE}/MenuPrincipal?ev_goto=${encodeURIComponent(ruta)}`;
   }
 
-  async function irAMisPedidosComprador() {
+  async function irAMisPedidosComprador(codigoPedido = 0) {
     const ruta = '/mis-pedidos-comprador';
+    guardarPedidoDestinoNotificacion(codigoPedido, 'comprador');
 
     if (window.EVNav && typeof window.EVNav.loadPage === 'function') {
       await window.EVNav.loadPage(ruta, { pushState: true, replaceState: false });
+      window.setTimeout(() => window.EVMisPedidosComprador?.focusPedido?.(codigoPedido), 180);
       return;
     }
 
@@ -585,7 +635,7 @@
     });
 
     if (r.isConfirmed) {
-      await irAMisPedidosVendedor();
+      await irAMisPedidosVendedor(id);
     }
   }
 
@@ -647,8 +697,9 @@
   }
 
   function obtenerTextoBotonAlertaComprador(estado) {
-    if (estado === 'entregado_vendedor') return 'Confirmar entrega';
+    if (estado === 'entregado_vendedor') return 'Aceptar';
     if (estado === 'en_punto_entrega') return 'Ver pedido';
+    if (estado === 'sin_respuesta_vendedor') return 'Revisar';
     return 'Revisar pedido';
   }
 
@@ -1007,6 +1058,7 @@
         icon: 'success',
         title: 'Calificación enviada',
         text: json?.mensaje || 'Gracias por ayudar a construir confianza en Entre Vecinos.',
+        confirmButtonText: 'Aceptar',
         confirmButtonColor: '#EA7C12'
       });
     } catch (e) {
@@ -1124,6 +1176,14 @@
     const estado = estadoAlertaComprador(alerta);
     const claveEvento = claveEventoAlertaComprador(alerta);
 
+    if (alertaCompradorSuprimidaPorSeguimiento(alerta)) {
+      if (id > 0) alertasCompradorMostradas.add(id);
+      alertasCompradorEventosMostrados.add(claveEvento);
+      guardarCacheAlertasComprador();
+      if (id > 0) await marcarAlertaPedidoLeida(id);
+      return;
+    }
+
     if ((id > 0 && alertasCompradorMostradas.has(id)) || alertasCompradorEventosMostrados.has(claveEvento)) {
       if (id > 0) await marcarAlertaPedidoLeida(id);
       return;
@@ -1177,8 +1237,8 @@
         </div>
       `,
       showCancelButton: true,
-      confirmButtonText: `<i class="bi bi-eye" aria-hidden="true"></i><span>${escapeHtml(confirmText)}</span>`,
-      cancelButtonText: '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Entendido</span>',
+      confirmButtonText: escapeHtml(confirmText),
+      cancelButtonText: 'Entendido',
       buttonsStyling: false,
       customClass: {
         container: 'ev-swal-container',
@@ -1205,7 +1265,7 @@
         return;
       }
 
-      await irAMisPedidosComprador();
+      await irAMisPedidosComprador(codigoPedido);
     }
   }
 

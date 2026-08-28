@@ -12,6 +12,7 @@
 
   const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/+$/, '');
   const POLLING_MS = 5000;
+  const NOTIF_ORDER_TARGET_KEY = 'ev_notificacion_pedido_destino';
   const PLACEHOLDER = `${BASE}/public/img/placeholder-ev.png`;
 
   let pollingTimer = null;
@@ -74,9 +75,6 @@
     return 'Inmediata';
   }
 
-  function esEstadoCola(estado) {
-    return ['cola_aceptada', 'cola_pendiente_confirmacion'].includes(String(estado || '').trim());
-  }
 
   function esEstadoNegativo(estado) {
     return [
@@ -94,8 +92,6 @@
   function estadoLegible(estado) {
     const mapa = {
       pendiente_vendedor: 'Pendiente',
-      cola_aceptada: 'En cola',
-      cola_pendiente_confirmacion: 'Pendiente de confirmación',
       en_preparacion: 'En preparación',
       despachando: 'Despachando',
       listo_para_entrega: 'Listo para entrega',
@@ -118,9 +114,6 @@
       return { texto: 'Pendiente', clase: 'ev-mpv-badge ev-mpv-badge-pendiente' };
     }
 
-    if (e === 'cola_aceptada' || e === 'cola_pendiente_confirmacion') {
-      return { texto: estadoLegible(e), clase: 'ev-mpv-badge ev-mpv-badge-info' };
-    }
 
     if (esEstadoNegativo(e)) {
       return { texto: estadoLegible(e), clase: 'ev-mpv-badge ev-mpv-badge-negative' };
@@ -540,13 +533,21 @@
       return { isConfirmed: true };
     }
 
+    const plainButtons = extra.plainButtons === true;
+    const configExtra = { ...extra };
+    delete configExtra.plainButtons;
+
     return Swal.fire(swalBaseConfig(Object.assign({
       title,
       html: htmlMessage(tipo, subtitle, text, extra.htmlExtra || ''),
-      confirmButtonText: actionButtonHtml(extra.confirmButtonText || 'Aceptar', 'confirm'),
+      confirmButtonText: plainButtons
+        ? String(extra.confirmButtonText || 'Aceptar')
+        : actionButtonHtml(extra.confirmButtonText || 'Aceptar', 'confirm'),
       showCancelButton: !!extra.showCancelButton,
-      cancelButtonText: actionButtonHtml(extra.cancelButtonText || 'Cancelar', 'cancel')
-    }, extra || {})));
+      cancelButtonText: plainButtons
+        ? String(extra.cancelButtonText || 'Cancelar')
+        : actionButtonHtml(extra.cancelButtonText || 'Cancelar', 'cancel')
+    }, configExtra)));
   }
 
   function actionButtonHtml(label, type = 'confirm') {
@@ -556,7 +557,7 @@
     return `<i class="bi ${icon}" aria-hidden="true"></i><span>${escapeHtml(text)}</span>`;
   }
 
-  async function confirmAction({ title, subtitle, text, productText, note, confirmText, cancelText }) {
+  async function confirmAction({ title, subtitle, text, productText, note, confirmText, cancelText, plainButtons = false }) {
     if (!window.Swal?.fire) {
       return window.confirm(text);
     }
@@ -570,8 +571,12 @@
         htmlProductNote('Pedido', productText || 'Solicitud seleccionada', note || '')
       ),
       showCancelButton: true,
-      confirmButtonText: actionButtonHtml(confirmText || 'Aceptar', 'confirm'),
-      cancelButtonText: actionButtonHtml(cancelText || 'Cancelar', 'cancel')
+      confirmButtonText: plainButtons
+        ? String(confirmText || 'Aceptar')
+        : actionButtonHtml(confirmText || 'Aceptar', 'confirm'),
+      cancelButtonText: plainButtons
+        ? String(cancelText || 'Cancelar')
+        : actionButtonHtml(cancelText || 'Cancelar', 'cancel')
     }));
 
     return !!result.isConfirmed;
@@ -601,7 +606,7 @@
         maxlength: '500'
       },
       showCancelButton: true,
-      confirmButtonText: 'Rechazar solicitud',
+      confirmButtonText: 'Rechazar',
       cancelButtonText: 'Cancelar',
       preConfirm: (value) => {
         const txt = String(value || '').trim();
@@ -640,28 +645,53 @@
     });
   }
 
-  function getLineaEstado(item) {
-    const estado = String(item.estado_actual || '').trim();
+  function getFlujoEstados(item) {
     const requierePreparacion = Number(item.requiere_preparacion || 0) === 1;
+    return requierePreparacion
+      ? ['pendiente_vendedor', 'en_preparacion', 'listo_para_entrega', 'en_camino', 'en_punto_entrega', 'entregado_vendedor', 'entrega_confirmada_comprador']
+      : ['pendiente_vendedor', 'despachando', 'en_camino', 'en_punto_entrega', 'entregado_vendedor', 'entrega_confirmada_comprador'];
+  }
 
-    if (esEstadoCola(estado)) {
+  function renderProgresoCompacto(item) {
+    const estado = String(item.estado_actual || '').trim();
+
+    if (esEstadoNegativo(estado)) {
+      const negative = esEstadoNegativo(estado);
       return `
-        <div class="ev-mpv-stepper ev-mpv-stepper-final">
-          <div class="ev-mpv-step is-final is-current">
-            <span class="ev-mpv-step-dot"></span>
-            <span class="ev-mpv-step-text">${escapeHtml(estadoLegible(estado))}</span>
+        <div class="ev-mpv-progress-compact ${negative ? 'is-negative' : 'is-special'}">
+          <div class="ev-mpv-progress-current">
+            <span class="ev-mpv-progress-dot"></span>
+            <span>${escapeHtml(estadoLegible(estado))}</span>
           </div>
         </div>
       `;
     }
 
-    const flujo = requierePreparacion
-      ? ['en_preparacion', 'listo_para_entrega', 'en_camino', 'en_punto_entrega', 'entregado_vendedor', 'entrega_confirmada_comprador']
-      : ['despachando', 'en_camino', 'en_punto_entrega', 'entregado_vendedor', 'entrega_confirmada_comprador'];
+    const flujo = getFlujoEstados(item);
+    const indexRaw = flujo.indexOf(estado);
+    const index = indexRaw >= 0 ? indexRaw : 0;
+    const total = Math.max(1, flujo.length);
+    const porcentaje = total <= 1 ? 100 : Math.round((index / (total - 1)) * 100);
+
+    return `
+      <div class="ev-mpv-progress-compact" role="group" aria-label="Progreso del pedido">
+        <div class="ev-mpv-progress-head">
+          <span class="ev-mpv-progress-caption">Paso ${index + 1} de ${total}</span>
+          <span class="ev-mpv-progress-current"><span class="ev-mpv-progress-dot"></span>${escapeHtml(estadoLegible(estado || flujo[index]))}</span>
+        </div>
+        <div class="ev-mpv-progress-track" aria-hidden="true"><span style="width:${porcentaje}%"></span></div>
+        <div class="ev-mpv-progress-ends" aria-hidden="true"><span>Inicio</span><span>Entrega</span></div>
+      </div>
+    `;
+  }
+
+  function getLineaEstado(item) {
+    const estado = String(item.estado_actual || '').trim();
+
 
     if (esEstadoNegativo(estado)) {
       return `
-        <div class="ev-mpv-stepper ev-mpv-stepper-final">
+        <div class="ev-mpv-stepper ev-mpv-stepper-final ev-mpv-stepper-detail">
           <div class="ev-mpv-step is-final is-negative">
             <span class="ev-mpv-step-dot"></span>
             <span class="ev-mpv-step-text">${escapeHtml(estadoLegible(estado))}</span>
@@ -670,17 +700,17 @@
       `;
     }
 
+    const flujo = getFlujoEstados(item);
     const currentIndex = flujo.indexOf(estado);
 
     return `
-      <div class="ev-mpv-stepper">
+      <div class="ev-mpv-stepper ev-mpv-stepper-detail">
         ${flujo.map((step, index) => {
           const isDone = currentIndex > index;
           const isCurrent = currentIndex === index;
-
           return `
             <div class="ev-mpv-step ${isDone ? 'is-done' : ''} ${isCurrent ? 'is-current' : ''}">
-              <span class="ev-mpv-step-dot"></span>
+              <span class="ev-mpv-step-dot">${isDone ? '<i class="bi bi-check2"></i>' : ''}</span>
               <span class="ev-mpv-step-text">${escapeHtml(estadoLegible(step))}</span>
             </div>
           `;
@@ -727,6 +757,16 @@
     return map[estado] || null;
   }
 
+  function esEstadoCancelableVendedor(estado) {
+    return [
+      'en_preparacion',
+      'despachando',
+      'listo_para_entrega',
+      'en_camino',
+      'en_punto_entrega'
+    ].includes(String(estado || '').trim());
+  }
+
   function renderAcciones(item) {
     const estado = String(item.estado_actual || '').trim();
     const id = Number(item.codigo_pedido || 0);
@@ -745,29 +785,27 @@
         </button>
       `);
     } else {
-      const puedeCancelarRecojo = estado === 'en_punto_entrega' && Number(item.puede_cancelar_vendedor || 0) === 1;
+      const siguiente = getSiguienteAccion(item);
 
-      if (puedeCancelarRecojo) {
+      if (siguiente) {
         acciones.push(`
-          <button type="button" class="btn ev-mpv-btn-cancel-recojo" data-action="cancelar-recojo" data-id="${id}">
-            <i class="bi bi-x-octagon me-1"></i>Cancelar por no recepción
+          <button
+            type="button"
+            class="btn ${siguiente.variant === 'success' ? 'ev-mpv-btn-success' : 'ev-mpv-btn-action'}"
+            data-action="estado"
+            data-id="${id}"
+            data-estado="${escapeHtml(siguiente.estado)}">
+            <i class="bi ${escapeHtml(siguiente.icon)} me-1"></i>${escapeHtml(siguiente.label)}
           </button>
         `);
-      } else {
-        const siguiente = getSiguienteAccion(item);
+      }
 
-        if (siguiente) {
-          acciones.push(`
-            <button
-              type="button"
-              class="btn ${siguiente.variant === 'success' ? 'ev-mpv-btn-success' : 'ev-mpv-btn-action'}"
-              data-action="estado"
-              data-id="${id}"
-              data-estado="${escapeHtml(siguiente.estado)}">
-              <i class="bi ${escapeHtml(siguiente.icon)} me-1"></i>${escapeHtml(siguiente.label)}
-            </button>
-          `);
-        }
+      if (esEstadoCancelableVendedor(estado) && Number(item.puede_cancelar_pedido ?? 1) === 1) {
+        acciones.push(`
+          <button type="button" class="btn ev-mpv-btn-danger-soft" data-action="cancelar-pedido" data-id="${id}">
+            <i class="bi bi-x-octagon me-1"></i>Cancelar pedido
+          </button>
+        `);
       }
     }
 
@@ -809,29 +847,6 @@
       `;
     }
 
-    if (estado === 'cola_aceptada') {
-      const posicion = Number(item.posicion_cola || 0);
-      const posicionTexto = posicion > 0 ? ` ocupa la posición ${posicion} de tu cola` : ' está en tu cola de atención';
-      return `
-        <div class="ev-mpv-state-box ev-mpv-state-box-info">
-          <div class="ev-mpv-state-title">Pedido en espera</div>
-          <div class="ev-mpv-state-text">
-            Esta solicitud${posicionTexto}. Cuando finalices el pedido actual, quedará disponible para que la revises y decidas si deseas aceptarla.
-          </div>
-        </div>
-      `;
-    }
-
-    if (estado === 'cola_pendiente_confirmacion') {
-      return `
-        <div class="ev-mpv-state-box ev-mpv-state-box-info">
-          <div class="ev-mpv-state-title">Cola pendiente de confirmación</div>
-          <div class="ev-mpv-state-text">
-            El comprador todavía no confirma si desea mantenerse en la cola. Hasta entonces no pasa al turno de atención.
-          </div>
-        </div>
-      `;
-    }
 
     if (estado === 'en_punto_entrega') {
       const segundos = segundosRecojoRestantesItem(item);
@@ -924,26 +939,17 @@
       `
     ];
 
-    if (Number(item.posicion_cola || 0) > 1 || String(item.estado_actual || '').trim() === 'cola_aceptada') {
-      pills.push(`
-        <span class="ev-mpv-pill">
-          <i class="bi bi-list-ol"></i>
-          Cola #${escapeHtml(item.posicion_cola || 0)}
-        </span>
-      `);
-    }
-
     return pills.join('');
   }
 
   function renderFlujo(item) {
-    if (esEstadoNegativo(item.estado_actual) || esEstadoCola(item.estado_actual)) {
+    if (esEstadoNegativo(item.estado_actual)) {
       return `
         <div class="ev-mpv-section-title">
           <i class="bi bi-diagram-3"></i>
           Estado del pedido
         </div>
-        ${getLineaEstado(item)}
+        ${renderProgresoCompacto(item)}
       `;
     }
 
@@ -952,7 +958,7 @@
         <i class="bi bi-diagram-3"></i>
         Flujo del pedido
       </div>
-      ${getLineaEstado(item)}
+      ${renderProgresoCompacto(item)}
     `;
   }
 
@@ -970,17 +976,15 @@
           </div>
 
           <div class="ev-mpv-order-head">
-            <div class="ev-mpv-order-head-row">
-              <div class="ev-mpv-order-head-main">
-                <div class="ev-mpv-order-title">${escapeHtml(item.titulo_publicacion || 'Pedido')}</div>
-                <div class="ev-mpv-order-meta">
-                  Pedido #${Number(item.codigo_pedido || 0)} · ${escapeHtml(formatFecha(fechaBase))}
-                </div>
+            <div class="ev-mpv-order-head-main">
+              <div class="ev-mpv-order-title">${escapeHtml(item.titulo_publicacion || 'Pedido')}</div>
+              <div class="ev-mpv-order-meta">
+                Pedido #${Number(item.codigo_pedido || 0)} · ${escapeHtml(formatFecha(fechaBase))}
               </div>
-              <span class="${badge.clase}">${escapeHtml(badge.texto)}</span>
             </div>
 
-            <div class="ev-mpv-order-quick">
+            <div class="ev-mpv-order-tags" aria-label="Resumen del pedido">
+              <span class="${badge.clase}">${escapeHtml(badge.texto)}</span>
               ${renderQuickPills(item)}
             </div>
           </div>
@@ -1020,17 +1024,6 @@
                 <div class="ev-mpv-line">
                   <span class="ev-mpv-line-label">Entrega programada</span>
                   <span class="ev-mpv-line-value">${escapeHtml(formatFecha(item.fecha_hora_programada))}</span>
-                </div>
-              `
-                : ''
-            }
-
-            ${
-              Number(item.posicion_cola || 0) > 1 || String(item.estado_actual || '').trim() === 'cola_aceptada'
-                ? `
-                <div class="ev-mpv-line">
-                  <span class="ev-mpv-line-label">Posición en cola</span>
-                  <span class="ev-mpv-line-value">#${escapeHtml(item.posicion_cola || 0)}</span>
                 </div>
               `
                 : ''
@@ -1372,7 +1365,13 @@
       return;
     }
 
-    await notify('success', 'Calificación enviada', 'Gracias por tu opinión', json?.mensaje || 'Gracias por ayudar a construir confianza en Entre Vecinos.');
+    await notify(
+      'success',
+      'Calificación enviada',
+      'Gracias por tu opinión',
+      json?.mensaje || 'Gracias por ayudar a construir confianza en Entre Vecinos.',
+      { confirmButtonText: 'Aceptar', plainButtons: true }
+    );
     await cargarPedidos({ silent: true });
   }
 
@@ -1482,12 +1481,88 @@
     });
   }
 
+
+  function leerPedidoDestinoNotificacion() {
+    try {
+      const raw = sessionStorage.getItem(NOTIF_ORDER_TARGET_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      const codigoPedido = Number(data?.codigo_pedido || 0);
+      const rol = String(data?.rol || '').trim().toLowerCase();
+      const createdAt = Number(data?.created_at || 0);
+      const age = Date.now() - createdAt;
+
+      if (codigoPedido <= 0 || (rol && rol !== 'vendedor') || age < 0 || age > 5 * 60 * 1000) {
+        sessionStorage.removeItem(NOTIF_ORDER_TARGET_KEY);
+        return null;
+      }
+
+      return { codigo_pedido: codigoPedido, rol: 'vendedor' };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function prepararTabDestinoNotificacion(data) {
+    const pending = leerPedidoDestinoNotificacion();
+    if (!pending) return null;
+
+    const id = Number(pending.codigo_pedido || 0);
+    const pendientes = Array.isArray(data?.pendientes) ? data.pendientes : [];
+    const proceso = Array.isArray(data?.en_proceso) ? data.en_proceso : [];
+    const finalizados = Array.isArray(data?.finalizados) ? data.finalizados : [];
+
+    if (pendientes.some((item) => Number(item?.codigo_pedido || 0) === id)) {
+      tabActiva = 'pendientes';
+      return pending;
+    }
+    if (proceso.some((item) => Number(item?.codigo_pedido || 0) === id)) {
+      tabActiva = 'proceso';
+      return pending;
+    }
+
+    const itemFinal = finalizados.find((item) => Number(item?.codigo_pedido || 0) === id);
+    if (itemFinal) {
+      const estado = String(itemFinal?.estado_actual || '').trim();
+      tabActiva = estado === 'rechazado_vendedor'
+        ? 'rechazadas'
+        : (estado === 'sin_respuesta_vendedor' ? 'sin-respuesta' : 'finalizados');
+    }
+
+    return pending;
+  }
+
+  function enfocarPedidoDestinoNotificacion() {
+    const pending = leerPedidoDestinoNotificacion();
+    if (!pending) return false;
+
+    const id = Number(pending.codigo_pedido || 0);
+    const card = document.querySelector(`.ev-mpv-order[data-id="${id}"]`);
+    if (!card) return false;
+
+    sessionStorage.removeItem(NOTIF_ORDER_TARGET_KEY);
+    card.classList.add('is-notification-target');
+    card.setAttribute('tabindex', '-1');
+
+    window.requestAnimationFrame(() => {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      try { card.focus({ preventScroll: true }); } catch (_) {}
+    });
+
+    window.setTimeout(() => {
+      card.classList.remove('is-notification-target');
+    }, 5200);
+
+    return true;
+  }
+
   function dividirPendientes(lista) {
     const items = Array.isArray(lista) ? lista : [];
 
     return {
-      pendientesAtendibles: items.filter((item) => String(item.estado_actual || '').trim() === 'pendiente_vendedor'),
-      enCola: items.filter((item) => String(item.estado_actual || '').trim() === 'cola_aceptada')
+      pendientesAtendibles: items.filter((item) =>
+        String(item.estado_actual || '').trim() === 'pendiente_vendedor'
+      )
     };
   }
 
@@ -1528,7 +1603,7 @@
         htmlExtra: htmlProductNote(
           'Publicación',
           item.titulo_publicacion || 'Solicitud recibida',
-          'Recuerda: solo puedes atender una solicitud activa a la vez. Las demás se mantendrán en cola.'
+          'Puedes aceptar y gestionar varias solicitudes al mismo tiempo. Organiza la atención según tu disponibilidad.'
         ),
         confirmButtonText: 'Ver ahora'
       }
@@ -1553,13 +1628,14 @@
       }
 
       refrescarCache(data);
+      prepararTabDestinoNotificacion(data);
 
       const pendientesRaw = Array.isArray(data.pendientes) ? data.pendientes : [];
       const proceso = Array.isArray(data.en_proceso) ? data.en_proceso : [];
       const finalizadosRaw = Array.isArray(data.finalizados) ? data.finalizados : [];
 
-      const { pendientesAtendibles, enCola } = dividirPendientes(pendientesRaw);
-      const pendientes = [...pendientesAtendibles, ...enCola];
+      const { pendientesAtendibles } = dividirPendientes(pendientesRaw);
+      const pendientes = [...pendientesAtendibles];
 
       const { finalizadas, rechazadas, sinRespuesta } = dividirFinalizados(finalizadosRaw);
 
@@ -1582,6 +1658,7 @@
       intentarMostrarCalificacionCompradorPendiente(finalizadas);
 
       showTab(refs, tabActiva);
+      window.setTimeout(enfocarPedidoDestinoNotificacion, 90);
       iniciarCountdownRecojo();
 
       const snapshotNuevo = new Set(
@@ -1627,9 +1704,9 @@
     const ok = await confirmAction({
       title: 'Aceptar solicitud',
       subtitle: 'Confirmar recepción del pedido',
-      text: 'Al aceptarlo, este pedido pasará al flujo de atención y seguirá ocupando tu turno actual.',
+      text: 'Al aceptarlo, este pedido pasará a su flujo de atención independiente.',
       productText: item.titulo_publicacion || `Pedido #${id}`,
-      note: 'Mientras este pedido siga activo, las siguientes solicitudes permanecerán en cola hasta que el turno se libere.',
+      note: 'Puedes mantener varios pedidos aceptados en paralelo y avanzar cada uno según su estado real.',
       confirmText: 'Aceptar',
       cancelText: 'Cancelar'
     });
@@ -1730,7 +1807,7 @@
           htmlExtra: htmlProductNote(
             'Pedido',
             item.titulo_publicacion || `Pedido #${id}`,
-            'Si había otras solicitudes en cola, el sistema avanzará la siguiente según el orden de atención.'
+            'Las demás solicitudes pendientes continúan disponibles para que las atiendas de forma independiente.'
           )
         }
       );
@@ -1766,12 +1843,12 @@
         title: 'Marcar entregado',
         subtitle: 'Confirmar entrega realizada',
         text: 'Después de esto, el comprador deberá confirmar la recepción del pedido.',
-        confirmText: 'Sí, marcar entregado'
+        confirmText: 'Aceptar'
       },
       cancelado_vendedor: {
         title: 'Cancelar pedido',
         subtitle: 'Confirmar cancelación',
-        text: 'Esta acción cerrará el pedido actual y puede liberar el siguiente turno en cola.',
+        text: 'Esta acción cerrará únicamente este pedido. Los demás pedidos en atención no se verán afectados.',
         confirmText: 'Sí, cancelar pedido'
       }
     };
@@ -1784,42 +1861,61 @@
     };
   }
 
-  async function promptCancelacionNoRecojo(item) {
+  async function promptCancelacionVendedor(item) {
+    const estado = String(item?.estado_actual || '').trim();
+    const puedeUsarMotivosComprador = estado === 'en_punto_entrega'
+      && Number(item?.puede_cancelar_vendedor || 0) === 1;
+
     if (!window.Swal?.fire) {
-      const ok = window.confirm('¿Cancelar el pedido porque no se concretó la recepción?');
+      const ok = window.confirm('¿Deseas cancelar este pedido?');
       return ok
-        ? { isConfirmed: true, value: { motivo_cancelacion_clave: 'comprador_no_se_presento', motivo_cancelacion_detalle: '' } }
+        ? { isConfirmed: true, value: { motivo_cancelacion_clave: 'otro_vendedor', motivo_cancelacion_detalle: '' } }
         : { isConfirmed: false };
     }
 
-    const motivos = [
+    const motivosVendedor = [
+      { value: 'sin_stock', label: 'Ya no tengo disponibilidad del producto' },
+      { value: 'no_puede_preparar', label: 'No puedo completar la preparación' },
+      { value: 'problema_entrega', label: 'Tengo un inconveniente para realizar la entrega' },
+      { value: 'error_publicacion', label: 'Hubo un error en la publicación o disponibilidad' },
+      { value: 'otro_vendedor', label: 'Otro motivo del vendedor' }
+    ];
+
+    const motivosComprador = [
       { value: 'comprador_no_se_presento', label: 'El comprador no se presentó' },
       { value: 'comprador_no_responde', label: 'El comprador no responde' },
       { value: 'comprador_rechazo_recepcion', label: 'El comprador rechazó recibir el pedido' },
-      { value: 'no_se_pudo_concretar', label: 'No se pudo concretar la entrega' },
-      { value: 'otro', label: 'Otro motivo' }
+      { value: 'no_se_pudo_concretar', label: 'No se pudo concretar la entrega' }
     ];
+
+    const motivos = puedeUsarMotivosComprador
+      ? [...motivosVendedor, ...motivosComprador]
+      : motivosVendedor;
+
+    const notaReembolso = Number(item?.descuento_billetera_aplicado || 0) === 1
+      ? '<strong>Importante:</strong> al cancelar, EV devolverá automáticamente al comprador el 100 % del monto debitado de su billetera y registrará el movimiento.'
+      : '<strong>Importante:</strong> esta acción cerrará únicamente este pedido y quedará registrada en el historial EV.';
 
     const html = `
       ${htmlMessage(
         'warning',
-        'Cancelar por no recepción',
-        'Usa esta opción solo si el tiempo de recepción venció y no se pudo concretar la entrega.',
+        'Cancelar pedido',
+        'Usa esta opción solo cuando realmente no puedas continuar atendiendo este pedido.',
         htmlProductNote(
           'Pedido',
           item?.titulo_publicacion || 'Pedido seleccionado',
-          '<strong>Importante:</strong> esta acción cerrará el pedido y quedará registrada en el historial EV.'
+          notaReembolso
         )
       )}
       <div class="ev-mpv-recojo-motivos">
         ${motivos.map((m, idx) => `
           <label class="ev-mpv-recojo-motivo">
-            <input type="radio" name="evMotivoRecojo" value="${escapeHtml(m.value)}" ${idx === 0 ? 'checked' : ''}>
+            <input type="radio" name="evMotivoCancelacionVendedor" value="${escapeHtml(m.value)}" ${idx === 0 ? 'checked' : ''}>
             <span>${escapeHtml(m.label)}</span>
           </label>
         `).join('')}
       </div>
-      <textarea id="evMotivoRecojoDetalle" class="ev-mpv-recojo-textarea" maxlength="400" placeholder="Detalle opcional. Ejemplo: Esperé en el punto acordado, pero el comprador no llegó."></textarea>
+      <textarea id="evMotivoCancelacionVendedorDetalle" class="ev-mpv-recojo-textarea" maxlength="400" placeholder="Detalle opcional para dejar trazabilidad de la cancelación."></textarea>
     `;
 
     return Swal.fire(swalBaseConfig({
@@ -1827,12 +1923,12 @@
       html,
       width: 620,
       showCancelButton: true,
-      confirmButtonText: 'Sí, cancelar pedido',
+      confirmButtonText: 'Aceptar',
       cancelButtonText: 'Volver',
       preConfirm: () => {
         const popup = Swal.getPopup();
-        const selected = popup.querySelector('input[name="evMotivoRecojo"]:checked');
-        const detalle = String(popup.querySelector('#evMotivoRecojoDetalle')?.value || '').trim();
+        const selected = popup.querySelector('input[name="evMotivoCancelacionVendedor"]:checked');
+        const detalle = String(popup.querySelector('#evMotivoCancelacionVendedorDetalle')?.value || '').trim();
 
         if (!selected || !selected.value) {
           Swal.showValidationMessage('Selecciona el motivo de cancelación.');
@@ -1847,12 +1943,12 @@
     }));
   }
 
-  async function cancelarPorNoRecojo(id) {
+  async function cancelarPedidoVendedor(id) {
     if (accionEnCurso) return;
     const item = cachePedidos.get(Number(id || 0));
     if (!item) return;
 
-    const r = await promptCancelacionNoRecojo(item);
+    const r = await promptCancelacionVendedor(item);
     if (!r.isConfirmed || !r.value) return;
 
     accionEnCurso = true;
@@ -1879,7 +1975,11 @@
         return;
       }
 
-      await notify('success', 'Pedido cancelado', 'La cancelación fue registrada', json?.mensaje || 'El pedido fue cancelado por no concretarse la recepción.', {
+      const montoDevuelto = Number(json?.data?.monto_descontado_billetera || item?.monto_descontado_billetera || 0);
+      const tuvoDevolucion = Number(json?.data?.devolucion_billetera_aplicada || 0) === 1;
+      await notify('success', 'Pedido cancelado', 'La cancelación fue registrada', tuvoDevolucion && montoDevuelto > 0
+        ? `El pedido fue cancelado y EV devolvió S/ ${formatMoney(montoDevuelto)} a la billetera del comprador.`
+        : (json?.mensaje || 'El pedido fue cancelado correctamente.'), {
         htmlExtra: htmlProductNote('Pedido', item.titulo_publicacion || `Pedido #${id}`)
       });
 
@@ -1904,7 +2004,8 @@
       productText: item.titulo_publicacion || `Pedido #${id}`,
       note: 'Mantén el estado alineado con el avance real del pedido para evitar confusión al comprador.',
       confirmText: meta.confirmText,
-      cancelText: 'Cancelar'
+      cancelText: 'Cancelar',
+      plainButtons: String(estado || '').trim() === 'entregado_vendedor'
     });
 
     if (!ok) return;
@@ -1974,6 +2075,28 @@
         color:#ffffff !important;
         box-shadow:0 14px 28px rgba(220,38,38,.20) !important;
         transform:translateY(-1px) !important;
+      }
+
+      .swal2-confirm.ev-mpv-swal-confirm.ev-mpv-swal-confirm-close{
+        background:linear-gradient(180deg,#FFFFFF 0%,#F8FAFC 100%) !important;
+        color:#475569 !important;
+        border:1px solid #CBD5E1 !important;
+        box-shadow:0 10px 22px rgba(15,23,42,.10) !important;
+        transition:transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease, color .16s ease !important;
+      }
+
+      .swal2-confirm.ev-mpv-swal-confirm.ev-mpv-swal-confirm-close:hover,
+      .swal2-confirm.ev-mpv-swal-confirm.ev-mpv-swal-confirm-close:focus-visible{
+        background:#F1F5F9 !important;
+        color:#111827 !important;
+        border-color:#94A3B8 !important;
+        box-shadow:0 14px 28px rgba(15,23,42,.14) !important;
+        transform:translateY(-1px) !important;
+      }
+
+      .swal2-confirm.ev-mpv-swal-confirm.ev-mpv-swal-confirm-close:active{
+        transform:translateY(0) scale(.985) !important;
+        box-shadow:0 8px 18px rgba(15,23,42,.10) !important;
       }
 
       .swal2-popup.ev-mpv-swal-popup-premium{
@@ -2164,7 +2287,8 @@
           </div>
         </div>
 
-        <div class="ev-mpv-modal-section">
+        <div class="ev-mpv-modal-section ev-mpv-modal-flow-section">
+          <div class="ev-mpv-modal-note-title ev-mpv-modal-flow-title"><i class="bi bi-diagram-3" aria-hidden="true"></i> Progreso del pedido</div>
           ${getLineaEstado(item)}
         </div>
 
@@ -2180,17 +2304,6 @@
               <div class="ev-mpv-modal-row">
                 <span>Entrega programada</span>
                 <strong>${escapeHtml(formatFecha(item.fecha_hora_programada))}</strong>
-              </div>
-            `
-              : ''
-          }
-
-          ${
-            Number(item.posicion_cola || 0) > 1 || String(item.estado_actual || '').trim() === 'cola_aceptada'
-              ? `
-              <div class="ev-mpv-modal-row">
-                <span>Posición en cola</span>
-                <strong>#${escapeHtml(item.posicion_cola || 0)}</strong>
               </div>
             `
               : ''
@@ -2228,7 +2341,10 @@
     const item = cachePedidos.get(Number(id || 0));
     if (!window.Swal || !item) return;
 
-    await Swal.fire(swalBaseConfig({
+    const puedeCancelar = esEstadoCancelableVendedor(item.estado_actual)
+      && Number(item.puede_cancelar_pedido ?? 1) === 1;
+
+    const r = await Swal.fire(swalBaseConfig({
       title: 'Detalle del pedido',
       showCloseButton: false,
       closeButtonAriaLabel: 'Cerrar',
@@ -2236,17 +2352,23 @@
       width: 860,
       confirmButtonText: '<i class="bi bi-x-circle" aria-hidden="true"></i><span>Cerrar</span>',
       showCancelButton: false,
-      showDenyButton: false,
+      showDenyButton: puedeCancelar,
+      denyButtonText: '<i class="bi bi-x-octagon" aria-hidden="true"></i><span>Cancelar pedido</span>',
       customClass: {
         container: 'ev-mpv-swal-container ev-swal-container',
         popup: 'ev-mpv-swal-popup-premium ev-mpv-swal-popup-detail ev-swal-popup ev-swal-popup-detail',
         title: 'ev-mpv-swal-title ev-swal-title',
         htmlContainer: 'ev-mpv-swal-html ev-swal-html',
-        confirmButton: 'ev-mpv-swal-confirm ev-swal-confirm',
+        confirmButton: 'ev-mpv-swal-confirm ev-mpv-swal-confirm-close ev-swal-confirm',
+        denyButton: 'ev-mpv-swal-deny-cancel',
         cancelButton: 'ev-mpv-swal-cancel ev-swal-cancel',
         closeButton: 'ev-swal-close'
       }
     }));
+
+    if (r.isDenied && puedeCancelar) {
+      await cancelarPedidoVendedor(id);
+    }
   }
 
   function detenerCountdownRecojo() {
@@ -2361,8 +2483,8 @@
       return;
     }
 
-    if (action === 'cancelar-recojo') {
-      await cancelarPorNoRecojo(id);
+    if (action === 'cancelar-pedido') {
+      await cancelarPedidoVendedor(id);
       return;
     }
 
@@ -2419,7 +2541,20 @@
 
   window.EVMisPedidosVendedor = {
     init: initMisPedidosVendedor,
-    refresh: () => cargarPedidos({ silent: true })
+    refresh: () => cargarPedidos({ silent: true }),
+    focusPedido: (codigoPedido) => {
+      const id = Number(codigoPedido || 0);
+      if (id <= 0) return false;
+      try {
+        sessionStorage.setItem(NOTIF_ORDER_TARGET_KEY, JSON.stringify({
+          codigo_pedido: id,
+          rol: 'vendedor',
+          created_at: Date.now()
+        }));
+      } catch (_) {}
+      cargarPedidos({ silent: true });
+      return true;
+    }
   };
 
   if (document.querySelector('.ev-mpv-page')) {

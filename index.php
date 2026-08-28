@@ -1079,12 +1079,13 @@ $routes = [
     ['POST', '#^/api/producto/(\d+)/actualizar$#', [apiProductoController::class, 'actualizarProducto'], 'json'],
     ['POST', '#^/api/producto/(\d+)/anular$#', [apiProductoController::class, 'anularProducto'], 'json'],
     ['POST', '#^/api/producto/(\d+)/publicar$#', [apiProductoController::class, 'publicarProducto'], 'json'],
+    ['POST', '#^/api/producto/(\d+)/actividad$#', [apiProductoController::class, 'cambiarActividadPublicacion'], 'json'],
     ['GET',  '#^/api/producto/marketplace$#', [apiProductoController::class, 'listarMarketplace'], 'json'],
     ['GET',  '#^/api/admin/marketplace/comunidades$#', [apiProductoController::class, 'listarComunidadesMarketplaceAdmin'], 'json'],
 
     // ---------------------------
     // SOLICITUDES DE SERVICIO
-    // Flujo propio: no usa pedido, cola, stock ni billetera.
+    // Flujo propio: no usa pedido, secuenciamiento, stock ni billetera.
     // ---------------------------
     ['POST', '#^/api/servicios/solicitudes$#', [apiSolicitudServicioController::class, 'registrar'], 'json'],
     ['GET',  '#^/api/servicios/solicitudes/proveedor$#', [apiSolicitudServicioController::class, 'listarProveedor'], 'json'],
@@ -1145,7 +1146,6 @@ $routes = [
     ['GET',  '#^/api/pedidos/solicitud-activa$#', [apiPedidoController::class, 'obtenerSolicitudActiva'], 'json'],
     ['GET',  '#^/api/pedidos/(\d+)/estado$#', [apiPedidoController::class, 'obtenerEstadoSolicitud'], 'json'],
     ['POST', '#^/api/pedidos/(\d+)/cancelar$#', [apiPedidoController::class, 'cancelarSolicitud'], 'json'],
-    ['POST', '#^/api/pedidos/(\d+)/confirmar-cola$#', [apiPedidoController::class, 'confirmarCola'], 'json'],
     ['POST', '#^/api/pedidos/(\d+)/confirmar-entrega$#', [apiPedidoController::class, 'confirmarEntrega'], 'json'],
     ['GET',  '#^/api/pedidos/mis-comprador$#', [apiPedidoController::class, 'listarMisPedidosComprador'], 'json'],
 

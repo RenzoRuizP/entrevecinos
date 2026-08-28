@@ -16,9 +16,10 @@
     REGLA MARKETPLACE:
       - Una publicación solo puede mostrarse en marketplace si:
         1) producto.visible = 2
-        2) usuario.estado = 2
-        3) producto.estado_residencial_publicacion = 'activa'
-        4) producto: usuario.disponibilidad_pedidos = 1
+        2) producto.activo_publicacion = 1
+        3) usuario.estado = 2
+        4) producto.estado_residencial_publicacion = 'activa'
+        5) producto: usuario.disponibilidad_pedidos = 1
            servicio: permanece visible aunque el usuario esté desconectado
       - La publicación se filtra por la residencia propia con la que fue creada,
         NO por la residencia actual del usuario dueño.
@@ -309,6 +310,7 @@ class Producto extends Conexion
         $aliasUsuario  = preg_replace('/[^a-zA-Z0-9_]/', '', $aliasUsuario) ?: 'u';
 
         return " {$aliasProducto}.visible = 2
+                 AND COALESCE({$aliasProducto}.activo_publicacion, 1) = 1
                  AND {$aliasUsuario}.estado = 2
                  AND {$aliasProducto}.estado_residencial_publicacion = 'activa'
                  AND (
@@ -329,6 +331,7 @@ class Producto extends Conexion
         $aliasUsuario  = preg_replace('/[^a-zA-Z0-9_]/', '', $aliasUsuario) ?: 'u';
 
         return " {$aliasProducto}.visible = 2
+                 AND COALESCE({$aliasProducto}.activo_publicacion, 1) = 1
                  AND {$aliasUsuario}.estado = 2
                  AND {$aliasProducto}.estado_residencial_publicacion = 'activa' ";
     }
@@ -660,6 +663,7 @@ class Producto extends Conexion
                 p.precio,
                 p.tipo_atencion_producto,
                 p.visible,
+                p.activo_publicacion,
                 p.codigo_tipo,
                 p.codigo_categoria,
                 p.imagen_portada,
@@ -711,6 +715,7 @@ class Producto extends Conexion
                 p.precio,
                 p.tipo_atencion_producto,
                 p.visible,
+                p.activo_publicacion,
                 p.codigo_usuario,
                 p.codigo_tipo,
                 p.codigo_categoria,
@@ -740,6 +745,124 @@ class Producto extends Conexion
         $fila['ultima_revision'] = $revMap[(int)$codigoProducto] ?? null;
 
         return $fila;
+    }
+
+
+    /**
+     * Activa o desactiva una publicación ya aprobada.
+     *
+     * La moderación (visible = 2) se mantiene separada de la disponibilidad
+     * comercial que controla el vecino. Así una publicación puede seguir
+     * aprobada por Soporte y, a la vez, quedar temporalmente fuera del Marketplace.
+     */
+    public function actualizarActividadPublicacionVecino(
+        int $codigoProducto,
+        int $codigoUsuario,
+        bool $activo
+    ): array {
+        if ($codigoProducto <= 0 || $codigoUsuario <= 0) {
+            return [
+                'ok' => false,
+                'error' => 'PUBLICACION_INVALIDA',
+                'mensaje' => 'No se pudo identificar la publicación.'
+            ];
+        }
+
+        try {
+            $this->dblink->beginTransaction();
+
+            $st = $this->dblink->prepare("
+                SELECT
+                    codigo_producto,
+                    tipo_publicacion,
+                    visible,
+                    activo_publicacion,
+                    estado_residencial_publicacion
+                FROM producto
+                WHERE codigo_producto = :codigo_producto
+                  AND codigo_usuario = :codigo_usuario
+                LIMIT 1
+                FOR UPDATE
+            ");
+            $st->bindValue(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
+            $st->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+            $st->execute();
+
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                $this->dblink->rollBack();
+                return [
+                    'ok' => false,
+                    'error' => 'PUBLICACION_NO_ENCONTRADA',
+                    'mensaje' => 'No se encontró la publicación.'
+                ];
+            }
+
+            if ((int)($row['visible'] ?? -1) !== 2) {
+                $this->dblink->rollBack();
+                return [
+                    'ok' => false,
+                    'error' => 'PUBLICACION_NO_APROBADA',
+                    'mensaje' => 'Solo puedes activar o desactivar publicaciones aprobadas.'
+                ];
+            }
+
+            if (
+                $activo &&
+                (string)($row['estado_residencial_publicacion'] ?? '') !== 'activa'
+            ) {
+                $this->dblink->rollBack();
+                return [
+                    'ok' => false,
+                    'error' => 'PUBLICACION_RESIDENCIA_NO_ACTIVA',
+                    'mensaje' => 'Esta publicación no puede activarse porque pertenece a una residencia que ya no está activa.'
+                ];
+            }
+
+            $nuevo = $activo ? 1 : 0;
+            $actual = (int)($row['activo_publicacion'] ?? 1);
+
+            if ($actual !== $nuevo) {
+                $up = $this->dblink->prepare("
+                    UPDATE producto
+                    SET activo_publicacion = :activo_publicacion,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE codigo_producto = :codigo_producto
+                      AND codigo_usuario = :codigo_usuario
+                      AND visible = 2
+                    LIMIT 1
+                ");
+                $up->bindValue(':activo_publicacion', $nuevo, PDO::PARAM_INT);
+                $up->bindValue(':codigo_producto', $codigoProducto, PDO::PARAM_INT);
+                $up->bindValue(':codigo_usuario', $codigoUsuario, PDO::PARAM_INT);
+                $up->execute();
+            }
+
+            $this->dblink->commit();
+
+            return [
+                'ok' => true,
+                'activo_publicacion' => $nuevo,
+                'tipo_publicacion' => $this->normalizarTipoPublicacionPersistida(
+                    $row['tipo_publicacion'] ?? 'producto'
+                ),
+                'mensaje' => $nuevo === 1
+                    ? 'La publicación está activa y disponible según las reglas del Marketplace.'
+                    : 'La publicación quedó inactiva y ya no se mostrará en el Marketplace.'
+            ];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+
+            error_log('[EV][Producto][actualizarActividadPublicacionVecino] ' . $e->getMessage());
+
+            return [
+                'ok' => false,
+                'error' => 'ERROR_ACTUALIZAR_ACTIVIDAD_PUBLICACION',
+                'mensaje' => 'No se pudo actualizar el estado activo de la publicación.'
+            ];
+        }
     }
 
     /* ==========================================================
@@ -800,7 +923,7 @@ class Producto extends Conexion
             FROM producto
             WHERE codigo_usuario = :codigo_usuario
               AND tipo_publicacion = 'servicio'
-              AND visible IN (1, 2)
+              AND (visible = 1 OR (visible = 2 AND COALESCE(activo_publicacion, 1) = 1))
             ORDER BY codigo_producto ASC
             FOR UPDATE
         ";
@@ -826,7 +949,7 @@ class Producto extends Conexion
             FROM producto
             WHERE codigo_usuario = :codigo_usuario
               AND tipo_publicacion = 'servicio'
-              AND visible IN (1, 2)
+              AND (visible = 1 OR (visible = 2 AND COALESCE(activo_publicacion, 1) = 1))
         ";
 
         $stmt = $this->dblink->prepare($sql);
@@ -1777,7 +1900,7 @@ class Producto extends Conexion
 
     public function actualizarVisibleSoporte(int $codigoProducto, int $visibleNuevo): bool
     {
-        $sql = "UPDATE producto SET visible = :v, updated_at = CURRENT_TIMESTAMP WHERE codigo_producto = :p";
+        $sql = "UPDATE producto SET visible = :v, activo_publicacion = CASE WHEN :v = 2 THEN 1 ELSE activo_publicacion END, updated_at = CURRENT_TIMESTAMP WHERE codigo_producto = :p";
         $stmt = $this->dblink->prepare($sql);
         $stmt->bindValue(':v', $visibleNuevo, PDO::PARAM_INT);
         $stmt->bindValue(':p', $codigoProducto, PDO::PARAM_INT);

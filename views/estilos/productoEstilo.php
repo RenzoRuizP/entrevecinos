@@ -1629,7 +1629,7 @@
   }
 }
 
-@media (max-width: 768px){
+@media (max-width: 991.98px){
   .ev-mp-title{
     font-size:1.65rem;
   }
@@ -2401,4 +2401,336 @@
   }
 }
 
+
+
+/* ============================================================
+   EV QA 2026-08 — MIS PUBLICACIONES / ACCIÓN AGREGAR
+   La acción principal vive en la cabecera de la grilla,
+   reemplazando el contador redundante "Mostrando X de Y".
+============================================================ */
+.ev-mp-hero-top{
+  display:block;
+}
+.ev-mp-hero-left{
+  width:100%;
+  min-width:0;
+}
+
+.ev-publicaciones-card-header{
+  align-items:center;
+  flex-wrap:nowrap;
+  gap:12px;
+}
+.ev-publicaciones-header-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  margin-left:auto;
+  flex:0 0 auto;
+}
+#btnAgregarPublicacion{
+  min-width:0;
+  min-height:40px;
+  padding:8px 14px;
+  border-radius:12px;
+  white-space:nowrap;
+  box-shadow:0 10px 20px rgba(234,124,18,.20);
+}
+#btnAgregarPublicacion:hover,
+#btnAgregarPublicacion:focus-visible{
+  transform:translateY(-1px);
+  box-shadow:0 13px 24px rgba(234,124,18,.28);
+}
+#btnAgregarPublicacion:active{
+  transform:translateY(0);
+}
+
+@media(max-width:767.98px){
+  .ev-mp-hero-body{padding:16px 14px 13px;}
+  .ev-mp-title{font-size:clamp(1.55rem,7vw,1.9rem);}
+  .ev-mp-subtitle{font-size:.9rem;line-height:1.45;}
+  .ev-mp-title-icon{width:40px;height:40px;border-radius:14px;}
+
+  .ev-publicaciones-card-header{
+    padding:12px 14px;
+    gap:10px;
+  }
+  #btnAgregarPublicacion{
+    min-height:38px;
+    padding:7px 12px;
+    font-size:.88rem;
+    border-radius:11px;
+  }
+}
+
+@media(max-width:575.98px){
+  .ev-mp-hero-bottom--meta-only{
+    margin-top:9px;
+    justify-content:flex-start;
+  }
+  .ev-publicaciones-card-header .ev-card-title{
+    min-width:0;
+    font-size:1rem;
+  }
+  #btnAgregarPublicacion{
+    padding:7px 11px;
+    font-size:.86rem;
+  }
+}
+
+@media(max-width:359.98px){
+  .ev-publicaciones-card-header{padding-inline:11px;}
+  #btnAgregarPublicacion{
+    padding-inline:9px;
+    font-size:.82rem;
+  }
+}
+
+
+/* ============================================================
+   EV — SWITCH ACTIVO / INACTIVO DE PUBLICACIÓN APROBADA
+   ============================================================ */
+.ev-publicacion-activity-switch{
+  appearance:none;
+  border:1px solid rgba(148,163,184,.30);
+  background:#fff;
+  color:#475569;
+  min-height:36px;
+  padding:5px 9px 5px 7px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  font-family:inherit;
+  font-size:.79rem;
+  font-weight:900;
+  line-height:1;
+  cursor:pointer;
+  box-shadow:0 8px 18px rgba(15,23,42,.055);
+  transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease,color .16s ease;
+  white-space:nowrap;
+}
+
+.ev-publicacion-activity-switch:hover,
+.ev-publicacion-activity-switch:focus-visible{
+  transform:translateY(-1px);
+  outline:none;
+  border-color:rgba(234,124,18,.42);
+  box-shadow:0 13px 24px rgba(234,124,18,.11);
+}
+
+.ev-publicacion-activity-track{
+  position:relative;
+  width:38px;
+  height:22px;
+  flex:0 0 38px;
+  border-radius:999px;
+  background:linear-gradient(135deg,#E5E7EB 0%,#CBD5E1 100%);
+  box-shadow:inset 0 1px 3px rgba(15,23,42,.12);
+  transition:background .18s ease,box-shadow .18s ease;
+}
+
+.ev-publicacion-activity-knob{
+  position:absolute;
+  top:3px;
+  left:3px;
+  width:16px;
+  height:16px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 2px 7px rgba(15,23,42,.24);
+  transition:transform .18s ease;
+}
+
+.ev-publicacion-activity-switch.is-active{
+  color:#0F592F;
+  border-color:rgba(22,163,74,.24);
+  background:linear-gradient(180deg,rgba(236,253,243,.96) 0%,#fff 100%);
+}
+
+.ev-publicacion-activity-switch.is-active .ev-publicacion-activity-track{
+  background:linear-gradient(135deg,#16A34A 0%,#0E7A43 100%);
+  box-shadow:inset 0 1px 2px rgba(15,89,47,.18),0 0 0 3px rgba(22,163,74,.06);
+}
+
+.ev-publicacion-activity-switch.is-active .ev-publicacion-activity-knob{
+  transform:translateX(16px);
+}
+
+.ev-publicacion-activity-switch.is-inactive{
+  color:#64748B;
+  background:linear-gradient(180deg,#F8FAFC 0%,#fff 100%);
+}
+
+.ev-publicacion-activity-switch:disabled{
+  opacity:.58;
+  cursor:not-allowed;
+  transform:none;
+  box-shadow:none;
+}
+
+.ev-publicacion-activity-switch[aria-busy="true"]{
+  pointer-events:none;
+  opacity:.72;
+}
+
+@media (max-width:768px){
+  #tablaPublicaciones .ev-actions{
+    flex-wrap:wrap !important;
+    justify-content:flex-end !important;
+  }
+  #tablaPublicaciones .ev-publicacion-activity-switch{
+    min-width:116px;
+  }
+}
+
+@media (max-width:575.98px){
+  #tablaPublicaciones .ev-publicacion-activity-switch{
+    width:100%;
+    min-width:0;
+    justify-content:space-between;
+    min-height:42px;
+    padding:7px 12px;
+  }
+}
+
+
+/* ============================================================
+   EV — TABLA/CARDS DE PUBLICACIONES SIN DESBORDES
+   Escritorio: ancho estable y scroll horizontal solo si el viewport lo exige.
+   Tablet/móvil: cards fluidos, textos y acciones dentro de su propia área.
+============================================================ */
+@media (min-width:769px){
+  .ev-table-frame .table-responsive{
+    overflow-x:auto;
+    overflow-y:visible;
+    scrollbar-gutter:stable;
+  }
+
+  #tablaPublicaciones{
+    width:100%;
+    min-width:1500px;
+    table-layout:fixed;
+  }
+
+  #tablaPublicaciones .ev-col-codigo{width:86px;}
+  #tablaPublicaciones .ev-col-publicacion{width:118px;}
+  #tablaPublicaciones .ev-col-titulo{width:190px;}
+  #tablaPublicaciones .ev-col-precio{width:104px;}
+  #tablaPublicaciones .ev-col-tipo{width:120px;}
+  #tablaPublicaciones .ev-col-categoria{width:150px;}
+  #tablaPublicaciones .ev-col-desc{width:205px;}
+  #tablaPublicaciones .ev-col-mensaje{width:220px;}
+  #tablaPublicaciones .ev-col-estado-publicacion{width:150px;}
+  #tablaPublicaciones .ev-col-acciones{width:257px;}
+
+  #tablaPublicaciones tbody td{
+    min-width:0;
+    max-width:100%;
+    overflow:hidden;
+    box-sizing:border-box;
+  }
+
+  #tablaPublicaciones tbody td[data-label="Título"],
+  #tablaPublicaciones tbody td[data-label="Categoría"],
+  #tablaPublicaciones tbody td[data-label="Descripción"]{
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  #tablaPublicaciones tbody td[data-label="Estado de publicación"]{
+    overflow:visible;
+  }
+
+  #tablaPublicaciones tbody td[data-label="Acciones"]{
+    overflow:hidden;
+    padding-inline:10px !important;
+  }
+
+  #tablaPublicaciones .ev-actions{
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    display:flex;
+    flex-wrap:wrap !important;
+    justify-content:center !important;
+    align-items:center;
+    gap:7px;
+  }
+
+  #tablaPublicaciones .ev-actions > *{
+    max-width:100%;
+    box-sizing:border-box;
+  }
+
+  #tablaPublicaciones .ev-publicacion-activity-switch{
+    flex:0 1 auto;
+  }
+}
+
+@media (max-width:991.98px){
+  #tablaPublicaciones{
+    min-width:0 !important;
+    width:100% !important;
+  }
+
+  #tablaPublicaciones tbody tr{
+    width:calc(100% - 20px);
+    max-width:calc(100% - 20px);
+    box-sizing:border-box;
+  }
+
+  #tablaPublicaciones tbody td{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:100% !important;
+    overflow:hidden !important;
+    overflow-wrap:anywhere;
+    word-break:break-word;
+    box-sizing:border-box;
+  }
+
+  #tablaPublicaciones tbody td[data-label="Título"],
+  #tablaPublicaciones tbody td[data-label="Categoría"],
+  #tablaPublicaciones tbody td[data-label="Descripción"]{
+    white-space:normal !important;
+    overflow-wrap:anywhere;
+    word-break:break-word;
+  }
+
+  #tablaPublicaciones .ev-actions{
+    width:100%;
+    min-width:0;
+    max-width:100%;
+    align-items:stretch !important;
+    justify-content:flex-start !important;
+  }
+
+  #tablaPublicaciones .ev-actions > *{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:100% !important;
+    margin-inline:0 !important;
+  }
+}
+
+/* Destino exacto desde una notificación */
+#tablaPublicaciones tbody tr.is-notification-target td{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF7ED 100%) !important;
+}
+#tablaPublicaciones tbody tr.is-notification-target{
+  outline:3px solid rgba(234,124,18,.42);
+  outline-offset:-3px;
+  box-shadow:0 0 0 4px rgba(234,124,18,.10),0 18px 36px rgba(234,124,18,.14);
+  animation:evPublicationTargetPulse 1.15s ease-in-out 2;
+}
+@keyframes evPublicationTargetPulse{
+  0%,100%{box-shadow:0 0 0 4px rgba(234,124,18,.10),0 18px 36px rgba(234,124,18,.14);}
+  50%{box-shadow:0 0 0 7px rgba(234,124,18,.07),0 20px 40px rgba(234,124,18,.20);}
+}
+@media(prefers-reduced-motion:reduce){
+  #tablaPublicaciones tbody tr.is-notification-target{animation:none;}
+}
 </style>

@@ -280,7 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
       text: 'Tu disponibilidad para recibir pedidos se apagará automáticamente.',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: 'Sí, salir',
+      confirmButtonText: 'Aceptar',
       cancelButtonText: 'Cancelar',
       confirmButtonColor: '#BF3604',
       cancelButtonColor: '#6c757d',

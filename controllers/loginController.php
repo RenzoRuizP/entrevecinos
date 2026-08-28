@@ -98,7 +98,10 @@ try {
         // Login OK
         case "SI":
             // Cookie JWT segura y coherente con el sistema
-            $expSeconds = (int)ev_env('JWT_EXPIRATION_SECONDS', 3600);
+            $expSeconds = (int)ev_env('JWT_EXPIRATION_SECONDS', 7200);
+            if ($expSeconds <= 0) {
+                $expSeconds = 7200;
+            }
 
             setcookie("auth_token", $resultado['token'], [
                 'expires'  => time() + $expSeconds,

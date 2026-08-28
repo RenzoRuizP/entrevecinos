@@ -188,9 +188,9 @@ class AuthController
                         $this->desactivarDisponibilidadPedidos($codigoUsuario, 'login');
                     }
 
-                    $expiraEn = (int)ev_env('JWT_EXPIRATION_SECONDS', 3600);
+                    $expiraEn = (int)ev_env('JWT_EXPIRATION_SECONDS', 7200);
                     if ($expiraEn <= 0) {
-                        $expiraEn = 3600;
+                        $expiraEn = 7200;
                     }
 
                     setcookie('auth_token', $token, $this->cookieOptions(time() + $expiraEn));

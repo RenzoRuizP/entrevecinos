@@ -901,9 +901,6 @@ CREATE TABLE pedido (
 
   direccion_entrega TEXT NOT NULL,
   mensaje_comprador TEXT DEFAULT NULL,
-
-  posicion_cola INT(11) DEFAULT NULL,
-
   motivo_estado VARCHAR(255) DEFAULT NULL,
 
   requiere_preparacion TINYINT(1) NOT NULL DEFAULT 0,
@@ -1029,10 +1026,6 @@ Solicitud rechazada
 Solicitud cancelada por el comprador
 
 Solicitud sin respuesta del vendedor
-
-Solicitud en cola aceptada por el comprador
-
-Solicitud en cola cancelada por el comprador
 
 Fase pedido
 

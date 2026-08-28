@@ -33,7 +33,7 @@
 
   function swalWarn(title, text) {
     if (!safeSwal()) { alert(`${title}\n\n${text}`); return; }
-    Swal.fire({ icon: "warning", title, text, confirmButtonColor: "#115C41" });
+    Swal.fire({ icon: "warning", title, text, confirmButtonText: "Aceptar", confirmButtonColor: "#EA7C12", allowOutsideClick: false });
   }
 
   function swalErr(text) {
@@ -57,7 +57,7 @@
 
   function swalInfo(title, text) {
     if (!safeSwal()) { alert(`${title}\n\n${text}`); return; }
-    Swal.fire({ icon: "info", title, text, confirmButtonColor: "#115C41" });
+    Swal.fire({ icon: "info", title, text, confirmButtonText: "Aceptar", confirmButtonColor: "#EA7C12", allowOutsideClick: false });
   }
 
   async function fetchJSON(url, opts = {}) {

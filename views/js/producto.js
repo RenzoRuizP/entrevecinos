@@ -4,6 +4,7 @@
   'use strict';
 
   const EV_API_BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/$/, '');
+  const NOTIF_PUBLICATION_TARGET_KEY = 'ev_notificacion_publicacion_destino';
 
   window.evProductosCache  = window.evProductosCache  || [];
   window.evProductosFiltro = window.evProductosFiltro || {
@@ -120,6 +121,83 @@
     return window.confirm(`${title}\n\n${text}`);
   }
 
+
+  async function cambiarActividadPublicacion(id, activoDeseado, btn = null) {
+    const codigo = Number(id || 0);
+    if (!codigo) return;
+
+    const activar = Boolean(activoDeseado);
+    const accion = activar ? 'activar' : 'desactivar';
+
+    const confirmado = await evConfirm({
+      icon: 'question',
+      title: activar ? 'Activar publicación' : 'Desactivar publicación',
+      text: activar
+        ? 'La publicación volverá a mostrarse en el Marketplace cuando también se cumplan las demás reglas de disponibilidad de EV.'
+        : 'La publicación seguirá aprobada, pero dejará de mostrarse temporalmente en el Marketplace.',
+      confirmText: activar ? 'Activar' : 'Desactivar',
+      cancelText: 'Volver',
+      confirmBtnClass: activar ? 'btn btn-success me-2' : 'btn btn-warning me-2'
+    });
+
+    if (!confirmado) return;
+
+    if (btn) {
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+    }
+
+    try {
+      const fd = new FormData();
+      fd.append('activo', activar ? '1' : '0');
+
+      const resp = await fetch(`${EV_API_BASE}/api/producto/${codigo}/actividad`, {
+        method: 'POST',
+        body: fd,
+        credentials: 'include',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+
+      const data = await resp.json().catch(() => ({}));
+
+      if (await evHandleAuthResponse(resp, data)) return;
+
+      if (!resp.ok || data?.ok === false) {
+        evNotify(
+          'warning',
+          activar ? 'No se pudo activar' : 'No se pudo desactivar',
+          data?.mensaje || `No se pudo ${accion} la publicación.`
+        );
+        return;
+      }
+
+      actualizarResumenServiciosPiloto(data?.servicios_piloto || evServiciosPiloto);
+
+      evNotify(
+        'success',
+        activar ? 'Publicación activa' : 'Publicación inactiva',
+        data?.mensaje || (activar
+          ? 'La publicación está activa.'
+          : 'La publicación quedó temporalmente inactiva.')
+      );
+
+      await window.evCargarProductos?.();
+    } catch (error) {
+      console.error('[EV][Publicaciones][actividad]', error);
+      evNotify(
+        'error',
+        'No se pudo actualizar',
+        'Ocurrió un problema al cambiar el estado activo de la publicación.'
+      );
+    } finally {
+      if (btn && btn.isConnected) {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+      }
+    }
+  }
+
+
   const EV_SERVICIOS_PILOTO_MAX = 5;
   let evServiciosPiloto = {
     maximo: EV_SERVICIOS_PILOTO_MAX,
@@ -147,7 +225,7 @@
     const info = normalizarResumenServiciosPiloto(resumen);
 
     if (info.alcanzado) {
-      return `Tienes ${info.activos} de ${info.maximo} cupos activos. Puedes guardar borradores, pero anula un servicio para liberar un cupo antes de enviarlo a revisión.`;
+      return `Tienes ${info.activos} de ${info.maximo} cupos activos. Puedes guardar borradores, pero desactiva o anula un servicio aprobado para liberar un cupo antes de enviar otro a revisión.`;
     }
 
     return `${info.activos} de ${info.maximo} cupos activos en uso · ${info.disponibles} ${info.disponibles === 1 ? 'cupo disponible' : 'cupos disponibles'}.`;
@@ -195,7 +273,7 @@
     evNotify(
       'info',
       'Límite de servicios alcanzado',
-      `Ya tienes ${info.activos} de ${info.maximo} servicios activos o en revisión. Anula uno de ellos para liberar un cupo y luego podrás enviar este servicio a revisión.`
+      `Ya tienes ${info.activos} de ${info.maximo} servicios activos o en revisión. Desactiva o anula uno de tus servicios aprobados para liberar un cupo y luego podrás enviar este servicio a revisión.`
     );
   }
 
@@ -1580,7 +1658,7 @@
       text: esServicio
         ? `Este servicio se enviará a revisión sin costo durante el piloto. ${textoCuposServiciosPiloto(resumen)} Aún no se mostrará en el marketplace hasta que soporte lo apruebe.`
         : 'Al enviar a revisión, tu publicación quedará en estado Pendiente hasta que soporte la apruebe. Aún no se mostrará en el marketplace.',
-      confirmText: esServicio ? 'Sí, enviar servicio' : 'Sí, enviar',
+      confirmText: 'Aceptar',
       cancelText: 'Cancelar',
       confirmBtnClass: esServicio ? 'btn btn-success me-2' : 'btn btn-success me-2'
     });
@@ -2117,6 +2195,44 @@
     return arr;
   }
 
+  function leerPublicacionDestinoNotificacion() {
+    try {
+      const raw = sessionStorage.getItem(NOTIF_PUBLICATION_TARGET_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      const codigoProducto = Number(data?.codigo_producto || 0);
+      const ruta = String(data?.ruta || '/publicacion').trim();
+      const createdAt = Number(data?.created_at || 0);
+      const age = Date.now() - createdAt;
+      if (codigoProducto <= 0 || ruta !== '/publicacion' || age < 0 || age > 5 * 60 * 1000) {
+        if (ruta === '/publicacion' || age < 0 || age > 5 * 60 * 1000) {
+          sessionStorage.removeItem(NOTIF_PUBLICATION_TARGET_KEY);
+        }
+        return null;
+      }
+      return { codigo_producto: codigoProducto };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function enfocarPublicacionDestinoNotificacion() {
+    const pending = leerPublicacionDestinoNotificacion();
+    if (!pending) return false;
+    const row = document.querySelector(`#tablaPublicaciones tbody tr[data-publicacion-id="${Number(pending.codigo_producto)}"]`);
+    if (!row) return false;
+
+    sessionStorage.removeItem(NOTIF_PUBLICATION_TARGET_KEY);
+    row.classList.add('is-notification-target');
+    row.setAttribute('tabindex', '-1');
+    window.requestAnimationFrame(() => {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      try { row.focus({ preventScroll: true }); } catch (_) {}
+    });
+    window.setTimeout(() => row.classList.remove('is-notification-target'), 5200);
+    return true;
+  }
+
   async function cargarProductos() {
     const table = document.getElementById('tablaPublicaciones');
     const tbody = table?.querySelector('tbody');
@@ -2138,12 +2254,22 @@
       const items = Array.isArray(data.data) ? data.data : [];
       window.evProductosCache = items.slice();
 
+      const destinoNotificacion = leerPublicacionDestinoNotificacion();
+      if (
+        destinoNotificacion
+        && items.some((item) => Number(item?.codigo_producto || 0) === Number(destinoNotificacion.codigo_producto || 0))
+      ) {
+        resetFiltrosUI();
+      }
+
       const resumenServiciosFallback = {
         maximo: EV_SERVICIOS_PILOTO_MAX,
-        activos: items.filter((item) => (
-          getTipoPublicacionItem(item) === 'servicio'
-          && [1, 2].includes(Number(item?.visible ?? -1))
-        )).length
+        activos: items.filter((item) => {
+          if (getTipoPublicacionItem(item) !== 'servicio') return false;
+          const visibleItem = Number(item?.visible ?? -1);
+          return visibleItem === 1
+            || (visibleItem === 2 && Number(item?.activo_publicacion ?? 1) === 1);
+        }).length
       };
       actualizarResumenServiciosPiloto(data?.servicios_piloto || resumenServiciosFallback);
 
@@ -2162,9 +2288,7 @@
       const filtrados = ordenarItems(filtrarItems(items).filter(evMatchTab));
 
       const lblMeta = document.getElementById('evLblMeta');
-      const lblFooterLeft = document.getElementById('evLblFooterLeft');
       if (lblMeta) lblMeta.textContent = `Mostrando ${filtrados.length} registros`;
-      if (lblFooterLeft) lblFooterLeft.textContent = `Mostrando ${filtrados.length} de ${items.length}`;
 
       if (!items.length) {
         tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted">Aún no tienes publicaciones registradas.</td></tr>`;
@@ -2230,11 +2354,34 @@
         const isAprobado  = (visible === 2);
         const isAnulado   = (visible === 4);
         const isRechazado = (visible === 3);
+        const activoPublicacion = Number(p?.activo_publicacion ?? 1) === 1;
+        const residenciaPublicacionActiva = String(p?.estado_residencial_publicacion || 'activa') === 'activa';
+
+        const switchActividadHtml = isAprobado
+          ? `
+              <button
+                type="button"
+                class="ev-publicacion-activity-switch ${activoPublicacion ? 'is-active' : 'is-inactive'}"
+                data-action="toggle-activo"
+                data-id="${id}"
+                data-activo="${activoPublicacion ? '1' : '0'}"
+                aria-pressed="${activoPublicacion ? 'true' : 'false'}"
+                title="${residenciaPublicacionActiva
+                  ? (activoPublicacion ? 'Desactivar temporalmente la publicación' : 'Activar la publicación')
+                  : 'La publicación está bloqueada por la residencia asociada'}"
+                ${residenciaPublicacionActiva ? '' : 'disabled'}>
+                <span class="ev-publicacion-activity-track" aria-hidden="true">
+                  <span class="ev-publicacion-activity-knob"></span>
+                </span>
+                <span class="ev-publicacion-activity-label">${activoPublicacion ? 'Activo' : 'Inactivo'}</span>
+              </button>
+            `
+          : '';
 
         const trStyle = isAnulado ? 'style="opacity:.62;filter:saturate(.85);"' : '';
 
         return `
-          <tr ${trStyle}>
+          <tr data-publicacion-id="${id}" ${trStyle}>
             <td data-label="Código" class="text-center"><span class="ev-code">${cod}</span></td>
             <td data-label="Publicación" class="text-center"><span class="${tipoPublicacionCls}">${tipoPublicacionTxt}</span></td>
             <td data-label="Título" class="td-trunc text-center" title="${titulo}">${titulo || '-'}</td>
@@ -2253,6 +2400,7 @@
                     ? ''
                     : isAprobado
                       ? `
+                          ${switchActividadHtml}
                           <button type="button" class="ev-chip ev-chip-red" data-action="anular" data-id="${id}" ${disableAnular}>Anular</button>
                         `
                       : isRechazado
@@ -2268,6 +2416,8 @@
           </tr>
         `;
       }).join('');
+
+      window.setTimeout(enfocarPublicacionDestinoNotificacion, 90);
 
     } catch (err) {
       console.error(err);
@@ -2317,6 +2467,17 @@
       if (e.target.closest('#btnBuscarPublicacion')) {
         const m = evGetStaticModal('modalBuscarPublicacion');
         m?.show();
+        return;
+      }
+
+      const btnActividad = e.target.closest('[data-action="toggle-activo"][data-id]');
+      if (btnActividad && !btnActividad.disabled) {
+        const activoActual = Number(btnActividad.getAttribute('data-activo') || 0) === 1;
+        cambiarActividadPublicacion(
+          btnActividad.getAttribute('data-id'),
+          !activoActual,
+          btnActividad
+        );
         return;
       }
 

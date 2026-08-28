@@ -65,6 +65,81 @@
 .ev-notificaciones-spinner{width:28px;height:28px;border:4px solid rgba(22,163,74,.16);border-top-color:var(--ev-notif-verde-900);border-radius:50%;animation:evNotifCentroSpin .78s linear infinite}@keyframes evNotifCentroSpin{to{transform:rotate(360deg)}}
 .ev-notificaciones-footer{padding:14px 18px;border-top:1px solid #EEF2F7;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;color:#64748B;font-size:.84rem;font-weight:800}.ev-notificaciones-pager{display:flex;align-items:center;gap:10px}.ev-notificaciones-btn-page{width:40px;height:40px;padding:0;display:grid;place-items:center;background:#fff;border:1px solid #E5E7EB;color:var(--ev-notif-verde-900)}.ev-notificaciones-btn-page:hover{background:var(--ev-notif-verde-050)}.ev-notificaciones-btn-page:disabled{opacity:.45;cursor:not-allowed}
 
-@media(max-width:991.98px){.ev-notificaciones-summary-grid{width:100%;flex:1 1 100%}.ev-notificaciones-item{grid-template-columns:48px minmax(0,1fr)}.ev-notificaciones-row-actions{grid-column:1/-1;justify-content:stretch}.ev-notificaciones-open,.ev-notificaciones-read{flex:1 1 160px}}
-@media(max-width:767.98px){.ev-notificaciones-page{padding:10px 10px 22px}.ev-notificaciones-hero-content,.ev-notificaciones-panel-head,.ev-notificaciones-body{padding:14px}.ev-notificaciones-title{font-size:1.72rem}.ev-notificaciones-title-wrap{gap:11px}.ev-notificaciones-title-icon{width:48px;height:48px;border-radius:16px}.ev-notificaciones-summary-grid{grid-template-columns:1fr}.ev-notificaciones-actions{width:100%;align-items:stretch}.ev-notificaciones-actions .btn{width:100%}.ev-notificaciones-toolbar{padding:13px 14px;display:grid;grid-template-columns:1fr;gap:11px}.ev-notificaciones-field,.ev-notificaciones-field-small{min-width:0}.ev-notificaciones-item{grid-template-columns:1fr;gap:10px}.ev-notificaciones-icon{width:46px;height:46px}.ev-notificaciones-top{flex-direction:column;align-items:flex-start}.ev-notificaciones-row-actions{flex-direction:column}.ev-notificaciones-open,.ev-notificaciones-read{width:100%}.ev-notificaciones-footer{flex-direction:column;align-items:stretch;text-align:center}.ev-notificaciones-pager{justify-content:center}}
+@media(max-width:991.98px){.ev-notificaciones-summary-grid{width:100%;flex:1 1 100%}.ev-notificaciones-item{grid-template-columns:48px minmax(0,1fr)}.ev-notificaciones-row-actions{grid-column:1/-1;justify-content:flex-end}.ev-notificaciones-open,.ev-notificaciones-read{flex:0 1 auto}}
+@media(max-width:767.98px){.ev-notificaciones-page{padding:10px 10px 22px}.ev-notificaciones-hero-content,.ev-notificaciones-panel-head,.ev-notificaciones-body{padding:14px}.ev-notificaciones-title{font-size:1.72rem}.ev-notificaciones-title-wrap{gap:11px}.ev-notificaciones-title-icon{width:48px;height:48px;border-radius:16px}.ev-notificaciones-summary-grid{grid-template-columns:1fr}.ev-notificaciones-actions{width:100%;align-items:stretch}.ev-notificaciones-actions .btn{width:100%}.ev-notificaciones-toolbar{padding:13px 14px;display:grid;grid-template-columns:1fr;gap:11px}.ev-notificaciones-field,.ev-notificaciones-field-small{min-width:0}.ev-notificaciones-item{grid-template-columns:46px minmax(0,1fr);gap:10px;padding:12px}.ev-notificaciones-icon{width:42px;height:42px;border-radius:14px}.ev-notificaciones-top{flex-direction:column;align-items:flex-start}.ev-notificaciones-row-actions{grid-column:1/-1;display:flex;flex-direction:row;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}.ev-notificaciones-open,.ev-notificaciones-read{width:auto;min-height:38px;padding:.5rem .72rem;font-size:.78rem;flex:0 0 auto}.ev-notificaciones-footer{flex-direction:column;align-items:stretch;text-align:center}.ev-notificaciones-pager{justify-content:center}}
+
+@media(max-width:420px){
+  .ev-notificaciones-row-actions{justify-content:stretch;}
+  .ev-notificaciones-open,.ev-notificaciones-read{
+    flex:1 1 calc(50% - 4px);
+    width:auto;
+    min-height:38px;
+    padding:.48rem .58rem;
+    white-space:nowrap;
+  }
+}
+
+
+/* ==========================================================
+   EV QA 2026-08-24 — INTERACCIÓN PREMIUM CENTRO NOTIFICACIONES
+   - "Abrir" usa el anaranjado EV.
+   - Cards interactivos responden con hover/focus anaranjado EV.
+========================================================== */
+.ev-notificaciones-open{
+  background:linear-gradient(135deg,var(--ev-notif-naranja),#F59E0B);
+  color:#fff;
+  border:1px solid transparent;
+  box-shadow:0 10px 20px rgba(234,124,18,.18);
+  transition:transform .16s ease, box-shadow .16s ease, filter .16s ease, background .16s ease;
+}
+
+.ev-notificaciones-open:hover,
+.ev-notificaciones-open:focus-visible{
+  background:linear-gradient(135deg,#C46B05,var(--ev-notif-naranja));
+  color:#fff;
+  filter:none;
+  transform:translateY(-1px);
+  box-shadow:0 14px 28px rgba(234,124,18,.28);
+}
+
+.ev-notificaciones-open:active{
+  background:linear-gradient(135deg,#B85F03,#C46B05);
+  color:#fff;
+  transform:translateY(0) scale(.985);
+  box-shadow:0 8px 18px rgba(234,124,18,.22);
+}
+
+.ev-notificaciones-item:hover,
+.ev-notificaciones-item:focus-within{
+  transform:translateY(-2px);
+  border-color:rgba(234,124,18,.50);
+  background:linear-gradient(90deg,#FFF7ED 0%,#FFFFFF 42%);
+  box-shadow:
+    0 18px 38px rgba(234,124,18,.12),
+    0 9px 22px rgba(15,23,42,.055);
+}
+
+.ev-notificaciones-item:hover::before,
+.ev-notificaciones-item:focus-within::before{
+  background:linear-gradient(180deg,#EA7C12,#F59E0B);
+  opacity:1;
+}
+
+.ev-notificaciones-item:active{
+  transform:translateY(0) scale(.998);
+}
+
+@media (hover:none){
+  .ev-notificaciones-item:hover{
+    transform:none;
+  }
+
+  .ev-notificaciones-item:focus-within,
+  .ev-notificaciones-item:active{
+    border-color:rgba(234,124,18,.46);
+    background:linear-gradient(90deg,#FFF7ED 0%,#FFFFFF 46%);
+    box-shadow:0 12px 26px rgba(234,124,18,.10);
+  }
+}
+
 </style>

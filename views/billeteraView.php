@@ -174,19 +174,15 @@ require_once __DIR__ . '/../Config/config.php';
           <div class="row g-3 align-items-start">
 
             <div class="col-lg-7">
-              <div class="row g-3">
+              <div class="row g-3 ev-wallet-recarga-form-grid">
 
-                <div class="col-12">
-                  <label class="form-label">Comprobante o recibo</label>
-                  <input
-                    type="file"
-                    class="form-control"
-                    id="recarga_imagen"
-                    name="recarga_imagen"
-                    accept="image/*">
-                  <div class="form-text" id="recarga_imagen_help">
-                    Sube una foto clara del voucher o comprobante de la recarga.
-                  </div>
+                <div class="col-md-6">
+                  <label class="form-label">Tipo de billetera</label>
+                  <select class="form-select" id="recarga_tipo" name="recarga_tipo">
+                    <option value="">-</option>
+                    <option value="yape">Yape</option>
+                    <option value="plin">Plin</option>
+                  </select>
                 </div>
 
                 <div class="col-md-6">
@@ -201,15 +197,6 @@ require_once __DIR__ . '/../Config/config.php';
                     placeholder="Ej. 10.00">
                 </div>
 
-                <div class="col-md-6">
-                  <label class="form-label">Tipo de billetera</label>
-                  <select class="form-select" id="recarga_tipo" name="recarga_tipo">
-                    <option value="">-</option>
-                    <option value="yape">Yape</option>
-                    <option value="plin">Plin</option>
-                  </select>
-                </div>
-
                 <div class="col-12">
                   <label class="form-label">ID de operación</label>
                   <input
@@ -220,6 +207,19 @@ require_once __DIR__ . '/../Config/config.php';
                     placeholder="Ej. AJ5075653">
                   <div class="form-text">
                     Ingresa el código/ID que te da Yape o Plin. Debe ser exactamente el mismo del comprobante.
+                  </div>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label">Comprobante o recibo</label>
+                  <input
+                    type="file"
+                    class="form-control"
+                    id="recarga_imagen"
+                    name="recarga_imagen"
+                    accept="image/*">
+                  <div class="form-text" id="recarga_imagen_help">
+                    Sube una foto clara del voucher o comprobante de la recarga.
                   </div>
                 </div>
 
@@ -252,11 +252,11 @@ require_once __DIR__ . '/../Config/config.php';
           type="button"
           class="btn ev-btn-modal-outline"
           data-bs-dismiss="modal">
-          <i class="bi bi-x-circle me-1"></i> Cerrar
+          Cancelar
         </button>
 
         <button type="button" class="btn ev-btn-modal-primary" id="btnEnviarRecarga">
-          <i class="bi bi-check-circle-fill me-1"></i> Guardar
+          Guardar
         </button>
       </div>
 

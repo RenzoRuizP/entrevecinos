@@ -28,7 +28,22 @@ class Pedido extends Conexion
     private function pedidoFueAceptado(array $pedido): bool
     {
         $fechaAceptacion = trim((string)($pedido['fecha_aceptacion'] ?? ''));
-        return (string)($pedido['fase'] ?? '') === 'pedido' || $fechaAceptacion !== '';
+        if ($fechaAceptacion !== '') {
+            return true;
+        }
+
+        // No toda fila en fase "pedido" fue aceptada: rechazo, timeout y una
+        // cancelación durante la espera también cierran la solicitud en esa fase.
+        return in_array((string)($pedido['estado_actual'] ?? ''), [
+            'en_preparacion',
+            'despachando',
+            'listo_para_entrega',
+            'en_camino',
+            'en_punto_entrega',
+            'entregado_vendedor',
+            'entrega_confirmada_comprador',
+            'cancelado_vendedor'
+        ], true);
     }
 
     private function baseComisionPedido(array $pedido): float
@@ -106,26 +121,6 @@ class Pedido extends Conexion
         } catch (Throwable $e) {
             error_log('[EV][Pedido][obtenerPorcentajeComisionProducto] ' . $e->getMessage());
             return self::COMISION_EV_PORCENTAJE_FALLBACK;
-        }
-    }
-
-    private function debitoBilleteraPreparadoHabilitado(int $codigoUsuarioComprador, int $codigoProducto, array $producto): bool
-    {
-        try {
-            $regla = $this->obtenerReglaMonetizacionProducto(
-                ConfiguracionPlataforma::MON_DESCUENTO_BILLETERA_PEDIDO,
-                $codigoProducto,
-                $producto
-            );
-            if (!(bool)($regla['valor_booleano'] ?? false)) {
-                return false;
-            }
-
-            $estadoBilletera = (new ConfiguracionPlataforma())->obtenerEstadoBilleteraUsuario($codigoUsuarioComprador);
-            return (bool)($estadoBilletera['billetera_disponible'] ?? false);
-        } catch (Throwable $e) {
-            error_log('[EV][Pedido][debitoBilleteraPreparadoHabilitado] ' . $e->getMessage());
-            return false;
         }
     }
 
@@ -374,8 +369,6 @@ class Pedido extends Conexion
     {
         return match ($estado) {
             'pendiente_vendedor' => 'Pendiente de atención',
-            'cola_pendiente_confirmacion' => 'Pendiente de confirmación de cola',
-            'cola_aceptada' => 'En cola',
             'en_preparacion' => 'En preparación',
             'despachando' => 'Despachando',
             'listo_para_entrega' => 'Listo para entrega',
@@ -394,6 +387,11 @@ class Pedido extends Conexion
     private function mensajeEstadoCompradorEV(string $estado, array $pedido): string
     {
         $titulo = trim((string)($pedido['titulo_producto'] ?? 'tu pedido'));
+        $montoDebitado = round((float)($pedido['monto_descontado_billetera'] ?? 0), 2);
+        $devolucionAplicada = (int)($pedido['devolucion_billetera_aplicada'] ?? 0) === 1;
+        $notaDevolucion = $montoDebitado > 0 && $devolucionAplicada
+            ? ' EV devolvió S/ ' . number_format($montoDebitado, 2, '.', '') . ' a tu billetera.'
+            : '';
 
         return match ($estado) {
             'en_preparacion' => "El vendedor aceptó tu pedido de {$titulo} y ya está en preparación.",
@@ -402,9 +400,9 @@ class Pedido extends Conexion
             'en_camino' => "Tu pedido de {$titulo} ya va en camino.",
             'en_punto_entrega' => "Tu pedido de {$titulo} llegó al punto de recojo. Recuerda que tienes 6 minutos para recibirlo.",
             'entregado_vendedor' => "El vendedor marcó tu pedido de {$titulo} como entregado. Confirma la recepción cuando corresponda.",
-            'cancelado_vendedor' => (string)($pedido['motivo_estado'] ?? 'El vendedor canceló el pedido.'),
-            'rechazado_vendedor' => (string)($pedido['motivo_estado'] ?? 'El vendedor rechazó tu solicitud.'),
-            'sin_respuesta_vendedor' => 'El vendedor no respondió dentro del tiempo esperado.',
+            'cancelado_vendedor' => (string)($pedido['motivo_estado'] ?? 'El vendedor canceló el pedido.') . $notaDevolucion,
+            'rechazado_vendedor' => (string)($pedido['motivo_estado'] ?? 'El vendedor rechazó tu solicitud.') . $notaDevolucion,
+            'sin_respuesta_vendedor' => 'El vendedor no respondió dentro del tiempo esperado.' . $notaDevolucion,
             default => (string)($pedido['motivo_estado'] ?? 'Tu pedido cambió de estado.'),
         };
     }
@@ -532,6 +530,39 @@ class Pedido extends Conexion
             && $this->segundosRecojoRestantes($pedido) <= 0;
     }
 
+    private function puedeVendedorCancelarPedido(array $pedido): bool
+    {
+        if ((string)($pedido['fase'] ?? '') !== 'pedido') {
+            return false;
+        }
+
+        return in_array(
+            (string)($pedido['estado_actual'] ?? ''),
+            [
+                'en_preparacion',
+                'despachando',
+                'listo_para_entrega',
+                'en_camino',
+                'en_punto_entrega',
+            ],
+            true
+        );
+    }
+
+    private function motivoCancelacionAtribuibleComprador(string $clave): bool
+    {
+        return in_array(
+            trim($clave),
+            [
+                'comprador_no_se_presento',
+                'comprador_no_responde',
+                'comprador_rechazo_recepcion',
+                'no_se_pudo_concretar',
+            ],
+            true
+        );
+    }
+
 
     private function asegurarVentanaRecojoSiFalta(array $pedido): array
     {
@@ -578,12 +609,17 @@ class Pedido extends Conexion
     private function motivoCancelacionVendedorTexto(string $clave, string $detalle = ''): string
     {
         $base = match ($clave) {
+            'sin_stock' => 'El vendedor canceló el pedido porque ya no cuenta con disponibilidad del producto.',
+            'no_puede_preparar' => 'El vendedor canceló el pedido porque no puede completar la preparación.',
+            'problema_entrega' => 'El vendedor canceló el pedido por un inconveniente para realizar la entrega.',
+            'error_publicacion' => 'El vendedor canceló el pedido por un error en la publicación o disponibilidad informada.',
+            'otro_vendedor' => 'El vendedor canceló el pedido por otro motivo.',
             'comprador_no_se_presento' => 'El comprador no se presentó en el punto de recojo.',
             'comprador_no_responde' => 'El comprador no respondió para concretar la entrega.',
             'comprador_rechazo_recepcion' => 'El comprador rechazó recibir el pedido.',
             'no_se_pudo_concretar' => 'No se pudo concretar la entrega.',
             'otro' => 'El vendedor canceló el pedido por otro motivo.',
-            default => 'El vendedor canceló el pedido por no concretarse el recojo.',
+            default => 'El vendedor canceló el pedido.',
         };
 
         $detalle = trim($detalle);
@@ -856,7 +892,7 @@ class Pedido extends Conexion
         $tz = $this->obtenerTimezoneAplicacion();
         $ahora = new DateTime('now', $tz);
         $minimaPermitida = (clone $ahora)->modify('-' . self::MINUTOS_GRACIA_FECHA_PROGRAMADA . ' minute');
-        $maximo = (clone $ahora)->modify('+2 days');
+        $maximo = (clone $ahora)->modify('+7 days');
 
         if ($fechaProgramada < $minimaPermitida) {
             return [
@@ -870,7 +906,7 @@ class Pedido extends Conexion
             return [
                 'ok'      => false,
                 'error'   => 'FECHA_PROGRAMADA_FUERA_DE_RANGO',
-                'mensaje' => 'La fecha programada no puede superar 2 días desde ahora.'
+                'mensaje' => 'La fecha programada no puede superar 1 semana desde ahora.'
             ];
         }
 
@@ -1089,6 +1125,48 @@ class Pedido extends Conexion
         };
     }
 
+    /**
+     * Comprueba si el pedido ya tiene una devolución registrada en la billetera.
+     * Se contemplan ambos códigos de origen utilizados históricamente por EV para
+     * evitar una doble acreditación en ambientes que hayan pasado por versiones
+     * anteriores del módulo.
+     */
+    private function existeMovimientoDevolucionPedido(int $codigoBilletera, int $codigoPedido): bool
+    {
+        if ($codigoBilletera <= 0 || $codigoPedido <= 0) {
+            return false;
+        }
+
+        $sql = "
+            SELECT 1
+            FROM billetera_movimiento
+            WHERE codigo_billetera = :codigo_billetera
+              AND tipo_movimiento = 'C'
+              AND codigo_referencia = :codigo_pedido
+              AND origen IN ('PEDIDO_SOLICITUD_DEVOLUCION', 'DEVOLUCION_PEDIDO_SOLICITUD')
+            LIMIT 1
+        ";
+        $st = $this->dblink->prepare($sql);
+        $st->bindValue(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
+        $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+        $st->execute();
+
+        return (bool)$st->fetchColumn();
+    }
+
+    /**
+     * Devuelve el importe realmente debitado por una solicitud de producto
+     * preparado. La operación se ejecuta dentro de la misma transacción del
+     * pedido y sobre la billetera bloqueada con FOR UPDATE.
+     *
+     * Reglas EV:
+     * - rechazo del vendedor      => devolución 100 %;
+     * - cancelación del vendedor  => devolución 100 %;
+     * - timeout del vendedor      => devolución 100 %;
+     * - cancelación del comprador durante la ventana habilitada (>= 2 min y
+     *   antes del timeout)         => devolución 100 %;
+     * - nunca se acredita dos veces el mismo pedido.
+     */
     private function devolverBilleteraSiCorresponde(array $pedido, string $contexto): void
     {
         $codigoPedido = (int)($pedido['codigo_pedido'] ?? 0);
@@ -1096,15 +1174,18 @@ class Pedido extends Conexion
         $descuentoAplicado = (int)($pedido['descuento_billetera_aplicado'] ?? 0) === 1;
         $devolucionAplicada = (int)($pedido['devolucion_billetera_aplicada'] ?? 0) === 1;
         $monto = round((float)($pedido['monto_descontado_billetera'] ?? 0), 2);
-
-        $esPreparado = $this->esProductoPreparadoPedido($pedido);
-        $fueAceptado = $this->pedidoFueAceptado($pedido);
         $sinReembolso = (int)($pedido['sin_reembolso'] ?? 0) === 1;
 
-        // Regla EV 2.0:
-        // Producto preparado solo devuelve si la solicitud NO llegó a ser aceptada por el vendedor.
-        // Si ya fue aceptada y el comprador cancela/no recoge, no hay devolución.
-        if ($sinReembolso || ($esPreparado && $fueAceptado && in_array($contexto, ['cancelado_comprador', 'cancelado_vendedor'], true))) {
+        // Si la causa depende del vendedor o del timeout del sistema, el comprador
+        // siempre recupera el dinero realmente debitado, incluso si el producto ya
+        // había sido aceptado o estaba en preparación.
+        $reembolsoObligatorio = in_array(
+            $contexto,
+            ['rechazado_vendedor', 'cancelado_vendedor', 'sin_respuesta_vendedor'],
+            true
+        );
+
+        if ($sinReembolso && !$reembolsoObligatorio) {
             return;
         }
 
@@ -1120,6 +1201,21 @@ class Pedido extends Conexion
 
         $billetera = $this->obtenerOBilleteraBloqueada($codigoUsuarioComprador);
         $codigoBilletera = (int)$billetera['codigo_billetera'];
+
+        // Defensa adicional de idempotencia: si por una versión anterior el
+        // movimiento existe pero la bandera del pedido quedó desincronizada, no se
+        // vuelve a acreditar el saldo; solo se repara la bandera del pedido.
+        if ($this->existeMovimientoDevolucionPedido($codigoBilletera, $codigoPedido)) {
+            $up = $this->dblink->prepare("
+                UPDATE pedido
+                SET devolucion_billetera_aplicada = 1
+                WHERE codigo_pedido = :codigo_pedido
+            ");
+            $up->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+            $up->execute();
+            return;
+        }
+
         $saldoAntes = (float)$billetera['saldo_actual'];
         $saldoDespues = round($saldoAntes + $monto, 2);
 
@@ -1130,7 +1226,7 @@ class Pedido extends Conexion
             $saldoAntes,
             $saldoDespues,
             $this->descripcionDevolucionBilletera($contexto, (string)($pedido['titulo_producto'] ?? 'producto')),
-            'DEVOLUCION_PEDIDO_SOLICITUD',
+            'PEDIDO_SOLICITUD_DEVOLUCION',
             $codigoPedido
         );
 
@@ -1284,284 +1380,6 @@ class Pedido extends Conexion
         return $row ?: null;
     }
 
-    private function bloquearPedidosActivosVendedor(int $codigoUsuarioVendedor): void
-    {
-        $sql = "
-            SELECT codigo_pedido
-            FROM pedido
-            WHERE codigo_usuario_vendedor = :codigo_usuario_vendedor
-            AND (
-                    (
-                        fase = 'solicitud'
-                        AND estado_actual IN (
-                            'pendiente_vendedor',
-                            'cola_pendiente_confirmacion',
-                            'cola_aceptada'
-                        )
-                    )
-                    OR
-                    (
-                        fase = 'pedido'
-                        AND estado_actual IN (
-                            'en_preparacion',
-                            'despachando',
-                            'listo_para_entrega',
-                            'en_camino',
-                            'en_punto_entrega',
-                            'entregado_vendedor'
-                        )
-                    )
-            )
-            ORDER BY
-                CASE
-                    WHEN fase = 'solicitud' AND estado_actual = 'pendiente_vendedor' THEN 1
-                    WHEN fase = 'pedido' THEN 2
-                    WHEN fase = 'solicitud' AND estado_actual = 'cola_pendiente_confirmacion' THEN 3
-                    WHEN fase = 'solicitud' AND estado_actual = 'cola_aceptada' THEN 4
-                    ELSE 5
-                END,
-                posicion_cola ASC,
-                codigo_pedido ASC
-            FOR UPDATE
-        ";
-
-        $st = $this->dblink->prepare($sql);
-        $st->bindValue(':codigo_usuario_vendedor', $codigoUsuarioVendedor, PDO::PARAM_INT);
-        $st->execute();
-        $st->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    private function contarSolicitudesActivasPrevias(int $codigoUsuarioVendedor): int
-    {
-        $sql = "
-            SELECT COUNT(*) AS total
-            FROM pedido
-            WHERE codigo_usuario_vendedor = :codigo_usuario_vendedor
-            AND (
-                    (
-                        fase = 'solicitud'
-                        AND estado_actual IN (
-                            'pendiente_vendedor',
-                            'cola_pendiente_confirmacion',
-                            'cola_aceptada'
-                        )
-                    )
-                    OR
-                    (
-                        fase = 'pedido'
-                        AND estado_actual IN (
-                            'en_preparacion',
-                            'despachando',
-                            'listo_para_entrega',
-                            'en_camino',
-                            'en_punto_entrega',
-                            'entregado_vendedor'
-                        )
-                    )
-            )
-        ";
-
-        $st = $this->dblink->prepare($sql);
-        $st->bindValue(':codigo_usuario_vendedor', $codigoUsuarioVendedor, PDO::PARAM_INT);
-        $st->execute();
-
-        return (int)$st->fetchColumn();
-    }
-
-    private function vendedorTieneTurnoActivo(int $codigoUsuarioVendedor): bool
-    {
-        $sql = "
-            SELECT 1
-            FROM pedido
-            WHERE codigo_usuario_vendedor = :codigo_usuario_vendedor
-            AND (
-                    (
-                        fase = 'solicitud'
-                        AND estado_actual = 'pendiente_vendedor'
-                    )
-                    OR
-                    (
-                        fase = 'pedido'
-                        AND estado_actual IN (
-                            'en_preparacion',
-                            'despachando',
-                            'listo_para_entrega',
-                            'en_camino',
-                            'en_punto_entrega',
-                            'entregado_vendedor'
-                        )
-                    )
-            )
-            LIMIT 1
-        ";
-
-        $st = $this->dblink->prepare($sql);
-        $st->bindValue(':codigo_usuario_vendedor', $codigoUsuarioVendedor, PDO::PARAM_INT);
-        $st->execute();
-
-        return (bool)$st->fetchColumn();
-    }
-
-    private function vendedorTieneOtroTurnoActivo(int $codigoUsuarioVendedor, int $codigoPedidoExcluir = 0): bool
-    {
-        $sql = "
-            SELECT 1
-            FROM pedido
-            WHERE codigo_usuario_vendedor = :codigo_usuario_vendedor
-              AND codigo_pedido <> :codigo_pedido_excluir
-              AND (
-                    (
-                        fase = 'solicitud'
-                        AND estado_actual = 'pendiente_vendedor'
-                    )
-                    OR
-                    (
-                        fase = 'pedido'
-                        AND estado_actual IN (
-                            'en_preparacion',
-                            'despachando',
-                            'listo_para_entrega',
-                            'en_camino',
-                            'en_punto_entrega',
-                            'entregado_vendedor'
-                        )
-                    )
-              )
-            LIMIT 1
-        ";
-
-        $st = $this->dblink->prepare($sql);
-        $st->bindValue(':codigo_usuario_vendedor', $codigoUsuarioVendedor, PDO::PARAM_INT);
-        $st->bindValue(':codigo_pedido_excluir', $codigoPedidoExcluir, PDO::PARAM_INT);
-        $st->execute();
-
-        return (bool)$st->fetchColumn();
-    }
-
-    private function obtenerSiguientePendienteEnCola(int $codigoUsuarioVendedor): ?array
-    {
-        $sql = "
-            SELECT
-                p.*,
-                pr.titulo AS titulo_producto
-            FROM pedido p
-            INNER JOIN producto pr ON pr.codigo_producto = p.codigo_producto
-            WHERE p.codigo_usuario_vendedor = :codigo_usuario_vendedor
-              AND p.fase = 'solicitud'
-              AND p.estado_actual = 'cola_aceptada'
-            ORDER BY p.posicion_cola ASC, p.codigo_pedido ASC
-            LIMIT 1
-            FOR UPDATE
-        ";
-
-        $st = $this->dblink->prepare($sql);
-        $st->bindValue(':codigo_usuario_vendedor', $codigoUsuarioVendedor, PDO::PARAM_INT);
-        $st->execute();
-
-        $row = $st->fetch(PDO::FETCH_ASSOC);
-        return $row ?: null;
-    }
-
-    private function recalcularColaVendedor(int $codigoUsuarioVendedor): void
-    {
-        $sql = "
-            SELECT
-                p.codigo_pedido
-            FROM pedido p
-            WHERE p.codigo_usuario_vendedor = :codigo_usuario_vendedor
-              AND p.fase = 'solicitud'
-              AND p.estado_actual = 'cola_aceptada'
-            ORDER BY p.posicion_cola ASC, p.codigo_pedido ASC
-            FOR UPDATE
-        ";
-
-        $st = $this->dblink->prepare($sql);
-        $st->bindValue(':codigo_usuario_vendedor', $codigoUsuarioVendedor, PDO::PARAM_INT);
-        $st->execute();
-
-        $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        $posicion = 2;
-
-        foreach ($rows as $row) {
-            $codigoPedido = (int)($row['codigo_pedido'] ?? 0);
-
-            if ($codigoPedido <= 0) {
-                continue;
-            }
-
-            $up = $this->dblink->prepare("
-                UPDATE pedido
-                SET posicion_cola = :posicion_cola
-                WHERE codigo_pedido = :codigo_pedido
-            ");
-            $up->bindValue(':posicion_cola', $posicion, PDO::PARAM_INT);
-            $up->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
-            $up->execute();
-
-            $posicion++;
-        }
-    }
-
-    private function moverSiguienteColaAPendiente(int $codigoUsuarioVendedor): void
-    {
-        if ($this->vendedorTieneTurnoActivo($codigoUsuarioVendedor)) {
-            $this->recalcularColaVendedor($codigoUsuarioVendedor);
-            return;
-        }
-
-        $siguiente = $this->obtenerSiguientePendienteEnCola($codigoUsuarioVendedor);
-
-        if (!$siguiente) {
-            $this->recalcularColaVendedor($codigoUsuarioVendedor);
-            return;
-        }
-
-        $codigoPedido = (int)($siguiente['codigo_pedido'] ?? 0);
-
-        if ($codigoPedido <= 0) {
-            $this->recalcularColaVendedor($codigoUsuarioVendedor);
-            return;
-        }
-
-        $nuevoLimite = (new DateTime('now', $this->obtenerTimezoneAplicacion()))
-            ->modify('+' . self::SEGUNDOS_TIMEOUT . ' seconds')
-            ->format('Y-m-d H:i:s');
-
-        $up = $this->dblink->prepare("
-            UPDATE pedido
-            SET
-                estado_actual = 'pendiente_vendedor',
-                motivo_estado = 'Tu solicitud pasó al turno de atención del vendedor.',
-                fecha_limite_respuesta = :fecha_limite_respuesta,
-                posicion_cola = 1
-            WHERE codigo_pedido = :codigo_pedido
-        ");
-        $up->bindValue(':fecha_limite_respuesta', $nuevoLimite, PDO::PARAM_STR);
-        $up->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
-        $up->execute();
-
-        $this->registrarHistorialEstado(
-            $codigoPedido,
-            (string)($siguiente['fase'] ?? 'solicitud'),
-            (string)($siguiente['estado_actual'] ?? 'cola_aceptada'),
-            (string)($siguiente['fase'] ?? 'solicitud'),
-            'pendiente_vendedor',
-            null,
-            'sistema',
-            'avance_cola',
-            'La solicitud pasó de la cola a la atención del vendedor.'
-        );
-
-        $this->registrarAlertaPedidoVendedor(
-            $siguiente,
-            'nueva_solicitud',
-            'Nueva solicitud lista para atender',
-            'Una solicitud de “' . (string)($siguiente['titulo_producto'] ?? 'producto') . '” avanzó desde la cola y ya puedes atenderla.'
-        );
-
-        $this->recalcularColaVendedor($codigoUsuarioVendedor);
-    }
-
     private function sincronizarSolicitudesVencidas(
         ?int $codigoUsuarioVendedor = null,
         ?int $codigoUsuarioComprador = null,
@@ -1654,8 +1472,7 @@ class Pedido extends Conexion
                     estado = 'sin_respuesta_vendedor',
                     motivo_estado = :motivo_estado,
                     fecha_cierre = NOW(),
-                    fecha_limite_respuesta = NULL,
-                    posicion_cola = 0
+                    fecha_limite_respuesta = NULL
                 WHERE codigo_pedido = :codigo_pedido
             ");
             $up->bindValue(':motivo_estado', $motivoEstado, PDO::PARAM_STR);
@@ -1676,9 +1493,9 @@ class Pedido extends Conexion
 
             $this->liberarPenalidadesReservadasPedido($codigoPedido);
             $this->devolverBilleteraSiCorresponde($pedido, 'sin_respuesta_vendedor');
-            $this->registrarAlertaAvanceComprador($pedido, 'sin_respuesta_vendedor');
-            $this->moverSiguienteColaAPendiente((int)$pedido['codigo_usuario_vendedor']);
-
+            $pedidoActualizado = $this->obtenerPedidoPorId($codigoPedido, false) ?: $pedido;
+            $pedidoActualizado['motivo_estado'] = $motivoEstado;
+            $this->registrarAlertaAvanceComprador($pedidoActualizado, 'sin_respuesta_vendedor');
             $this->dblink->commit();
         } catch (Throwable $e) {
             if ($this->dblink->inTransaction()) {
@@ -1689,6 +1506,24 @@ class Pedido extends Conexion
         }
     }
 
+
+    private function solicitudPendienteVencida(array $pedido): bool
+    {
+        if (
+            (string)($pedido['fase'] ?? '') !== 'solicitud'
+            || (string)($pedido['estado_actual'] ?? '') !== 'pendiente_vendedor'
+        ) {
+            return false;
+        }
+
+        $fechaLimite = trim((string)($pedido['fecha_limite_respuesta'] ?? ''));
+        if ($fechaLimite === '') {
+            return false;
+        }
+
+        $tsLimite = strtotime($fechaLimite);
+        return $tsLimite !== false && $tsLimite <= time();
+    }
 
     private function obtenerSegundosRestantesRespuestaSolicitud(array $pedido): int
     {
@@ -1725,8 +1560,8 @@ class Pedido extends Conexion
             $tsLimite = strtotime($fechaLimite);
 
             if ($tsLimite !== false) {
-                $tsInicioTurno = $tsLimite - self::SEGUNDOS_TIMEOUT;
-                return max(0, (int)(time() - $tsInicioTurno));
+                $tsInicioVentana = $tsLimite - self::SEGUNDOS_TIMEOUT;
+                return max(0, (int)(time() - $tsInicioVentana));
             }
         }
 
@@ -1752,10 +1587,6 @@ class Pedido extends Conexion
             return max(0, self::SEGUNDOS_CANCELACION - $segundosTranscurridos);
         }
 
-        if (in_array($estado, ['cola_pendiente_confirmacion', 'cola_aceptada'], true)) {
-            return 0;
-        }
-
         return 0;
     }
 
@@ -1763,7 +1594,7 @@ class Pedido extends Conexion
     {
         $estado = (string)($pedido['estado_actual'] ?? '');
 
-        if (!in_array($estado, ['pendiente_vendedor', 'cola_pendiente_confirmacion', 'cola_aceptada'], true)) {
+        if ($estado !== 'pendiente_vendedor') {
             return false;
         }
 
@@ -1777,22 +1608,11 @@ class Pedido extends Conexion
     private function construirDataEstadoSolicitud(array $pedido): array
     {
         $estado = (string)($pedido['estado_actual'] ?? '');
-        $posicionCola = (int)($pedido['posicion_cola'] ?? 0);
         $motivoEstado = trim((string)($pedido['motivo_estado'] ?? ''));
 
         $mensajeEstado = match ($estado) {
             'pendiente_vendedor' =>
                 'Tu solicitud está esperando respuesta del vendedor.',
-
-            'cola_pendiente_confirmacion' =>
-                ($posicionCola > 1)
-                    ? "Tu solicitud quedó registrada y ocuparía la posición {$posicionCola} en la cola de atención. ¿Deseas continuar en espera?"
-                    : 'El vendedor tiene otros pedidos en atención. Debes confirmar si deseas ingresar a la cola.',
-
-            'cola_aceptada' =>
-                ($posicionCola > 1)
-                    ? "Tu solicitud está en cola y actualmente ocupa la posición {$posicionCola}. Cuando el vendedor termine el turno actual, pasará a revisión."
-                    : 'Tu solicitud está en cola y avanzará cuando el vendedor termine el turno actual.',
 
             'cancelado_comprador' =>
                 $motivoEstado !== ''
@@ -1827,7 +1647,6 @@ class Pedido extends Conexion
             'estado_actual'                         => $estado,
             'motivo_estado'                         => $motivoEstado,
             'mensaje_estado'                        => $mensajeEstado,
-            'posicion_cola'                         => $posicionCola,
             'requiere_preparacion'                  => (int)($pedido['requiere_preparacion'] ?? 0),
             'monto_descontado_billetera'            => (float)($pedido['monto_descontado_billetera'] ?? 0),
             'descuento_billetera_aplicado'          => (int)($pedido['descuento_billetera_aplicado'] ?? 0),
@@ -1836,7 +1655,6 @@ class Pedido extends Conexion
             'fecha_cancelacion'                     => $pedido['fecha_cancelacion'] ?? null,
             'fecha_cierre'                          => $pedido['fecha_cierre'] ?? null,
             'created_at'                            => $pedido['created_at'] ?? null,
-            'puede_confirmar_cola'                  => $estado === 'cola_pendiente_confirmacion' ? 1 : 0,
             'puede_cancelar'                        => $puedeCancelar,
             'segundos_restantes'                    => $segundosRestantes,
             'segundos_para_cancelar_restantes'      => $segundosParaCancelarRestantes,
@@ -1860,7 +1678,7 @@ class Pedido extends Conexion
     }
 
     // =========================================================
-    // REGISTRO CON COLA
+    // REGISTRO DE SOLICITUD CON ATENCIÓN CONCURRENTE
     // =========================================================
 
     public function registrarSolicitud(array $data): array
@@ -1872,7 +1690,6 @@ class Pedido extends Conexion
         $fechaHoraProgramada    = $data['fecha_hora_programada'] ?? null;
         $direccionEntrega       = trim((string)($data['direccion_entrega'] ?? ''));
         $mensajeComprador       = trim((string)($data['mensaje_comprador'] ?? ''));
-        $aceptaCola             = (int)($data['acepta_cola'] ?? 0);
         $metodoPago             = strtolower(trim((string)($data['metodo_pago'] ?? 'efectivo')));
 
         if ($codigoProducto <= 0 || $codigoUsuarioComprador <= 0) {
@@ -1939,11 +1756,11 @@ class Pedido extends Conexion
         $requierePrep   = (int)($producto['requiere_preparacion'] ?? 0);
         $codigoVendedor = (int)($producto['codigo_usuario_vendedor'] ?? 0);
 
-        // La configuración comercial decide si un producto preparado
-        // descuenta el importe desde la billetera. Si la regla o la billetera
-        // están deshabilitadas, el pedido continúa con pago en efectivo.
-        $usarBilleteraPreparado = $requierePrep === 1
-            && $this->debitoBilleteraPreparadoHabilitado($codigoUsuarioComprador, $codigoProducto, $producto);
+        // Regla funcional EV: todo producto que requiere preparación se paga
+        // desde la billetera al momento de registrar la solicitud. No depende
+        // de una regla de monetización opcional: si no hay saldo suficiente,
+        // la transacción completa se revierte y la solicitud no se registra.
+        $usarBilleteraPreparado = ($requierePrep === 1);
         $metodoPago = $usarBilleteraPreparado ? 'billetera' : 'efectivo';
         $penalidadReservada = 0.00;
         $total = $subtotalProducto;
@@ -1951,32 +1768,17 @@ class Pedido extends Conexion
         try {
             $this->dblink->beginTransaction();
 
-            $this->bloquearPedidosActivosVendedor($codigoVendedor);
-
-            $cargaActiva = $this->contarSolicitudesActivasPrevias($codigoVendedor);
-
+            // Flujo concurrente: cada solicitud es independiente. La existencia
+            // de otros pedidos del vendedor no altera el estado ni la ventana
+            // de respuesta de esta solicitud.
             $fase = 'solicitud';
             $estadoActual = 'pendiente_vendedor';
-            $posicionCola = 1;
 
             $fechaLimite = (new DateTime('now', $this->obtenerTimezoneAplicacion()))
                 ->modify('+' . self::SEGUNDOS_TIMEOUT . ' seconds')
                 ->format('Y-m-d H:i:s');
 
-            $motivoEstado = 'Solicitud registrada por comprador.';
-
-            if ($cargaActiva > 0) {
-                $posicionCola = $cargaActiva + 1;
-                $fechaLimite = null;
-
-                if ($aceptaCola === 1) {
-                    $estadoActual = 'cola_aceptada';
-                    $motivoEstado = "El comprador aceptó ingresar a la cola. Posición actual: {$posicionCola}.";
-                } else {
-                    $estadoActual = 'cola_pendiente_confirmacion';
-                    $motivoEstado = "Tu solicitud quedó registrada y ocuparía la posición {$posicionCola} en la cola de atención. ¿Deseas continuar en espera?";
-                }
-            }
+            $motivoEstado = 'Solicitud registrada y disponible para atención del vendedor.';
 
             // Penalidad pendiente: solo se reserva y suma al siguiente pedido no preparado en efectivo.
             if ($requierePrep === 0 && $metodoPago === 'efectivo') {
@@ -2003,7 +1805,6 @@ class Pedido extends Conexion
                     fecha_programada,
                     direccion_entrega,
                     mensaje_comprador,
-                    posicion_cola,
                     motivo_estado,
                     requiere_preparacion,
                     metodo_pago,
@@ -2031,7 +1832,6 @@ class Pedido extends Conexion
                     :fecha_programada,
                     :direccion_entrega,
                     :mensaje_comprador,
-                    :posicion_cola,
                     :motivo_estado,
                     :requiere_preparacion,
                     :metodo_pago,
@@ -2073,7 +1873,6 @@ class Pedido extends Conexion
                 $st->bindValue(':mensaje_comprador', null, PDO::PARAM_NULL);
             }
 
-            $st->bindValue(':posicion_cola', $posicionCola, PDO::PARAM_INT);
             $st->bindValue(':motivo_estado', $motivoEstado, PDO::PARAM_STR);
             $st->bindValue(':requiere_preparacion', $requierePrep, PDO::PARAM_INT);
             $st->bindValue(':metodo_pago', $metodoPago, PDO::PARAM_STR);
@@ -2126,23 +1925,19 @@ class Pedido extends Conexion
                 ($mensajeComprador !== '') ? $mensajeComprador : $motivoEstado
             );
 
-            $this->recalcularColaVendedor($codigoVendedor);
-
             $pedidoInsertado = $this->obtenerSolicitudComprador($codigoPedido, $codigoUsuarioComprador, false);
 
-            if ($estadoActual === 'pendiente_vendedor') {
-                $pedidoParaNotificar = $pedidoInsertado ?: [
-                    'codigo_pedido' => $codigoPedido,
-                    'codigo_usuario_vendedor' => $codigoVendedor,
-                    'titulo_producto' => (string)($producto['titulo'] ?? 'producto'),
-                ];
-                $this->registrarAlertaPedidoVendedor(
-                    $pedidoParaNotificar,
-                    'nueva_solicitud',
-                    'Nueva solicitud de producto',
-                    'Tienes una nueva solicitud de “' . (string)($pedidoParaNotificar['titulo_producto'] ?? 'producto') . '” lista para atender.'
-                );
-            }
+            $pedidoParaNotificar = $pedidoInsertado ?: [
+                'codigo_pedido' => $codigoPedido,
+                'codigo_usuario_vendedor' => $codigoVendedor,
+                'titulo_producto' => (string)($producto['titulo'] ?? 'producto'),
+            ];
+            $this->registrarAlertaPedidoVendedor(
+                $pedidoParaNotificar,
+                'nueva_solicitud',
+                'Nueva solicitud de producto',
+                'Tienes una nueva solicitud de “' . (string)($pedidoParaNotificar['titulo_producto'] ?? 'producto') . '” lista para atender.'
+            );
 
             $this->dblink->commit();
 
@@ -2155,7 +1950,6 @@ class Pedido extends Conexion
                     'fase'                          => $fase,
                     'estado_actual'                 => $estadoActual,
                     'motivo_estado'                 => $motivoEstado,
-                    'posicion_cola'                 => $posicionCola,
                     'requiere_preparacion'          => $requierePrep,
                     'metodo_pago'                   => $metodoPago,
                     'penalidad_comprador_monto'     => $penalidadReservada,
@@ -2182,85 +1976,6 @@ class Pedido extends Conexion
     }
 
 
-    public function confirmarColaPorComprador(int $codigoPedido, int $codigoUsuarioComprador): array
-    {
-        try {
-            $this->dblink->beginTransaction();
-
-            $pedido = $this->obtenerSolicitudComprador($codigoPedido, $codigoUsuarioComprador, true);
-
-            if (!$pedido) {
-                $this->dblink->rollBack();
-
-                return [
-                    'ok'      => false,
-                    'error'   => 'PEDIDO_NO_ENCONTRADO',
-                    'mensaje' => 'No se encontró la solicitud.'
-                ];
-            }
-
-            if ((string)$pedido['estado_actual'] !== 'cola_pendiente_confirmacion') {
-                $this->dblink->rollBack();
-
-                return [
-                    'ok'      => false,
-                    'error'   => 'ESTADO_NO_CONFIRMABLE',
-                    'mensaje' => 'Esta solicitud ya no está pendiente de confirmación de cola.',
-                    'data'    => $this->construirDataEstadoSolicitud($pedido)
-                ];
-            }
-
-            $posicionCola = max(2, (int)($pedido['posicion_cola'] ?? 0));
-            $motivoEstado = "El comprador aceptó ingresar a la cola. Posición actual: {$posicionCola}.";
-
-            $up = $this->dblink->prepare("
-                UPDATE pedido
-                SET
-                    estado_actual = 'cola_aceptada',
-                    motivo_estado = :motivo_estado
-                WHERE codigo_pedido = :codigo_pedido
-            ");
-            $up->bindValue(':motivo_estado', $motivoEstado, PDO::PARAM_STR);
-            $up->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
-            $up->execute();
-
-            $this->registrarHistorialEstado(
-                $codigoPedido,
-                (string)$pedido['fase'],
-                (string)$pedido['estado_actual'],
-                (string)$pedido['fase'],
-                'cola_aceptada',
-                $codigoUsuarioComprador,
-                'comprador',
-                'confirmacion_cola',
-                'El comprador aceptó permanecer en la cola.'
-            );
-
-            $this->recalcularColaVendedor((int)$pedido['codigo_usuario_vendedor']);
-
-            $pedidoActualizado = $this->obtenerSolicitudComprador($codigoPedido, $codigoUsuarioComprador, false);
-
-            $this->dblink->commit();
-
-            return [
-                'ok'   => true,
-                'data' => $this->construirDataEstadoSolicitud($pedidoActualizado ?: $pedido)
-            ];
-        } catch (Throwable $e) {
-            if ($this->dblink->inTransaction()) {
-                $this->dblink->rollBack();
-            }
-
-            error_log('[EV][Pedido][confirmarColaPorComprador] ' . $e->getMessage());
-
-            return [
-                'ok'      => false,
-                'error'   => 'ERROR_CONFIRMAR_COLA',
-                'mensaje' => 'No se pudo confirmar la cola.'
-            ];
-        }
-    }
-
     public function obtenerEstadoSolicitudParaComprador(int $codigoPedido, int $codigoUsuarioComprador): array
     {
         $this->sincronizarSolicitudesVencidas(null, $codigoUsuarioComprador, $codigoPedido);
@@ -2283,11 +1998,15 @@ class Pedido extends Conexion
 
     public function cancelarSolicitudPorComprador(int $codigoPedido, int $codigoUsuarioComprador, string $motivo): array
     {
+        // Si la ventana absoluta de 4 minutos ya venció, este sincronizador cierra
+        // primero la solicitud como sin_respuesta_vendedor y procesa la devolución.
         $this->sincronizarSolicitudesVencidas(null, $codigoUsuarioComprador, $codigoPedido);
 
         try {
             $this->dblink->beginTransaction();
 
+            // FOR UPDATE serializa la carrera comprador-cancela vs vendedor-acepta.
+            // Solo la primera operación que obtenga el bloqueo podrá cambiar el estado.
             $pedido = $this->obtenerSolicitudComprador($codigoPedido, $codigoUsuarioComprador, true);
 
             if (!$pedido) {
@@ -2300,53 +2019,70 @@ class Pedido extends Conexion
                 ];
             }
 
+            if ($this->solicitudPendienteVencida($pedido)) {
+                $this->dblink->rollBack();
+                $this->marcarSolicitudSinRespuestaVencida($codigoPedido);
+                $pedidoVencido = $this->obtenerSolicitudComprador($codigoPedido, $codigoUsuarioComprador, false);
+
+                return [
+                    'ok'      => false,
+                    'error'   => 'ESTADO_NO_CANCELABLE',
+                    'mensaje' => 'El tiempo de respuesta del vendedor ya venció. EV cerró la solicitud y procesó la devolución correspondiente.',
+                    'data'    => $pedidoVencido ? $this->construirDataEstadoSolicitud($pedidoVencido) : null
+                ];
+            }
+
             $estadoAnterior = (string)$pedido['estado_actual'];
             $faseAnterior = (string)$pedido['fase'];
             $motivo = trim($motivo);
             $esPreparado = $this->esProductoPreparadoPedido($pedido);
             $esPedidoAceptado = $this->pedidoFueAceptado($pedido);
 
-            // Decisión confirmada: producto preparado no se cancela por comprador.
-            if ($esPreparado) {
-                $this->dblink->rollBack();
-
-                return [
-                    'ok'      => false,
-                    'error'   => 'CANCELACION_NO_PERMITIDA_PRODUCTO_PREPARADO',
-                    'mensaje' => 'Los productos preparados no pueden cancelarse desde el comprador. Si no recoges el pedido dentro del tiempo indicado, no habrá devolución.',
-                    'data'    => $this->construirDataEstadoSolicitud($pedido)
-                ];
-            }
-
             $penalidadNueva = 0.00;
             $cancelable = false;
             $motivoHistorial = 'cancelacion_solicitud';
 
-            if ($faseAnterior === 'solicitud' && in_array($estadoAnterior, ['pendiente_vendedor', 'cola_pendiente_confirmacion', 'cola_aceptada'], true)) {
-                if ($estadoAnterior === 'pendiente_vendedor') {
-                    $segundosParaCancelarRestantes = $this->obtenerSegundosParaCancelarSolicitud($pedido);
+            // Ventana de espera de una solicitud, para productos preparados y no
+            // preparados: 0:00-1:59 no se puede cancelar; desde 2:00 sí se puede,
+            // mientras el vendedor conserve su ventana de respuesta hasta 4:00.
+            if ($faseAnterior === 'solicitud' && $estadoAnterior === 'pendiente_vendedor') {
+                $segundosParaCancelarRestantes = $this->obtenerSegundosParaCancelarSolicitud($pedido);
 
-                    if ($segundosParaCancelarRestantes > 0) {
-                        $this->dblink->rollBack();
+                if ($segundosParaCancelarRestantes > 0) {
+                    $this->dblink->rollBack();
 
-                        $min = str_pad((string)floor($segundosParaCancelarRestantes / 60), 2, '0', STR_PAD_LEFT);
-                        $sec = str_pad((string)($segundosParaCancelarRestantes % 60), 2, '0', STR_PAD_LEFT);
+                    $min = str_pad((string)floor($segundosParaCancelarRestantes / 60), 2, '0', STR_PAD_LEFT);
+                    $sec = str_pad((string)($segundosParaCancelarRestantes % 60), 2, '0', STR_PAD_LEFT);
 
-                        return [
-                            'ok'      => false,
-                            'error'   => 'CANCELACION_AUN_NO_DISPONIBLE',
-                            'mensaje' => "Podrás cancelar esta solicitud cuando se cumplan 2 minutos de espera. Tiempo restante: {$min}:{$sec}.",
-                            'data'    => $this->construirDataEstadoSolicitud($pedido)
-                        ];
-                    }
+                    return [
+                        'ok'      => false,
+                        'error'   => 'CANCELACION_AUN_NO_DISPONIBLE',
+                        'mensaje' => "Podrás cancelar esta solicitud cuando se cumplan 2 minutos de espera. Tiempo restante: {$min}:{$sec}.",
+                        'data'    => $this->construirDataEstadoSolicitud($pedido)
+                    ];
                 }
 
                 $cancelable = true;
-                $motivoHistorial = 'cancelacion_solicitud';
+                $motivoHistorial = 'cancelacion_solicitud_por_demora_vendedor';
                 $this->liberarPenalidadesReservadasPedido($codigoPedido);
             }
 
             if ($esPedidoAceptado && $faseAnterior === 'pedido') {
+                // Una vez que el vendedor acepta un producto preparado, el comprador
+                // ya no puede cancelarlo de forma voluntaria. Si el vendedor cancela,
+                // rechaza o la operación no se concreta por su responsabilidad, la
+                // devolución se procesa por el flujo correspondiente del vendedor.
+                if ($esPreparado) {
+                    $this->dblink->rollBack();
+
+                    return [
+                        'ok'      => false,
+                        'error'   => 'CANCELACION_NO_PERMITIDA_PRODUCTO_PREPARADO',
+                        'mensaje' => 'El vendedor ya aceptó este producto preparado. La cancelación por parte del comprador ya no está disponible.',
+                        'data'    => $this->construirDataEstadoSolicitud($pedido)
+                    ];
+                }
+
                 // Producto no preparado: sin penalidad solo en despachando.
                 if ($estadoAnterior === 'despachando') {
                     $cancelable = true;
@@ -2389,7 +2125,6 @@ class Pedido extends Conexion
                     penalidad_comprador_aplicada = CASE WHEN :penalidad > 0 THEN 1 ELSE penalidad_comprador_aplicada END,
                     fecha_cancelacion = NOW(),
                     fecha_cierre = NOW(),
-                    posicion_cola = 0,
                     fecha_limite_respuesta = NULL,
                     oculto_comprador = 1,
                     oculto_vendedor = 1
@@ -2422,6 +2157,9 @@ class Pedido extends Conexion
                 );
             }
 
+            // Si el producto preparado había debitado la billetera, una cancelación
+            // habilitada por demora del vendedor (>= 2 min y < 4 min) devuelve el
+            // 100 % del monto realmente debitado y registra el movimiento.
             $this->devolverBilleteraSiCorresponde($pedido, 'cancelado_comprador');
             $this->registrarAlertaPedidoVendedor(
                 $pedido,
@@ -2429,12 +2167,6 @@ class Pedido extends Conexion
                 'Pedido cancelado por comprador',
                 $motivoEstado
             );
-
-            if ($estadoAnterior === 'pendiente_vendedor' || $esPedidoAceptado) {
-                $this->moverSiguienteColaAPendiente((int)$pedido['codigo_usuario_vendedor']);
-            } else {
-                $this->recalcularColaVendedor((int)$pedido['codigo_usuario_vendedor']);
-            }
 
             $pedidoActualizado = $this->obtenerSolicitudComprador($codigoPedido, $codigoUsuarioComprador, false);
 
@@ -2483,15 +2215,8 @@ class Pedido extends Conexion
             INNER JOIN usuario u ON u.codigo_usuario = p.codigo_usuario_comprador
             WHERE p.codigo_usuario_vendedor = :v
               AND p.fase = 'solicitud'
-              AND p.estado_actual IN ('pendiente_vendedor', 'cola_aceptada')
-            ORDER BY
-                CASE
-                    WHEN p.estado_actual = 'pendiente_vendedor' THEN 1
-                    WHEN p.estado_actual = 'cola_aceptada' THEN 2
-                    ELSE 3
-                END,
-                p.posicion_cola ASC,
-                p.codigo_pedido ASC
+              AND p.estado_actual = 'pendiente_vendedor'
+            ORDER BY p.codigo_pedido ASC
         ";
 
         $st = $this->dblink->prepare($sql);
@@ -2535,7 +2260,6 @@ class Pedido extends Conexion
                 'monto_descontado_billetera'    => (string)($r['monto_descontado_billetera'] ?? '0.00'),
                 'descuento_billetera_aplicado'  => (int)($r['descuento_billetera_aplicado'] ?? 0),
                 'devolucion_billetera_aplicada' => (int)($r['devolucion_billetera_aplicada'] ?? 0),
-                'posicion_cola'                 => (int)($r['posicion_cola'] ?? 0),
                 'tiempo_restante_segundos'      => $tiempoRestante
             ];
         }
@@ -2556,7 +2280,7 @@ class Pedido extends Conexion
                 INNER JOIN producto pr ON pr.codigo_producto = p.codigo_producto
                 WHERE p.codigo_usuario_comprador = :codigo_usuario_comprador
                   AND p.fase = 'solicitud'
-                  AND p.estado_actual IN ('pendiente_vendedor', 'cola_pendiente_confirmacion', 'cola_aceptada')
+                  AND p.estado_actual = 'pendiente_vendedor'
                 ORDER BY p.codigo_pedido DESC
                 LIMIT 1
             ";
@@ -2646,10 +2370,10 @@ class Pedido extends Conexion
             'descuento_billetera_aplicado'   => (int)($r['descuento_billetera_aplicado'] ?? 0),
             'devolucion_billetera_aplicada'  => (int)($r['devolucion_billetera_aplicada'] ?? 0),
             'monto_descontado_billetera'     => (string)($r['monto_descontado_billetera'] ?? '0.00'),
-            'posicion_cola'                  => (int)($r['posicion_cola'] ?? 0),
             'tiempo_restante_segundos'       => $tiempoRestante,
             'segundos_recojo_restantes'      => $this->segundosRecojoRestantes($r),
             'puede_cancelar_vendedor'        => $this->puedeVendedorCancelarPorNoRecojo($r) ? 1 : 0,
+            'puede_cancelar_pedido'          => $this->puedeVendedorCancelarPedido($r) ? 1 : 0,
             'metodo_pago'                    => (string)($r['metodo_pago'] ?? ''),
             'penalidad_comprador_monto'      => (string)($r['penalidad_comprador_monto'] ?? '0.00'),
             'comision_ev_monto'              => (string)($r['comision_ev_monto'] ?? '0.00'),
@@ -2664,10 +2388,7 @@ class Pedido extends Conexion
     {
         $estado = (string)($pedido['estado_actual'] ?? '');
 
-        if (in_array($estado, [
-            'pendiente_vendedor',
-            'cola_aceptada'
-        ], true)) {
+        if ($estado === 'pendiente_vendedor') {
             return 'pendientes';
         }
 
@@ -2688,7 +2409,7 @@ class Pedido extends Conexion
     /**
      * Endpoint liviano para polling global.
      * No pinta toda la vista ni carga todos los pedidos.
-     * Solo devuelve solicitudes nuevas en turno directo del vendedor.
+     * Devuelve solicitudes nuevas pendientes de decisión del vendedor.
      */
     public function listarNuevasSolicitudesVendedor(int $codigoUsuarioVendedor, int $sinceId = 0, int $limit = 10): array
     {
@@ -2704,6 +2425,9 @@ class Pedido extends Conexion
                     'mensaje' => 'No se pudo identificar al vendedor.'
                 ];
             }
+
+            // Sincroniza solicitudes vencidas antes de entregar novedades al vendedor.
+            $this->sincronizarSolicitudesVencidas($codigoUsuarioVendedor, null, null);
 
             $sqlMax = "
                 SELECT COALESCE(MAX(p.codigo_pedido), 0)
@@ -2738,7 +2462,6 @@ class Pedido extends Conexion
                     p.fecha_hora_programada,
                     p.direccion_entrega,
                     p.mensaje_comprador,
-                    p.posicion_cola,
                     p.motivo_estado,
                     p.requiere_preparacion,
                     p.monto_descontado_billetera,
@@ -2816,8 +2539,6 @@ class Pedido extends Conexion
                 ORDER BY
                     CASE
                         WHEN p.estado_actual = 'pendiente_vendedor' THEN 1
-                        WHEN p.estado_actual = 'cola_pendiente_confirmacion' THEN 2
-                        WHEN p.estado_actual = 'cola_aceptada' THEN 3
                         WHEN p.estado_actual IN (
                             'en_preparacion',
                             'despachando',
@@ -2825,13 +2546,9 @@ class Pedido extends Conexion
                             'en_camino',
                             'en_punto_entrega',
                             'entregado_vendedor'
-                        ) THEN 4
-                        ELSE 5
+                        ) THEN 2
+                        ELSE 3
                     END,
-                    CASE
-                        WHEN p.estado_actual IN ('cola_aceptada', 'cola_pendiente_confirmacion') THEN p.posicion_cola
-                        ELSE 0
-                    END ASC,
                     p.codigo_pedido DESC
             ";
 
@@ -2848,10 +2565,6 @@ class Pedido extends Conexion
             ];
 
             foreach ($rows as $row) {
-                if ((string)($row['estado_actual'] ?? '') === 'cola_pendiente_confirmacion') {
-                    continue;
-                }
-
                 $item = $this->formatearPedidoVendedor($row);
                 $grupo = $this->determinarGrupoPedidoVendedor($item);
                 $data[$grupo][] = $item;
@@ -2879,7 +2592,6 @@ class Pedido extends Conexion
         try {
             $this->dblink->beginTransaction();
 
-            $this->bloquearPedidosActivosVendedor($codigoUsuarioVendedor);
             $pedido = $this->obtenerPedidoVendedor($codigoPedido, $codigoUsuarioVendedor, true);
 
             if (!$pedido) {
@@ -2892,6 +2604,17 @@ class Pedido extends Conexion
                 ];
             }
 
+            if ($this->solicitudPendienteVencida($pedido)) {
+                $this->dblink->rollBack();
+                $this->marcarSolicitudSinRespuestaVencida($codigoPedido);
+
+                return [
+                    'ok'      => false,
+                    'error'   => 'ESTADO_NO_ACEPTABLE',
+                    'mensaje' => 'La solicitud venció por falta de respuesta y ya no puede aceptarse.'
+                ];
+            }
+
             if ((string)$pedido['fase'] !== 'solicitud' || (string)$pedido['estado_actual'] !== 'pendiente_vendedor') {
                 $this->dblink->rollBack();
 
@@ -2899,16 +2622,6 @@ class Pedido extends Conexion
                     'ok'      => false,
                     'error'   => 'ESTADO_NO_ACEPTABLE',
                     'mensaje' => 'La solicitud ya no se puede aceptar.'
-                ];
-            }
-
-            if ($this->vendedorTieneOtroTurnoActivo($codigoUsuarioVendedor, $codigoPedido)) {
-                $this->dblink->rollBack();
-
-                return [
-                    'ok'      => false,
-                    'error'   => 'VENDEDOR_CON_TURNO_ACTIVO',
-                    'mensaje' => 'Debes terminar el pedido actual antes de atender uno nuevo.'
                 ];
             }
 
@@ -2927,7 +2640,6 @@ class Pedido extends Conexion
                     estado = :estado_sync,
                     motivo_estado = 'Pedido aceptado por el vendedor.',
                     fecha_aceptacion = NOW(),
-                    posicion_cola = 0,
                     fecha_limite_respuesta = NULL
                 WHERE codigo_pedido = :codigo_pedido
             ");
@@ -2952,8 +2664,6 @@ class Pedido extends Conexion
             $pedidoParaAlerta['estado_actual'] = $siguienteEstado;
             $pedidoParaAlerta['fase'] = 'pedido';
             $this->registrarAlertaAvanceComprador($pedidoParaAlerta, $siguienteEstado);
-
-            $this->recalcularColaVendedor($codigoUsuarioVendedor);
 
             $pedidoActualizado = $this->obtenerPedidoVendedor($codigoPedido, $codigoUsuarioVendedor, false);
 
@@ -3008,6 +2718,17 @@ class Pedido extends Conexion
                 ];
             }
 
+            if ($this->solicitudPendienteVencida($pedido)) {
+                $this->dblink->rollBack();
+                $this->marcarSolicitudSinRespuestaVencida($codigoPedido);
+
+                return [
+                    'ok'      => false,
+                    'error'   => 'ESTADO_NO_RECHAZABLE',
+                    'mensaje' => 'La solicitud venció por falta de respuesta y ya fue cerrada por EV.'
+                ];
+            }
+
             $estadoAnterior = (string)$pedido['estado_actual'];
             $faseAnterior   = (string)$pedido['fase'];
 
@@ -3034,7 +2755,6 @@ class Pedido extends Conexion
                     motivo_rechazo = :motivo_rechazo,
                     fecha_rechazo = NOW(),
                     fecha_cierre = NOW(),
-                    posicion_cola = 0,
                     fecha_limite_respuesta = NULL
                 WHERE codigo_pedido = :codigo_pedido
             ");
@@ -3057,16 +2777,11 @@ class Pedido extends Conexion
 
             $this->liberarPenalidadesReservadasPedido($codigoPedido);
             $this->devolverBilleteraSiCorresponde($pedido, 'rechazado_vendedor');
-            $pedido['motivo_estado'] = $motivo;
-            $this->registrarAlertaAvanceComprador($pedido, 'rechazado_vendedor');
-
-            if ($estadoAnterior === 'pendiente_vendedor') {
-                $this->moverSiguienteColaAPendiente($codigoUsuarioVendedor);
-            } else {
-                $this->recalcularColaVendedor($codigoUsuarioVendedor);
-            }
 
             $pedidoActualizado = $this->obtenerPedidoVendedor($codigoPedido, $codigoUsuarioVendedor, false);
+            $pedidoParaAlerta = $pedidoActualizado ?: $pedido;
+            $pedidoParaAlerta['motivo_estado'] = $motivo;
+            $this->registrarAlertaAvanceComprador($pedidoParaAlerta, 'rechazado_vendedor');
 
             $this->dblink->commit();
 
@@ -3094,17 +2809,17 @@ class Pedido extends Conexion
     {
         if ($requierePreparacion) {
             return [
-                'en_preparacion'     => ['listo_para_entrega'],
-                'listo_para_entrega' => ['en_camino', 'en_punto_entrega', 'entregado_vendedor'],
-                'en_camino'          => ['en_punto_entrega', 'entregado_vendedor'],
+                'en_preparacion'     => ['listo_para_entrega', 'cancelado_vendedor'],
+                'listo_para_entrega' => ['en_camino', 'en_punto_entrega', 'entregado_vendedor', 'cancelado_vendedor'],
+                'en_camino'          => ['en_punto_entrega', 'entregado_vendedor', 'cancelado_vendedor'],
                 'en_punto_entrega'   => ['entregado_vendedor', 'cancelado_vendedor'],
                 'entregado_vendedor' => [],
             ];
         }
 
         return [
-            'despachando'        => ['en_camino', 'en_punto_entrega', 'entregado_vendedor'],
-            'en_camino'          => ['en_punto_entrega', 'entregado_vendedor'],
+            'despachando'        => ['en_camino', 'en_punto_entrega', 'entregado_vendedor', 'cancelado_vendedor'],
+            'en_camino'          => ['en_punto_entrega', 'entregado_vendedor', 'cancelado_vendedor'],
             'en_punto_entrega'   => ['entregado_vendedor', 'cancelado_vendedor'],
             'entregado_vendedor' => [],
         ];
@@ -3193,13 +2908,13 @@ class Pedido extends Conexion
             $motivoCancelacionClaveSql = null;
 
             if ($nuevoEstado === 'cancelado_vendedor') {
-                if (!$this->puedeVendedorCancelarPorNoRecojo($pedido)) {
+                if (!$this->puedeVendedorCancelarPedido($pedido)) {
                     $this->dblink->rollBack();
 
                     return [
                         'ok'      => false,
-                        'error'   => 'RECOJO_AUN_NO_VENCIDO',
-                        'mensaje' => 'Solo puedes cancelar cuando hayan pasado los 6 minutos desde que el pedido llegó al punto de recojo.'
+                        'error'   => 'CANCELACION_VENDEDOR_NO_PERMITIDA',
+                        'mensaje' => 'Este pedido ya no puede ser cancelado por el vendedor.'
                     ];
                 }
 
@@ -3214,8 +2929,21 @@ class Pedido extends Conexion
                     ];
                 }
 
+                if (
+                    $this->motivoCancelacionAtribuibleComprador($motivoCancelacionClave)
+                    && !$this->puedeVendedorCancelarPorNoRecojo($pedido)
+                ) {
+                    $this->dblink->rollBack();
+
+                    return [
+                        'ok'      => false,
+                        'error'   => 'RECOJO_AUN_NO_VENCIDO',
+                        'mensaje' => 'Los motivos atribuibles al comprador se habilitan cuando vence el tiempo de recepción en el punto de entrega.'
+                    ];
+                }
+
                 $motivoEstado = $this->motivoCancelacionVendedorTexto($motivoCancelacionClave, $motivoCancelacionDetalle);
-                $sinReembolso = $requierePreparacion ? 1 : 0;
+                $sinReembolso = 0; // Cancelación del vendedor: si hubo débito, corresponde devolución total.
                 $canceladoPor = 'vendedor';
                 $motivoCancelacionSql = mb_substr($motivoEstado, 0, 255, 'UTF-8');
                 $motivoCancelacionClaveSql = mb_substr($motivoCancelacionClave, 0, 80, 'UTF-8');
@@ -3238,7 +2966,7 @@ class Pedido extends Conexion
                     cancelado_por = CASE WHEN :cancelado_por_is_null = 1 THEN cancelado_por ELSE :cancelado_por_value END,
                     motivo_cancelacion = CASE WHEN :motivo_cancelacion_is_null = 1 THEN motivo_cancelacion ELSE :motivo_cancelacion_value END,
                     motivo_cancelacion_clave = CASE WHEN :motivo_cancelacion_clave_is_null = 1 THEN motivo_cancelacion_clave ELSE :motivo_cancelacion_clave_value END,
-                    sin_reembolso = CASE WHEN :sin_reembolso = 1 THEN 1 ELSE sin_reembolso END
+                    sin_reembolso = CASE WHEN :es_cancelacion_vendedor = 1 THEN 0 ELSE sin_reembolso END
                 WHERE codigo_pedido = :codigo_pedido
             ");
             $up->bindValue(':estado_actual', $nuevoEstado, PDO::PARAM_STR);
@@ -3251,7 +2979,7 @@ class Pedido extends Conexion
             $up->bindValue(':motivo_cancelacion_value', $motivoCancelacionSql, $motivoCancelacionSql !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
             $up->bindValue(':motivo_cancelacion_clave_is_null', $motivoCancelacionClaveSql === null ? 1 : 0, PDO::PARAM_INT);
             $up->bindValue(':motivo_cancelacion_clave_value', $motivoCancelacionClaveSql, $motivoCancelacionClaveSql !== null ? PDO::PARAM_STR : PDO::PARAM_NULL);
-            $up->bindValue(':sin_reembolso', $sinReembolso, PDO::PARAM_INT);
+            $up->bindValue(':es_cancelacion_vendedor', $nuevoEstado === 'cancelado_vendedor' ? 1 : 0, PDO::PARAM_INT);
             $up->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
             $up->execute();
 
@@ -3263,17 +2991,19 @@ class Pedido extends Conexion
                 $nuevoEstado,
                 $codigoUsuarioVendedor,
                 'vendedor',
-                $nuevoEstado === 'cancelado_vendedor' ? 'cancelacion_por_no_recojo' : 'actualizacion_estado_pedido',
+                $nuevoEstado === 'cancelado_vendedor'
+                    ? ($this->motivoCancelacionAtribuibleComprador($motivoCancelacionClave)
+                        ? 'cancelacion_por_no_recojo'
+                        : 'cancelacion_vendedor')
+                    : 'actualizacion_estado_pedido',
                 $motivoEstado
             );
 
-            $pedidoParaAlerta = $pedido;
-            $pedidoParaAlerta['estado_actual'] = $nuevoEstado;
-            $pedidoParaAlerta['motivo_estado'] = $motivoEstado;
-            $this->registrarAlertaAvanceComprador($pedidoParaAlerta, $nuevoEstado);
-
             if ($nuevoEstado === 'cancelado_vendedor') {
-                if (!$requierePreparacion) {
+                if (
+                    !$requierePreparacion
+                    && $this->motivoCancelacionAtribuibleComprador($motivoCancelacionClave)
+                ) {
                     $this->registrarPenalidadCompradorPendiente(
                         (int)$pedido['codigo_usuario_comprador'],
                         $codigoPedido,
@@ -3286,10 +3016,14 @@ class Pedido extends Conexion
                     array_merge($pedido, ['sin_reembolso' => $sinReembolso]),
                     'cancelado_vendedor'
                 );
-                $this->moverSiguienteColaAPendiente($codigoUsuarioVendedor);
             }
 
             $pedidoActualizado = $this->obtenerPedidoVendedor($codigoPedido, $codigoUsuarioVendedor, false);
+
+            $pedidoParaAlerta = $pedidoActualizado ?: $pedido;
+            $pedidoParaAlerta['estado_actual'] = $nuevoEstado;
+            $pedidoParaAlerta['motivo_estado'] = $motivoEstado;
+            $this->registrarAlertaAvanceComprador($pedidoParaAlerta, $nuevoEstado);
 
             $this->dblink->commit();
 
@@ -3387,8 +3121,6 @@ class Pedido extends Conexion
                     'descuento_billetera_aplicado'     => (int)($row['descuento_billetera_aplicado'] ?? 0),
                     'devolucion_billetera_aplicada'    => (int)($row['devolucion_billetera_aplicada'] ?? 0),
                     'monto_descontado_billetera'       => (string)($row['monto_descontado_billetera'] ?? '0.00'),
-                    'posicion_cola'                    => (int)($row['posicion_cola'] ?? 0),
-                    'puede_confirmar_cola'             => (int)($estadoData['puede_confirmar_cola'] ?? 0),
                     'puede_cancelar'                   => (int)($estadoData['puede_cancelar'] ?? 0),
                     'finalizado'                       => (int)($estadoData['finalizado'] ?? 0),
                     'segundos_restantes'               => (int)($estadoData['segundos_restantes'] ?? 0),
@@ -3399,11 +3131,7 @@ class Pedido extends Conexion
                     'comision_ev_monto'                => (string)($row['comision_ev_monto'] ?? '0.00'),
                 ];
 
-                if ($fase === 'solicitud' && in_array($estado, [
-                    'pendiente_vendedor',
-                    'cola_pendiente_confirmacion',
-                    'cola_aceptada'
-                ], true)) {
+                if ($fase === 'solicitud' && $estado === 'pendiente_vendedor') {
                     $data['pendientes'][] = $item;
                     continue;
                 }
@@ -3490,8 +3218,6 @@ class Pedido extends Conexion
                 'confirmacion_entrega',
                 'El comprador confirmó la entrega satisfactoria del pedido.'
             );
-
-            $this->moverSiguienteColaAPendiente((int)$pedido['codigo_usuario_vendedor']);
 
             $this->dblink->commit();
 

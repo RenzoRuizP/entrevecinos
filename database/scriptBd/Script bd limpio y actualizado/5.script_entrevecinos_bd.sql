@@ -323,20 +323,6 @@ ON DUPLICATE KEY UPDATE
 -- 13. NORMALIZACIÓN SEGURA PEDIDOS
 -- =========================================================
 UPDATE pedido
-   SET confirmado_cola = 1
- WHERE estado IN (
-   'cola_aceptada',
-   'pendiente_vendedor',
-   'en_preparacion',
-   'despachando',
-   'listo_para_entrega',
-   'en_camino',
-   'en_punto_entrega',
-   'entregado_vendedor',
-   'entrega_confirmada_comprador'
- );
-
-UPDATE pedido
    SET entrega_confirmada_comprador = 1
  WHERE estado = 'entrega_confirmada_comprador';
 

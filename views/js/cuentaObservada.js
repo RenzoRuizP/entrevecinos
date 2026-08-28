@@ -33,7 +33,7 @@
 
   function mostrarAlerta(options) {
     const finalOptions = {
-      confirmButtonText: "Entendido",
+      confirmButtonText: "Aceptar",
       confirmButtonColor: "#EA7C12",
       ...options,
 

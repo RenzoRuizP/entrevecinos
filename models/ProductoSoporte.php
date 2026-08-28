@@ -255,6 +255,7 @@ class ProductoSoporte extends Conexion
         $sql = "
             UPDATE producto
             SET visible = :v,
+                activo_publicacion = CASE WHEN :v = 2 THEN 1 ELSE activo_publicacion END,
                 updated_at = CURRENT_TIMESTAMP
             WHERE codigo_producto = :id
             LIMIT 1

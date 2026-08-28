@@ -9,6 +9,7 @@
   window[BOOT_KEY] = true;
 
   const REENVIO_PREFIX = "REENVIO_CORRECCION|";
+  const NOTIF_PUBLICATION_TARGET_KEY = "ev_notificacion_publicacion_destino";
 
   function $(sel, root) {
     return (root || document).querySelector(sel);
@@ -54,7 +55,7 @@
   }
 
   function toastOk(msg) {
-    if (window.Swal) Swal.fire({ icon: "success", title: "Listo", text: msg });
+    if (window.Swal) Swal.fire({ icon: "success", title: "Listo", text: msg, confirmButtonText: "Aceptar", confirmButtonColor: "#EA7C12" });
     else alert(msg);
   }
 
@@ -398,6 +399,35 @@
       return `${baseUrl}/api/soporte/productos?${params.toString()}`;
     }
 
+    function leerPublicacionDestinoNotificacion() {
+      try {
+        const raw = sessionStorage.getItem(NOTIF_PUBLICATION_TARGET_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        const codigoProducto = Number(data?.codigo_producto || 0);
+        const ruta = String(data?.ruta || '').trim();
+        const createdAt = Number(data?.created_at || 0);
+        const age = Date.now() - createdAt;
+        if (codigoProducto <= 0 || ruta !== '/atender-publicacion' || age < 0 || age > 5 * 60 * 1000) {
+          if (ruta === '/atender-publicacion' || age < 0 || age > 5 * 60 * 1000) {
+            sessionStorage.removeItem(NOTIF_PUBLICATION_TARGET_KEY);
+          }
+          return null;
+        }
+        return { codigo_producto: codigoProducto };
+      } catch (_) {
+        return null;
+      }
+    }
+
+    async function abrirPublicacionDestinoNotificacion() {
+      const pending = leerPublicacionDestinoNotificacion();
+      if (!pending) return false;
+      sessionStorage.removeItem(NOTIF_PUBLICATION_TARGET_KEY);
+      await abrirRevisar(Number(pending.codigo_producto));
+      return true;
+    }
+
     async function listar() {
       cancelFetchPrevio();
       aborter = new AbortController();
@@ -434,6 +464,7 @@
 
         render(items);
         renderMeta(total);
+        window.setTimeout(() => { abrirPublicacionDestinoNotificacion(); }, 120);
       } catch (e) {
         if (e && e.name === "AbortError") return;
         toastError("Error de red al listar.");

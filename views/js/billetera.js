@@ -3,6 +3,7 @@
   'use strict';
 
   const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/$/, '');
+  const NOTIF_WALLET_TARGET_KEY = 'ev_notificacion_billetera_destino';
   const LOG_PREFIX = '[BILLETERA]';
   const RECARGAS_DISPONIBLES = window.EV_WALLET_CONFIG?.recargasDisponibles !== false;
 
@@ -264,8 +265,11 @@
   function obtenerNombreOrigen(origen) {
     const v = String(origen || '').toUpperCase();
     const mapa = {
-      PEDIDO_PREPARADO_DEBITO: 'Solicitud preparada',
-      PEDIDO_PREPARADO_DEVOLUCION: 'Devolución',
+      PEDIDO_PREPARADO_DEBITO: 'Pago de producto preparado',
+      PEDIDO_SOLICITUD_PREPARADA: 'Pago de producto preparado',
+      PEDIDO_PREPARADO_DEVOLUCION: 'Devolución de pedido',
+      PEDIDO_SOLICITUD_DEVOLUCION: 'Devolución de pedido',
+      DEVOLUCION_PEDIDO_SOLICITUD: 'Devolución de pedido',
       BONO_BIENVENIDA: 'Bono de bienvenida',
       RECARGA_MANUAL: 'Recarga manual',
       PRODUCTO_DESTACADO: 'Producto destacado',
@@ -322,7 +326,7 @@
     }
 
     if (refs.btnEnviarRecarga) {
-      refs.btnEnviarRecarga.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Guardar';
+      refs.btnEnviarRecarga.textContent = 'Guardar';
     }
 
     if (refs.recargaImagenHelp) {
@@ -370,7 +374,7 @@
     }
 
     if (refs.btnEnviarRecarga) {
-      refs.btnEnviarRecarga.innerHTML = '<i class="bi bi-send-check me-1"></i> Reenviar recarga';
+      refs.btnEnviarRecarga.textContent = 'Reenviar recarga';
     }
 
     if (refs.recargaImagenHelp) {
@@ -499,6 +503,41 @@
     return map[e] || 'badge rounded-pill text-bg-secondary';
   }
 
+  function leerRecargaDestinoNotificacion() {
+    try {
+      const raw = sessionStorage.getItem(NOTIF_WALLET_TARGET_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      const codigoRecarga = Number(data?.codigo_recarga || 0);
+      const createdAt = Number(data?.created_at || 0);
+      const age = Date.now() - createdAt;
+      if (codigoRecarga <= 0 || age < 0 || age > 5 * 60 * 1000) {
+        sessionStorage.removeItem(NOTIF_WALLET_TARGET_KEY);
+        return null;
+      }
+      return { codigo_recarga: codigoRecarga };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function enfocarRecargaDestinoNotificacion() {
+    const pending = leerRecargaDestinoNotificacion();
+    if (!pending) return false;
+    const row = document.querySelector(`[data-ev-recarga-id="${Number(pending.codigo_recarga)}"]`);
+    if (!row) return false;
+
+    sessionStorage.removeItem(NOTIF_WALLET_TARGET_KEY);
+    row.classList.add('is-notification-target');
+    row.setAttribute('tabindex', '-1');
+    window.requestAnimationFrame(() => {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      try { row.focus({ preventScroll: true }); } catch (_) {}
+    });
+    window.setTimeout(() => row.classList.remove('is-notification-target'), 5200);
+    return true;
+  }
+
   function renderizarRecargas(items) {
     if (!refs.recargasEmpty || !refs.recargasTable) return;
 
@@ -550,7 +589,7 @@
         : '';
 
       return `
-        <tr>
+        <tr data-ev-recarga-id="${esc(r.id)}">
           <td>
             <div class="small fw-semibold">${esc(r.fecha || '—')}</div>
             <div class="small text-muted">${esc(r.hora || '')}</div>
@@ -580,6 +619,7 @@
         </table>
       </div>
     `;
+    window.setTimeout(enfocarRecargaDestinoNotificacion, 90);
   }
 
   async function cargarMisRecargas() {
@@ -673,7 +713,7 @@
           title: esSubsanacion ? 'Reenviar recarga' : 'Guardar recarga',
           text: confirmarTexto,
           showCancelButton: true,
-          confirmButtonText: esSubsanacion ? 'Sí, reenviar' : 'Sí, guardar',
+          confirmButtonText: esSubsanacion ? 'Sí, reenviar' : 'Aceptar',
           cancelButtonText: 'Cancelar'
         })
       : Promise.resolve({ isConfirmed: confirm('¿Confirmas la operación?') })

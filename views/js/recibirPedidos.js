@@ -549,7 +549,7 @@
         maxlength: '500'
       },
       showCancelButton: true,
-      confirmButtonText: 'Rechazar solicitud',
+      confirmButtonText: 'Rechazar',
       cancelButtonText: 'Cancelar',
       preConfirm: (value) => {
         const txt = String(value || '').trim();
@@ -565,8 +565,6 @@
   function badgeEstado(estado) {
     const mapa = {
       pendiente_vendedor: { texto: 'Pendiente', clase: 'ev-status-off' },
-      cola_aceptada: { texto: 'En cola', clase: 'ev-status-off' },
-      cola_pendiente_confirmacion: { texto: 'Esperando confirmación', clase: 'ev-status-off' },
       en_preparacion: { texto: 'En preparación', clase: 'ev-status-on' },
       despachando: { texto: 'Despachando', clase: 'ev-status-on' },
       listo_para_entrega: { texto: 'Listo para entrega', clase: 'ev-status-on' },
@@ -828,10 +826,8 @@
     return item?.tipo_entrega || 'Inmediato';
   }
 
-  function construirPillCola(item) {
-    const pos = Number(item?.posicion_cola || 0);
-    if (pos <= 1) return '';
-    return `<span class="ev-status-pill ev-status-off">Cola #${escapeHtml(pos)}</span>`;
+  function construirPillCola() {
+    return '';
   }
 
   function construirBloqueDetalle(item) {
@@ -847,9 +843,6 @@
       ? `<div class="ev-pedido-comentario"><strong>Detalle de estado:</strong> ${escapeHtml(item.motivo_estado)}</div>`
       : '';
 
-    const cola = Number(item.posicion_cola || 0) > 1
-      ? `<div class="ev-pedido-detalle-line"><strong>Posición en cola:</strong> ${escapeHtml(item.posicion_cola)}</div>`
-      : '';
 
     const fechaRegistro = item.fecha_hora
       ? `<div class="ev-pedido-detalle-line"><strong>Registrado:</strong> ${escapeHtml(formatearFechaRegistro(item.fecha_hora))}</div>`
@@ -863,7 +856,6 @@
       <div class="ev-pedido-detalle-line"><strong>Total:</strong> S/ ${escapeHtml(formatoMoneda(item.monto_total))}</div>
       <div class="ev-pedido-detalle-line"><strong>Entrega:</strong> ${escapeHtml(obtenerTextoEntrega(item))}</div>
       ${programado}
-      ${cola}
       <div class="ev-pedido-detalle-line"><strong>Dirección:</strong> ${escapeHtml(item.direccion_entrega || '-')}</div>
       ${mensaje}
       ${motivo}
@@ -1194,9 +1186,9 @@
     const ok = await confirmAction({
       title: 'Aceptar solicitud',
       subtitle: 'Confirmar recepción del pedido',
-      text: 'Al aceptarlo, este pedido pasará al flujo de atención y seguirá ocupando tu turno actual.',
+      text: 'Al aceptarlo, este pedido pasará a su flujo de atención independiente.',
       productText: item.titulo_publicacion || item.titulo_producto || `Pedido #${codigoPedido}`,
-      note: 'Mientras este pedido siga activo, las siguientes solicitudes permanecerán en cola hasta que el turno se libere.',
+      note: 'Puedes aceptar y gestionar varios pedidos al mismo tiempo. Organiza cada atención según tu disponibilidad.',
       confirmText: '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Aceptar</span>',
       cancelText: '<i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancelar</span>'
     });
@@ -1272,12 +1264,12 @@
         title: 'Marcar entregado',
         subtitle: 'Confirmar entrega realizada',
         text: 'Después de esto, el comprador deberá confirmar la recepción del pedido.',
-        confirmText: 'Sí, marcar entregado'
+        confirmText: 'Aceptar'
       },
       cancelado_vendedor: {
         title: 'Cancelar pedido',
         subtitle: 'Confirmar cancelación',
-        text: 'Esta acción cerrará el pedido actual y puede liberar el siguiente turno en cola.',
+        text: 'Esta acción cerrará únicamente este pedido. Los demás pedidos activos no se verán afectados.',
         confirmText: 'Sí, cancelar pedido',
         tipo: 'warning'
       }
@@ -1353,14 +1345,6 @@
       `
       : '';
 
-    const cola = Number(item.posicion_cola || 0) > 1
-      ? `
-        <div style="margin-bottom:8px;">
-          <strong>Posición en cola:</strong> ${escapeHtml(item.posicion_cola)}
-        </div>
-      `
-      : '';
-
     const mensaje = item.mensaje_comprador
       ? `
         <div style="margin-top:12px;text-align:left;">
@@ -1394,8 +1378,7 @@
         <div style="margin-bottom:8px;"><strong>Total:</strong> S/ ${escapeHtml(formatoMoneda(item.monto_total))}</div>
         <div style="margin-bottom:8px;"><strong>Entrega:</strong> ${escapeHtml(obtenerTextoEntrega(item))}</div>
         ${programado}
-        ${cola}
-        <div style="margin-bottom:8px;"><strong>Dirección:</strong> ${escapeHtml(item.direccion_entrega || '-')}</div>
+          <div style="margin-bottom:8px;"><strong>Dirección:</strong> ${escapeHtml(item.direccion_entrega || '-')}</div>
         <div style="margin-bottom:8px;"><strong>Registrado:</strong> ${escapeHtml(formatearFechaRegistro(item.fecha_hora || item.created_at || ''))}</div>
         ${mensaje}
         ${motivo}

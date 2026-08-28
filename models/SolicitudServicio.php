@@ -491,7 +491,7 @@ class SolicitudServicio extends Conexion
     }
     /* ==========================================================
        PUNTO 9 — PANEL DEL PROVEEDOR Y COORDINACIÓN ESTRUCTURADA
-       - No reutiliza pedido, cola, stock ni billetera.
+       - No reutiliza pedido, secuenciamiento, stock ni billetera.
        - La confirmación mutua se implementa en el punto 10.
     ========================================================== */
 

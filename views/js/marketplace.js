@@ -404,6 +404,12 @@
     return conBuffer;
   }
 
+  function obtenerFechaMaximaProgramada() {
+    const ahora = new Date();
+    ahora.setSeconds(0, 0);
+    return new Date(ahora.getTime() + (7 * 24 * 60 * 60 * 1000));
+  }
+
   function normalizarFechaProgramadaInput(rawValue) {
     const raw = String(rawValue || '').trim();
     if (!raw) return '';
@@ -603,8 +609,7 @@
     style.type = 'text/css';
     style.textContent = `
       .swal2-popup.ev-mp-swal-popup,
-      .swal2-popup.ev-mp-swal-popup-seguimiento,
-      .swal2-popup.ev-mp-toast-cola-popup{
+      .swal2-popup.ev-mp-swal-popup-seguimiento{
         background:#ffffff !important;
         background-image:none !important;
         border:1px solid rgba(229,231,235,.96) !important;
@@ -854,19 +859,38 @@
     }, extra || {})));
   }
 
+  async function irAMiBilletera() {
+    const ruta = '/billetera';
+
+    if (window.EVNav && typeof window.EVNav.loadPage === 'function') {
+      await window.EVNav.loadPage(ruta, { pushState: true, replaceState: false });
+      return;
+    }
+
+    window.location.href = `${BASE}/MenuPrincipal?ev_goto=${encodeURIComponent(ruta)}`;
+  }
+
   async function notifySaldoInsuficiente(montoRequerido, saldoActual) {
-    return notify(
+    const result = await notify(
       'warning',
       'Saldo insuficiente',
       `Este producto requiere preparación. Necesitas ${formatPrecio(montoRequerido)} en tu billetera y actualmente tienes ${formatPrecio(saldoActual)}.`,
       {
         subtitle: 'No se pudo continuar con la solicitud',
-        confirmButtonText: 'Entendido',
+        confirmButtonText: 'Ir a Mi billetera',
+        showCancelButton: true,
+        cancelButtonText: 'Cancelar',
         productLabel: 'Billetera',
         productText: `Saldo actual: ${formatPrecio(saldoActual)}`,
-        note: `Para continuar necesitas al menos <strong>${formatPrecio(montoRequerido)}</strong> disponibles.`
+        note: `Para continuar necesitas al menos <strong>${formatPrecio(montoRequerido)}</strong> disponibles. Puedes ir a Mi billetera para gestionar una recarga.`
       }
     );
+
+    if (result?.isConfirmed) {
+      await irAMiBilletera();
+    }
+
+    return result;
   }
 
   function showLoadingSolicitud() {
@@ -1474,8 +1498,12 @@
       solicitudFlow.intervalUi = null;
     }
 
+    const codigoAnterior = Number(solicitudFlow.codigoPedido || 0);
     solicitudFlow.codigoPedido = 0;
     solicitudFlow.activo = false;
+    if (Number(window.__EV_MARKETPLACE_PEDIDO_SEGUIMIENTO__ || 0) === codigoAnterior) {
+      window.__EV_MARKETPLACE_PEDIDO_SEGUIMIENTO__ = 0;
+    }
     solicitudFlow.cancelButtonVisible = false;
     solicitudFlow.modo = '';
     solicitudFlow.segundosRestantes = 0;
@@ -1487,213 +1515,6 @@
     const min = Math.floor(total / 60);
     const sec = total % 60;
     return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-  }
-
-  function obtenerQueueAckKey(codigoPedido) {
-    return `ev_mp_queue_ack_${Number(codigoPedido || 0)}`;
-  }
-
-  function marcarQueueAckVisto(codigoPedido) {
-    const id = Number(codigoPedido || 0);
-    if (!id) return;
-
-    try {
-      sessionStorage.setItem(obtenerQueueAckKey(id), '1');
-    } catch (_) {}
-  }
-
-  function limpiarQueueAckVisto(codigoPedido) {
-    const id = Number(codigoPedido || 0);
-    if (!id) return;
-
-    try {
-      sessionStorage.removeItem(obtenerQueueAckKey(id));
-    } catch (_) {}
-  }
-
-  function yaSeMostroQueueAck(codigoPedido) {
-    const id = Number(codigoPedido || 0);
-    if (!id) return false;
-
-    try {
-      return sessionStorage.getItem(obtenerQueueAckKey(id)) === '1';
-    } catch (_) {
-      return false;
-    }
-  }
-
-  async function abrirVistaMisPedidosComprador() {
-    const ruta = '/mis-pedidos-comprador';
-
-    if (window.EVNav && typeof window.EVNav.loadPage === 'function') {
-      await window.EVNav.loadPage(ruta, { pushState: true, replaceState: false });
-      return;
-    }
-
-    window.location.href = `${BASE}/MenuPrincipal?ev_goto=${encodeURIComponent(ruta)}`;
-  }
-
-  function htmlSeguimientoCola(opts = {}) {
-    const {
-      tituloProducto = 'tu solicitud',
-      detalle = 'Tu solicitud quedó en cola y avanzará cuando el vendedor termine el pedido anterior.',
-      posicionCola = 0
-    } = opts;
-
-    const detalleFinal = posicionCola > 0 && !/posici[oó]n/i.test(String(detalle))
-      ? `${detalle} Posición actual: ${posicionCola}.`
-      : detalle;
-
-    return `
-      <div style="text-align:center;">
-        <div class="ev-mp-swal-status-icon ev-mp-swal-status-icon--info" aria-hidden="true">
-          <svg viewBox="0 0 64 64" fill="none">
-            <circle cx="32" cy="32" r="30" fill="none"></circle>
-            <path d="M32 18.5C34.5 18.5 36.3 20.2 36.3 22.6C36.3 25 34.5 26.8 32 26.8C29.5 26.8 27.7 25 27.7 22.6C27.7 20.2 29.5 18.5 32 18.5Z" fill="#38BDF8"/>
-            <path d="M32 31.5V45.5" stroke="#38BDF8" stroke-width="5" stroke-linecap="round"/>
-          </svg>
-        </div>
-
-        <div class="ev-mp-swal-subtitle">Solicitud en cola de atención</div>
-
-        <div class="ev-mp-swal-soft-text">
-          ${escapeHtml(detalleFinal)}
-        </div>
-
-        <div class="ev-mp-swal-product-card">
-          <span class="ev-mp-swal-product-label">Solicitud</span>
-          <div class="ev-mp-swal-product">${escapeHtml(tituloProducto)}</div>
-        </div>
-
-        <div class="ev-mp-swal-note">
-          Tu solicitud <strong>aún no ha sido aceptada por el vendedor</strong>. Solo quedó registrada en cola y avanzará cuando llegue su turno de atención.
-        </div>
-      </div>
-    `;
-  }
-
-  async function mostrarPopupColaNoBloqueante(data = {}, forzar = false) {
-    const codigoPedido = Number(data?.codigo_pedido || 0);
-
-    if (!forzar && codigoPedido > 0 && yaSeMostroQueueAck(codigoPedido)) {
-      return;
-    }
-
-    if (!estaVistaMarketplaceActiva()) {
-      if (codigoPedido > 0) marcarQueueAckVisto(codigoPedido);
-      return;
-    }
-
-    if (!window.Swal?.fire) {
-      if (codigoPedido > 0) marcarQueueAckVisto(codigoPedido);
-      return;
-    }
-
-    swalCloseIfVisible();
-
-    const r = await Swal.fire(swalBaseConfig({
-      title: 'Hay una cola en atención',
-      html: htmlSeguimientoCola({
-        tituloProducto: String(data?.titulo_producto || data?.titulo_publicacion || 'tu solicitud'),
-        detalle: data?.mensaje_estado || 'Tu solicitud quedó en cola y avanzará cuando el vendedor termine el pedido anterior.',
-        posicionCola: Number(data?.posicion_cola || 0)
-      }),
-      showConfirmButton: true,
-      confirmButtonText: 'Entendido',
-      showCancelButton: true,
-      cancelButtonText: 'Ir a mis pedidos',
-      allowOutsideClick: false,
-      allowEscapeKey: true
-    }));
-
-    if (codigoPedido > 0) {
-      marcarQueueAckVisto(codigoPedido);
-    }
-
-    if (r.dismiss === Swal.DismissReason.cancel) {
-      await abrirVistaMisPedidosComprador();
-    }
-  }
-
-  async function mostrarToastColaConfirmada(data = {}) {
-    const codigoPedido = Number(data?.codigo_pedido || 0);
-    if (codigoPedido > 0) {
-      marcarQueueAckVisto(codigoPedido);
-    }
-
-    if (!window.Swal?.fire) return;
-
-    await Swal.fire(swalBaseConfig({
-      toast: true,
-      position: 'bottom-end',
-      title: '',
-      html: `
-        <div class="ev-mp-toast-cola">
-          <div class="ev-mp-toast-cola-icon">
-            <i class="bi bi-chat-left-text"></i>
-          </div>
-
-          <div class="ev-mp-toast-cola-content">
-            <div class="ev-mp-toast-cola-title">Solicitud en cola</div>
-
-            <div class="ev-mp-toast-cola-text">
-              Se registró correctamente.
-            </div>
-
-            <div class="ev-mp-toast-cola-text ev-mp-toast-cola-text--strong">
-              ${
-                Number(data?.posicion_cola || 0) > 0
-                  ? `Posición actual: ${Number(data.posicion_cola)}`
-                  : 'En espera de atención'
-              }
-            </div>
-
-            <div class="ev-mp-toast-cola-actions">
-              <button type="button" class="ev-mp-toast-cola-link">Ver mis pedidos</button>
-            </div>
-          </div>
-        </div>
-      `,
-      showConfirmButton: false,
-      timer: 4200,
-      timerProgressBar: true,
-      allowOutsideClick: true,
-      allowEscapeKey: true,
-      customClass: {
-        container: 'ev-mp-swal-container',
-        popup: 'ev-mp-swal-popup ev-mp-toast-cola-popup',
-        htmlContainer: 'ev-mp-swal-html ev-mp-toast-cola-html'
-      },
-      didOpen: (toast) => {
-        const btn = toast.querySelector('.ev-mp-toast-cola-link');
-        if (btn) {
-          btn.addEventListener('click', async (ev) => {
-            ev.preventDefault();
-            Swal.close();
-            await abrirVistaMisPedidosComprador();
-          });
-        }
-      }
-    }));
-  }
-
-  function iniciarMonitoreoCola(data = {}) {
-    limpiarSeguimientoSolicitud();
-
-    const codigoPedido = Number(data?.codigo_pedido || 0);
-    if (!codigoPedido) return;
-
-    solicitudFlow.codigoPedido = codigoPedido;
-    solicitudFlow.activo = true;
-    solicitudFlow.modo = 'cola';
-    solicitudFlow.cancelButtonVisible = false;
-    solicitudFlow.segundosRestantes = 0;
-    solicitudFlow.segundosParaCancelarRestantes = 0;
-
-    solicitudFlow.pollingTimer = setInterval(() => {
-      if (document.hidden) return;
-      refrescarSeguimientoSolicitud();
-    }, SOLICITUD_POLLING_MS);
   }
 
   function calcularSegundosParaCancelarDesdeRestante(segundosRestantes) {
@@ -1784,8 +1605,8 @@
     const notaBilletera = requierePreparacion && Number(montoDescontado || 0) > 0
       ? `
         <div class="ev-mp-swal-note">
-          Se reservó <strong>${formatPrecio(montoDescontado)}</strong> de tu billetera por tratarse de un producto con preparación.
-          Si la solicitud no continúa, el saldo se devolverá automáticamente.
+          Se debitó <strong>${formatPrecio(montoDescontado)}</strong> de tu billetera por tratarse de un producto con preparación.
+          Durante los primeros 2 minutos no podrás cancelar. Desde el minuto 2, si el vendedor aún no responde, podrás cancelar y EV devolverá el 100 % del monto debitado. Si a los 4 minutos no hubo respuesta, la devolución será automática.
         </div>
       `
       : '';
@@ -1909,84 +1730,6 @@
       }
 
       if (solicitudFlow.codigoPedido === Number(solicitud.codigo_pedido || 0) && solicitudFlow.activo) {
-        return;
-      }
-
-      const estadoActual = String(solicitud.estado_actual || '').trim();
-
-      if (estadoActual === 'cola_pendiente_confirmacion') {
-        const deseaEsperar = await Swal.fire(swalBaseConfig({
-          title: 'Hay una cola en atención',
-          html: htmlSeguimientoCola({
-            tituloProducto: String(solicitud?.titulo_producto || 'tu solicitud'),
-            detalle: solicitud?.mensaje_estado || 'El vendedor tiene otros pedidos en atención. ¿Deseas continuar en cola?',
-            posicionCola: Number(solicitud?.posicion_cola || 0)
-          }),
-          showCancelButton: true,
-          confirmButtonText: '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Aceptar</span>',
-          cancelButtonText: '<i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancelar</span>'
-        }));
-
-        if (deseaEsperar.isConfirmed) {
-          const confirmar = await fetchJsonRobusto(`${BASE}/api/pedidos/${encodeURIComponent(solicitud.codigo_pedido)}/confirmar-cola`, {
-            method: 'POST',
-            headers: { 'Accept': 'application/json' },
-            credentials: 'same-origin',
-            cache: 'no-store'
-          });
-
-          if (await manejarRespuestaAuth(confirmar.resp, confirmar.json)) return;
-
-          if (!confirmar.json || !confirmar.resp.ok || !confirmar.json.ok) {
-            await notify('error', 'Error', confirmar.json?.mensaje || 'No se pudo confirmar tu permanencia en la cola.', {
-              subtitle: 'No se pudo registrar tu decisión'
-            });
-            await reanudarSeguimientoDespuesDeCancelarFallido(solicitud.codigo_pedido, confirmar.json?.data || null);
-            return;
-          }
-
-          const dataConfirmada = confirmar.json.data || solicitud;
-          const estadoConfirmado = String(dataConfirmada.estado_actual || '').trim();
-
-          if (estadoConfirmado === 'cola_aceptada' || estadoConfirmado === 'cola_pendiente_confirmacion') {
-            iniciarMonitoreoCola(dataConfirmada);
-            await mostrarToastColaConfirmada(dataConfirmada);
-            return;
-          }
-
-          await iniciarSeguimientoSolicitud(dataConfirmada);
-          return;
-        }
-
-        const cancelado = await cancelarSolicitudBackend(solicitud.codigo_pedido);
-
-        if (!cancelado || !cancelado.json) {
-          await notify('warning', 'Solicitud no actualizada', 'No se pudo cancelar en este momento. Se volverá a sincronizar el seguimiento.', {
-            subtitle: 'Se reintentará consultar el estado'
-          });
-          await reanudarSeguimientoDespuesDeCancelarFallido(solicitud.codigo_pedido);
-          return;
-        }
-
-        if (!cancelado.resp.ok || !cancelado.json.ok) {
-          await notify('warning', 'No se pudo cancelar', cancelado.json?.mensaje || 'La solicitud ya no se puede cancelar.', {
-            subtitle: 'La solicitud mantiene su estado actual'
-          });
-          await reanudarSeguimientoDespuesDeCancelarFallido(solicitud.codigo_pedido, cancelado.json?.data || null);
-          return;
-        }
-
-        await finalizarSeguimientoSolicitud(cancelado.json.data || {});
-        return;
-      }
-
-      if (estadoActual === 'cola_aceptada') {
-        iniciarMonitoreoCola(solicitud);
-
-        if (!yaSeMostroQueueAck(Number(solicitud?.codigo_pedido || 0))) {
-          await mostrarToastColaConfirmada(solicitud);
-        }
-
         return;
       }
 
@@ -2170,7 +1913,6 @@
     const tituloProducto = String(data?.titulo_producto || 'tu solicitud');
 
     suprimirAlertaGlobalPedido(codigoPedidoFinal);
-    limpiarQueueAckVisto(codigoPedidoFinal);
     limpiarSeguimientoSolicitud();
     swalCloseIfVisible();
 
@@ -2204,7 +1946,7 @@
           variant: 'info'
         }),
         showConfirmButton: true,
-        confirmButtonText: 'Entendido',
+        confirmButtonText: 'Aceptar',
         showCancelButton: false
       }));
       return;
@@ -2233,71 +1975,17 @@
   }
 
   function estadoSigueEsperandoRespuesta(estado) {
-    const e = String(estado || '').trim();
-
-    return [
-      'pendiente_vendedor',
-      'cola_pendiente_confirmacion',
-      'cola_aceptada'
-    ].includes(e);
+    return String(estado || '').trim() === 'pendiente_vendedor';
   }
 
   async function refrescarSeguimientoSolicitud() {
     if (!solicitudFlow.activo || !solicitudFlow.codigoPedido) return;
-
-    if (solicitudFlow.modo === 'cola' && !estaVistaMarketplaceActiva()) {
-      limpiarSeguimientoSolicitud();
-      return;
-    }
 
     const data = await consultarEstadoSolicitud(solicitudFlow.codigoPedido);
     if (!data) return;
 
     const estado = String(data?.estado_actual || '').trim();
     const finalizado = Number(data?.finalizado || 0) === 1;
-
-    if (solicitudFlow.modo === 'cola') {
-      if (estado === 'cola_pendiente_confirmacion') {
-        limpiarSeguimientoSolicitud();
-        await restoreSolicitudActiva(data);
-        return;
-      }
-
-      if (estado === 'cola_aceptada') {
-        if (!yaSeMostroQueueAck(Number(data?.codigo_pedido || 0))) {
-          await mostrarToastColaConfirmada(data);
-        }
-        return;
-      }
-
-      if (estado === 'pendiente_vendedor') {
-        await iniciarSeguimientoSolicitud(data);
-        return;
-      }
-
-      if (finalizado || !estadoSigueEsperandoRespuesta(estado)) {
-        await finalizarSeguimientoSolicitud(data);
-        return;
-      }
-
-      return;
-    }
-
-    if (estado === 'cola_pendiente_confirmacion') {
-      limpiarSeguimientoSolicitud();
-      await restoreSolicitudActiva(data);
-      return;
-    }
-
-    if (estado === 'cola_aceptada') {
-      iniciarMonitoreoCola(data);
-
-      if (!yaSeMostroQueueAck(Number(data?.codigo_pedido || 0))) {
-        await mostrarToastColaConfirmada(data);
-      }
-
-      return;
-    }
 
     sincronizarSeguimientoDesdeData(data);
     actualizarUiSeguimiento({
@@ -2316,27 +2004,9 @@
     const codigoPedido = Number(data.codigo_pedido || 0);
     if (!codigoPedido) return;
 
-    const estadoActual = String(data.estado_actual || '').trim();
-
-    if (estadoActual === 'cola_pendiente_confirmacion') {
-      await restoreSolicitudActiva(data);
-      return;
-    }
-
-    if (estadoActual === 'cola_aceptada') {
-      iniciarMonitoreoCola(data);
-
-      if (!yaSeMostroQueueAck(Number(data?.codigo_pedido || 0))) {
-        await mostrarToastColaConfirmada(data);
-      }
-
-      return;
-    }
-
-    limpiarQueueAckVisto(codigoPedido);
-
     solicitudFlow.codigoPedido = codigoPedido;
     solicitudFlow.activo = true;
+    window.__EV_MARKETPLACE_PEDIDO_SEGUIMIENTO__ = codigoPedido;
     solicitudFlow.modo = 'respuesta';
     solicitudFlow.cancelButtonVisible = false;
 
@@ -2662,7 +2332,7 @@
 
     if (esProgramada) {
       const minimo = obtenerFechaMinimaProgramada();
-      const maximo = new Date(minimo.getTime() + (48 * 60 * 60 * 1000));
+      const maximo = obtenerFechaMaximaProgramada();
 
       fechaEl.min = toDateTimeLocalValue(minimo);
       fechaEl.max = toDateTimeLocalValue(maximo);
@@ -3121,10 +2791,20 @@
 
     if (tipoEntrega === 'programada') {
       const minima = obtenerFechaMinimaProgramada();
+      const maxima = obtenerFechaMaximaProgramada();
       const seleccionada = new Date(fechaProgramada);
 
       if (Number.isNaN(seleccionada.getTime()) || seleccionada.getTime() < minima.getTime()) {
         await notify('warning', 'Validación', 'La fecha programada debe ser una hora futura válida.', {
+          subtitle: 'Revisa la fecha y hora programada',
+          productLabel: 'Solicitud',
+          productText: tituloProducto
+        });
+        return;
+      }
+
+      if (seleccionada.getTime() > maxima.getTime()) {
+        await notify('warning', 'Validación', 'La fecha programada puede seleccionarse hasta 1 semana desde ahora.', {
           subtitle: 'Revisa la fecha y hora programada',
           productLabel: 'Solicitud',
           productText: tituloProducto
@@ -3241,8 +2921,6 @@
       }
 
       const data = json?.data || {};
-      const estadoRegistrado = String(data?.estado_actual || '').trim();
-
       const form = document.getElementById('mp_form_solicitud_pedido');
       try { form?.reset(); } catch (_) {}
 
@@ -3260,78 +2938,6 @@
       actualizarVisibilidadEntregaProgramada();
 
       swalCloseIfVisible();
-
-      if ((estadoRegistrado === 'cola_pendiente_confirmacion' || estadoRegistrado === 'cola_aceptada') && data?.codigo_pedido) {
-        if (estadoRegistrado === 'cola_aceptada') {
-          iniciarMonitoreoCola(data);
-          await mostrarToastColaConfirmada(data);
-          return;
-        }
-
-        const deseaEsperar = await Swal.fire(swalBaseConfig({
-          title: 'Hay una cola en atención',
-          html: htmlSeguimientoCola({
-            tituloProducto: String(data?.titulo_producto || tituloProducto),
-            detalle: data?.mensaje_estado || 'El vendedor tiene pedidos en atención. ¿Deseas continuar en cola?',
-            posicionCola: Number(data?.posicion_cola || 0)
-          }),
-          showCancelButton: true,
-          confirmButtonText: '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Aceptar</span>',
-          cancelButtonText: '<i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancelar</span>'
-        }));
-
-        if (deseaEsperar.isConfirmed) {
-          const confirmar = await fetchJsonRobusto(`${BASE}/api/pedidos/${encodeURIComponent(data.codigo_pedido)}/confirmar-cola`, {
-            method: 'POST',
-            headers: { 'Accept': 'application/json' },
-            credentials: 'same-origin',
-            cache: 'no-store'
-          });
-
-          if (await manejarRespuestaAuth(confirmar.resp, confirmar.json)) return;
-
-          if (!confirmar.json || !confirmar.resp.ok || !confirmar.json.ok) {
-            await notify('error', 'Error', confirmar.json?.mensaje || 'No se pudo confirmar tu permanencia en la cola.', {
-              subtitle: 'No se pudo registrar tu decisión'
-            });
-            await reanudarSeguimientoDespuesDeCancelarFallido(data.codigo_pedido, confirmar.json?.data || null);
-            return;
-          }
-
-          const dataConfirmada = confirmar.json.data || data;
-          const estadoConfirmado = String(dataConfirmada.estado_actual || '').trim();
-
-          if (estadoConfirmado === 'cola_aceptada' || estadoConfirmado === 'cola_pendiente_confirmacion') {
-            iniciarMonitoreoCola(dataConfirmada);
-            await mostrarToastColaConfirmada(dataConfirmada);
-            return;
-          }
-
-          await iniciarSeguimientoSolicitud(dataConfirmada);
-          return;
-        }
-
-        const cancelado = await cancelarSolicitudBackend(data.codigo_pedido);
-
-        if (!cancelado || !cancelado.json) {
-          await notify('warning', 'Solicitud no actualizada', 'No se pudo cancelar en este momento. Se volverá a sincronizar el seguimiento.', {
-            subtitle: 'Se reintentará consultar el estado'
-          });
-          await reanudarSeguimientoDespuesDeCancelarFallido(data.codigo_pedido);
-          return;
-        }
-
-        if (!cancelado.resp.ok || !cancelado.json.ok) {
-          await notify('warning', 'No se pudo cancelar', cancelado.json?.mensaje || 'La solicitud ya no se puede cancelar.', {
-            subtitle: 'La solicitud mantiene su estado actual'
-          });
-          await reanudarSeguimientoDespuesDeCancelarFallido(data.codigo_pedido, cancelado.json?.data || null);
-          return;
-        }
-
-        await finalizarSeguimientoSolicitud(cancelado.json.data || {});
-        return;
-      }
 
       await iniciarSeguimientoSolicitud(data);
 

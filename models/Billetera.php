@@ -249,7 +249,10 @@ class Billetera extends Conexion
             $b = $this->obtenerOBilleteraBloqueada($codigoUsuario);
             $saldo = (float)$b['saldo_actual'];
             $codigoB = (int)$b['codigo_billetera'];
-            if ($this->existeMovimientoPorOrigenYReferencia($codigoB, 'C', 'PEDIDO_SOLICITUD_DEVOLUCION', $codigoPedido)) {
+            if (
+                $this->existeMovimientoPorOrigenYReferencia($codigoB, 'C', 'PEDIDO_SOLICITUD_DEVOLUCION', $codigoPedido)
+                || $this->existeMovimientoPorOrigenYReferencia($codigoB, 'C', 'DEVOLUCION_PEDIDO_SOLICITUD', $codigoPedido)
+            ) {
                 if ($abrioTx) $this->dblink->commit();
                 return ['ok'=>true,'ya_aplicado'=>true,'saldo_actual'=>$saldo,'codigo_billetera'=>$codigoB];
             }

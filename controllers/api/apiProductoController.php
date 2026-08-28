@@ -9,6 +9,7 @@ require_once __DIR__ . '/../../models/SesionJWT.php';
 require_once __DIR__ . '/../../models/Producto.php';
 require_once __DIR__ . '/../../models/ProductoSoporte.php';
 require_once __DIR__ . '/../../models/ConfiguracionPlataforma.php';
+require_once __DIR__ . '/../../models/Notificacion.php';
 
 class apiProductoController
 {
@@ -620,12 +621,43 @@ class apiProductoController
                     . $resumenServicios['activos'] . ' de ' . $resumenServicios['maximo'] . ' cupos activos en uso.'
                 : 'Publicación enviada a revisión. Ahora está en estado Pendiente.';
 
+            $notificacionesSoporte = 0;
+            try {
+                $adminId = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
+                $soporteId = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
+                $tituloPublicacion = trim((string)($detalle['titulo'] ?? 'Nueva publicación'));
+
+                $notif = new Notificacion($model->getDblink());
+                $notificacionesSoporte = $notif->crearParaRoles(
+                    [$adminId, $soporteId],
+                    [
+                        'categoria' => Notificacion::CAT_PUBLICACION,
+                        'subcategoria' => 'publicacion_pendiente_soporte',
+                        'referencia_id' => $codigoProducto,
+                        'titulo' => 'Nueva publicación pendiente de revisión',
+                        'mensaje' => 'La publicación “' . $tituloPublicacion . '” fue enviada a revisión.',
+                        'payload' => [
+                            'codigo_producto' => $codigoProducto,
+                            'codigo_usuario' => $codigoUsuario,
+                            'tipo_publicacion' => $tipoPublicacion,
+                            'titulo_producto' => $tituloPublicacion,
+                            'estado' => 'pendiente',
+                            'rol_destino' => 'soporte',
+                            'ruta' => '/atender-publicacion',
+                        ],
+                    ]
+                );
+            } catch (Throwable $eNotif) {
+                error_log('[EV][apiProductoController::publicarProducto][notificacion_soporte] ' . $eNotif->getMessage());
+            }
+
             $this->json(200, [
-                'ok'               => true,
-                'mensaje'          => $mensaje,
-                'tipo_publicacion' => $tipoPublicacion,
-                'visible'          => 1,
-                'servicios_piloto' => $resumenServicios,
+                'ok'                    => true,
+                'mensaje'               => $mensaje,
+                'tipo_publicacion'      => $tipoPublicacion,
+                'visible'               => 1,
+                'servicios_piloto'      => $resumenServicios,
+                'notificaciones_soporte'=> $notificacionesSoporte,
             ]);
             return;
 
@@ -863,6 +895,37 @@ class apiProductoController
                 error_log('[EV][apiProductoController][reenvio_correccion] ' . $e->getMessage());
             }
 
+            $notificacionesSoporte = 0;
+            if ($reenviado) {
+                try {
+                    $adminId = defined('EV_ADMIN_ROLE_ID') ? (int)EV_ADMIN_ROLE_ID : 1;
+                    $soporteId = defined('EV_SOPORTE_ROLE_ID') ? (int)EV_SOPORTE_ROLE_ID : 3;
+                    $notif = new Notificacion($model->getDblink());
+                    $notificacionesSoporte = $notif->crearParaRoles(
+                        [$adminId, $soporteId],
+                        [
+                            'categoria' => Notificacion::CAT_PUBLICACION,
+                            'subcategoria' => 'publicacion_pendiente_soporte',
+                            'referencia_id' => $codigoProducto,
+                            'titulo' => 'Publicación corregida pendiente de revisión',
+                            'mensaje' => 'La publicación “' . $titulo . '” fue corregida y reenviada a revisión.',
+                            'payload' => [
+                                'codigo_producto' => $codigoProducto,
+                                'codigo_usuario' => $codigoUsuario,
+                                'tipo_publicacion' => $tipoPublicacion,
+                                'titulo_producto' => $titulo,
+                                'estado' => 'pendiente',
+                                'reenviado_correccion' => true,
+                                'rol_destino' => 'soporte',
+                                'ruta' => '/atender-publicacion',
+                            ],
+                        ]
+                    );
+                } catch (Throwable $eNotif) {
+                    error_log('[EV][apiProductoController::actualizarProducto][notificacion_soporte] ' . $eNotif->getMessage());
+                }
+            }
+
             $this->json(200, [
                 'ok'                     => true,
                 'mensaje'                => 'Publicación actualizada correctamente.',
@@ -871,6 +934,7 @@ class apiProductoController
                 'imagenes_subidas'       => (int)$upload['subidas'],
                 'warnings'               => $upload['errores'],
                 'reenviado_correccion'   => $reenviado,
+                'notificaciones_soporte' => $notificacionesSoporte,
                 'servicios_piloto'        => $this->respuestaLimiteServiciosPiloto(
                     $model->obtenerResumenServiciosPiloto($codigoUsuario)
                 ),
@@ -958,6 +1022,92 @@ class apiProductoController
             return;
         }
     }
+
+
+    /* ======================================================================================
+       ACTIVAR / DESACTIVAR PUBLICACIÓN APROBADA
+       - Mantiene la aprobación de Soporte (visible = 2).
+       - Solo controla si el vecino desea mostrarla temporalmente en Marketplace.
+    ====================================================================================== */
+    public function cambiarActividadPublicacion($id): void
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            $this->json(405, ['ok' => false, 'mensaje' => 'Método no permitido.']);
+            return;
+        }
+
+        try {
+            $codigoUsuario = $this->obtenerUsuarioAuth();
+            $codigoProducto = (int)$id;
+
+            if ($codigoProducto <= 0) {
+                $this->json(400, [
+                    'ok' => false,
+                    'error' => 'PUBLICACION_INVALIDA',
+                    'mensaje' => 'Código de publicación inválido.'
+                ]);
+                return;
+            }
+
+            $activoRaw = $_POST['activo'] ?? null;
+            if ($activoRaw === null) {
+                $this->json(400, [
+                    'ok' => false,
+                    'error' => 'ACTIVIDAD_REQUERIDA',
+                    'mensaje' => 'Debes indicar si la publicación estará activa o inactiva.'
+                ]);
+                return;
+            }
+
+            $activo = in_array(
+                strtolower(trim((string)$activoRaw)),
+                ['1', 'true', 'si', 'sí', 'activo', 'activa'],
+                true
+            );
+
+            $model = new Producto();
+            $resultado = $model->actualizarActividadPublicacionVecino(
+                $codigoProducto,
+                $codigoUsuario,
+                $activo
+            );
+
+            if (!($resultado['ok'] ?? false)) {
+                $error = (string)($resultado['error'] ?? 'ERROR_ACTUALIZAR_ACTIVIDAD_PUBLICACION');
+                $status = match ($error) {
+                    'PUBLICACION_NO_ENCONTRADA' => 404,
+                    'PUBLICACION_NO_APROBADA',
+                    'PUBLICACION_RESIDENCIA_NO_ACTIVA' => 409,
+                    'PUBLICACION_INVALIDA' => 400,
+                    default => 500,
+                };
+
+                $this->json($status, [
+                    'ok' => false,
+                    'error' => $error,
+                    'mensaje' => (string)($resultado['mensaje'] ?? 'No se pudo actualizar la publicación.')
+                ]);
+                return;
+            }
+
+            $this->json(200, [
+                'ok' => true,
+                'mensaje' => (string)($resultado['mensaje'] ?? 'Publicación actualizada.'),
+                'activo_publicacion' => (int)($resultado['activo_publicacion'] ?? ($activo ? 1 : 0)),
+                'servicios_piloto' => $this->respuestaLimiteServiciosPiloto(
+                    $model->obtenerResumenServiciosPiloto($codigoUsuario)
+                ),
+            ]);
+        } catch (Throwable $e) {
+            error_log('[EV][apiProductoController::cambiarActividadPublicacion] ' . $e->getMessage());
+            $this->json(500, [
+                'ok' => false,
+                'error' => 'ERROR_ACTUALIZAR_ACTIVIDAD_PUBLICACION',
+                'mensaje' => 'No se pudo actualizar el estado activo de la publicación.'
+            ]);
+        }
+    }
+
 
     /* ======================================================================================
        MARKETPLACE

@@ -1226,4 +1226,48 @@
   }
 }
 
+
+
+/* EV QA 2026-08 — archivos de residencia sin overflow en móvil */
+.ev-profile-page .ev-file-info{
+  min-width:0;
+  max-width:100%;
+}
+.ev-profile-page #dpComprobantePath,
+.ev-profile-page #dpFileSelectedMeta{
+  display:block;
+  min-width:0;
+  max-width:100%;
+  margin-left:0 !important;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  white-space:normal;
+  line-height:1.35;
+}
+.ev-profile-page #dpLinkComprobanteActual{
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+@media(max-width:575.98px){
+  .ev-profile-page .ev-file-row{
+    align-items:flex-start;
+    min-width:0;
+  }
+  .ev-profile-page .ev-file-info{
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr);
+    align-items:start;
+    width:100%;
+    gap:7px 8px;
+  }
+  .ev-profile-page .ev-file-info i{margin-top:2px;}
+  .ev-profile-page .ev-file-info #dpComprobantePath,
+  .ev-profile-page .ev-file-info #dpFileSelectedMeta{
+    grid-column:1/-1;
+    width:100%;
+    padding-left:0;
+    font-size:.78rem;
+  }
+}
+
 </style>

@@ -516,3 +516,39 @@
   .ev-wallet-feature-status{width:100%;justify-content:center;text-align:center}
 }
 </style>
+
+
+<style>
+/* EV — Recarga: jerarquía de formulario y destino de notificación */
+#modalRecargarSaldo .ev-wallet-recarga-form-grid{
+  align-items:start;
+}
+#modalRecargarSaldo .ev-wallet-recarga-form-grid .form-label{
+  margin-bottom:7px;
+  color:#1F2937;
+  font-weight:700;
+}
+#modalRecargarSaldo .ev-wallet-recarga-form-grid .form-control,
+#modalRecargarSaldo .ev-wallet-recarga-form-grid .form-select{
+  min-height:44px;
+  border-radius:12px;
+}
+#modalRecargarSaldo .ev-wallet-recarga-form-grid .form-text{
+  margin-top:6px;
+  color:#6B7280;
+  line-height:1.4;
+}
+[data-ev-recarga-id].is-notification-target > td{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF7ED 100%) !important;
+}
+[data-ev-recarga-id].is-notification-target{
+  outline:3px solid rgba(234,124,18,.38);
+  outline-offset:-3px;
+  box-shadow:0 0 0 4px rgba(234,124,18,.08),0 16px 32px rgba(234,124,18,.14);
+}
+@media(max-width:767.98px){
+  #modalRecargarSaldo .ev-wallet-recarga-form-grid > [class*="col-"]{
+    width:100%;
+  }
+}
+</style>

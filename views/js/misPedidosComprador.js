@@ -13,11 +13,13 @@
   const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/+$/, '');
   const PLACEHOLDER = `${BASE}/public/img/placeholder-ev.png`;
   const POLLING_MS = 8000;
+  const NOTIF_ORDER_TARGET_KEY = 'ev_notificacion_pedido_destino';
 
   let tabActiva = 'pendientes';
   let cachePedidos = new Map();
   let pollingTimer = null;
   let recojoCompradorTimer = null;
+  let cancelacionCompradorTimer = null;
   let vistaActiva = false;
   let cargando = false;
 
@@ -89,19 +91,9 @@
     return 'Inmediata';
   }
 
-  function esEstadoCola(estado) {
-    return [
-      'cola_aceptada',
-      'cola_pendiente_confirmacion'
-    ].includes(String(estado || '').trim());
-  }
 
   function esEstadoPendiente(estado) {
-    return [
-      'pendiente_vendedor',
-      'cola_aceptada',
-      'cola_pendiente_confirmacion'
-    ].includes(String(estado || '').trim());
+    return String(estado || '').trim() === 'pendiente_vendedor';
   }
 
   function esEstadoNegativo(estado) {
@@ -132,8 +124,6 @@
   function estadoLegible(estado) {
     const mapa = {
       pendiente_vendedor: 'Pendiente',
-      cola_aceptada: 'En cola',
-      cola_pendiente_confirmacion: 'Pendiente de confirmación de cola',
       en_preparacion: 'En preparación',
       despachando: 'Despachando',
       listo_para_entrega: 'Listo para entrega',
@@ -157,9 +147,6 @@
       return { texto: 'Pendiente', clase: 'ev-mpc-badge ev-mpc-badge-pendiente' };
     }
 
-    if (e === 'cola_aceptada' || e === 'cola_pendiente_confirmacion') {
-      return { texto: estadoLegible(e), clase: 'ev-mpc-badge ev-mpc-badge-info' };
-    }
 
     if (esEstadoNegativo(e)) {
       return { texto: estadoLegible(e), clase: 'ev-mpc-badge ev-mpc-badge-negative' };
@@ -196,6 +183,7 @@
       icon,
       title,
       text,
+      confirmButtonText: 'Aceptar',
       confirmButtonColor: '#EA7C12'
     });
   }
@@ -610,28 +598,53 @@
     if (refs.listaFinalizados) refs.listaFinalizados.innerHTML = '';
   }
 
-  function getLineaEstado(item) {
-    const estado = String(item.estado_actual || '').trim();
+  function getFlujoEstados(item) {
     const requierePreparacion = Number(item.requiere_preparacion || 0) === 1;
+    return requierePreparacion
+      ? ['pendiente_vendedor', 'en_preparacion', 'listo_para_entrega', 'en_camino', 'en_punto_entrega', 'entregado_vendedor', 'entrega_confirmada_comprador']
+      : ['pendiente_vendedor', 'despachando', 'en_camino', 'en_punto_entrega', 'entregado_vendedor', 'entrega_confirmada_comprador'];
+  }
 
-    if (esEstadoCola(estado)) {
+  function renderProgresoCompacto(item) {
+    const estado = String(item.estado_actual || '').trim();
+
+    if (esEstadoNegativo(estado)) {
+      const negative = esEstadoNegativo(estado);
       return `
-        <div class="ev-mpc-stepper ev-mpc-stepper-final">
-          <div class="ev-mpc-step is-final is-current">
-            <span class="ev-mpc-step-dot"></span>
-            <span class="ev-mpc-step-text">${escapeHtml(estadoLegible(estado))}</span>
+        <div class="ev-mpc-progress-compact ${negative ? 'is-negative' : 'is-special'}">
+          <div class="ev-mpc-progress-current">
+            <span class="ev-mpc-progress-dot"></span>
+            <span>${escapeHtml(estadoLegible(estado))}</span>
           </div>
         </div>
       `;
     }
 
-    const flujo = requierePreparacion
-      ? ['pendiente_vendedor', 'en_preparacion', 'listo_para_entrega', 'en_camino', 'en_punto_entrega', 'entregado_vendedor', 'entrega_confirmada_comprador']
-      : ['pendiente_vendedor', 'despachando', 'en_camino', 'en_punto_entrega', 'entregado_vendedor', 'entrega_confirmada_comprador'];
+    const flujo = getFlujoEstados(item);
+    const indexRaw = flujo.indexOf(estado);
+    const index = indexRaw >= 0 ? indexRaw : 0;
+    const total = Math.max(1, flujo.length);
+    const porcentaje = total <= 1 ? 100 : Math.round((index / (total - 1)) * 100);
+
+    return `
+      <div class="ev-mpc-progress-compact" role="group" aria-label="Progreso del pedido">
+        <div class="ev-mpc-progress-head">
+          <span class="ev-mpc-progress-caption">Paso ${index + 1} de ${total}</span>
+          <span class="ev-mpc-progress-current"><span class="ev-mpc-progress-dot"></span>${escapeHtml(estadoLegible(estado || flujo[index]))}</span>
+        </div>
+        <div class="ev-mpc-progress-track" aria-hidden="true"><span style="width:${porcentaje}%"></span></div>
+        <div class="ev-mpc-progress-ends" aria-hidden="true"><span>Inicio</span><span>Entrega</span></div>
+      </div>
+    `;
+  }
+
+  function getLineaEstado(item) {
+    const estado = String(item.estado_actual || '').trim();
+
 
     if (esEstadoNegativo(estado)) {
       return `
-        <div class="ev-mpc-stepper ev-mpc-stepper-final">
+        <div class="ev-mpc-stepper ev-mpc-stepper-final ev-mpc-stepper-detail">
           <div class="ev-mpc-step is-final is-negative">
             <span class="ev-mpc-step-dot"></span>
             <span class="ev-mpc-step-text">${escapeHtml(estadoLegible(estado))}</span>
@@ -640,17 +653,17 @@
       `;
     }
 
+    const flujo = getFlujoEstados(item);
     const currentIndex = flujo.indexOf(estado);
 
     return `
-      <div class="ev-mpc-stepper">
+      <div class="ev-mpc-stepper ev-mpc-stepper-detail">
         ${flujo.map((step, index) => {
           const isDone = currentIndex > index;
           const isCurrent = currentIndex === index;
-
           return `
             <div class="ev-mpc-step ${isDone ? 'is-done' : ''} ${isCurrent ? 'is-current' : ''}">
-              <span class="ev-mpc-step-dot"></span>
+              <span class="ev-mpc-step-dot">${isDone ? '<i class="bi bi-check2"></i>' : ''}</span>
               <span class="ev-mpc-step-text">${escapeHtml(estadoLegible(step))}</span>
             </div>
           `;
@@ -661,8 +674,6 @@
 
   function renderResumenEstado(item) {
     const estado = String(item.estado_actual || '').trim();
-    const posicionCola = Number(item.posicion_cola || 0);
-
     if (estado === 'pendiente_vendedor') {
       return `
         <div class="ev-mpc-state-box ev-mpc-state-box-pending">
@@ -674,28 +685,6 @@
       `;
     }
 
-    if (estado === 'cola_pendiente_confirmacion') {
-      return `
-        <div class="ev-mpc-state-box ev-mpc-state-box-info">
-          <div class="ev-mpc-state-title">Esperando confirmación de cola</div>
-          <div class="ev-mpc-state-text">
-            ${escapeHtml(item.mensaje_estado || item.motivo_estado || 'Debes decidir si deseas continuar esperando en la cola de atención.')}
-          </div>
-        </div>
-      `;
-    }
-
-    if (estado === 'cola_aceptada') {
-      return `
-        <div class="ev-mpc-state-box ev-mpc-state-box-info">
-          <div class="ev-mpc-state-title">Solicitud en cola</div>
-          <div class="ev-mpc-state-text">
-            ${escapeHtml(item.mensaje_estado || item.motivo_estado || 'Tu solicitud está en cola y avanzará cuando el vendedor termine el pedido anterior.')}
-            ${posicionCola > 1 ? ` Actualmente estás en la posición ${posicionCola}.` : ''}
-          </div>
-        </div>
-      `;
-    }
 
     if (estado === 'en_punto_entrega') {
       const segundos = segundosRecojoRestantesItem(item);
@@ -786,26 +775,18 @@
       `
     ];
 
-    if (Number(item.posicion_cola || 0) > 1) {
-      pills.push(`
-        <span class="ev-mpc-pill">
-          <i class="bi bi-list-ol"></i>
-          Cola #${escapeHtml(item.posicion_cola)}
-        </span>
-      `);
-    }
 
     return pills.join('');
   }
 
   function renderFlujo(item) {
-    if (esEstadoNegativo(item.estado_actual) || esEstadoCola(item.estado_actual)) {
+    if (esEstadoNegativo(item.estado_actual)) {
       return `
         <div class="ev-mpc-section-title">
           <i class="bi bi-diagram-3"></i>
           Estado del pedido
         </div>
-        ${getLineaEstado(item)}
+        ${renderProgresoCompacto(item)}
       `;
     }
 
@@ -814,7 +795,7 @@
         <i class="bi bi-diagram-3"></i>
         Flujo del pedido
       </div>
-      ${getLineaEstado(item)}
+      ${renderProgresoCompacto(item)}
     `;
   }
 
@@ -825,7 +806,6 @@
     const estado = String(item.estado_actual || '').trim();
     const tieneProgramacion = String(item.tipo_entrega_raw || '').trim() === 'programada' && !!item.fecha_hora_programada;
     const puedeCancelar = Number(item.puede_cancelar || 0) === 1;
-    const puedeConfirmarCola = Number(item.puede_confirmar_cola || 0) === 1;
 
     if (estado === 'entregado_vendedor') {
       acciones.push(`
@@ -835,15 +815,22 @@
       `);
     }
 
-    if (puedeConfirmarCola) {
+
+    if (estado === 'pendiente_vendedor') {
+      const segundosParaCancelar = Math.max(0, Number(item.segundos_para_cancelar_restantes || 0));
+      const habilitaEnMs = Date.now() + (segundosParaCancelar * 1000);
+
       acciones.push(`
-        <button type="button" class="btn ev-mpc-btn-primary" data-action="confirmar-cola" data-id="${Number(item.codigo_pedido || 0)}">
-          <i class="bi bi-check2-circle me-1"></i>Aceptar cola
+        <button
+          type="button"
+          class="btn ev-mpc-btn-outline ${puedeCancelar ? '' : 'd-none'}"
+          data-action="cancelar-solicitud"
+          data-id="${Number(item.codigo_pedido || 0)}"
+          data-cancel-enable-ms="${habilitaEnMs}">
+          <i class="bi bi-x-circle me-1"></i>Cancelar
         </button>
       `);
-    }
-
-    if (puedeCancelar) {
+    } else if (puedeCancelar) {
       acciones.push(`
         <button type="button" class="btn ev-mpc-btn-outline" data-action="cancelar-solicitud" data-id="${Number(item.codigo_pedido || 0)}">
           <i class="bi bi-x-circle me-1"></i>Cancelar
@@ -875,17 +862,15 @@
           </div>
 
           <div class="ev-mpc-order-head">
-            <div class="ev-mpc-order-head-row">
-              <div class="ev-mpc-order-head-main">
-                <div class="ev-mpc-order-title">${escapeHtml(item.titulo_publicacion || 'Pedido')}</div>
-                <div class="ev-mpc-order-meta">
-                  Pedido #${Number(item.codigo_pedido || 0)} · ${escapeHtml(formatFecha(item.fecha_hora || item.created_at || null))}
-                </div>
+            <div class="ev-mpc-order-head-main">
+              <div class="ev-mpc-order-title">${escapeHtml(item.titulo_publicacion || 'Pedido')}</div>
+              <div class="ev-mpc-order-meta">
+                Pedido #${Number(item.codigo_pedido || 0)} · ${escapeHtml(formatFecha(item.fecha_hora || item.created_at || null))}
               </div>
-              <span class="${badge.clase}">${escapeHtml(badge.texto)}</span>
             </div>
 
-            <div class="ev-mpc-order-quick">
+            <div class="ev-mpc-order-tags" aria-label="Resumen del pedido">
+              <span class="${badge.clase}">${escapeHtml(badge.texto)}</span>
               ${renderQuickPills(item)}
             </div>
           </div>
@@ -930,16 +915,6 @@
                 : ''
             }
 
-            ${
-              Number(item.posicion_cola || 0) > 1
-                ? `
-                <div class="ev-mpc-line">
-                  <span class="ev-mpc-line-label">Posición en cola</span>
-                  <span class="ev-mpc-line-value">#${escapeHtml(item.posicion_cola)}</span>
-                </div>
-              `
-                : ''
-            }
 
             ${
               String(item.mensaje_comprador || '').trim() !== ''
@@ -1010,6 +985,74 @@
     });
   }
 
+
+  function leerPedidoDestinoNotificacion() {
+    try {
+      const raw = sessionStorage.getItem(NOTIF_ORDER_TARGET_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      const codigoPedido = Number(data?.codigo_pedido || 0);
+      const rol = String(data?.rol || '').trim().toLowerCase();
+      const createdAt = Number(data?.created_at || 0);
+      const age = Date.now() - createdAt;
+
+      if (codigoPedido <= 0 || (rol && rol !== 'comprador') || age < 0 || age > 5 * 60 * 1000) {
+        sessionStorage.removeItem(NOTIF_ORDER_TARGET_KEY);
+        return null;
+      }
+
+      return { codigo_pedido: codigoPedido, rol: 'comprador' };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function prepararTabDestinoNotificacion(data) {
+    const pending = leerPedidoDestinoNotificacion();
+    if (!pending) return null;
+
+    const id = Number(pending.codigo_pedido || 0);
+    const grupos = [
+      ['pendientes', 'pendientes'],
+      ['en_proceso', 'proceso'],
+      ['finalizados', 'finalizados']
+    ];
+
+    for (const [grupo, tab] of grupos) {
+      const items = Array.isArray(data?.[grupo]) ? data[grupo] : [];
+      if (items.some((item) => Number(item?.codigo_pedido || 0) === id)) {
+        tabActiva = tab;
+        return pending;
+      }
+    }
+
+    return pending;
+  }
+
+  function enfocarPedidoDestinoNotificacion() {
+    const pending = leerPedidoDestinoNotificacion();
+    if (!pending) return false;
+
+    const id = Number(pending.codigo_pedido || 0);
+    const card = document.querySelector(`.ev-mpc-order[data-id="${id}"]`);
+    if (!card) return false;
+
+    sessionStorage.removeItem(NOTIF_ORDER_TARGET_KEY);
+    card.classList.add('is-notification-target');
+    card.setAttribute('tabindex', '-1');
+
+    window.requestAnimationFrame(() => {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      try { card.focus({ preventScroll: true }); } catch (_) {}
+    });
+
+    window.setTimeout(() => {
+      card.classList.remove('is-notification-target');
+    }, 5200);
+
+    return true;
+  }
+
   async function cargarPedidos(opciones = {}) {
     const refs = getRefs();
     if (!refs.root || cargando) return;
@@ -1025,6 +1068,7 @@
       if (data === null) return;
 
       refrescarCache(data);
+      prepararTabDestinoNotificacion(data);
 
       const pendientes = Array.isArray(data.pendientes) ? data.pendientes : [];
       const proceso = Array.isArray(data.en_proceso) ? data.en_proceso : [];
@@ -1043,6 +1087,7 @@
       pintarGrupo(finalizados, refs.listaFinalizados, refs.emptyFinalizados);
 
       showTab(refs, tabActiva);
+      window.setTimeout(enfocarPedidoDestinoNotificacion, 90);
     } catch (e) {
       console.error('[MIS_PEDIDOS_COMPRADOR]', e);
       limpiarListas(refs);
@@ -1122,56 +1167,6 @@
     await cargarPedidos({ silent: true });
   }
 
-  async function confirmarCola(codigoPedido) {
-    if (!window.Swal) return;
-
-    const r = await Swal.fire({
-      icon: 'question',
-      title: 'Aceptar espera en cola',
-      text: '¿Deseas continuar esperando en la cola de atención del vendedor?',
-      showCancelButton: true,
-      confirmButtonText: '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Aceptar</span>',
-      cancelButtonText: '<i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancelar</span>',
-      confirmButtonColor: '#EA7C12'
-    });
-
-    if (!r.isConfirmed) return;
-
-    const resp = await fetch(`${BASE}/api/pedidos/${codigoPedido}/confirmar-cola`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({})
-    });
-
-    const json = await resp.json().catch(() => ({}));
-
-    if (await manejarRespuestaSeguridad(resp, json)) return;
-
-    if (!resp.ok || json?.ok === false) {
-      await Swal.fire({
-        icon: 'error',
-        title: 'No se pudo confirmar',
-        text: json?.mensaje || 'No se pudo confirmar la cola.',
-        confirmButtonColor: '#EA7C12'
-      });
-      await cargarPedidos({ silent: true });
-      return;
-    }
-
-    await Swal.fire({
-      icon: 'success',
-      title: 'Cola aceptada',
-      text: json?.mensaje || 'Aceptaste continuar en la cola.',
-      confirmButtonColor: '#EA7C12'
-    });
-
-    await cargarPedidos({ silent: true });
-  }
-
   async function cancelarSolicitud(codigoPedido) {
     if (!window.Swal) return;
 
@@ -1216,10 +1211,19 @@
       return;
     }
 
+    const data = json?.data || {};
+    const tuvoDebito = Number(data.descuento_billetera_aplicado || 0) === 1;
+    const devolvio = Number(data.devolucion_billetera_aplicada || 0) === 1;
+    const montoDevuelto = Number(data.monto_descontado_billetera || 0);
+    const textoResultado = tuvoDebito && devolvio && montoDevuelto > 0
+      ? `Tu solicitud fue cancelada correctamente. Se devolvió S/ ${formatMoney(montoDevuelto)} a tu billetera y el movimiento quedó registrado.`
+      : (json?.mensaje || 'Tu solicitud fue cancelada correctamente.');
+
     await Swal.fire({
       icon: 'success',
       title: 'Solicitud cancelada',
-      text: json?.mensaje || 'Tu solicitud fue cancelada correctamente.',
+      text: textoResultado,
+      confirmButtonText: 'Aceptar',
       confirmButtonColor: '#EA7C12'
     });
 
@@ -1280,6 +1284,28 @@
         padding:13px 24px !important;
         font-weight:900 !important;
         box-shadow:0 14px 30px rgba(234,124,18,.30) !important;
+      }
+
+      .swal2-confirm.ev-mpc-swal-confirm.ev-mpc-swal-confirm-close{
+        background:linear-gradient(180deg,#FFFFFF 0%,#F8FAFC 100%) !important;
+        color:#475569 !important;
+        border:1px solid #CBD5E1 !important;
+        box-shadow:0 10px 22px rgba(15,23,42,.10) !important;
+        transition:transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease, color .16s ease !important;
+      }
+
+      .swal2-confirm.ev-mpc-swal-confirm.ev-mpc-swal-confirm-close:hover,
+      .swal2-confirm.ev-mpc-swal-confirm.ev-mpc-swal-confirm-close:focus-visible{
+        background:#F1F5F9 !important;
+        color:#111827 !important;
+        border-color:#94A3B8 !important;
+        box-shadow:0 14px 28px rgba(15,23,42,.14) !important;
+        transform:translateY(-1px) !important;
+      }
+
+      .swal2-confirm.ev-mpc-swal-confirm.ev-mpc-swal-confirm-close:active{
+        transform:translateY(0) scale(.985) !important;
+        box-shadow:0 8px 18px rgba(15,23,42,.10) !important;
       }
 
       .ev-mpc-modal-detail-v2{
@@ -1465,7 +1491,8 @@
           </div>
         </div>
 
-        <div class="ev-mpc-modal-section">
+        <div class="ev-mpc-modal-section ev-mpc-modal-flow-section">
+          <div class="ev-mpc-modal-note-title ev-mpc-modal-flow-title"><i class="bi bi-diagram-3" aria-hidden="true"></i> Progreso del pedido</div>
           ${getLineaEstado(item)}
         </div>
 
@@ -1486,16 +1513,6 @@
               : ''
           }
 
-          ${
-            Number(item.posicion_cola || 0) > 1
-              ? `
-              <div class="ev-mpc-modal-row">
-                <span>Posición en cola</span>
-                <strong>#${escapeHtml(item.posicion_cola)}</strong>
-              </div>
-            `
-              : ''
-          }
 
           <div class="ev-mpc-modal-row">
             <span>Estado</span>
@@ -1545,7 +1562,7 @@
         popup: 'ev-mpc-swal-popup ev-mpc-swal-popup-premium ev-mpc-swal-popup-detail ev-swal-popup ev-swal-popup-detail',
         title: 'ev-mpc-swal-title ev-swal-title',
         htmlContainer: 'ev-mpc-swal-html ev-swal-html',
-        confirmButton: 'ev-mpc-swal-confirm ev-swal-confirm',
+        confirmButton: 'ev-mpc-swal-confirm ev-mpc-swal-confirm-close ev-swal-confirm',
         cancelButton: 'ev-mpc-swal-cancel ev-swal-cancel',
         closeButton: 'ev-swal-close'
       }
@@ -1606,6 +1623,33 @@
     }, POLLING_MS);
   }
 
+  function actualizarBotonesCancelacionPorEspera() {
+    if (!vistaActiva) return;
+
+    document.querySelectorAll('.ev-mpc-page [data-action="cancelar-solicitud"][data-cancel-enable-ms]').forEach((btn) => {
+      const habilitaEnMs = Number(btn.dataset.cancelEnableMs || 0);
+      if (!Number.isFinite(habilitaEnMs) || habilitaEnMs <= 0) return;
+
+      if (Date.now() >= habilitaEnMs) {
+        btn.classList.remove('d-none');
+        btn.removeAttribute('aria-hidden');
+      }
+    });
+  }
+
+  function detenerCountdownCancelacionComprador() {
+    if (cancelacionCompradorTimer) {
+      window.clearInterval(cancelacionCompradorTimer);
+      cancelacionCompradorTimer = null;
+    }
+  }
+
+  function iniciarCountdownCancelacionComprador() {
+    detenerCountdownCancelacionComprador();
+    actualizarBotonesCancelacionPorEspera();
+    cancelacionCompradorTimer = window.setInterval(actualizarBotonesCancelacionPorEspera, 1000);
+  }
+
   function bindTabs() {
     const refs = getRefs();
     refs.tabButtons.forEach((btn) => {
@@ -1644,10 +1688,6 @@
       return;
     }
 
-    if (action === 'confirmar-cola') {
-      await confirmarCola(id);
-      return;
-    }
 
     if (action === 'cancelar-solicitud') {
       await cancelarSolicitud(id);
@@ -1667,6 +1707,7 @@
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
     if (document.querySelector('.ev-mpc-page')) {
+      actualizarBotonesCancelacionPorEspera();
       cargarPedidos({ silent: true });
     }
   });
@@ -1678,6 +1719,7 @@
       vistaActiva = false;
       detenerPolling();
       detenerCountdownRecojoComprador();
+      detenerCountdownCancelacionComprador();
     }
   });
 
@@ -1687,6 +1729,7 @@
       vistaActiva = false;
       detenerPolling();
       detenerCountdownRecojoComprador();
+      detenerCountdownCancelacionComprador();
       return;
     }
 
@@ -1699,11 +1742,25 @@
     showTab(refs, tabActiva || 'pendientes');
     cargarPedidos({ silent: false });
     iniciarPolling();
+    iniciarCountdownCancelacionComprador();
   }
 
   window.EVMisPedidosComprador = {
     init: initMisPedidosComprador,
-    refresh: () => cargarPedidos({ silent: true })
+    refresh: () => cargarPedidos({ silent: true }),
+    focusPedido: (codigoPedido) => {
+      const id = Number(codigoPedido || 0);
+      if (id <= 0) return false;
+      try {
+        sessionStorage.setItem(NOTIF_ORDER_TARGET_KEY, JSON.stringify({
+          codigo_pedido: id,
+          rol: 'comprador',
+          created_at: Date.now()
+        }));
+      } catch (_) {}
+      cargarPedidos({ silent: true });
+      return true;
+    }
   };
 
   if (document.querySelector('.ev-mpc-page')) {

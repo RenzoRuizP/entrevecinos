@@ -39,5 +39,5 @@ if (!defined('JWT_SECRET_KEY')) {
 }
 
 if (!defined('JWT_EXPIRATION_SECONDS')) {
-    define('JWT_EXPIRATION_SECONDS', (int)ev_env('JWT_EXPIRATION_SECONDS', 3600));
+    define('JWT_EXPIRATION_SECONDS', (int)ev_env('JWT_EXPIRATION_SECONDS', 7200));
 }

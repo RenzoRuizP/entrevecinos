@@ -214,7 +214,7 @@ final class Dashboard extends Conexion
             SELECT COUNT(*) AS total
             FROM pedido p
             WHERE p.codigo_usuario_vendedor = :codigo_usuario
-              AND COALESCE(NULLIF(p.estado_actual, ''), p.estado, '') IN ('pendiente_vendedor', 'cola_aceptada')
+              AND COALESCE(NULLIF(p.estado_actual, ''), p.estado, '') = 'pendiente_vendedor'
         ";
 
         $st = $this->dblink->prepare($sql);
@@ -727,7 +727,6 @@ final class Dashboard extends Conexion
                 ? 'Solicitud enviada'
                 : 'Nueva solicitud recibida',
 
-            'cola_aceptada' => 'Solicitud en cola',
             'en_preparacion' => 'Pedido en preparación',
             'listo_para_entrega' => 'Pedido listo para entrega',
             'despachando' => 'Pedido despachándose',
@@ -764,7 +763,6 @@ final class Dashboard extends Conexion
     {
         return match ($estado) {
             'pendiente_vendedor' => $esComprador ? 'bi-send-check' : 'bi-cart-plus',
-            'cola_aceptada' => 'bi-hourglass-split',
             'en_preparacion' => 'bi-box-seam',
             'listo_para_entrega' => 'bi-bag-check',
             'despachando', 'en_camino' => 'bi-truck',
@@ -785,7 +783,6 @@ final class Dashboard extends Conexion
     {
         return match ($estado) {
             'pendiente_vendedor',
-            'cola_aceptada',
             'sin_respuesta_vendedor' => 'naranja',
 
             'en_preparacion',

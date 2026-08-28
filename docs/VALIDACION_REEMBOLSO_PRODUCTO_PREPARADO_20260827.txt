@@ -1,0 +1,40 @@
+VALIDACIÓN TÉCNICA EV - REEMBOLSO DE PRODUCTOS PREPARADOS
+Fecha: 2026-08-27
+
+ALCANCE IMPLEMENTADO
+- 00:00-01:59: comprador no puede cancelar la solicitud.
+- Desde 02:00: si sigue pendiente del vendedor, el comprador puede cancelar.
+- Cancelación del comprador por demora: devolución 100 % del monto debitado + movimiento de billetera.
+- Hasta 04:00: vendedor puede aceptar/rechazar, sujeto al estado transaccional vigente.
+- A 04:00 vencido: prevalece sin_respuesta_vendedor + devolución 100 %.
+- Rechazo del vendedor: devolución 100 %.
+- Cancelación del vendedor: devolución 100 %, incluso si el preparado ya fue aceptado.
+- Producto preparado aceptado: comprador no puede cancelar voluntariamente.
+- Idempotencia reforzada: no se acredita dos veces el mismo pedido.
+- Protección de carrera aceptar/rechazar/cancelar/timeout mediante bloqueo del pedido y billetera.
+- Pedidos concurrentes sin cola se mantienen intactos.
+
+VALIDACIONES EJECUTADAS
+- PHP first-party: 193 archivos; 0 errores de sintaxis.
+- JavaScript first-party: 542 archivos; 0 errores de sintaxis.
+- Handlers de rutas index.php: 181 detectados; 0 faltantes.
+- Auditoría pedidos concurrentes: OK.
+- Auditoría reembolsos preparados: OK.
+- Auditoría preventiva EV: OK, sin hallazgos bloqueantes.
+- Referencias funcionales legacy de cola en código activo: 0.
+- Campos de BD requeridos verificados en dump limpio: OK.
+
+LIMITACIÓN DE LA VALIDACIÓN
+No se ejecutó una prueba end-to-end contra la instancia MariaDB real de DEV porque dicha instancia no es accesible desde este entorno. La sintaxis, rutas, reglas estáticas, dependencias y consistencia del flujo fueron verificadas. La regresión transaccional final debe ejecutarse en DEV con datos reales.
+
+PRUEBAS E2E RECOMENDADAS EN DEV
+1. Preparado pagado: cancelar a 01:30 -> debe bloquear.
+2. Preparado pagado: cancelar a 02:00 -> debe devolver 100 % y registrar crédito.
+3. Preparado pagado: vendedor acepta a 03:00 -> comprador ya no puede cancelar.
+4. Vendedor rechaza -> devolución 100 %.
+5. Sin respuesta hasta 04:00 -> timeout + devolución 100 %.
+6. Vendedor cancela luego de aceptación/no recepción -> devolución 100 %.
+7. Reintentar devolución -> no debe duplicar crédito.
+8. Carrera comprador cancela vs vendedor acepta -> solo una transición gana.
+9. Varios pedidos del mismo vendedor -> cancelar/reembolsar uno no afecta los demás.
+10. Revisar movimiento en Mi Billetera y saldo final.

@@ -25,11 +25,6 @@ CREATE TABLE pedido (
 
   estado VARCHAR(50) NOT NULL DEFAULT 'pendiente_vendedor',
   estado_anterior VARCHAR(50) NULL,
-
-  posicion_cola INT NULL,
-  confirmado_cola TINYINT(1) NOT NULL DEFAULT 0,
-  fecha_confirmacion_cola DATETIME NULL,
-
   fecha_limite_respuesta DATETIME NULL,
 
   entrega_confirmada_comprador TINYINT(1) NOT NULL DEFAULT 0,
@@ -52,8 +47,6 @@ CREATE TABLE pedido (
   KEY idx_pedido_comprador_estado (codigo_usuario_comprador, estado),
   KEY idx_pedido_vendedor_estado (codigo_usuario_vendedor, estado),
   KEY idx_pedido_publicacion_estado (codigo_producto, estado),
-  KEY idx_pedido_cola_vendedor (codigo_usuario_vendedor, posicion_cola),
-
   CONSTRAINT fk_pedido_producto
     FOREIGN KEY (codigo_producto) REFERENCES producto(codigo_producto)
     ON DELETE RESTRICT ON UPDATE CASCADE,

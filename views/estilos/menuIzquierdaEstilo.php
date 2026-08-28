@@ -171,10 +171,12 @@
   #sidebar.app-sidebar{
     top:var(--ev-topbar-h);
     height:calc(100vh - var(--ev-topbar-h));
+    height:calc(100dvh - var(--ev-topbar-h));
     width:min(82vw,286px);
     z-index:1040;
     transform:translateX(-106%);
     border-bottom-right-radius:24px;
+    overscroll-behavior:contain;
     box-shadow:
       18px 0 42px rgba(15,23,42,.26),
       4px 0 12px rgba(15,23,42,.12);
@@ -194,22 +196,61 @@
     overflow:hidden !important;
   }
 
-  /* Navegación arriba; utilidades y comunidad al pie cuando hay altura. */
+  /*
+   * En tablet/móvil el bloque Ayuda + Cerrar sesión + Comunidad
+   * continúa inmediatamente después de la navegación. Evitamos el
+   * margin-top:auto, que generaba un vacío vertical innecesario y
+   * empujaba la comunidad fuera del viewport en pantallas bajas.
+   */
   .sidebar-wrapper{
     flex:0 0 auto;
-    padding:.78rem .42rem .12rem;
+    padding:.56rem .42rem .08rem;
   }
 
   .app-sidebar .nav-link,
   .app-sidebar button.nav-link{
-    min-height:44px;
-    margin:.20rem .45rem;
+    min-height:40px;
+    margin:.14rem .45rem;
+  }
+
+  .nav-treeview.ev-menu-group.is-open{
+    margin:.12rem .55rem .30rem;
+    padding:.26rem .34rem .24rem;
+  }
+  .nav-treeview .nav-link{
+    min-height:37px;
+    margin:.10rem .25rem;
   }
 
   .ev-sidebar-footer{
     flex:0 0 auto;
-    margin:auto 12px 18px;
-    padding-top:14px;
+    margin:.45rem 12px 12px;
+    padding-top:10px;
+  }
+  .ev-sidebar-footer-link{
+    min-height:36px;
+    padding:7px 10px;
+    margin-bottom:3px;
+  }
+  .ev-sidebar-community-card{
+    margin-top:6px;
+    padding:10px 10px 9px;
+    border-radius:18px;
+  }
+  .ev-sidebar-community-icon{
+    width:42px;
+    height:42px;
+    margin-bottom:6px;
+    border-radius:14px;
+    font-size:1.08rem;
+  }
+  .ev-sidebar-community-name{
+    margin-bottom:8px;
+    font-size:.91rem;
+  }
+  .ev-sidebar-community-btn{
+    min-height:34px;
+    padding:6px 9px;
   }
 
   body.ev-sidebar-open{
@@ -221,4 +262,58 @@
     overscroll-behavior:contain;
   }
 }
+
+/* Ajuste vertical adicional para celulares/tablets de poca altura. */
+@media (max-width:991.98px) and (max-height:760px){
+  .sidebar-wrapper{padding:.38rem .38rem .04rem;}
+
+  .app-sidebar .nav-link,
+  .app-sidebar button.nav-link{
+    min-height:38px;
+    margin:.10rem .42rem;
+  }
+  .nav-treeview.ev-menu-group.is-open{
+    margin:.08rem .50rem .22rem;
+    padding:.20rem .30rem .18rem;
+  }
+  .nav-treeview .nav-link{
+    min-height:35px;
+    margin:.07rem .20rem;
+    font-size:.89rem;
+  }
+
+  .ev-sidebar-footer{
+    margin:.28rem 10px 8px;
+    padding-top:8px;
+  }
+  .ev-sidebar-footer-link{
+    min-height:34px;
+    padding:6px 9px;
+    margin-bottom:2px;
+  }
+  .ev-sidebar-community-card{
+    margin-top:4px;
+    padding:8px 9px;
+    border-radius:16px;
+  }
+  .ev-sidebar-community-icon{
+    width:36px;
+    height:36px;
+    margin-bottom:4px;
+    border-radius:12px;
+    font-size:.98rem;
+  }
+  .ev-sidebar-community-label{font-size:.68rem;margin-bottom:2px;}
+  .ev-sidebar-community-name{
+    margin-bottom:6px;
+    font-size:.86rem;
+    line-height:1.10;
+  }
+  .ev-sidebar-community-btn{
+    min-height:32px;
+    padding:5px 8px;
+    font-size:.88rem;
+  }
+}
+
 </style>

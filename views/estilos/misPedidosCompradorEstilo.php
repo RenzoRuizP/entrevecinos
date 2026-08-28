@@ -1137,4 +1137,424 @@
     justify-content:space-between;
   }
 }
+
+
+/* ==========================================================
+   EV QA 2026-08 — MIS PEDIDOS COMPRADOR RESPONSIVE PREMIUM
+   - Cabecera compacta sin espacios muertos.
+   - Progreso resumido en cards y flujo completo en detalle.
+========================================================== */
+.ev-mpc-order-head,
+.ev-mpc-order-head-row,
+.ev-mpc-order-quick{
+  min-height:0 !important;
+  height:auto !important;
+}
+
+.ev-mpc-order-head{
+  align-self:start;
+}
+
+.ev-mpc-order-head-row{
+  margin-bottom:7px;
+}
+
+.ev-mpc-order-quick{
+  margin:0;
+}
+
+.ev-mpc-progress-compact{
+  padding:11px 12px 10px;
+  margin:0 0 12px;
+  border:1px solid rgba(22,163,74,.14);
+  border-radius:16px;
+  background:linear-gradient(180deg,#FFFFFF 0%,#F8FCF9 100%);
+  box-shadow:0 8px 18px rgba(15,23,42,.035);
+}
+
+.ev-mpc-progress-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:9px;
+}
+
+.ev-mpc-progress-caption{
+  color:#6B7280;
+  font-size:.72rem;
+  font-weight:750;
+  white-space:nowrap;
+}
+
+.ev-mpc-progress-current{
+  min-width:0;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  color:#0F592F;
+  font-size:.79rem;
+  font-weight:800;
+  line-height:1.25;
+}
+
+.ev-mpc-progress-dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#EA7C12;
+  box-shadow:0 0 0 4px rgba(234,124,18,.10);
+  flex:0 0 auto;
+}
+
+.ev-mpc-progress-track{
+  height:6px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#E8EEE9;
+}
+
+.ev-mpc-progress-track > span{
+  display:block;
+  height:100%;
+  min-width:8px;
+  border-radius:inherit;
+  background:linear-gradient(90deg,#0E7A43 0%,#16A34A 72%,#EA7C12 100%);
+}
+
+.ev-mpc-progress-ends{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:6px;
+  color:#94A3B8;
+  font-size:.66rem;
+  font-weight:700;
+}
+
+.ev-mpc-progress-compact.is-special,
+.ev-mpc-progress-compact.is-negative{
+  display:flex;
+  align-items:center;
+  min-height:44px;
+}
+
+.ev-mpc-progress-compact.is-negative{
+  border-color:#FECACA;
+  background:#FEF2F2;
+}
+.ev-mpc-progress-compact.is-negative .ev-mpc-progress-current{color:#991B1B;}
+.ev-mpc-progress-compact.is-negative .ev-mpc-progress-dot{background:#DC2626;box-shadow:0 0 0 4px rgba(220,38,38,.10);}
+
+/* Flujo completo del modal: estados compactos, legibles y sin "nube" de pills. */
+.ev-mpc-stepper-detail{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  margin:0;
+}
+
+.ev-mpc-stepper-detail .ev-mpc-step{
+  min-width:0;
+  min-height:58px;
+  padding:9px 10px;
+  border-radius:14px;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:8px;
+  background:#F8FAFC;
+  border:1px solid #E5E7EB;
+  color:#64748B;
+  box-shadow:none;
+}
+
+.ev-mpc-stepper-detail .ev-mpc-step-dot{
+  width:18px;
+  height:18px;
+  display:grid;
+  place-items:center;
+  font-size:.72rem;
+}
+
+.ev-mpc-stepper-detail .ev-mpc-step.is-done{
+  background:#F0FDF4;
+  border-color:#BBF7D0;
+  color:#166534;
+}
+.ev-mpc-stepper-detail .ev-mpc-step.is-current{
+  background:#FFF7ED;
+  border-color:#FED7AA;
+  color:#C46B05;
+  box-shadow:0 8px 18px rgba(234,124,18,.08);
+}
+.ev-mpc-stepper-detail .ev-mpc-step-text{
+  min-width:0;
+  line-height:1.2;
+  overflow-wrap:anywhere;
+}
+
+/* Valores del detalle: jerarquía ligera, sin negro en negrita. */
+.ev-mpc-modal-detail-v2 .ev-mpc-modal-item strong,
+.ev-mpc-modal-detail-v2 .ev-mpc-modal-row strong{
+  color:#111827 !important;
+  font-weight:500 !important;
+}
+
+.swal2-confirm.ev-mpc-swal-confirm{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:7px !important;
+  line-height:1 !important;
+}
+.swal2-confirm.ev-mpc-swal-confirm i{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  margin:0 !important;
+  line-height:1 !important;
+  font-size:1rem;
+}
+.swal2-confirm.ev-mpc-swal-confirm span{line-height:1.05;}
+
+@media (max-width: 767.98px){
+  .ev-mpc-stepper-detail{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+
+@media (max-width: 575.98px){
+  .ev-mpc-order-top{
+    grid-template-columns:96px minmax(0,1fr) !important;
+    grid-template-areas:
+      "media head"
+      "data data" !important;
+    gap:10px !important;
+    padding:12px !important;
+  }
+  .ev-mpc-order-media{
+    width:96px !important;
+    height:96px !important;
+    border-radius:16px;
+  }
+  .ev-mpc-order-head{
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-start;
+    gap:7px;
+    align-self:start;
+  }
+  .ev-mpc-order-head-row{
+    margin:0 !important;
+    gap:7px !important;
+  }
+  .ev-mpc-order-title{font-size:.98rem;}
+  .ev-mpc-order-meta{font-size:.76rem;}
+  .ev-mpc-badge{padding:6px 9px;font-size:.7rem;}
+  .ev-mpc-pill{padding:5px 8px;font-size:.7rem;}
+  .ev-mpc-order-data{margin-top:1px;}
+  .ev-mpc-progress-head{align-items:flex-start;}
+  .ev-mpc-progress-current{justify-content:flex-end;text-align:right;}
+  .ev-mpc-stepper-detail{grid-template-columns:1fr;}
+  .ev-mpc-stepper-detail .ev-mpc-step{min-height:48px;}
+}
+
+@media (max-width: 390px){
+  .ev-mpc-order-top{grid-template-columns:84px minmax(0,1fr) !important;}
+  .ev-mpc-order-media{width:84px !important;height:84px !important;}
+  .ev-mpc-order-quick{gap:5px;}
+}
+
+
+.ev-mpc-stepper-detail .ev-mpc-step.is-done .ev-mpc-step-dot{color:#fff;}
+.ev-mpc-modal-flow-title{display:flex;align-items:center;gap:7px;}
+.ev-mpc-modal-flow-title i{color:#16A34A;line-height:1;}
+
+/* ==========================================================
+   EV QA 2026-08-24 — INTERACCIÓN + CABECERA COMPACTA
+   - Hover/selección anaranjado EV sin saturar el card.
+   - Estado + atributos agrupados, sin espacios muertos.
+   - "Ver detalle" secundario en reposo y anaranjado al interactuar.
+========================================================== */
+.ev-mpc-order{
+  transition:
+    transform .18s ease,
+    box-shadow .18s ease,
+    border-color .18s ease,
+    background .18s ease;
+}
+
+.ev-mpc-order:hover,
+.ev-mpc-order:focus-within{
+  transform:translateY(-2px);
+  border-color:rgba(234,124,18,.52);
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFFBF6 100%);
+  box-shadow:
+    0 22px 46px rgba(234,124,18,.13),
+    0 10px 24px rgba(15,23,42,.07);
+}
+
+.ev-mpc-order:hover::before,
+.ev-mpc-order:focus-within::before{
+  background:linear-gradient(180deg,#EA7C12 0%,#F59E0B 100%);
+  opacity:.95;
+}
+
+.ev-mpc-order:active{
+  transform:translateY(0) scale(.996);
+}
+
+.ev-mpc-order-head{
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:flex-start !important;
+  align-items:stretch !important;
+  align-self:start !important;
+  gap:8px !important;
+  min-width:0 !important;
+  min-height:0 !important;
+  height:auto !important;
+}
+
+.ev-mpc-order-head-main{
+  flex:0 0 auto !important;
+  min-width:0;
+  margin:0;
+}
+
+.ev-mpc-order-title,
+.ev-mpc-order-meta{
+  margin-top:0;
+}
+
+.ev-mpc-order-tags{
+  display:flex;
+  align-items:center;
+  align-content:flex-start;
+  justify-content:flex-start;
+  flex-wrap:wrap;
+  gap:6px;
+  margin:0;
+  padding:0;
+  min-height:0;
+}
+
+.ev-mpc-order-tags > .ev-mpc-badge,
+.ev-mpc-order-tags > .ev-mpc-pill{
+  min-height:29px;
+  margin:0;
+  flex:0 0 auto;
+}
+
+.ev-mpc-order-tags > .ev-mpc-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:5px 9px;
+  font-size:.70rem;
+  line-height:1.1;
+}
+
+.ev-mpc-order-tags > .ev-mpc-pill{
+  padding:5px 8px;
+  font-size:.70rem;
+  line-height:1.1;
+}
+
+.ev-mpc-btn-detail{
+  border:1px solid rgba(22,163,74,.24);
+  background:linear-gradient(180deg,#FFFFFF 0%,#F7FCF9 100%);
+  color:var(--ev-verde-oscuro);
+  box-shadow:0 8px 18px rgba(15,23,42,.06);
+}
+
+.ev-mpc-btn-detail:hover,
+.ev-mpc-btn-detail:focus-visible{
+  background:linear-gradient(135deg,var(--ev-naranja),#F59E0B);
+  border-color:var(--ev-naranja);
+  color:#fff;
+  box-shadow:0 15px 30px rgba(234,124,18,.28);
+  transform:translateY(-1px);
+  filter:none;
+}
+
+.ev-mpc-btn-detail:active{
+  background:linear-gradient(135deg,var(--ev-naranja-oscuro),var(--ev-naranja));
+  border-color:var(--ev-naranja-oscuro);
+  color:#fff;
+  transform:translateY(0) scale(.985);
+  box-shadow:0 9px 20px rgba(234,124,18,.22);
+}
+
+@media (hover:none){
+  .ev-mpc-order:hover{
+    transform:none;
+  }
+
+  .ev-mpc-order:active,
+  .ev-mpc-order:focus-within{
+    border-color:rgba(234,124,18,.52);
+    background:linear-gradient(180deg,#FFFFFF 0%,#FFFBF6 100%);
+    box-shadow:0 14px 28px rgba(234,124,18,.12);
+  }
+}
+
+@media (max-width:575.98px){
+  .ev-mpc-order-head{
+    gap:7px !important;
+  }
+
+  .ev-mpc-order-tags{
+    gap:5px;
+  }
+
+  .ev-mpc-order-tags > .ev-mpc-badge,
+  .ev-mpc-order-tags > .ev-mpc-pill{
+    min-height:27px;
+  }
+
+  .ev-mpc-order-title{
+    font-size:.96rem;
+    line-height:1.15;
+  }
+
+  .ev-mpc-order-meta{
+    font-size:.74rem;
+    line-height:1.30;
+  }
+}
+
+@media (max-width:390px){
+  .ev-mpc-order-tags > .ev-mpc-badge,
+  .ev-mpc-order-tags > .ev-mpc-pill{
+    padding:5px 7px;
+    font-size:.67rem;
+  }
+}
+
+
+/* ==========================================================
+   EV — DESTINO DE NOTIFICACIÓN
+   Resalta temporalmente el pedido exacto abierto desde una notificación.
+========================================================== */
+.ev-mpc-order.is-notification-target{
+  border-color:rgba(234,124,18,.86) !important;
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF7ED 100%) !important;
+  box-shadow:
+    0 0 0 4px rgba(234,124,18,.14),
+    0 22px 46px rgba(234,124,18,.20),
+    0 10px 24px rgba(15,23,42,.08) !important;
+  transform:translateY(-2px);
+  animation:evNotificationOrderPulse 1.15s ease-in-out 2;
+}
+.ev-mpc-order.is-notification-target::before{
+  background:linear-gradient(180deg,#EA7C12 0%,#F59E0B 100%) !important;
+  opacity:1 !important;
+}
+@keyframes evNotificationOrderPulse{
+  0%,100%{box-shadow:0 0 0 4px rgba(234,124,18,.14),0 22px 46px rgba(234,124,18,.20),0 10px 24px rgba(15,23,42,.08);}
+  50%{box-shadow:0 0 0 7px rgba(234,124,18,.08),0 25px 50px rgba(234,124,18,.24),0 10px 24px rgba(15,23,42,.08);}
+}
+@media (prefers-reduced-motion:reduce){
+  .ev-mpc-order.is-notification-target{animation:none;}
+}
 </style>

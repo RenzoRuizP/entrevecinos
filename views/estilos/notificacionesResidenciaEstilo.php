@@ -24,9 +24,9 @@
 .ev-notif-titlebox{ display:flex; gap:12px; align-items:center; }
 .ev-notif-ico{
   width:46px;height:46px;border-radius:14px;
-  background:linear-gradient(135deg,var(--ev-verde-oscuro),var(--ev-verde));
+  background:linear-gradient(135deg,#EA7C12,#F59E0B);
   display:flex;align-items:center;justify-content:center;color:#fff;
-  box-shadow:0 8px 18px rgba(15,89,47,.25);
+  box-shadow:0 8px 18px rgba(234,124,18,.24);
 }
 .ev-notif-title{ font-weight:900; font-size:1.15rem; color:var(--ev-verde-oscuro); margin:0; }
 .ev-notif-sub{ margin:2px 0 0 0; color:var(--ev-muted); font-size:.95rem; }
