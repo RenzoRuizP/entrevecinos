@@ -651,6 +651,21 @@
         box-shadow:0 10px 24px rgba(234,124,18,.06) !important;
       }
 
+      .swal2-popup .swal2-cancel.ev-mp-swal-cancel.ev-mp-swal-cancel-danger{
+        background:#DC2626 !important;
+        color:#ffffff !important;
+        border-color:#DC2626 !important;
+        box-shadow:0 12px 26px rgba(220,38,38,.22) !important;
+      }
+
+      .swal2-popup .swal2-cancel.ev-mp-swal-cancel.ev-mp-swal-cancel-danger:hover{
+        background:#B91C1C !important;
+        border-color:#B91C1C !important;
+        color:#ffffff !important;
+        transform:translateY(-1px) !important;
+        box-shadow:0 16px 30px rgba(185,28,28,.28) !important;
+      }
+
       .ev-mp-swal-loader{
         border-color:rgba(22,163,74,.14) !important;
         border-top-color:#0F592F !important;
@@ -723,6 +738,53 @@
     await esperaOculto;
 
     // Limpieza defensiva: solo remueve el backdrop cuando no queda otro modal Bootstrap abierto.
+    if (!document.querySelector('.modal.show')) {
+      document.querySelectorAll('.modal-backdrop').forEach((el) => el.remove());
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('padding-right');
+    }
+  }
+
+  async function cerrarModalSolicitudPedidoAntesDeNavegar() {
+    const modalEl = document.getElementById('mp_modal_solicitud');
+    if (!modalEl) return;
+
+    const estabaAbierto = modalEl.classList.contains('show') || modalEl.style.display === 'block';
+    const esperaOculto = estabaAbierto ? esperarModalOculto(modalEl) : Promise.resolve();
+    let seSolicitoCierre = false;
+
+    try {
+      if (window.bootstrap && typeof window.bootstrap.Modal === 'function') {
+        const instancia = window.bootstrap.Modal.getOrCreateInstance(modalEl, {
+          backdrop: 'static',
+          keyboard: false
+        });
+        instancia.hide();
+        seSolicitoCierre = true;
+      }
+    } catch (e) {
+      warn('No se pudo cerrar el modal de pedido con Bootstrap:', e);
+    }
+
+    if (!seSolicitoCierre) {
+      try {
+        if (window.$ && typeof window.$(modalEl).modal === 'function') {
+          window.$(modalEl).modal('hide');
+          seSolicitoCierre = true;
+        }
+      } catch (e) {
+        warn('No se pudo cerrar el modal de pedido con jQuery:', e);
+      }
+    }
+
+    if (!seSolicitoCierre) {
+      modalEl.classList.remove('show');
+      modalEl.style.display = 'none';
+      modalEl.setAttribute('aria-hidden', 'true');
+    }
+
+    await esperaOculto;
+
     if (!document.querySelector('.modal.show')) {
       document.querySelectorAll('.modal-backdrop').forEach((el) => el.remove());
       document.body.classList.remove('modal-open');
@@ -860,7 +922,7 @@
   }
 
   async function irAMiBilletera() {
-    const ruta = '/billetera';
+    const ruta = '/billetera/recargar';
 
     if (window.EVNav && typeof window.EVNav.loadPage === 'function') {
       await window.EVNav.loadPage(ruta, { pushState: true, replaceState: false });
@@ -877,16 +939,17 @@
       `Este producto requiere preparación. Necesitas ${formatPrecio(montoRequerido)} en tu billetera y actualmente tienes ${formatPrecio(saldoActual)}.`,
       {
         subtitle: 'No se pudo continuar con la solicitud',
-        confirmButtonText: 'Ir a Mi billetera',
+        confirmButtonText: 'Recargar saldo',
         showCancelButton: true,
         cancelButtonText: 'Cancelar',
         productLabel: 'Billetera',
         productText: `Saldo actual: ${formatPrecio(saldoActual)}`,
-        note: `Para continuar necesitas al menos <strong>${formatPrecio(montoRequerido)}</strong> disponibles. Puedes ir a Mi billetera para gestionar una recarga.`
+        note: `Para continuar necesitas al menos <strong>${formatPrecio(montoRequerido)}</strong> disponibles. Puedes ir a Recargar saldo para completar la operación.`
       }
     );
 
     if (result?.isConfirmed) {
+      await cerrarModalSolicitudPedidoAntesDeNavegar();
       await irAMiBilletera();
     }
 
@@ -1817,7 +1880,7 @@
         solicitudFlow.cancelButtonVisible = true;
         Swal.update({
           showCancelButton: true,
-          cancelButtonText: 'Cancelar solicitud'
+          cancelButtonText: 'Cancelar'
         });
       } else if (!yaPuedeCancelar && solicitudFlow.cancelButtonVisible) {
         solicitudFlow.cancelButtonVisible = false;
@@ -2054,7 +2117,7 @@
         title: 'ev-mp-swal-title',
         htmlContainer: 'ev-mp-swal-html',
         confirmButton: 'ev-mp-swal-confirm',
-        cancelButton: 'ev-mp-swal-cancel'
+        cancelButton: 'ev-mp-swal-cancel ev-mp-swal-cancel-danger'
       },
       didOpen: () => {
         attachBounceOutsideBehavior();

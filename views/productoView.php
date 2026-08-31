@@ -362,10 +362,8 @@ require_once __DIR__ . '/../Config/config.php';
         </div>
 
         <div class="ev-modal-footer">
-          <button type="button" class="btn btn-ev-outline" data-bs-dismiss="modal"><i class="bi bi-x-circle me-1"></i> Cancelar</button>
-          <button type="submit" class="btn btn-ev-orange btn-guardar">
-            <i class="bi bi-check2-circle"></i> Guardar
-          </button>
+          <button type="button" class="btn btn-ev-outline" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-ev-orange btn-guardar">Guardar</button>
         </div>
       </form>
 

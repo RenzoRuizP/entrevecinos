@@ -1369,6 +1369,17 @@
   min-height:44px;
 }
 
+/* Nueva publicación: botones homologados al tamaño estándar EV de Recargar saldo. */
+#modalAgregarPublicacion .ev-modal-footer .btn{
+  width:auto;
+  min-width:132px;
+  min-height:40px;
+  margin:0;
+  padding:9px 16px;
+  border-radius:14px;
+  font-size:.9rem;
+}
+
 
 
 /* ==========================================================
@@ -2732,5 +2743,82 @@
 }
 @media(prefers-reduced-motion:reduce){
   #tablaPublicaciones tbody tr.is-notification-target{animation:none;}
+}
+
+
+/* ============================================================
+   EV QA 2026-08 — DESCRIPCIÓN LEGIBLE EN MIS PUBLICACIONES
+   - 3 líneas por defecto.
+   - Ver más / Ver menos por clic o tap.
+   - No depende de hover/tooltips y conserva saltos de línea.
+============================================================ */
+#tablaPublicaciones .ev-publicacion-desc-cell{
+  white-space:normal !important;
+  text-overflow:clip !important;
+  vertical-align:middle !important;
+}
+#tablaPublicaciones .ev-publicacion-desc-wrap{
+  width:100%;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+}
+#tablaPublicaciones .ev-publicacion-desc-text{
+  width:100%;
+  min-width:0;
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:3;
+  line-clamp:3;
+  overflow:hidden;
+  white-space:pre-line;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  line-height:1.42;
+}
+#tablaPublicaciones .ev-publicacion-desc-wrap.is-expanded .ev-publicacion-desc-text{
+  display:block;
+  -webkit-line-clamp:unset;
+  line-clamp:unset;
+  overflow:visible;
+}
+#tablaPublicaciones .ev-publicacion-desc-toggle{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:2px 4px;
+  margin:0;
+  border:0;
+  background:transparent;
+  color:var(--ev-naranja-oscuro);
+  font:inherit;
+  font-size:.76rem;
+  line-height:1.2;
+  font-weight:900;
+  cursor:pointer;
+}
+#tablaPublicaciones .ev-publicacion-desc-toggle:hover,
+#tablaPublicaciones .ev-publicacion-desc-toggle:focus-visible{
+  color:var(--ev-naranja);
+  text-decoration:underline;
+  outline:none;
+}
+@media (min-width:769px){
+  #tablaPublicaciones tbody td[data-label="Descripción"]{
+    white-space:normal !important;
+    overflow:hidden !important;
+    text-overflow:clip !important;
+  }
+}
+@media (max-width:991.98px){
+  #tablaPublicaciones .ev-publicacion-desc-wrap{
+    align-items:center;
+  }
+  #tablaPublicaciones .ev-publicacion-desc-text{
+    text-align:center;
+  }
 }
 </style>

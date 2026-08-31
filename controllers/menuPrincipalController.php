@@ -255,6 +255,7 @@ class MenuPrincipalController
                 '/atender-recargas' => 990403,
                 '/atender-servicios' => 990404,
                 '/configuracion-plataforma' => 990501,
+                '/gestion-retiros' => 990502,
             ];
 
             $crearItem = static function (string $ruta, string $nombre, string $icono, int $orden) use ($itemsPorRuta, $idsSinteticos): array {
@@ -320,6 +321,7 @@ class MenuPrincipalController
                     'orden' => 5,
                     'submenus' => [
                         $crearItem('/configuracion-plataforma', 'Configuración de plataforma', 'bi bi-diagram-3', 1),
+                        $crearItem('/gestion-retiros', 'Gestión de retiros', 'bi bi-bank', 2),
                     ],
                 ],
             ];

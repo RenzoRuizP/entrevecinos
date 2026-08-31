@@ -50,18 +50,57 @@
   }
 
   function toastError(msg) {
-    if (window.Swal) Swal.fire({ icon: "error", title: "Error", text: msg });
+    if (window.Swal) Swal.fire({
+      title: "Error",
+      html: evSwalMensajeHtml("error", msg),
+      confirmButtonText: "Aceptar",
+      confirmButtonColor: "#EA7C12"
+    });
     else alert(msg);
   }
 
   function toastOk(msg) {
-    if (window.Swal) Swal.fire({ icon: "success", title: "Listo", text: msg, confirmButtonText: "Aceptar", confirmButtonColor: "#EA7C12" });
+    if (window.Swal) Swal.fire({
+      title: "Listo",
+      html: evSwalMensajeHtml("success", msg),
+      confirmButtonText: "Aceptar",
+      confirmButtonColor: "#EA7C12"
+    });
     else alert(msg);
   }
 
   function toastInfo(msg) {
-    if (window.Swal) Swal.fire({ icon: "info", title: "Info", text: msg });
+    if (window.Swal) Swal.fire({
+      title: "Información",
+      html: evSwalMensajeHtml("info", msg),
+      confirmButtonText: "Aceptar",
+      confirmButtonColor: "#EA7C12"
+    });
     else alert(msg);
+  }
+
+  function evSwalMensajeHtml(tipo, texto) {
+    if (window.EVSwal && typeof window.EVSwal.htmlMessage === "function") {
+      return window.EVSwal.htmlMessage({ type: tipo, text: texto });
+    }
+    return `<div style="text-align:center;color:#6B7280;line-height:1.55">${escapeHtml(texto)}</div>`;
+  }
+
+  async function mostrarComentarioRequerido() {
+    const mensaje = "Explícale al vecino, de forma breve y clara, qué debe corregir o por qué la publicación no puede ser aprobada. Ingresa un comentario de al menos 10 caracteres.";
+    if (window.Swal) {
+      await Swal.fire({
+        title: "Comentario requerido",
+        html: evSwalMensajeHtml("warning", mensaje),
+        confirmButtonText: "Aceptar",
+        confirmButtonColor: "#EA7C12",
+        showCancelButton: false,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      });
+      return;
+    }
+    alert(mensaje);
   }
 
   async function safeJson(res) {
@@ -192,7 +231,7 @@
 
   function isComentarioValidoFor(accion, comentario) {
     const c = String(comentario ?? "").trim();
-    if (accion === "rechazar" || accion === "observar") return c.length >= 3;
+    if (accion === "rechazar" || accion === "observar") return c.length >= 10;
     return true;
   }
 
@@ -712,7 +751,7 @@
       const comentario = normalizarComentarioParaEnviar(accion, comentarioRaw);
 
       if (!isComentarioValidoFor(accion, comentario)) {
-        toastInfo("Debes ingresar un mensaje claro para el vecino (mín. 3 caracteres) al observar o rechazar.");
+        await mostrarComentarioRequerido();
         if (mComentario) mComentario.focus();
         return;
       }
@@ -725,13 +764,14 @@
             : "¿Confirmas observar esta publicación?";
 
         const r = await Swal.fire({
-          icon: "question",
           title: "Confirmar",
-          text: txt,
+          html: evSwalMensajeHtml("question", txt),
           showCancelButton: true,
-          confirmButtonText: "Sí, continuar",
+          confirmButtonText: "Aceptar",
           cancelButtonText: "Cancelar",
           confirmButtonColor: "#EA7C12",
+          allowOutsideClick: false,
+          allowEscapeKey: false,
         });
 
         if (!r.isConfirmed) return;

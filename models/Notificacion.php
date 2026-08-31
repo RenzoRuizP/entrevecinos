@@ -45,6 +45,8 @@ final class Notificacion extends Conexion
         '/cuenta-observada',
         '/publicacion',
         '/billetera',
+        '/billetera/recargar',
+        '/billetera/retirar',
         '/comunidad',
         '/mis-pedidos-comprador',
         '/mis-pedidos-vendedor',

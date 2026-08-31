@@ -547,13 +547,14 @@
     return String(item?.titulo_publicacion || item?.titulo_producto || 'tu publicación').trim();
   }
 
-  function guardarPedidoDestinoNotificacion(codigoPedido, rol) {
+  function guardarPedidoDestinoNotificacion(codigoPedido, rol, abrirDetalle = false) {
     const id = Number(codigoPedido || 0);
     if (id <= 0) return;
     try {
       sessionStorage.setItem(NOTIF_ORDER_TARGET_KEY, JSON.stringify({
         codigo_pedido: id,
         rol: String(rol || '').trim().toLowerCase(),
+        abrir_detalle: abrirDetalle ? 1 : 0,
         created_at: Date.now()
       }));
     } catch (_) {}
@@ -572,13 +573,23 @@
     window.location.href = `${BASE}/MenuPrincipal?ev_goto=${encodeURIComponent(ruta)}`;
   }
 
-  async function irAMisPedidosComprador(codigoPedido = 0) {
+  async function irAMisPedidosComprador(codigoPedido = 0, opciones = {}) {
     const ruta = '/mis-pedidos-comprador';
-    guardarPedidoDestinoNotificacion(codigoPedido, 'comprador');
+    const abrirDetalle = opciones?.abrirDetalle === true;
+    guardarPedidoDestinoNotificacion(codigoPedido, 'comprador', abrirDetalle);
 
     if (window.EVNav && typeof window.EVNav.loadPage === 'function') {
       await window.EVNav.loadPage(ruta, { pushState: true, replaceState: false });
-      window.setTimeout(() => window.EVMisPedidosComprador?.focusPedido?.(codigoPedido), 180);
+      window.setTimeout(() => {
+        try {
+          const raw = sessionStorage.getItem(NOTIF_ORDER_TARGET_KEY);
+          const pendiente = raw ? JSON.parse(raw) : null;
+          if (Number(pendiente?.codigo_pedido || 0) !== Number(codigoPedido || 0)) return;
+        } catch (_) {
+          return;
+        }
+        window.EVMisPedidosComprador?.focusPedido?.(codigoPedido, { abrirDetalle });
+      }, 220);
       return;
     }
 
@@ -1112,6 +1123,7 @@
         icon: 'success',
         title: 'Entrega confirmada',
         text: json?.mensaje || 'La entrega fue confirmada correctamente.',
+        confirmButtonText: 'Aceptar',
         confirmButtonColor: '#EA7C12'
       });
 
@@ -1157,6 +1169,10 @@
       .ev-shell-order-alert__status span{display:block;color:#6B7280;font-size:.84rem;line-height:1.4;}
       .ev-shell-order-alert__message{margin:0;color:#475569;font-size:.94rem;line-height:1.58;}
       .ev-shell-order-alert__date{display:inline-flex;align-items:center;gap:7px;color:#6B7280;font-size:.82rem;font-weight:800;}
+      .ev-shell-order-alert-popup .swal2-actions .swal2-confirm,
+      .ev-shell-order-alert-popup .swal2-actions .swal2-cancel{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;line-height:1.1!important;}
+      .ev-shell-order-alert-popup .swal2-actions i{display:inline-grid!important;place-items:center!important;margin:0!important;line-height:1!important;font-size:.98rem!important;}
+      .ev-shell-order-alert-popup .swal2-actions span{display:inline-block!important;margin:0!important;line-height:1.1!important;}
       @media(max-width:575.98px){
         .ev-shell-order-alert{gap:10px;}
         .ev-shell-order-alert__product,.ev-shell-order-alert__status{border-radius:15px;padding:12px;}
@@ -1214,6 +1230,13 @@
     const confirmText = obtenerTextoBotonAlertaComprador(estado);
 
     const esPuntoEntrega = estado === 'en_punto_entrega';
+    const usaIconosAlineados = ['cancelado_vendedor','rechazado_vendedor'].includes(estado);
+    const confirmButtonLabel = usaIconosAlineados
+      ? `<i class="bi bi-eye" aria-hidden="true"></i><span>${escapeHtml(confirmText)}</span>`
+      : escapeHtml(confirmText);
+    const cancelButtonLabel = usaIconosAlineados
+      ? '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Entendido</span>'
+      : 'Entendido';
     const r = await Swal.fire({
       icon,
       title: titulo,
@@ -1237,8 +1260,8 @@
         </div>
       `,
       showCancelButton: true,
-      confirmButtonText: escapeHtml(confirmText),
-      cancelButtonText: 'Entendido',
+      confirmButtonText: confirmButtonLabel,
+      cancelButtonText: cancelButtonLabel,
       buttonsStyling: false,
       customClass: {
         container: 'ev-swal-container',
@@ -1265,7 +1288,9 @@
         return;
       }
 
-      await irAMisPedidosComprador(codigoPedido);
+      await irAMisPedidosComprador(codigoPedido, {
+        abrirDetalle: estado === 'sin_respuesta_vendedor'
+      });
     }
   }
 

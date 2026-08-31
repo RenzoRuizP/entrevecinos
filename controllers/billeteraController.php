@@ -1,6 +1,8 @@
 <?php
 // controllers/billeteraController.php
 
+declare(strict_types=1);
+
 require_once __DIR__ . '/../Config/config.php';
 require_once __DIR__ . '/../models/SesionJWT.php';
 require_once __DIR__ . '/../models/User.php';
@@ -9,33 +11,72 @@ require_once __DIR__ . '/../models/ConfiguracionPlataforma.php';
 
 class billeteraController
 {
-    public function index()
+    public function index(): void
+    {
+        $this->renderizarSeccion('resumen');
+    }
+
+    public function recargar(): void
+    {
+        $this->renderizarSeccion('recargar');
+    }
+
+    public function retirar(): void
+    {
+        $this->renderizarSeccion('retirar');
+    }
+
+    private function renderizarSeccion(string $seccion): void
     {
         try {
-            // 1) Validación de token (refuerzo, además del router)
+            $seccionesPermitidas = ['resumen', 'recargar', 'retirar'];
+            if (!in_array($seccion, $seccionesPermitidas, true)) {
+                $seccion = 'resumen';
+            }
+
+            // 1) Validación de token (refuerzo, además del router).
             $token = $_COOKIE['auth_token'] ?? null;
-            $datosToken = $token ? SesionJWT::verificarToken($token) : null;
+            $datosToken = $token ? SesionJWT::verificarToken((string)$token) : null;
 
             $codigoUsuario = (int)($datosToken['codigo_usuario'] ?? 0);
             $email = trim((string)($datosToken['email'] ?? ''));
 
             if ($codigoUsuario <= 0 || $email === '') {
-                return $this->resolverNoAutorizado('token_invalido');
+                $this->resolverNoAutorizado('token_invalido');
+                return;
             }
 
             /*
-             * La disponibilidad se valida en servidor. Ocultar el enlace del menú
-             * no es suficiente porque una URL directa no debe reactivar la billetera.
+             * La disponibilidad se valida también en servidor. Ocultar el menú
+             * nunca debe permitir reactivar la billetera mediante URL directa.
              */
             $estadoBilletera = (new ConfiguracionPlataforma())->obtenerEstadoBilleteraUsuario($codigoUsuario);
             $evBilleteraDisponible = (bool)($estadoBilletera['billetera_disponible'] ?? false);
             $evRecargasDisponibles = (bool)($estadoBilletera['recargas_disponibles'] ?? false);
 
             if (!$evBilleteraDisponible && !ConfiguracionPlataforma::esAdmin($datosToken)) {
-                return $this->resolverNoDisponible();
+                $this->resolverNoDisponible();
+                return;
             }
 
-            // 2) Intentar enriquecer con User.php, pero SIN bloquear la vista si falla
+            if ($seccion === 'recargar' && !$evRecargasDisponibles && !ConfiguracionPlataforma::esAdmin($datosToken)) {
+                $this->resolverRecargasNoDisponibles();
+                return;
+            }
+
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            if (empty($_SESSION['ev_wallet_csrf']) || !is_string($_SESSION['ev_wallet_csrf'])) {
+                $_SESSION['ev_wallet_csrf'] = bin2hex(random_bytes(32));
+            }
+            $evWalletCsrf = $_SESSION['ev_wallet_csrf'];
+
+            $rolActual = strtolower(trim((string)($datosToken['rol'] ?? $datosToken['nombre_rol'] ?? '')));
+            $codigoRolActual = (int)($datosToken['codigo_rol'] ?? 0);
+            $evEsVecino = $rolActual === 'vecino' || $codigoRolActual === 2;
+
+            // 2) Enriquecer con User.php, sin bloquear la vista si falla.
             $objUsuario = new User();
             $datosUsuario = $objUsuario->DatosUsuario($email);
 
@@ -56,7 +97,7 @@ class billeteraController
                 }
             }
 
-            // 3) Enriquecer con conjunto activo (igual criterio que marketplace)
+            // 3) Enriquecer con comunidad activa, usando el mismo criterio que Marketplace.
             try {
                 $prod = new Producto();
                 $conjunto = $prod->obtenerNombreConjuntoActivoUsuario($codigoUsuario);
@@ -65,16 +106,16 @@ class billeteraController
                 $datosUsuario['conjunto_nombre'] = $conjunto['nombre'] ?? null;
                 $datosUsuario['condominio']      = $datosUsuario['conjunto_nombre'] ?? ($datosUsuario['condominio'] ?? null);
             } catch (Throwable $e) {
-                // No romper la vista por esto
+                // La comunidad es contexto visual; no debe romper el módulo financiero.
             }
 
-            // 4) Responder como parcial
+            // 4) Contexto único para las tres vistas del módulo.
+            $evWalletSection = $seccion;
+
             header('X-Partial-Ok: 1');
             require __DIR__ . '/../views/billeteraView.php';
-            return;
-
         } catch (Throwable $e) {
-            error_log("Error en billeteraController::index -> " . $e->getMessage());
+            error_log('[EV][billeteraController::renderizarSeccion][' . $seccion . '] ' . $e->getMessage());
 
             if ($this->esPeticionParcial()) {
                 http_response_code(500);
@@ -82,20 +123,16 @@ class billeteraController
                 echo json_encode([
                     'ok'      => false,
                     'error'   => 'SERVER_ERROR',
-                    'mensaje' => 'Error del servidor al cargar Mi billetera.'
+                    'mensaje' => 'Error del servidor al cargar Billetera.'
                 ], JSON_UNESCAPED_UNICODE);
                 return;
             }
 
             header('Location: ' . rtrim(BASE_URL, '/') . '/login');
-            return;
         }
     }
 
-    // ------------------------------
-    // Helpers privados
-    // ------------------------------
-    private function resolverNoDisponible()
+    private function resolverNoDisponible(): void
     {
         $redirect = rtrim(BASE_URL, '/') . '/MenuPrincipal';
 
@@ -112,10 +149,28 @@ class billeteraController
         }
 
         header('Location: ' . $redirect, true, 302);
-        return;
     }
 
-    private function resolverNoAutorizado(string $motivo = 'no_autorizado')
+    private function resolverRecargasNoDisponibles(): void
+    {
+        $redirect = rtrim(BASE_URL, '/') . '/MenuPrincipal?ev_goto=' . rawurlencode('/billetera');
+
+        if ($this->esPeticionParcial()) {
+            http_response_code(403);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'ok' => false,
+                'error' => 'RECARGAS_NO_DISPONIBLES',
+                'mensaje' => 'Las recargas no están disponibles para tu comunidad en este momento.',
+                'redirect' => $redirect,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            return;
+        }
+
+        header('Location: ' . $redirect, true, 302);
+    }
+
+    private function resolverNoAutorizado(string $motivo = 'no_autorizado'): void
     {
         if ($this->esPeticionParcial()) {
             http_response_code(401);
@@ -129,7 +184,6 @@ class billeteraController
         }
 
         header('Location: ' . rtrim(BASE_URL, '/') . '/login');
-        return;
     }
 
     private function esPeticionParcial(): bool
@@ -143,10 +197,6 @@ class billeteraController
             return true;
         }
 
-        if (isset($_GET['partial']) && $_GET['partial'] === '1') {
-            return true;
-        }
-
-        return false;
+        return isset($_GET['partial']) && $_GET['partial'] === '1';
     }
 }

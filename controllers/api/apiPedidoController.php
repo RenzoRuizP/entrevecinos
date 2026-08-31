@@ -203,7 +203,7 @@ class apiPedidoController
                 if ($error === 'SALDO_INSUFICIENTE_BILLETERA') {
                     $payload['saldo_actual'] = (float)($resultado['saldo_actual'] ?? 0);
                     $payload['monto_requerido'] = (float)($resultado['monto_requerido'] ?? 0);
-                    $payload['redirect'] = rtrim(BASE_URL, '/') . '/MenuPrincipal?ev_goto=' . rawurlencode('/billetera');
+                    $payload['redirect'] = rtrim(BASE_URL, '/') . '/MenuPrincipal?ev_goto=' . rawurlencode('/billetera/recargar');
                 }
 
                 $this->json($status, $payload);

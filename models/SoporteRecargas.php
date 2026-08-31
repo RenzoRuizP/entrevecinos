@@ -469,7 +469,7 @@ final class SoporteRecargas extends Conexion
                             'estado' => $nuevoEstado,
                             'comentario_soporte' => trim((string)$comentario),
                             'saldo_actualizado' => (float)($sync['saldo_nuevo'] ?? $saldoActual),
-                            'ruta' => '/billetera',
+                            'ruta' => '/billetera/recargar',
                         ],
                     ]);
                 } catch (Throwable $eNotif) {

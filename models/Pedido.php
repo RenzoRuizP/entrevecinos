@@ -1242,6 +1242,96 @@ class Pedido extends Conexion
     }
 
 
+    private function existeAcreditacionVendedorPedido(int $codigoBilletera, int $codigoPedido): bool
+    {
+        if ($codigoBilletera <= 0 || $codigoPedido <= 0) return false;
+
+        $st = $this->dblink->prepare("
+            SELECT 1
+            FROM billetera_movimiento
+            WHERE codigo_billetera = :codigo_billetera
+              AND tipo_movimiento = 'C'
+              AND codigo_referencia = :codigo_pedido
+              AND origen = 'VENTA_PREPARADA_ACREDITADA'
+            LIMIT 1
+        ");
+        $st->bindValue(':codigo_billetera', $codigoBilletera, PDO::PARAM_INT);
+        $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+        $st->execute();
+        return (bool)$st->fetchColumn();
+    }
+
+    /**
+     * Acredita al vendedor únicamente cuando un pedido preparado, pagado
+     * previamente desde la billetera del comprador, termina correctamente.
+     * La operación es idempotente por pedido y ocurre dentro de la misma
+     * transacción de la confirmación de entrega.
+     */
+    private function acreditarVendedorPorPedidoPreparado(array $pedido): void
+    {
+        $codigoPedido = (int)($pedido['codigo_pedido'] ?? 0);
+        $codigoVendedor = (int)($pedido['codigo_usuario_vendedor'] ?? 0);
+        $requierePreparacion = (int)($pedido['requiere_preparacion'] ?? 0) === 1;
+        $debitoAplicado = (int)($pedido['descuento_billetera_aplicado'] ?? 0) === 1;
+        $devolucionAplicada = (int)($pedido['devolucion_billetera_aplicada'] ?? 0) === 1;
+        $yaAcreditado = (int)($pedido['acreditacion_vendedor_aplicada'] ?? 0) === 1;
+        $monto = round((float)($pedido['monto_descontado_billetera'] ?? 0), 2);
+
+        if (
+            $codigoPedido <= 0 ||
+            $codigoVendedor <= 0 ||
+            !$requierePreparacion ||
+            !$debitoAplicado ||
+            $devolucionAplicada ||
+            $monto <= 0
+        ) {
+            return;
+        }
+
+        $billetera = $this->obtenerOBilleteraBloqueada($codigoVendedor);
+        $codigoBilletera = (int)$billetera['codigo_billetera'];
+
+        if ($yaAcreditado || $this->existeAcreditacionVendedorPedido($codigoBilletera, $codigoPedido)) {
+            $up = $this->dblink->prepare("
+                UPDATE pedido
+                SET acreditacion_vendedor_aplicada = 1,
+                    monto_acreditado_vendedor = :monto
+                WHERE codigo_pedido = :codigo_pedido
+            ");
+            $up->bindValue(':monto', $monto);
+            $up->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+            $up->execute();
+            return;
+        }
+
+        $saldoAntes = round((float)$billetera['saldo_actual'], 2);
+        $saldoDespues = round($saldoAntes + $monto, 2);
+        $titulo = $this->limpiarTituloParaMovimiento((string)($pedido['titulo_producto'] ?? 'producto'));
+
+        $this->registrarMovimientoBilletera(
+            $codigoBilletera,
+            'C',
+            $monto,
+            $saldoAntes,
+            $saldoDespues,
+            'Ingreso por venta de producto preparado: ' . $titulo,
+            'VENTA_PREPARADA_ACREDITADA',
+            $codigoPedido
+        );
+        $this->actualizarSaldoBilletera($codigoBilletera, $saldoDespues);
+
+        $up = $this->dblink->prepare("
+            UPDATE pedido
+            SET acreditacion_vendedor_aplicada = 1,
+                monto_acreditado_vendedor = :monto
+            WHERE codigo_pedido = :codigo_pedido
+        ");
+        $up->bindValue(':monto', $monto);
+        $up->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+        $up->execute();
+    }
+
+
     private function registrarHistorialEstado(
         int $codigoPedido,
         ?string $faseAnterior,
@@ -3206,6 +3296,11 @@ class Pedido extends Conexion
             ");
             $up->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
             $up->execute();
+
+            // En el piloto EV no se descuenta comisión al vendedor. El importe
+            // efectivamente debitado al comprador se acredita completo al cierre
+            // satisfactorio del pedido preparado.
+            $this->acreditarVendedorPorPedidoPreparado($pedido);
 
             $this->registrarHistorialEstado(
                 $codigoPedido,

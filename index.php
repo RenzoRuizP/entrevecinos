@@ -736,15 +736,22 @@ function evEvaluarConfiguracionOperativaVecino(string $uri, string $method, int 
         }
     }
 
-    $esRutaBilletera = $uri === '/billetera' || str_starts_with($uri, '/api/billetera/');
+    $esRutaBilletera = $uri === '/billetera' || str_starts_with($uri, '/billetera/') || str_starts_with($uri, '/api/billetera/');
+    $esVistaRecarga = $uri === '/billetera/recargar';
     $esRutaRecarga = str_starts_with($uri, '/api/recargas/');
-    if ($esRutaBilletera || $esRutaRecarga) {
+    $esRutaRetiroVecino = str_starts_with($uri, '/api/retiros/') && !str_starts_with($uri, '/api/retiros/gestion');
+    if ($esRutaBilletera || $esRutaRecarga || $esRutaRetiroVecino) {
         $billeteraDisponible = $funcion(ConfiguracionPlataforma::FUNC_BILLETERA)
             && $monetizacion(ConfiguracionPlataforma::MON_BILLETERA_VISIBLE);
         if (!$billeteraDisponible) {
             return $bloqueado('BILLETERA_NO_DISPONIBLE', 'La billetera no está disponible para tu comunidad en este momento.');
         }
 
+        if ($esVistaRecarga && !$monetizacion(ConfiguracionPlataforma::MON_RECARGAS)) {
+            return $bloqueado('RECARGAS_NO_DISPONIBLES', 'Las recargas no están disponibles para tu comunidad en este momento.');
+        }
+
+        // Conserva la regla previa: las consultas históricas pueden leerse; solo las escrituras de recarga se bloquean.
         if ($esRutaRecarga && $method === 'POST' && !$monetizacion(ConfiguracionPlataforma::MON_RECARGAS)) {
             return $bloqueado('RECARGAS_NO_DISPONIBLES', 'Las recargas no están disponibles para tu comunidad en este momento.');
         }
@@ -817,6 +824,7 @@ safeRequire(__DIR__ . '/controllers/productoController.php');
 safeRequire(__DIR__ . '/controllers/tipoController.php');
 safeRequire(__DIR__ . '/controllers/marketplaceController.php');
 safeRequire(__DIR__ . '/controllers/billeteraController.php');
+safeRequire(__DIR__ . '/controllers/gestionRetirosController.php');
 safeRequire(__DIR__ . '/controllers/credencialController.php');
 safeRequire(__DIR__ . '/controllers/recibirPedidosController.php');
 safeRequire(__DIR__ . '/controllers/atenderRecargasController.php');
@@ -838,6 +846,8 @@ safeRequire(__DIR__ . '/controllers/api/apiCuentaObservadaController.php');
 
 safeRequire(__DIR__ . '/controllers/api/usuarioDatosController.php');
 safeRequire(__DIR__ . '/controllers/api/apiBilleteraController.php');
+safeRequire(__DIR__ . '/controllers/api/apiRetiroController.php');
+safeRequire(__DIR__ . '/controllers/api/apiGestionRetirosController.php');
 safeRequire(__DIR__ . '/models/Dashboard.php');
 safeRequire(__DIR__ . '/controllers/api/apiDashboardController.php');
 safeRequire(__DIR__ . '/controllers/api/apiPedidoController.php');
@@ -983,7 +993,9 @@ $routes = [
     ['GET', '#^/publicacion$#', [productoController::class, 'index'],    'html'],
     ['GET', '#^/producto$#',    [productoController::class, 'index'],    'html'],
     ['GET', '#^/marketplace$#', [marketplaceController::class, 'index'], 'html'],
-    ['GET', '#^/billetera$#',   [billeteraController::class, 'index'],   'html'],
+    ['GET', '#^/billetera$#',            [billeteraController::class, 'index'],    'html'],
+    ['GET', '#^/billetera/recargar$#',   [billeteraController::class, 'recargar'], 'html'],
+    ['GET', '#^/billetera/retirar$#',    [billeteraController::class, 'retirar'],  'html'],
     ['GET', '#^/credencial$#',  [credencialController::class, 'index'],  'html'],
 
     ['GET', '#^/recibir$#', [recibirPedidosController::class, 'index'], 'html'],
@@ -999,6 +1011,7 @@ $routes = [
     ['GET', '#^/comunidad$#', [comunidadVecinoController::class, 'index'], 'html'],
     ['GET', '#^/configuracion-plataforma$#', [configuracionPlataformaController::class, 'index'], 'html'],
     ['GET', '#^/dashboard-gerencial$#', [dashboardGerencialController::class, 'index'], 'html'],
+    ['GET', '#^/gestion-retiros$#', [gestionRetirosController::class, 'index'], 'html'],
 
     // ---------------------------
     // VISTAS SOPORTE
@@ -1137,6 +1150,21 @@ $routes = [
     ['GET',  '#^/api/billetera/movimientos$#', [apiBilleteraController::class, 'obtenerMovimientos'], 'json'],
     ['POST', '#^/api/billetera/debitar-publicacion$#', [apiBilleteraController::class, 'debitarPublicacion'], 'json'],
     ['POST', '#^/api/billetera/debitar-producto-destacado$#', [apiBilleteraController::class, 'debitarProductoDestacado'], 'json'],
+
+    // RETIROS - VECINO
+    ['GET',  '#^/api/retiros/resumen$#', [apiRetiroController::class, 'resumen'], 'json'],
+    ['POST', '#^/api/retiros/cuenta$#', [apiRetiroController::class, 'guardarCuenta'], 'json'],
+    ['POST', '#^/api/retiros/solicitar$#', [apiRetiroController::class, 'solicitar'], 'json'],
+
+    // RETIROS - ADMINISTRADOR / CONSULTA SOPORTE
+    ['GET',  '#^/api/retiros/gestion$#', [apiGestionRetirosController::class, 'listar'], 'json'],
+    ['GET',  '#^/api/retiros/gestion/cuentas$#', [apiGestionRetirosController::class, 'cuentas'], 'json'],
+    ['POST', '#^/api/retiros/gestion/cuentas/(\d+)/estado$#', [apiGestionRetirosController::class, 'actualizarCuenta'], 'json'],
+    ['GET',  '#^/api/retiros/gestion/configuracion$#', [apiGestionRetirosController::class, 'configuracion'], 'json'],
+    ['POST', '#^/api/retiros/gestion/configuracion/(\d+)$#', [apiGestionRetirosController::class, 'guardarConfiguracion'], 'json'],
+    ['POST', '#^/api/retiros/gestion/(\d+)/observar$#', [apiGestionRetirosController::class, 'observar'], 'json'],
+    ['POST', '#^/api/retiros/gestion/(\d+)/cancelar$#', [apiGestionRetirosController::class, 'cancelar'], 'json'],
+    ['POST', '#^/api/retiros/gestion/(\d+)/pagar$#', [apiGestionRetirosController::class, 'pagar'], 'json'],
 
     // ---------------------------
     // PEDIDOS - COMPRADOR

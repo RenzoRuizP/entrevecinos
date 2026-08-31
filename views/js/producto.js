@@ -1609,7 +1609,7 @@
       icon: 'warning',
       title: 'Anular publicación',
       text: '¿Seguro que deseas anular esta publicación? Ya no estará disponible.',
-      confirmText: 'Sí, anular',
+      confirmText: 'Aceptar',
       cancelText: 'Cancelar',
       confirmBtnClass: 'btn btn-danger me-2'
     });
@@ -2319,9 +2319,21 @@
         const tipo = escAttr(tipoRaw || '-');
         const categoria = escAttr(catRaw || '-');
 
-        const descFull = (p.descripcion || '').toString();
-        const descShort = descFull.length > 90 ? (descFull.substring(0, 90) + '…') : descFull;
-        const descSafe = escAttr(descShort || '-');
+        const descFull = (p.descripcion || '').toString().trim();
+        const descSafe = escAttr(descFull || '-');
+        const descLineas = descFull ? descFull.split(/\r?\n/).length : 0;
+        const descExpandible = descFull.length > 100 || descLineas > 3;
+        const descripcionHtml = `
+          <div class="ev-publicacion-desc-wrap${descExpandible ? ' is-collapsible' : ''}">
+            <div class="ev-publicacion-desc-text">${descSafe}</div>
+            ${descExpandible ? `
+              <button type="button"
+                      class="ev-publicacion-desc-toggle"
+                      data-action="toggle-descripcion"
+                      aria-expanded="false">Ver más</button>
+            ` : ''}
+          </div>
+        `;
 
         const visible = Number(p.visible ?? -1);
 
@@ -2388,7 +2400,7 @@
             <td data-label="Precio" class="text-center">S/ ${precio}</td>
             <td data-label="Tipo" class="td-trunc text-center" title="${tipo}">${tipo}</td>
             <td data-label="Categoría" class="td-trunc text-center" title="${categoria}">${categoria}</td>
-            <td data-label="Descripción" class="td-trunc text-center" title="${escAttr(descFull)}">${descSafe}</td>
+            <td data-label="Descripción" class="text-center ev-publicacion-desc-cell">${descripcionHtml}</td>
             <td data-label="Mensaje de soporte" class="text-center">${mensajeHtml}</td>
             <td data-label="Estado de publicación" class="text-center">
               <span class="${visUI.cls}">${visUI.text}</span>
@@ -2418,6 +2430,12 @@
       }).join('');
 
       window.setTimeout(enfocarPublicacionDestinoNotificacion, 90);
+
+      // Mantiene sincronizado el switch global del vendedor al entrar o volver
+      // a Mis Publicaciones, incluso si la aprobación ocurrió en otra sesión.
+      try {
+        window.EVDisponibilidadPedidosTopbar?.refresh?.({ silent: true });
+      } catch (_) {}
 
     } catch (err) {
       console.error(err);
@@ -2467,6 +2485,16 @@
       if (e.target.closest('#btnBuscarPublicacion')) {
         const m = evGetStaticModal('modalBuscarPublicacion');
         m?.show();
+        return;
+      }
+
+      const btnDescripcion = e.target.closest('[data-action="toggle-descripcion"]');
+      if (btnDescripcion) {
+        const wrap = btnDescripcion.closest('.ev-publicacion-desc-wrap');
+        if (!wrap) return;
+        const expandida = wrap.classList.toggle('is-expanded');
+        btnDescripcion.textContent = expandida ? 'Ver menos' : 'Ver más';
+        btnDescripcion.setAttribute('aria-expanded', expandida ? 'true' : 'false');
         return;
       }
 

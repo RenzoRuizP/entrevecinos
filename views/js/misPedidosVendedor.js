@@ -1749,7 +1749,8 @@
             'Pedido',
             item.titulo_publicacion || `Pedido #${id}`,
             'Ahora puedes continuar con los cambios de estado según el avance real del pedido.'
-          )
+          ),
+          plainButtons: true
         }
       );
 
@@ -1825,13 +1826,13 @@
         title: 'Marcar listo para entrega',
         subtitle: 'Confirmar nuevo avance',
         text: 'Usa esta opción solo cuando el pedido realmente ya esté listo para ser entregado.',
-        confirmText: 'Sí, marcar listo'
+        confirmText: 'Aceptar'
       },
       en_camino: {
         title: 'Marcar en camino',
         subtitle: 'Confirmar salida del pedido',
         text: 'Usa esta opción cuando el pedido ya salió hacia el punto de entrega.',
-        confirmText: 'Sí, marcar en camino'
+        confirmText: 'Aceptar'
       },
       en_punto_entrega: {
         title: 'Marcar punto de entrega',
@@ -2005,7 +2006,7 @@
       note: 'Mantén el estado alineado con el avance real del pedido para evitar confusión al comprador.',
       confirmText: meta.confirmText,
       cancelText: 'Cancelar',
-      plainButtons: String(estado || '').trim() === 'entregado_vendedor'
+      plainButtons: ['listo_para_entrega','en_camino','en_punto_entrega','entregado_vendedor'].includes(String(estado || '').trim())
     });
 
     if (!ok) return;
@@ -2049,7 +2050,8 @@
           htmlExtra: htmlProductNote(
             'Pedido',
             item.titulo_publicacion || `Pedido #${id}`
-          )
+          ),
+          plainButtons: true
         }
       );
 
@@ -2350,10 +2352,10 @@
       closeButtonAriaLabel: 'Cerrar',
       html: buildDetalleHtml(item),
       width: 860,
-      confirmButtonText: '<i class="bi bi-x-circle" aria-hidden="true"></i><span>Cerrar</span>',
+      confirmButtonText: 'Cerrar',
       showCancelButton: false,
       showDenyButton: puedeCancelar,
-      denyButtonText: '<i class="bi bi-x-octagon" aria-hidden="true"></i><span>Cancelar pedido</span>',
+      denyButtonText: 'Cancelar pedido',
       customClass: {
         container: 'ev-mpv-swal-container ev-swal-container',
         popup: 'ev-mpv-swal-popup-premium ev-mpv-swal-popup-detail ev-swal-popup ev-swal-popup-detail',

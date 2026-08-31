@@ -473,23 +473,27 @@
 }
 
 /* Recargar saldo: acciones juntas y consistentes en web/móvil */
-#modalRecargarSaldo .ev-wallet-recarga-actions{
+#modalRecargarSaldo .ev-wallet-recarga-actions,
+#modalCuentaRetiro .ev-wallet-recarga-actions{
   justify-content:flex-end !important;
   flex-direction:row !important;
   flex-wrap:wrap;
   gap:10px;
 }
-#modalRecargarSaldo .ev-wallet-recarga-actions .btn{
+#modalRecargarSaldo .ev-wallet-recarga-actions .btn,
+#modalCuentaRetiro .ev-wallet-recarga-actions .btn{
   width:auto !important;
   min-width:132px;
   margin:0 !important;
 }
 @media(max-width:575.98px){
-  #modalRecargarSaldo .ev-wallet-recarga-actions{
+  #modalRecargarSaldo .ev-wallet-recarga-actions,
+  #modalCuentaRetiro .ev-wallet-recarga-actions{
     display:grid;
     grid-template-columns:1fr 1fr;
   }
-  #modalRecargarSaldo .ev-wallet-recarga-actions .btn{
+  #modalRecargarSaldo .ev-wallet-recarga-actions .btn,
+  #modalCuentaRetiro .ev-wallet-recarga-actions .btn{
     width:100% !important;
     min-width:0;
   }
@@ -550,5 +554,287 @@
   #modalRecargarSaldo .ev-wallet-recarga-form-grid > [class*="col-"]{
     width:100%;
   }
+}
+</style>
+
+<style>
+/* EV — Retiros de saldo */
+.ev-wallet-withdraw-block{
+  border:1px solid #E5E7EB;
+  border-radius:22px;
+  padding:20px;
+  background:#fff;
+  box-shadow:0 16px 36px rgba(15,23,42,.06);
+}
+.ev-wallet-withdraw-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:18px;
+  margin-bottom:16px;
+}
+.ev-wallet-withdraw-head h3,
+.ev-wallet-withdraw-history-head h4{margin:0;color:#111827;font-weight:800;letter-spacing:-.02em}
+.ev-wallet-withdraw-head h3{font-size:1.05rem}
+.ev-wallet-withdraw-head p,
+.ev-wallet-withdraw-history-head p{margin:4px 0 0;color:#6B7280;font-size:.84rem;line-height:1.55}
+.ev-wallet-activity-icon--withdraw{background:#FFF7ED;color:#C46B05}
+.ev-wallet-withdraw-badge{
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:34px;
+  padding:7px 11px;
+  border-radius:999px;
+  background:#F3F4F6;
+  color:#4B5563;
+  font-size:.76rem;
+  font-weight:800;
+}
+.ev-wallet-withdraw-badge.is-open{background:#ECFDF3;color:#0E7A43}
+.ev-wallet-withdraw-badge.is-requested{background:#FFF7ED;color:#C46B05}
+.ev-wallet-withdraw-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
+.ev-wallet-withdraw-card{
+  min-width:0;
+  border:1px solid #E5E7EB;
+  border-radius:18px;
+  padding:15px 16px;
+  background:#F9FAFB;
+}
+.ev-wallet-withdraw-card--cut{background:#FFFDF9;border-color:#F4E2CB}
+.ev-wallet-withdraw-label{display:block;color:#6B7280;font-size:.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.035em}
+.ev-wallet-withdraw-card strong{display:block;margin-top:6px;color:#111827;font-size:1.28rem;font-weight:850;line-height:1.2}
+.ev-wallet-withdraw-card small{display:block;margin-top:5px;color:#6B7280;font-size:.76rem;line-height:1.4}
+.ev-wallet-withdraw-account{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  margin-top:14px;
+  padding:16px;
+  border:1px solid #E5E7EB;
+  border-radius:18px;
+  background:#fff;
+}
+.ev-wallet-withdraw-account > div:first-child{min-width:0}
+.ev-wallet-withdraw-account strong{display:block;margin-top:5px;color:#111827;font-size:.96rem;font-weight:800;overflow-wrap:anywhere}
+.ev-wallet-withdraw-account small{display:block;margin-top:4px;color:#6B7280;font-size:.78rem;line-height:1.4}
+.ev-wallet-withdraw-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}
+.ev-wallet-withdraw-actions .btn{min-height:42px}
+.ev-wallet-withdraw-actions .btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.ev-wallet-withdraw-message{
+  margin-top:12px;
+  padding:11px 13px;
+  border-radius:14px;
+  background:#F3F4F6;
+  color:#4B5563;
+  font-size:.8rem;
+  line-height:1.5;
+}
+.ev-wallet-withdraw-message.is-success{background:#ECFDF3;color:#0F592F}
+.ev-wallet-withdraw-message.is-warning{background:#FFF7ED;color:#9A4C08}
+.ev-wallet-withdraw-history{margin-top:16px;padding-top:16px;border-top:1px solid #E5E7EB}
+.ev-wallet-withdraw-history-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.ev-wallet-withdraw-history-head h4{font-size:.94rem}
+.ev-wallet-withdraw-history-body{min-height:66px}
+.ev-wallet-empty--compact{min-height:78px;padding:12px 14px}
+.ev-wallet-withdraw-table{border:1px solid #E5E7EB;border-radius:16px;overflow:hidden}
+.ev-wallet-withdraw-table table{margin:0}
+.ev-wallet-withdraw-table th{background:#F9FAFB;color:#4B5563;font-size:.72rem;text-transform:uppercase;letter-spacing:.035em;border-bottom-color:#E5E7EB}
+.ev-wallet-withdraw-table td{font-size:.8rem;color:#374151;border-bottom-color:#EEF0F2}
+.ev-wallet-withdraw-table tbody tr:last-child td{border-bottom:0}
+.ev-wallet-withdraw-state{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;font-size:.7rem;font-weight:800;background:#F3F4F6;color:#4B5563}
+.ev-wallet-withdraw-state--solicitado{background:#FFF7ED;color:#9A4C08}
+.ev-wallet-withdraw-state--programado{background:#EFF6FF;color:#1D4ED8}
+.ev-wallet-withdraw-state--pagado{background:#ECFDF3;color:#0F592F}
+.ev-wallet-withdraw-state--observado{background:#FEF2F2;color:#B42318}
+.ev-wallet-withdraw-state--cancelado,.ev-wallet-withdraw-state--sin_saldo{background:#F3F4F6;color:#6B7280}
+.ev-wallet-bank-owner{padding:13px 14px;border:1px solid #D7EADF;border-radius:16px;background:#F5FBF7}
+.ev-wallet-bank-owner span,.ev-wallet-bank-owner small{display:block;color:#6B7280;font-size:.76rem}
+.ev-wallet-bank-owner strong{display:block;margin:3px 0;color:#0F592F;font-size:.94rem;font-weight:800}
+.ev-wallet-bank-declaration{display:flex;align-items:flex-start;gap:10px;padding:13px 14px;border:1px solid #E5E7EB;border-radius:14px;background:#F9FAFB;color:#374151;font-size:.82rem;line-height:1.45;cursor:pointer}
+.ev-wallet-bank-declaration input{margin-top:2px;accent-color:#0E7A43}
+#modalCuentaRetiro .form-label{font-weight:700;color:#1F2937;margin-bottom:7px}
+#modalCuentaRetiro .form-control,#modalCuentaRetiro .form-select{min-height:44px;border-radius:12px}
+@media(max-width:991.98px){
+  .ev-wallet-withdraw-grid{grid-template-columns:1fr 1fr}
+  .ev-wallet-withdraw-card--cut{grid-column:1/-1}
+  .ev-wallet-withdraw-account{align-items:flex-start;flex-direction:column}
+  .ev-wallet-withdraw-actions{width:100%;justify-content:flex-start}
+}
+@media(max-width:575.98px){
+  .ev-wallet-withdraw-block{padding:14px}
+  .ev-wallet-withdraw-head{flex-direction:column;gap:10px}
+  .ev-wallet-withdraw-grid{grid-template-columns:1fr}
+  .ev-wallet-withdraw-card--cut{grid-column:auto}
+  .ev-wallet-withdraw-actions{display:grid;grid-template-columns:1fr;width:100%}
+  .ev-wallet-withdraw-actions .btn{width:100%}
+  .ev-wallet-withdraw-table th:nth-child(2),.ev-wallet-withdraw-table td:nth-child(2){display:none}
+}
+</style>
+
+<style>
+/* EV Wallet 1.1 — arquitectura por secciones */
+.ev-wallet-summary-grid--compact{max-width:520px}
+.ev-wallet-summary-card--secure > strong{color:var(--ev-wallet-verde-700);font-size:1.42rem}
+.ev-wallet-summary-card--payment > strong{font-size:1.12rem;line-height:1.22}
+
+.ev-wallet-action-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+}
+.ev-wallet-action-card{
+  min-width:0;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:14px;
+  padding:18px;
+  border:1px solid rgba(22,163,74,.17);
+  border-radius:20px;
+  background:linear-gradient(145deg,#fff 0%,#F7FCF9 100%);
+  color:var(--ev-wallet-texto);
+  text-decoration:none;
+  box-shadow:0 10px 25px rgba(15,23,42,.055);
+  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,background .18s ease;
+}
+.ev-wallet-action-card:hover,
+.ev-wallet-action-card:focus{
+  color:var(--ev-wallet-texto);
+  transform:translateY(-2px);
+  border-color:rgba(234,124,18,.34);
+  box-shadow:0 18px 34px rgba(15,23,42,.10);
+  outline:0;
+}
+.ev-wallet-action-card--orange{
+  border-color:rgba(234,124,18,.20);
+  background:linear-gradient(145deg,#fff 0%,#FFF8F0 100%);
+}
+.ev-wallet-action-card.is-disabled{opacity:.66;cursor:not-allowed;box-shadow:none}
+.ev-wallet-action-card.is-disabled:hover{transform:none}
+.ev-wallet-action-icon{
+  width:48px;height:48px;border-radius:16px;display:grid;place-items:center;
+  color:var(--ev-wallet-verde-900);background:#ECFDF3;border:1px solid rgba(22,163,74,.18);font-size:1.12rem;
+}
+.ev-wallet-action-card--orange .ev-wallet-action-icon{color:var(--ev-wallet-naranja-oscuro);background:#FFF7ED;border-color:#F4D8BA}
+.ev-wallet-action-copy{min-width:0}
+.ev-wallet-action-copy strong{display:block;color:var(--ev-wallet-verde-900);font-size:1rem;font-weight:900;margin-bottom:4px}
+.ev-wallet-action-copy small{display:block;color:var(--ev-wallet-muted);font-size:.82rem;line-height:1.45}
+.ev-wallet-action-arrow{color:#94A3B8;font-size:1rem;transition:transform .18s ease,color .18s ease}
+.ev-wallet-action-card:hover .ev-wallet-action-arrow{transform:translateX(3px);color:var(--ev-wallet-naranja)}
+
+.ev-wallet-recharge-form-card{
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:22px;
+  padding:20px;
+  background:linear-gradient(180deg,#fff,#FCFDFC);
+  box-shadow:0 14px 32px rgba(15,23,42,.06);
+}
+.ev-wallet-section-heading{display:flex;align-items:flex-start;gap:12px;margin-bottom:18px}
+.ev-wallet-section-heading-icon{
+  width:44px;height:44px;display:grid;place-items:center;border-radius:14px;
+  background:#ECFDF3;color:var(--ev-wallet-verde-900);border:1px solid rgba(22,163,74,.18);flex:0 0 auto;
+}
+.ev-wallet-section-heading-icon--orange{background:#FFF7ED;color:var(--ev-wallet-naranja-oscuro);border-color:#F4D8BA}
+.ev-wallet-section-heading h3{margin:0;color:var(--ev-wallet-verde-900);font-size:1.08rem;font-weight:900;letter-spacing:-.015em}
+.ev-wallet-section-heading p{margin:4px 0 0;color:var(--ev-wallet-muted);font-size:.84rem;line-height:1.45}
+.ev-wallet-inline-form-panel{
+  border:1px solid #E8EBEF;border-radius:18px;padding:18px;background:#fff;
+}
+.ev-wallet-inline-form-panel .form-label{font-weight:800;font-size:.84rem;color:#334155;margin-bottom:7px}
+.ev-wallet-inline-form-panel .form-control,
+.ev-wallet-inline-form-panel .form-select{min-height:44px;border-radius:12px;border:1px solid #DCE4EE;box-shadow:none;font-size:.92rem}
+.ev-wallet-inline-form-panel .form-control:focus,
+.ev-wallet-inline-form-panel .form-select:focus{border-color:var(--ev-wallet-verde-600);box-shadow:0 0 0 3px rgba(22,163,74,.14)}
+.ev-wallet-inline-form-panel .form-text{color:#6B7280;font-size:.78rem;line-height:1.4}
+.ev-wallet-inline-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid #EEF0F2}
+.ev-wallet-inline-actions .btn{min-width:126px}
+.ev-wallet-payment-guide{
+  border:1px solid #F0E0CF;border-radius:18px;padding:18px;
+  background:radial-gradient(circle at 100% 0%,rgba(234,124,18,.10),transparent 34%),linear-gradient(180deg,#FFFDF9,#FFF9F2);
+}
+.ev-wallet-payment-guide-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;background:#ECFDF3;color:#0F592F;font-size:.72rem;font-weight:850}
+.ev-wallet-payment-guide h4{margin:13px 0 6px;color:var(--ev-wallet-verde-900);font-size:1.02rem;font-weight:900}
+.ev-wallet-payment-guide > p{margin:0 0 14px;color:#64748B;font-size:.82rem;line-height:1.55}
+.ev-wallet-payment-steps{display:grid;gap:9px;margin-top:14px}
+.ev-wallet-payment-steps span{display:flex;align-items:center;gap:9px;color:#475569;font-size:.79rem;line-height:1.4}
+.ev-wallet-payment-steps b{width:24px;height:24px;display:grid;place-items:center;border-radius:8px;background:#fff;color:var(--ev-wallet-naranja-oscuro);border:1px solid #F4D8BA;font-size:.7rem;flex:0 0 auto}
+
+.ev-wallet-withdraw-block--standalone{box-shadow:none;background:linear-gradient(180deg,#fff,#FCFDFC)}
+.ev-wallet-withdraw-block--standalone .ev-wallet-withdraw-account{background:linear-gradient(180deg,#fff,#FAFCFA)}
+
+@media(max-width:991.98px){
+  .ev-wallet-action-grid{grid-template-columns:1fr}
+}
+@media(max-width:767.98px){
+  .ev-wallet-recharge-form-card{padding:14px}
+  .ev-wallet-inline-form-panel,.ev-wallet-payment-guide{padding:14px}
+  .ev-wallet-inline-actions{display:grid;grid-template-columns:1fr 1fr}
+  .ev-wallet-inline-actions .btn{width:100%;min-width:0}
+  .ev-wallet-action-card{padding:15px;gap:11px}
+}
+@media(max-width:575.98px){
+  .ev-wallet-action-card{grid-template-columns:auto minmax(0,1fr)}
+  .ev-wallet-action-arrow{display:none}
+  .ev-wallet-action-icon{width:44px;height:44px;border-radius:14px}
+  .ev-wallet-inline-actions{grid-template-columns:1fr}
+  .ev-wallet-section-heading{gap:10px}
+  .ev-wallet-section-heading-icon{width:40px;height:40px;border-radius:13px}
+}
+</style>
+
+<style>
+/* Recargas — cards responsive sin scroll horizontal en móvil */
+@media(max-width:767.98px){
+  #ev_recargas_table .ev-wallet-table-shell{border:0;box-shadow:none;background:transparent;overflow:visible}
+  #ev_recargas_table table,#ev_recargas_table tbody{display:block;width:100%}
+  #ev_recargas_table thead{display:none}
+  #ev_recargas_table tr[data-ev-recarga-id]{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0;
+    margin-bottom:12px;
+    border:1px solid #E5E7EB;
+    border-radius:17px;
+    background:#fff;
+    overflow:hidden;
+    box-shadow:0 8px 20px rgba(15,23,42,.05);
+  }
+  #ev_recargas_table tr[data-ev-recarga-id] td{
+    display:block;
+    padding:12px 13px;
+    border:0;
+    border-bottom:1px solid #F1F5F9;
+    text-align:left!important;
+    min-width:0;
+  }
+  #ev_recargas_table tr[data-ev-recarga-id] td::before{
+    content:attr(data-label);
+    display:block;
+    margin-bottom:4px;
+    color:#94A3B8;
+    font-size:.66rem;
+    line-height:1.2;
+    font-weight:850;
+    letter-spacing:.045em;
+    text-transform:uppercase;
+  }
+  #ev_recargas_table tr[data-ev-recarga-id] td:nth-child(1),
+  #ev_recargas_table tr[data-ev-recarga-id] td:nth-child(4),
+  #ev_recargas_table tr[data-ev-recarga-id] td:nth-child(5){grid-column:1/-1}
+  #ev_recargas_table tr:not([data-ev-recarga-id]){display:block;margin:-12px 0 12px}
+  #ev_recargas_table tr:not([data-ev-recarga-id]) td.ev-wallet-recarga-observacion{
+    display:block!important;border:1px solid #F3D7B8;border-top:0;border-radius:0 0 17px 17px;background:#FFF9F1!important;padding:12px!important;
+  }
+}
+@media(max-width:420px){
+  #ev_recargas_table tr[data-ev-recarga-id]{grid-template-columns:1fr}
+  #ev_recargas_table tr[data-ev-recarga-id] td{grid-column:1/-1!important}
 }
 </style>

@@ -25,6 +25,8 @@
     '/cuenta-observada',
     '/publicacion',
     '/billetera',
+    '/billetera/recargar',
+    '/billetera/retirar',
     '/comunidad',
     '/mis-pedidos-comprador',
     '/mis-pedidos-vendedor',
@@ -190,7 +192,13 @@
     }
     if (categoria === 'residencia') return '/notificaciones-residencia';
     if (categoria === 'publicacion') return rolDestino === 'soporte' ? '/atender-publicacion' : '/publicacion';
-    if (categoria === 'billetera') return rolDestino === 'soporte' ? '/atender-recargas' : '/billetera';
+    if (categoria === 'billetera') {
+      if (rolDestino === 'soporte') return '/atender-recargas';
+      const sub = String(item?.subcategoria || '').toLowerCase();
+      if (sub.startsWith('recarga_')) return '/billetera/recargar';
+      if (sub.startsWith('retiro_') || sub.startsWith('cuenta_bancaria_')) return '/billetera/retirar';
+      return '/billetera';
+    }
     if (categoria === 'comunidad') return '/comunidad';
     if (categoria === 'soporte') {
       return String(item?.subcategoria || '').toLowerCase() === 'residencia_pendiente_soporte'
@@ -501,7 +509,7 @@
 
       if (categoria === 'billetera') {
         const codigoRecarga = Number(payload?.codigo_recarga || payload?.recarga_id || referenciaId || 0);
-        if (codigoRecarga > 0 && ruta === '/billetera') {
+        if (codigoRecarga > 0 && ruta === '/billetera/recargar') {
           sessionStorage.setItem(PENDING_WALLET_KEY, JSON.stringify({
             codigo_recarga: codigoRecarga,
             created_at: now

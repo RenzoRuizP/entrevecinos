@@ -430,8 +430,17 @@ $homeUrl = $baseUrl . '/MenuPrincipal';
     });
   }
 
-  async function cargarDisponibilidad() {
-    renderSkeleton();
+  let evDispRequestEnCurso = false;
+  let evDispRefreshTimer = null;
+
+  async function cargarDisponibilidad(options = {}) {
+    if (evDispRequestEnCurso) return;
+    evDispRequestEnCurso = true;
+
+    const silent = options && options.silent === true;
+    if (!silent && !mount.firstElementChild) {
+      renderSkeleton();
+    }
 
     try {
       const resp = await fetch(`${BASE}/api/usuario/disponibilidad-pedidos`, {
@@ -465,16 +474,39 @@ $homeUrl = $baseUrl . '/MenuPrincipal';
       renderControl(Number(info.disponibilidad || 0));
 
     } catch (e) {
-      mount.innerHTML = '';
+      if (!silent && !mount.firstElementChild) {
+        mount.innerHTML = '';
+      }
+    } finally {
+      evDispRequestEnCurso = false;
     }
+  }
+
+  function programarRefreshDisponibilidad(delay = 80) {
+    window.clearTimeout(evDispRefreshTimer);
+    evDispRefreshTimer = window.setTimeout(() => {
+      cargarDisponibilidad({ silent: true });
+    }, Math.max(0, Number(delay) || 0));
   }
 
   window.EVDisponibilidadPedidosTopbar = {
     refresh: cargarDisponibilidad
   };
 
+  // El shell de EV permanece abierto mientras los módulos se cargan por AJAX.
+  // Una aprobación realizada por Soporte/Admin puede ocurrir en otra sesión;
+  // por eso el control debe volver a consultar su elegibilidad sin exigir F5.
+  document.addEventListener('ev:content-loaded', () => programarRefreshDisponibilidad(90));
+  document.addEventListener('ev:notificaciones-globales-actualizar', () => programarRefreshDisponibilidad(60));
+  document.addEventListener('ev:publicacion-estado-actualizado', () => programarRefreshDisponibilidad(40));
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) programarRefreshDisponibilidad(50);
+  });
+  window.addEventListener('focus', () => programarRefreshDisponibilidad(60));
+  window.addEventListener('pageshow', () => programarRefreshDisponibilidad(80));
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', cargarDisponibilidad);
+    document.addEventListener('DOMContentLoaded', () => cargarDisponibilidad(), { once: true });
   } else {
     cargarDisponibilidad();
   }

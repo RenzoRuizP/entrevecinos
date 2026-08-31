@@ -135,7 +135,57 @@ if (!defined('EV_ADMIN_COMUNIDAD_ROLE_ID')) {
 }
 
 if (!defined('EV_APP_VER')) {
-    define('EV_APP_VER', '1.0.2');
+    define('EV_APP_VER', '1.0.11');
+}
+
+
+if (!function_exists('ev_retiro_bank_rules')) {
+    /**
+     * Bancos habilitados para liquidaciones EV durante el piloto.
+     *
+     * - El CCI peruano tiene 20 dígitos y sus 3 primeros identifican a la entidad.
+     * - Las longitudes de cuenta se validan por entidad; cuando una entidad publica
+     *   más de un formato vigente se admiten únicamente esas longitudes.
+     * - Esta validación comprueba estructura/formato, no existencia ni titularidad
+     *   real de la cuenta. La titularidad continúa sujeta a validación administrativa.
+     */
+    function ev_retiro_bank_rules(): array
+    {
+        return [
+            'BCP' => [
+                'codigo_cci' => '002',
+                'cuenta_longitudes' => ['ahorros' => [13, 14], 'corriente' => [13, 14]],
+            ],
+            'Interbank' => [
+                'codigo_cci' => '003',
+                'cuenta_longitudes' => ['ahorros' => [13], 'corriente' => [13]],
+            ],
+            'Scotiabank' => [
+                'codigo_cci' => '009',
+                'cuenta_longitudes' => ['ahorros' => [10, 14], 'corriente' => [10, 14]],
+            ],
+            'BBVA' => [
+                'codigo_cci' => '011',
+                'cuenta_longitudes' => ['ahorros' => [18], 'corriente' => [18]],
+            ],
+            'Banco de la Nación' => [
+                'codigo_cci' => '018',
+                'cuenta_longitudes' => ['ahorros' => [11], 'corriente' => [11]],
+            ],
+            'Banco Pichincha' => [
+                'codigo_cci' => '035',
+                'cuenta_longitudes' => ['ahorros' => [11, 12], 'corriente' => [11, 12]],
+            ],
+            'BanBif' => [
+                'codigo_cci' => '038',
+                'cuenta_longitudes' => ['ahorros' => [10, 12], 'corriente' => [10, 12]],
+            ],
+            'MiBanco' => [
+                'codigo_cci' => '049',
+                'cuenta_longitudes' => ['ahorros' => [10], 'corriente' => [10]],
+            ],
+        ];
+    }
 }
 
 /* Uploads (ruta física + URL pública) */

@@ -75,9 +75,27 @@
     );
   }
 
+  function esAlertaCompradorGestionadaPorShell(alerta) {
+    let payload = alerta?.payload || alerta?.payload_json || {};
+
+    if (typeof payload === 'string') {
+      try { payload = JSON.parse(payload); } catch (_) { payload = {}; }
+    }
+
+    const rolDestino = String(payload?.rol_destino || '').trim().toLowerCase();
+    return rolDestino === 'comprador'
+      && window.EVShell
+      && typeof window.EVShell.revisarAlertasPedidoComprador === 'function';
+  }
+
   function estaSuprimidaPorSeguimiento(alerta) {
     const pedidoId = extraerPedidoId(alerta);
     if (!pedidoId) return false;
+
+    if (Number(window.__EV_MARKETPLACE_PEDIDO_SEGUIMIENTO__ || 0) === pedidoId) {
+      return true;
+    }
+
     const store = readSuppressStore();
     return Boolean(store[String(pedidoId)]);
   }
@@ -147,6 +165,12 @@
 
     const id = Number(alerta.codigo_notificacion || 0);
     if (!id || cache.has(id)) return;
+
+    // El shell principal gestiona las alertas del comprador con navegación
+    // al pedido exacto. El módulo legado no debe mostrar un segundo modal.
+    if (esAlertaCompradorGestionadaPorShell(alerta)) {
+      return;
+    }
 
     if (estaSuprimidaPorSeguimiento(alerta)) {
       cache.add(id);

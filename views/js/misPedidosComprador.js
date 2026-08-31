@@ -1001,7 +1001,11 @@
         return null;
       }
 
-      return { codigo_pedido: codigoPedido, rol: 'comprador' };
+      return {
+        codigo_pedido: codigoPedido,
+        rol: 'comprador',
+        abrir_detalle: Number(data?.abrir_detalle || 0) === 1 ? 1 : 0
+      };
     } catch (_) {
       return null;
     }
@@ -1037,6 +1041,7 @@
     const card = document.querySelector(`.ev-mpc-order[data-id="${id}"]`);
     if (!card) return false;
 
+    const abrirDetalle = Number(pending.abrir_detalle || 0) === 1;
     sessionStorage.removeItem(NOTIF_ORDER_TARGET_KEY);
     card.classList.add('is-notification-target');
     card.setAttribute('tabindex', '-1');
@@ -1049,6 +1054,12 @@
     window.setTimeout(() => {
       card.classList.remove('is-notification-target');
     }, 5200);
+
+    if (abrirDetalle && cachePedidos.has(id)) {
+      window.setTimeout(() => {
+        verDetalle(id);
+      }, 220);
+    }
 
     return true;
   }
@@ -1144,6 +1155,7 @@
       icon: 'success',
       title: 'Entrega confirmada',
       text: json?.mensaje || 'La entrega fue confirmada correctamente.',
+      confirmButtonText: 'Aceptar',
       confirmButtonColor: '#EA7C12'
     });
 
@@ -1553,7 +1565,7 @@
       closeButtonAriaLabel: 'Cerrar',
       html: buildDetalleHtml(item),
       width: 880,
-      confirmButtonText: '<i class="bi bi-x-circle" aria-hidden="true"></i><span>Cerrar</span>',
+      confirmButtonText: 'Cerrar',
       showCancelButton: false,
       showDenyButton: false,
       buttonsStyling: false,
@@ -1748,13 +1760,14 @@
   window.EVMisPedidosComprador = {
     init: initMisPedidosComprador,
     refresh: () => cargarPedidos({ silent: true }),
-    focusPedido: (codigoPedido) => {
+    focusPedido: (codigoPedido, opciones = {}) => {
       const id = Number(codigoPedido || 0);
       if (id <= 0) return false;
       try {
         sessionStorage.setItem(NOTIF_ORDER_TARGET_KEY, JSON.stringify({
           codigo_pedido: id,
           rol: 'comprador',
+          abrir_detalle: opciones?.abrirDetalle === true ? 1 : 0,
           created_at: Date.now()
         }));
       } catch (_) {}

@@ -5,7 +5,14 @@
   const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/$/, '');
   const NOTIF_WALLET_TARGET_KEY = 'ev_notificacion_billetera_destino';
   const LOG_PREFIX = '[BILLETERA]';
-  const RECARGAS_DISPONIBLES = window.EV_WALLET_CONFIG?.recargasDisponibles !== false;
+  // IMPORTANTE: billetera.js se carga con el shell de MenuPrincipal, antes de que
+  // la vista /billetera inyecte EV_WALLET_CONFIG. Por eso esta configuración debe
+  // leerse en tiempo de uso y no congelarse al cargar el archivo.
+  function walletConfig() { return window.EV_WALLET_CONFIG || {}; }
+  function walletSection() { return String(walletConfig().section || 'resumen').toLowerCase(); }
+  function recargasDisponibles() { return walletConfig().recargasDisponibles !== false; }
+  function retirosDisponibles() { return walletConfig().retirosDisponibles === true; }
+  function walletCsrf() { return String(walletConfig().csrf || ''); }
 
   const BC_NAME = 'EV_CHANNEL';
   let bc = null;
@@ -23,6 +30,7 @@
     recargasTable: null,
     btnRefrescarRecargas: null,
     btnAbrirNuevaRecarga: null,
+    btnLimpiarRecarga: null,
 
     recargaForm: null,
     recargaCodigo: null,
@@ -41,10 +49,39 @@
     qrTitle: null,
     qrText: null,
     qrCard: null,
+
+    retiroSaldo: null,
+    retiroEnProceso: null,
+    retiroProximoPago: null,
+    retiroCorteDetalle: null,
+    retiroEstadoCorte: null,
+    retiroCuentaResumen: null,
+    retiroCuentaEstado: null,
+    retiroMensaje: null,
+    retirosHistorial: null,
+    btnCuentaRetiro: null,
+    btnRetirarSaldo: null,
+    formCuentaRetiro: null,
+    retiroBanco: null,
+    retiroTipoCuenta: null,
+    retiroTipoCuentaError: null,
+    retiroNumeroCuenta: null,
+    retiroNumeroCuentaHelp: null,
+    retiroNumeroCuentaError: null,
+    retiroCci: null,
+    retiroCciHelp: null,
+    retiroCciError: null,
+    retiroBancoError: null,
+    retiroDeclara: null,
+    retiroTitularNombre: null,
+    retiroTitularDocumento: null,
+    retiroCuentaObservacion: null,
+    btnGuardarCuentaRetiro: null,
   };
 
   let state = {
-    misRecargas: []
+    misRecargas: [],
+    retiro: null
   };
 
   const QR_CONFIG = {
@@ -71,6 +108,7 @@
     refs.recargasTable = document.getElementById('ev_recargas_table');
     refs.btnRefrescarRecargas = document.getElementById('btnRefrescarRecargas');
     refs.btnAbrirNuevaRecarga = document.getElementById('btnAbrirNuevaRecarga');
+    refs.btnLimpiarRecarga = document.getElementById('btnLimpiarRecarga');
 
     refs.saldo = document.getElementById('ev_wallet_saldo');
     refs.emptyState = document.getElementById('ev_wallet_empty_state');
@@ -95,6 +133,34 @@
     refs.qrTitle = document.getElementById('ev_qr_title');
     refs.qrText = document.getElementById('ev_qr_text');
     refs.qrCard = document.getElementById('ev_qr_card');
+
+    refs.retiroSaldo = document.getElementById('ev_retiro_saldo_actual');
+    refs.retiroEnProceso = document.getElementById('ev_retiro_en_proceso');
+    refs.retiroProximoPago = document.getElementById('ev_retiro_proximo_pago');
+    refs.retiroCorteDetalle = document.getElementById('ev_retiro_corte_detalle');
+    refs.retiroEstadoCorte = document.getElementById('ev_retiro_estado_corte');
+    refs.retiroCuentaResumen = document.getElementById('ev_retiro_cuenta_resumen');
+    refs.retiroCuentaEstado = document.getElementById('ev_retiro_cuenta_estado');
+    refs.retiroMensaje = document.getElementById('ev_retiro_mensaje');
+    refs.retirosHistorial = document.getElementById('ev_retiros_historial');
+    refs.btnCuentaRetiro = document.getElementById('btnCuentaRetiro');
+    refs.btnRetirarSaldo = document.getElementById('btnRetirarSaldo');
+    refs.formCuentaRetiro = document.getElementById('formCuentaRetiro');
+    refs.retiroBanco = document.getElementById('retiro_banco');
+    refs.retiroTipoCuenta = document.getElementById('retiro_tipo_cuenta');
+    refs.retiroTipoCuentaError = document.getElementById('retiro_tipo_cuenta_error');
+    refs.retiroNumeroCuenta = document.getElementById('retiro_numero_cuenta');
+    refs.retiroNumeroCuentaHelp = document.getElementById('retiro_numero_cuenta_help');
+    refs.retiroNumeroCuentaError = document.getElementById('retiro_numero_cuenta_error');
+    refs.retiroCci = document.getElementById('retiro_cci');
+    refs.retiroCciHelp = document.getElementById('retiro_cci_help');
+    refs.retiroCciError = document.getElementById('retiro_cci_error');
+    refs.retiroBancoError = document.getElementById('retiro_banco_error');
+    refs.retiroDeclara = document.getElementById('retiro_declara_titularidad');
+    refs.retiroTitularNombre = document.getElementById('retiro_titular_nombre');
+    refs.retiroTitularDocumento = document.getElementById('retiro_titular_documento');
+    refs.retiroCuentaObservacion = document.getElementById('retiro_cuenta_observacion');
+    refs.btnGuardarCuentaRetiro = document.getElementById('btnGuardarCuentaRetiro');
 
     return true;
   }
@@ -273,7 +339,10 @@
       BONO_BIENVENIDA: 'Bono de bienvenida',
       RECARGA_MANUAL: 'Recarga manual',
       PRODUCTO_DESTACADO: 'Producto destacado',
-      PUBLICACION_DESTACADA: 'Publicación destacada'
+      PUBLICACION_DESTACADA: 'Publicación destacada',
+      VENTA_PREPARADA_ACREDITADA: 'Venta de producto preparado',
+      RETIRO_RESERVA: 'Saldo reservado para retiro',
+      RETIRO_REINTEGRO: 'Reintegro de retiro'
     };
     return mapa[v] || (origen || 'Movimiento');
   }
@@ -322,7 +391,10 @@
     if (refs.recargaModo) refs.recargaModo.value = 'crear';
 
     if (refs.modalRecargaTitulo) {
-      refs.modalRecargaTitulo.innerHTML = '<i class="bi bi-plus-circle me-2"></i> Recargar saldo';
+      const enModal = !!refs.modalRecargaTitulo.closest('.modal');
+      refs.modalRecargaTitulo.innerHTML = enModal
+        ? '<i class="bi bi-plus-circle me-2"></i> Recargar saldo'
+        : 'Registrar recarga';
     }
 
     if (refs.btnEnviarRecarga) {
@@ -342,7 +414,7 @@
   }
 
   function abrirModalNuevaRecarga() {
-    if (!RECARGAS_DISPONIBLES) {
+    if (!recargasDisponibles()) {
       swalInfo('Las recargas no están disponibles para tu comunidad en este momento.');
       return;
     }
@@ -351,7 +423,7 @@
   }
 
   function abrirModalSubsanar(id) {
-    if (!RECARGAS_DISPONIBLES) {
+    if (!recargasDisponibles()) {
       swalInfo('Las recargas no están disponibles para tu comunidad en este momento.');
       return;
     }
@@ -370,7 +442,10 @@
     if (refs.recargaOperacion) refs.recargaOperacion.value = rec.id_operacion || '';
 
     if (refs.modalRecargaTitulo) {
-      refs.modalRecargaTitulo.innerHTML = '<i class="bi bi-pencil-square me-2"></i> Subsanar recarga observada';
+      const enModal = !!refs.modalRecargaTitulo.closest('.modal');
+      refs.modalRecargaTitulo.innerHTML = enModal
+        ? '<i class="bi bi-pencil-square me-2"></i> Subsanar recarga observada'
+        : 'Subsanar recarga observada';
     }
 
     if (refs.btnEnviarRecarga) {
@@ -393,6 +468,12 @@
     if (modalEl && window.bootstrap?.Modal) {
       const mi = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
       mi.show();
+    } else {
+      const panel = refs.recargaForm?.closest('.ev-wallet-recharge-form-card') || refs.recargaForm;
+      if (panel) {
+        window.requestAnimationFrame(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      }
+      window.setTimeout(() => refs.recargaTipo?.focus(), 220);
     }
   }
 
@@ -417,10 +498,9 @@
   }
 
   function renderizarMovimientos(lista) {
-    if (!refs.movimientos || !refs.emptyState) return;
-
     const items = Array.isArray(lista) ? lista : [];
     actualizarContadores({ movimientos: items.length });
+    if (!refs.movimientos || !refs.emptyState) return;
 
     if (!items.length) {
       refs.emptyState.classList.remove('d-none');
@@ -539,10 +619,9 @@
   }
 
   function renderizarRecargas(items) {
-    if (!refs.recargasEmpty || !refs.recargasTable) return;
-
     state.misRecargas = Array.isArray(items) ? items : [];
     actualizarContadores({ recargas: state.misRecargas.length });
+    if (!refs.recargasEmpty || !refs.recargasTable) return;
 
     if (!state.misRecargas.length) {
       refs.recargasEmpty.classList.remove('d-none');
@@ -557,12 +636,12 @@
     const rows = state.misRecargas.map((r) => {
       const est = String(r.estado || '').toLowerCase();
       const comentario = (r.comentario_soporte || '').trim();
-      const puedeSubsanar = RECARGAS_DISPONIBLES && (est === 'observada');
+      const puedeSubsanar = recargasDisponibles() && (est === 'observada');
 
       const comentarioHtml = (est === 'observada' || est === 'rechazada')
         ? `
           <tr>
-            <td colspan="5" class="p-3">
+            <td colspan="5" class="p-3 ev-wallet-recarga-observacion">
               <div class="mt-1 p-3 rounded bg-light border">
                 <div class="fw-semibold small mb-1">
                   <i class="bi bi-chat-left-text me-1"></i> Mensaje de soporte
@@ -590,14 +669,14 @@
 
       return `
         <tr data-ev-recarga-id="${esc(r.id)}">
-          <td>
+          <td data-label="Fecha">
             <div class="small fw-semibold">${esc(r.fecha || '—')}</div>
             <div class="small text-muted">${esc(r.hora || '')}</div>
           </td>
-          <td class="text-end fw-semibold">${formatearMonto(r.monto || 0)}</td>
-          <td class="text-center">${esc(String(r.metodo || '').toUpperCase())}</td>
-          <td><span class="ev-mono small">${esc(r.id_operacion || '—')}</span></td>
-          <td class="text-center"><span class="${badgeEstadoRecarga(est)}">${esc(est)}</span></td>
+          <td data-label="Monto" class="text-end fw-semibold">${formatearMonto(r.monto || 0)}</td>
+          <td data-label="Método" class="text-center">${esc(String(r.metodo || '').toUpperCase())}</td>
+          <td data-label="ID operación"><span class="ev-mono small">${esc(r.id_operacion || '—')}</span></td>
+          <td data-label="Estado" class="text-center"><span class="${badgeEstadoRecarga(est)}">${esc(est)}</span></td>
         </tr>
         ${comentarioHtml}
       `;
@@ -623,7 +702,7 @@
   }
 
   async function cargarMisRecargas() {
-    if (!refs.recargasTable) return;
+    if (!refs.recargasTable && !refs.totalRecargas) return;
 
     const url = `${BASE}/api/recargas/mis?limit=20`;
 
@@ -647,7 +726,7 @@
   }
 
   async function cargarMovimientos() {
-    if (!refs.movimientos) return;
+    if (!refs.movimientos && !refs.totalMovimientos) return;
 
     const url = `${BASE}/api/billetera/movimientos`;
 
@@ -671,8 +750,492 @@
     }
   }
 
+  function fechaHoraPE(valor) {
+    if (!valor) return '—';
+    const d = new Date(String(valor).replace(' ', 'T'));
+    if (Number.isNaN(d.getTime())) return String(valor);
+    return d.toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function fechaPagoPE(valor) {
+    if (!valor) return '—';
+    const d = new Date(`${String(valor)}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return String(valor);
+    return d.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
+  function estadoRetiroTexto(estado) {
+    const e = String(estado || '').toLowerCase();
+    return ({
+      solicitado: 'Solicitado',
+      programado: 'Programado',
+      pagado: 'Pagado',
+      observado: 'Observado',
+      cancelado: 'Cancelado',
+      sin_saldo: 'Sin saldo para liquidar'
+    })[e] || '—';
+  }
+
+  function mostrarMensajeRetiro(texto, tipo = '') {
+    if (!refs.retiroMensaje) return;
+    refs.retiroMensaje.classList.toggle('d-none', !texto);
+    refs.retiroMensaje.classList.remove('is-success', 'is-warning');
+    if (tipo) refs.retiroMensaje.classList.add(`is-${tipo}`);
+    refs.retiroMensaje.textContent = texto || '';
+  }
+
+  function renderizarHistorialRetiros(items) {
+    if (!refs.retirosHistorial) return;
+    const lista = Array.isArray(items) ? items : [];
+    if (!lista.length) {
+      refs.retirosHistorial.innerHTML = `
+        <div class="ev-wallet-empty ev-wallet-empty--compact">
+          <i class="bi bi-cash-stack"></i>
+          <div><strong>Aún no tienes retiros.</strong><span>Cuando solicites uno, aparecerá aquí.</span></div>
+        </div>`;
+      return;
+    }
+
+    const rows = lista.map((r) => {
+      const estado = String(r.estado || '').toLowerCase();
+      const monto = (r.monto_final !== null && r.monto_final !== undefined) ? r.monto_final : r.monto_estimado;
+      return `
+        <tr>
+          <td><strong>${esc(r.codigo || '—')}</strong><div class="small text-muted">${esc(r.jornada_nombre || '')}</div></td>
+          <td>${esc(fechaHoraPE(r.fecha_solicitud))}</td>
+          <td><strong>${esc(formatearMonto(monto || 0))}</strong><div class="small text-muted">${r.fecha_pago ? `Pagado: ${esc(fechaHoraPE(r.fecha_pago))}` : `Pago: ${esc(fechaPagoPE(r.fecha_pago_programada))}`}</div></td>
+          <td><span class="ev-wallet-withdraw-state ev-wallet-withdraw-state--${esc(estado)}">${esc(estadoRetiroTexto(estado))}</span>${r.observacion ? `<div class="small text-muted mt-1">${esc(r.observacion)}</div>` : ''}${r.comprobante_path ? `<div class="small mt-1"><a href="${esc(BASE+'/'+String(r.comprobante_path).replace(/^\/+/,''))}" target="_blank" rel="noopener">Ver comprobante</a></div>` : ''}</td>
+        </tr>`;
+    }).join('');
+
+    refs.retirosHistorial.innerHTML = `
+      <div class="table-responsive ev-wallet-withdraw-table">
+        <table class="table align-middle">
+          <thead><tr><th>Retiro</th><th>Solicitud</th><th>Monto</th><th>Estado</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function renderizarRetiros(data) {
+    if (!retirosDisponibles()) return;
+    const d = data || {};
+    state.retiro = d;
+    const saldo = Number(d.saldo_actual || 0);
+    const enRetiro = Number(d.saldo_en_retiro || 0);
+    const corte = d.corte_actual || null;
+    const solicitud = d.solicitud_actual || null;
+    const cuenta = d.cuenta || null;
+    const titular = d.titular_usuario || {};
+
+    if (refs.retiroSaldo) refs.retiroSaldo.textContent = formatearMonto(saldo);
+    if (refs.retiroEnProceso) refs.retiroEnProceso.textContent = formatearMonto(enRetiro);
+
+    if (refs.retiroTitularNombre) refs.retiroTitularNombre.textContent = titular.nombre || cuenta?.titular_nombre || '—';
+    if (refs.retiroTitularDocumento) refs.retiroTitularDocumento.textContent = `Documento: ${titular.documento || cuenta?.titular_documento || '—'}`;
+
+    if (corte) {
+      if (refs.retiroProximoPago) refs.retiroProximoPago.textContent = fechaPagoPE(corte.fecha_pago_programada);
+      if (refs.retiroCorteDetalle) refs.retiroCorteDetalle.textContent = `Corte: ${fechaHoraPE(corte.corte_inicio)} hasta ${fechaHoraPE(corte.corte_fin)}.`;
+      if (refs.retiroEstadoCorte) {
+        refs.retiroEstadoCorte.textContent = solicitud ? 'Retiro solicitado' : 'Corte abierto';
+        refs.retiroEstadoCorte.classList.toggle('is-open', !solicitud);
+        refs.retiroEstadoCorte.classList.toggle('is-requested', !!solicitud);
+      }
+    } else {
+      if (refs.retiroProximoPago) refs.retiroProximoPago.textContent = 'Sin corte abierto';
+      if (refs.retiroCorteDetalle) refs.retiroCorteDetalle.textContent = 'El próximo corte se habilitará según la programación de EV.';
+      if (refs.retiroEstadoCorte) {
+        refs.retiroEstadoCorte.textContent = 'Corte cerrado';
+        refs.retiroEstadoCorte.classList.remove('is-open', 'is-requested');
+      }
+    }
+
+    if (cuenta) {
+      if (refs.retiroCuentaResumen) refs.retiroCuentaResumen.textContent = `${cuenta.banco} · ${cuenta.numero_cuenta}`;
+      if (refs.retiroCuentaEstado) {
+        const estado = String(cuenta.estado || '').toLowerCase();
+        refs.retiroCuentaEstado.textContent = estado === 'validada'
+          ? 'Cuenta validada por Administrador EV.'
+          : estado === 'observada'
+            ? `Cuenta observada${cuenta.observacion ? `: ${cuenta.observacion}` : '.'}`
+            : 'Cuenta pendiente de validación por Administrador EV.';
+      }
+      if (refs.btnCuentaRetiro) refs.btnCuentaRetiro.textContent = 'Editar cuenta';
+      if (refs.retiroBanco) refs.retiroBanco.value = cuenta.banco || '';
+      if (refs.retiroTipoCuenta) refs.retiroTipoCuenta.value = cuenta.tipo_cuenta || '';
+      if (refs.retiroNumeroCuenta) refs.retiroNumeroCuenta.value = cuenta.numero_cuenta || '';
+      if (refs.retiroCci) refs.retiroCci.value = cuenta.cci || '';
+      if (refs.retiroDeclara) refs.retiroDeclara.checked = !!cuenta.declaracion_titularidad;
+      if (refs.retiroCuentaObservacion) {
+        const tieneObs = String(cuenta.estado || '').toLowerCase() === 'observada' && !!cuenta.observacion;
+        refs.retiroCuentaObservacion.classList.toggle('d-none', !tieneObs);
+        refs.retiroCuentaObservacion.textContent = tieneObs ? cuenta.observacion : '';
+      }
+    } else {
+      if (refs.retiroCuentaResumen) refs.retiroCuentaResumen.textContent = 'Aún no registrada';
+      if (refs.retiroCuentaEstado) refs.retiroCuentaEstado.textContent = 'Registra una cuenta bancaria a tu nombre.';
+      if (refs.btnCuentaRetiro) refs.btnCuentaRetiro.textContent = 'Registrar cuenta';
+      if (refs.formCuentaRetiro) refs.formCuentaRetiro.reset();
+      if (refs.retiroCuentaObservacion) refs.retiroCuentaObservacion.classList.add('d-none');
+    }
+
+    const estadoSolicitud = String(solicitud?.estado || '').toLowerCase();
+    const bloqueaCuenta = !!d.cuenta_bloqueada_por_retiro || ['solicitado', 'programado', 'observado'].includes(estadoSolicitud);
+    if (refs.btnCuentaRetiro) {
+      refs.btnCuentaRetiro.disabled = bloqueaCuenta;
+      refs.btnCuentaRetiro.title = bloqueaCuenta ? 'No puedes cambiar la cuenta mientras este retiro esté pendiente.' : '';
+    }
+
+    if (refs.btnRetirarSaldo) {
+      refs.btnRetirarSaldo.disabled = !d.puede_solicitar;
+      refs.btnRetirarSaldo.textContent = solicitud ? 'Retiro solicitado' : 'Retirar saldo';
+    }
+
+    if (solicitud) {
+      mostrarMensajeRetiro(`Tu solicitud ya está registrada. EV calculará el monto final con todo el saldo liquidable al cierre y conservará ${formatearMonto(solicitud.saldo_minimo || 20)} en tu billetera.`, 'success');
+    } else if (!cuenta) {
+      mostrarMensajeRetiro('Para retirar saldo, primero registra una cuenta bancaria a tu nombre.', 'warning');
+    } else if (String(cuenta.estado || '').toLowerCase() === 'pendiente') {
+      mostrarMensajeRetiro('Tu cuenta bancaria está pendiente de validación por el Administrador EV. El retiro de saldo estará disponible cuando la cuenta sea validada.', 'warning');
+    } else if (String(cuenta.estado || '').toLowerCase() === 'observada') {
+      mostrarMensajeRetiro('Corrige la cuenta bancaria observada y vuelve a enviarla para validación.', 'warning');
+    } else if (!corte) {
+      mostrarMensajeRetiro('En este momento no hay una ventana de retiro abierta.', '');
+    } else if (!d.puede_solicitar) {
+      mostrarMensajeRetiro(`El retiro se habilita cuando tu saldo disponible es mayor a ${formatearMonto(corte.saldo_minimo || 20)}.`, '');
+    } else {
+      mostrarMensajeRetiro(`Puedes solicitar el retiro una sola vez en este corte. El monto final se calculará al cierre y siempre quedarán ${formatearMonto(corte.saldo_minimo || 20)} en tu billetera.`, '');
+    }
+
+    renderizarHistorialRetiros(d.retiros || []);
+  }
+
+  async function cargarRetiros() {
+    if (!retirosDisponibles() || !refs.retiroSaldo) return;
+    try {
+      const resp = await fetch(`${BASE}/api/retiros/resumen`, {
+        method: 'GET', headers: { 'Accept': 'application/json' }, credentials: 'include'
+      });
+      const json = await leerRespuestaSeguro(resp);
+      if (await manejarAuthEspecial(resp, json)) return;
+      if (!resp.ok || !json.ok) {
+        if (refs.retiroEstadoCorte) refs.retiroEstadoCorte.textContent = 'No disponible';
+        if (refs.retiroProximoPago) refs.retiroProximoPago.textContent = '—';
+        if (refs.retiroCorteDetalle) refs.retiroCorteDetalle.textContent = 'No fue posible consultar la ventana de retiro.';
+        mostrarMensajeRetiro(json.mensaje || 'No se pudo cargar la información de retiros.', 'warning');
+        return;
+      }
+      renderizarRetiros(json.data || {});
+    } catch (e) {
+      error('Excepción al cargar retiros:', e);
+      if (refs.retiroEstadoCorte) refs.retiroEstadoCorte.textContent = 'No disponible';
+      if (refs.retiroProximoPago) refs.retiroProximoPago.textContent = '—';
+      if (refs.retiroCorteDetalle) refs.retiroCorteDetalle.textContent = 'No fue posible consultar la ventana de retiro.';
+      mostrarMensajeRetiro('No se pudo cargar la información de retiros.', 'warning');
+    }
+  }
+
+  function reglasBancosRetiro() {
+    const reglas = walletConfig().bancosRetiro;
+    return (reglas && typeof reglas === 'object') ? reglas : {};
+  }
+
+  function reglaBancoRetiro(banco) {
+    return reglasBancosRetiro()[String(banco || '').trim()] || null;
+  }
+
+  function longitudesCuentaRetiro(banco, tipo) {
+    const regla = reglaBancoRetiro(banco);
+    const arr = regla?.cuenta_longitudes?.[String(tipo || '').trim()] || [];
+    return [...new Set((Array.isArray(arr) ? arr : []).map(Number).filter((n) => Number.isInteger(n) && n > 0))].sort((a, b) => a - b);
+  }
+
+  function textoLongitudesCuentaRetiro(longitudes) {
+    const vals = [...longitudes];
+    if (!vals.length) return 'la longitud definida por el banco';
+    if (vals.length === 1) return `${vals[0]} dígitos`;
+    const ultimo = vals.pop();
+    return `${vals.join(', ')} o ${ultimo} dígitos`;
+  }
+
+  function limpiarEstadoCampo(el, errorEl) {
+    if (el) el.classList.remove('is-invalid');
+    if (errorEl) errorEl.textContent = '';
+  }
+
+  function marcarCampoInvalido(el, errorEl, mensaje) {
+    if (el) el.classList.add('is-invalid');
+    if (errorEl) errorEl.textContent = mensaje || '';
+  }
+
+  function actualizarAyudaCuentaRetiro() {
+    const banco = String(refs.retiroBanco?.value || '').trim();
+    const tipo = String(refs.retiroTipoCuenta?.value || '').trim();
+    const longitudes = longitudesCuentaRetiro(banco, tipo);
+    const max = longitudes.length ? Math.max(...longitudes) : 20;
+    if (refs.retiroNumeroCuenta) refs.retiroNumeroCuenta.maxLength = max;
+    if (refs.retiroNumeroCuentaHelp) {
+      refs.retiroNumeroCuentaHelp.textContent = banco && tipo && longitudes.length
+        ? `Para ${banco}, esta cuenta debe tener ${textoLongitudesCuentaRetiro(longitudes)}.`
+        : 'Selecciona el banco y tipo de cuenta para validar la longitud.';
+    }
+    const codigo = String(reglaBancoRetiro(banco)?.codigo_cci || '');
+    if (refs.retiroCciHelp) {
+      refs.retiroCciHelp.textContent = codigo
+        ? `20 dígitos. Para ${banco}, el CCI debe comenzar con ${codigo}.`
+        : 'Ingresa los 20 dígitos, sin espacios ni guiones.';
+    }
+  }
+
+  function validarFormularioCuentaRetiro({ mostrarErrores = true } = {}) {
+    const banco = String(refs.retiroBanco?.value || '').trim();
+    const tipo = String(refs.retiroTipoCuenta?.value || '').trim();
+    const numero = String(refs.retiroNumeroCuenta?.value || '').trim();
+    const cci = String(refs.retiroCci?.value || '').trim();
+    const declara = !!refs.retiroDeclara?.checked;
+    const regla = reglaBancoRetiro(banco);
+
+    limpiarEstadoCampo(refs.retiroBanco, refs.retiroBancoError);
+    limpiarEstadoCampo(refs.retiroTipoCuenta, refs.retiroTipoCuentaError);
+    limpiarEstadoCampo(refs.retiroNumeroCuenta, refs.retiroNumeroCuentaError);
+    limpiarEstadoCampo(refs.retiroCci, refs.retiroCciError);
+
+    let primerCampo = null;
+    let mensaje = '';
+    const invalidar = (el, errorEl, msg) => {
+      if (mostrarErrores) marcarCampoInvalido(el, errorEl, msg);
+      if (!primerCampo) { primerCampo = el; mensaje = msg; }
+    };
+
+    if (!regla) {
+      invalidar(refs.retiroBanco, refs.retiroBancoError, 'Selecciona un banco de la lista.');
+    }
+    if (!['ahorros', 'corriente'].includes(tipo)) {
+      if (!primerCampo) { primerCampo = refs.retiroTipoCuenta; mensaje = 'Selecciona el tipo de cuenta.'; }
+      if (mostrarErrores) marcarCampoInvalido(refs.retiroTipoCuenta, refs.retiroTipoCuentaError, 'Selecciona el tipo de cuenta.');
+    }
+
+    if (!/^\d+$/.test(numero)) {
+      invalidar(refs.retiroNumeroCuenta, refs.retiroNumeroCuentaError, 'El número de cuenta debe contener solo dígitos.');
+    } else if (/^(\d)\1+$/.test(numero)) {
+      invalidar(refs.retiroNumeroCuenta, refs.retiroNumeroCuentaError, 'Revisa el número de cuenta ingresado.');
+    } else if (regla && ['ahorros', 'corriente'].includes(tipo)) {
+      const longitudes = longitudesCuentaRetiro(banco, tipo);
+      if (!longitudes.includes(numero.length)) {
+        invalidar(
+          refs.retiroNumeroCuenta,
+          refs.retiroNumeroCuentaError,
+          `La cuenta ${tipo === 'ahorros' ? 'de ahorros' : 'corriente'} de ${banco} debe tener ${textoLongitudesCuentaRetiro(longitudes)}.`
+        );
+      }
+    }
+
+    if (!/^\d{20}$/.test(cci)) {
+      invalidar(refs.retiroCci, refs.retiroCciError, 'El CCI debe contener exactamente 20 dígitos.');
+    } else if (/^(\d)\1{19}$/.test(cci)) {
+      invalidar(refs.retiroCci, refs.retiroCciError, 'Revisa el CCI ingresado.');
+    } else if (regla && cci.slice(0, 3) !== String(regla.codigo_cci || '')) {
+      invalidar(refs.retiroCci, refs.retiroCciError, `El CCI de ${banco} debe comenzar con ${String(regla.codigo_cci || '')}.`);
+    }
+
+    if (!declara && !primerCampo) {
+      primerCampo = refs.retiroDeclara;
+      mensaje = 'Confirma que la cuenta bancaria se encuentra a tu nombre.';
+    }
+
+    return { ok: !primerCampo, primerCampo, mensaje, banco, tipo, numero, cci, declara };
+  }
+
+  function sanitizarDigitosCuenta(el, maximo = 20) {
+    if (!el) return;
+    const limpio = String(el.value || '').replace(/\D+/g, '').slice(0, maximo);
+    if (el.value !== limpio) el.value = limpio;
+  }
+
+  function validarNumeroCuentaRetiro() {
+    const banco = String(refs.retiroBanco?.value || '').trim();
+    const tipo = String(refs.retiroTipoCuenta?.value || '').trim();
+    const numero = String(refs.retiroNumeroCuenta?.value || '').trim();
+    limpiarEstadoCampo(refs.retiroNumeroCuenta, refs.retiroNumeroCuentaError);
+    if (!numero) return;
+    if (!/^\d+$/.test(numero) || /^(\d)\1+$/.test(numero)) {
+      marcarCampoInvalido(refs.retiroNumeroCuenta, refs.retiroNumeroCuentaError, 'Revisa el número de cuenta ingresado.');
+      return;
+    }
+    const regla = reglaBancoRetiro(banco);
+    if (!regla || !['ahorros', 'corriente'].includes(tipo)) return;
+    const longitudes = longitudesCuentaRetiro(banco, tipo);
+    if (!longitudes.includes(numero.length)) {
+      marcarCampoInvalido(
+        refs.retiroNumeroCuenta,
+        refs.retiroNumeroCuentaError,
+        `La cuenta ${tipo === 'ahorros' ? 'de ahorros' : 'corriente'} de ${banco} debe tener ${textoLongitudesCuentaRetiro(longitudes)}.`
+      );
+    }
+  }
+
+  function validarCciRetiro() {
+    const banco = String(refs.retiroBanco?.value || '').trim();
+    const cci = String(refs.retiroCci?.value || '').trim();
+    limpiarEstadoCampo(refs.retiroCci, refs.retiroCciError);
+    if (!cci) return;
+    if (!/^\d{20}$/.test(cci)) {
+      marcarCampoInvalido(refs.retiroCci, refs.retiroCciError, 'El CCI debe contener exactamente 20 dígitos.');
+      return;
+    }
+    if (/^(\d)\1{19}$/.test(cci)) {
+      marcarCampoInvalido(refs.retiroCci, refs.retiroCciError, 'Revisa el CCI ingresado.');
+      return;
+    }
+    const regla = reglaBancoRetiro(banco);
+    if (regla && cci.slice(0, 3) !== String(regla.codigo_cci || '')) {
+      marcarCampoInvalido(refs.retiroCci, refs.retiroCciError, `El CCI de ${banco} debe comenzar con ${String(regla.codigo_cci || '')}.`);
+    }
+  }
+
+  function abrirCuentaRetiro() {
+    if (!retirosDisponibles()) return;
+    const cuenta = state.retiro?.cuenta || null;
+    if (!cuenta && refs.formCuentaRetiro) refs.formCuentaRetiro.reset();
+    if (cuenta) {
+      if (refs.retiroBanco) refs.retiroBanco.value = cuenta.banco || '';
+      if (refs.retiroTipoCuenta) refs.retiroTipoCuenta.value = cuenta.tipo_cuenta || '';
+      if (refs.retiroNumeroCuenta) refs.retiroNumeroCuenta.value = cuenta.numero_cuenta || '';
+      if (refs.retiroCci) refs.retiroCci.value = cuenta.cci || '';
+      if (refs.retiroDeclara) refs.retiroDeclara.checked = !!cuenta.declaracion_titularidad;
+    }
+    actualizarAyudaCuentaRetiro();
+    validarFormularioCuentaRetiro({ mostrarErrores: false });
+    const modal = document.getElementById('modalCuentaRetiro');
+    if (modal && window.bootstrap?.Modal) bootstrap.Modal.getOrCreateInstance(modal).show();
+  }
+
+  async function guardarCuentaRetiro() {
+    if (!retirosDisponibles() || !refs.btnGuardarCuentaRetiro) return;
+    sanitizarDigitosCuenta(refs.retiroNumeroCuenta, Number(refs.retiroNumeroCuenta?.maxLength || 20));
+    sanitizarDigitosCuenta(refs.retiroCci, 20);
+    const validacion = validarFormularioCuentaRetiro({ mostrarErrores: true });
+    if (!validacion.ok) {
+      validacion.primerCampo?.focus?.();
+      return swalInfo(validacion.mensaje || 'Revisa los datos bancarios ingresados.');
+    }
+    const { banco, tipo, numero, cci } = validacion;
+
+    refs.btnGuardarCuentaRetiro.disabled = true;
+    try {
+      const resp = await fetch(`${BASE}/api/retiros/cuenta`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-EV-CSRF': walletCsrf() },
+        body: JSON.stringify({ banco, tipo_cuenta: tipo, numero_cuenta: numero, cci, declara_titularidad: true })
+      });
+      const json = await leerRespuestaSeguro(resp);
+      if (await manejarAuthEspecial(resp, json)) return;
+      if (!resp.ok || !json.ok) return swalErr(json.mensaje || 'No se pudo registrar la cuenta bancaria.');
+
+      const modal = document.getElementById('modalCuentaRetiro');
+      if (modal && window.bootstrap?.Modal) bootstrap.Modal.getOrCreateInstance(modal).hide();
+      await swalOk(json.mensaje || 'Cuenta bancaria registrada.');
+      await cargarRetiros();
+    } catch (e) {
+      error('Excepción al guardar cuenta de retiro:', e);
+      swalErr('No se pudo conectar con el servicio de retiros.');
+    } finally {
+      refs.btnGuardarCuentaRetiro.disabled = false;
+    }
+  }
+
+  async function solicitarRetiroSaldo() {
+    if (!retirosDisponibles() || !state.retiro?.puede_solicitar) return;
+    const corte = state.retiro.corte_actual || {};
+    const saldo = Number(state.retiro.saldo_actual || 0);
+    const minimo = Number(corte.saldo_minimo || 20);
+    const estimado = Math.max(0, saldo - minimo);
+
+    const confirmacion = window.Swal?.fire
+      ? await swalFireEV({
+          icon: 'question',
+          title: 'Solicitar retiro',
+          html: `Tu retiro queda registrado para este corte.<br><br><strong>Monto estimado ahora: ${esc(formatearMonto(estimado))}</strong><br><span style="font-size:.86rem;color:#6B7280">El monto final se recalculará al cierre e incluirá las ventas liberadas dentro del mismo corte. EV mantendrá ${esc(formatearMonto(minimo))} en tu billetera.</span>`,
+          showCancelButton: true,
+          confirmButtonText: 'Aceptar',
+          cancelButtonText: 'Cancelar'
+        })
+      : { isConfirmed: confirm('¿Confirmas la solicitud de retiro para este corte?') };
+    if (!confirmacion?.isConfirmed) return;
+
+    refs.btnRetirarSaldo.disabled = true;
+    try {
+      const resp = await fetch(`${BASE}/api/retiros/solicitar`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-EV-CSRF': walletCsrf() },
+        body: '{}'
+      });
+      const json = await leerRespuestaSeguro(resp);
+      if (await manejarAuthEspecial(resp, json)) return;
+      if (!resp.ok || !json.ok) return swalErr(json.mensaje || 'No se pudo registrar el retiro.');
+      await swalOk(json.mensaje || 'Retiro registrado.');
+      await Promise.all([cargarRetiros(), cargarSaldo(), cargarMovimientos()]);
+    } catch (e) {
+      error('Excepción al solicitar retiro:', e);
+      swalErr('No se pudo conectar con el servicio de retiros.');
+    } finally {
+      if (refs.btnRetirarSaldo) refs.btnRetirarSaldo.disabled = !(state.retiro?.puede_solicitar);
+    }
+  }
+
+  function engancharEventosRetiro() {
+    if (!retirosDisponibles()) return;
+    if (refs.btnCuentaRetiro && refs.btnCuentaRetiro.dataset.evHooked !== '1') {
+      refs.btnCuentaRetiro.dataset.evHooked = '1';
+      refs.btnCuentaRetiro.addEventListener('click', abrirCuentaRetiro);
+    }
+    if (refs.btnGuardarCuentaRetiro && refs.btnGuardarCuentaRetiro.dataset.evHooked !== '1') {
+      refs.btnGuardarCuentaRetiro.dataset.evHooked = '1';
+      refs.btnGuardarCuentaRetiro.addEventListener('click', guardarCuentaRetiro);
+    }
+    if (refs.btnRetirarSaldo && refs.btnRetirarSaldo.dataset.evHooked !== '1') {
+      refs.btnRetirarSaldo.dataset.evHooked = '1';
+      refs.btnRetirarSaldo.addEventListener('click', solicitarRetiroSaldo);
+    }
+    if (refs.retiroBanco && refs.retiroBanco.dataset.evBankValidation !== '1') {
+      refs.retiroBanco.dataset.evBankValidation = '1';
+      refs.retiroBanco.addEventListener('change', () => {
+        limpiarEstadoCampo(refs.retiroBanco, refs.retiroBancoError);
+        actualizarAyudaCuentaRetiro();
+        validarFormularioCuentaRetiro({ mostrarErrores: false });
+      });
+    }
+    if (refs.retiroTipoCuenta && refs.retiroTipoCuenta.dataset.evBankValidation !== '1') {
+      refs.retiroTipoCuenta.dataset.evBankValidation = '1';
+      refs.retiroTipoCuenta.addEventListener('change', () => {
+        limpiarEstadoCampo(refs.retiroTipoCuenta, refs.retiroTipoCuentaError);
+        actualizarAyudaCuentaRetiro();
+        validarFormularioCuentaRetiro({ mostrarErrores: false });
+      });
+    }
+    if (refs.retiroNumeroCuenta && refs.retiroNumeroCuenta.dataset.evDigits !== '1') {
+      refs.retiroNumeroCuenta.dataset.evDigits = '1';
+      refs.retiroNumeroCuenta.addEventListener('input', () => {
+        sanitizarDigitosCuenta(refs.retiroNumeroCuenta, Number(refs.retiroNumeroCuenta.maxLength || 20));
+        limpiarEstadoCampo(refs.retiroNumeroCuenta, refs.retiroNumeroCuentaError);
+      });
+      refs.retiroNumeroCuenta.addEventListener('blur', validarNumeroCuentaRetiro);
+    }
+    if (refs.retiroCci && refs.retiroCci.dataset.evDigits !== '1') {
+      refs.retiroCci.dataset.evDigits = '1';
+      refs.retiroCci.addEventListener('input', () => {
+        sanitizarDigitosCuenta(refs.retiroCci, 20);
+        limpiarEstadoCampo(refs.retiroCci, refs.retiroCciError);
+      });
+      refs.retiroCci.addEventListener('blur', validarCciRetiro);
+    }
+    actualizarAyudaCuentaRetiro();
+  }
+
   async function enviarRecarga() {
-    if (!RECARGAS_DISPONIBLES) {
+    if (!recargasDisponibles()) {
       swalInfo('Las recargas no están disponibles para tu comunidad en este momento.');
       return;
     }
@@ -777,6 +1340,16 @@
       });
     }
 
+    if (refs.btnLimpiarRecarga && refs.btnLimpiarRecarga.dataset.evHooked !== '1') {
+      refs.btnLimpiarRecarga.dataset.evHooked = '1';
+      refs.btnLimpiarRecarga.addEventListener('click', (e) => {
+        e.preventDefault();
+        resetModalRecarga();
+        actualizarQRDesdeSelect();
+        refs.recargaTipo?.focus();
+      });
+    }
+
     if (refs.btnAbrirNuevaRecarga && refs.btnAbrirNuevaRecarga.dataset.evHooked !== '1') {
       refs.btnAbrirNuevaRecarga.dataset.evHooked = '1';
       refs.btnAbrirNuevaRecarga.addEventListener('click', () => {
@@ -802,12 +1375,43 @@
     }
   }
 
+  function navegarWallet(ruta) {
+    const destino = String(ruta || '').trim();
+    if (!destino) return;
+    if (window.EVNav && typeof window.EVNav.loadPage === 'function') {
+      window.EVNav.loadPage(destino, { pushState: true, replaceState: false });
+      return;
+    }
+    window.location.href = `${BASE}/MenuPrincipal?ev_goto=${encodeURIComponent(destino)}`;
+  }
+
+  function engancharNavegacionWallet() {
+    document.querySelectorAll('.ev-wallet-wrapper [data-ev-wallet-route]').forEach((el) => {
+      if (el.dataset.evWalletNavHooked === '1') return;
+      el.dataset.evWalletNavHooked = '1';
+      el.addEventListener('click', (e) => {
+        const ruta = el.getAttribute('data-ev-wallet-route');
+        if (!ruta) return;
+        e.preventDefault();
+        navegarWallet(ruta);
+      });
+    });
+  }
+
   function refrescarAhora(payload) {
     if (!document.querySelector('.ev-wallet-wrapper')) return;
     log('Refrescando billetera por evento:', payload?.motivo || '(sin motivo)');
-    cargarSaldo();
-    cargarMovimientos();
-    cargarMisRecargas();
+    const section = walletSection();
+    if (section === 'resumen') {
+      cargarSaldo();
+      cargarMovimientos();
+      cargarMisRecargas();
+    } else if (section === 'recargar') {
+      cargarSaldo();
+      cargarMisRecargas();
+    } else if (section === 'retirar') {
+      cargarRetiros();
+    }
   }
 
   function escucharEventosRefresh() {
@@ -839,9 +1443,7 @@
 
     window.addEventListener('focus', () => {
       if (document.querySelector('.ev-wallet-wrapper')) {
-        cargarSaldo();
-        cargarMovimientos();
-        cargarMisRecargas();
+        refrescarAhora({ motivo: 'window_focus' });
       }
     });
   }
@@ -849,7 +1451,9 @@
   function inicializarVista() {
     if (!capturarRefs()) return;
 
-    log('Vista Mi Billetera detectada. BASE_URL:', BASE || '(vacía)');
+    state.retiro = null;
+    const section = walletSection();
+    log(`Vista Billetera/${section} detectada. BASE_URL:`, BASE || '(vacía)');
 
     if (refs.saldo) refs.saldo.textContent = formatearMonto(0);
     actualizarContadores({ movimientos: 0, recargas: 0 });
@@ -861,9 +1465,16 @@
     }
 
     resetModalRecarga();
-    cargarSaldo();
-    cargarMovimientos();
-    cargarMisRecargas();
+    if (section === 'resumen') {
+      cargarSaldo();
+      cargarMovimientos();
+      cargarMisRecargas();
+    } else if (section === 'recargar') {
+      cargarSaldo();
+      cargarMisRecargas();
+    } else if (section === 'retirar') {
+      cargarRetiros();
+    }
 
     if (refs.btnRefrescarRecargas && refs.btnRefrescarRecargas.dataset.evWalletRefreshHooked !== '1') {
       refs.btnRefrescarRecargas.dataset.evWalletRefreshHooked = '1';
@@ -874,11 +1485,11 @@
         refs.btnRefrescarRecargas.classList.add('is-loading');
 
         try {
-          await Promise.all([
-            cargarSaldo(),
-            cargarMovimientos(),
-            cargarMisRecargas()
-          ]);
+          if (walletSection() === 'recargar') {
+            await Promise.all([cargarSaldo(), cargarMisRecargas()]);
+          } else {
+            refrescarAhora({ motivo: 'manual_refresh' });
+          }
         } finally {
           refs.btnRefrescarRecargas.disabled = false;
           refs.btnRefrescarRecargas.classList.remove('is-loading');
@@ -886,8 +1497,10 @@
       });
     }
 
+    engancharNavegacionWallet();
     inicializarQR();
     engancharEventosRecarga();
+    engancharEventosRetiro();
     escucharEventosRefresh();
   }
 

@@ -48,6 +48,8 @@ class ConfiguracionPlataforma extends Conexion
             '/mis-pedidos-comprador' => self::FUNC_COMPRAR_PRODUCTOS,
             '/mis-solicitudes-servicio-comprador' => self::FUNC_SOLICITAR_SERVICIOS,
             '/billetera' => self::FUNC_BILLETERA,
+            '/billetera/recargar' => self::FUNC_BILLETERA,
+            '/billetera/retirar' => self::FUNC_BILLETERA,
         ];
     }
 
@@ -411,9 +413,16 @@ class ConfiguracionPlataforma extends Conexion
                     }
                 }
 
-                if ($ruta === '/billetera') {
+                if (in_array($ruta, ['/billetera', '/billetera/recargar', '/billetera/retirar'], true)) {
                     $reglaBilletera = $this->obtenerMonetizacion(self::MON_BILLETERA_VISIBLE, $usuario);
                     if (!(bool)($reglaBilletera['valor_booleano'] ?? false)) {
+                        continue;
+                    }
+                }
+
+                if ($ruta === '/billetera/recargar') {
+                    $reglaRecargas = $this->obtenerMonetizacion(self::MON_RECARGAS, $usuario);
+                    if (!(bool)($reglaRecargas['valor_booleano'] ?? false)) {
                         continue;
                     }
                 }

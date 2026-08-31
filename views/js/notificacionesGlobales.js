@@ -21,7 +21,7 @@
 
   const RUTAS_PERMITIDAS = new Set([
     '/MenuPrincipal', '/notificaciones', '/notificaciones-residencia', '/cuenta-observada',
-    '/publicacion', '/billetera', '/comunidad', '/mis-pedidos-comprador',
+    '/publicacion', '/billetera', '/billetera/recargar', '/billetera/retirar', '/comunidad', '/mis-pedidos-comprador',
     '/mis-pedidos-vendedor', '/mis-solicitudes-servicio-comprador',
     '/mis-solicitudes-servicio-vendedor', '/atender-servicios', '/atender-cuentas',
     '/atender-publicacion', '/atender-recargas'
@@ -106,7 +106,13 @@
     if (categoria === 'cuenta') return String(item?.subcategoria || '').toLowerCase() === 'cuenta_observada' ? '/cuenta-observada' : '/MenuPrincipal';
     if (categoria === 'residencia') return '/notificaciones-residencia';
     if (categoria === 'publicacion') return rolDestino === 'soporte' ? '/atender-publicacion' : '/publicacion';
-    if (categoria === 'billetera') return rolDestino === 'soporte' ? '/atender-recargas' : '/billetera';
+    if (categoria === 'billetera') {
+      if (rolDestino === 'soporte') return '/atender-recargas';
+      const sub = String(item?.subcategoria || '').toLowerCase();
+      if (sub.startsWith('recarga_')) return '/billetera/recargar';
+      if (sub.startsWith('retiro_') || sub.startsWith('cuenta_bancaria_')) return '/billetera/retirar';
+      return '/billetera';
+    }
     if (categoria === 'comunidad') return '/comunidad';
     if (categoria === 'soporte') {
       return String(item?.subcategoria || '').toLowerCase() === 'residencia_pendiente_soporte'
@@ -170,6 +176,14 @@
     if (list) list.innerHTML = '<div class="ev-notification-loading"><span class="ev-notification-spinner" aria-hidden="true"></span><span>Cargando notificaciones...</span></div>';
   }
 
+  function refrescarDisponibilidadVendedor() {
+    try {
+      if (window.EVDisponibilidadPedidosTopbar && typeof window.EVDisponibilidadPedidosTopbar.refresh === 'function') {
+        window.EVDisponibilidadPedidosTopbar.refresh({ silent: true });
+      }
+    } catch (_) {}
+  }
+
   function actualizarContador(total) {
     const { count, summary, button } = refs();
     totalNoLeidas = Math.max(0, Number(total || 0));
@@ -229,6 +243,7 @@
       if (response.ok && json?.ok === true) {
         actualizarContador(Number(json?.data?.total || 0));
         window.EVSidebarCommunity?.refresh?.({ silent: true });
+        refrescarDisponibilidadVendedor();
       }
     } finally {
       cargandoContador = false;
@@ -244,6 +259,7 @@
       if (!response.ok || json?.ok !== true) throw new Error(json?.mensaje || 'No se pudieron cargar las notificaciones.');
       actualizarContador(Number(json?.data?.total || 0));
       renderLista(Array.isArray(json?.data?.items) ? json.data.items : []);
+      refrescarDisponibilidadVendedor();
     } catch (error) {
       const { list } = refs();
       if (list) list.innerHTML = `<div class="ev-notification-error"><i class="bi bi-exclamation-circle"></i><span>${escapeHtml(error?.message || 'No se pudieron cargar las notificaciones.')}</span></div>`;
@@ -308,7 +324,7 @@
 
       if (categoria === 'billetera') {
         const codigoRecarga = Number(payload?.codigo_recarga || payload?.recarga_id || referenciaId || 0);
-        if (codigoRecarga > 0 && ruta === '/billetera') {
+        if (codigoRecarga > 0 && ruta === '/billetera/recargar') {
           sessionStorage.setItem(PENDING_WALLET_KEY, JSON.stringify({
             codigo_recarga: codigoRecarga,
             created_at: now

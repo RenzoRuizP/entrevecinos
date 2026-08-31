@@ -252,17 +252,21 @@ class ProductoSoporte extends Conexion
 
     public function actualizarEstadoSoporte(int $codigoProducto, int $nuevoVisible): bool
     {
+        // PDO usa prepares nativos (ATTR_EMULATE_PREPARES=false).
+        // No reutilizar el mismo placeholder nombrado más de una vez: en
+        // MySQL/MariaDB puede producir SQLSTATE[HY093] Invalid parameter number.
         $sql = "
             UPDATE producto
-            SET visible = :v,
-                activo_publicacion = CASE WHEN :v = 2 THEN 1 ELSE activo_publicacion END,
+            SET visible = :visible_set,
+                activo_publicacion = CASE WHEN :visible_case = 2 THEN 1 ELSE activo_publicacion END,
                 updated_at = CURRENT_TIMESTAMP
             WHERE codigo_producto = :id
             LIMIT 1
         ";
 
         $st = $this->dblink->prepare($sql);
-        $st->bindValue(':v', $nuevoVisible, PDO::PARAM_INT);
+        $st->bindValue(':visible_set', $nuevoVisible, PDO::PARAM_INT);
+        $st->bindValue(':visible_case', $nuevoVisible, PDO::PARAM_INT);
         $st->bindValue(':id', $codigoProducto, PDO::PARAM_INT);
         return (bool)$st->execute();
     }

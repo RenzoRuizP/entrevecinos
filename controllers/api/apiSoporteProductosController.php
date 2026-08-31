@@ -202,11 +202,11 @@ class apiSoporteProductosController
                 ]);
             }
 
-            if (($accion === 'rechazar' || $accion === 'observar') && mb_strlen($comentario) < 3) {
+            if (($accion === 'rechazar' || $accion === 'observar') && mb_strlen($comentario) < 10) {
                 $this->json(400, [
                     'ok' => false,
                     'error' => 'BAD_REQUEST',
-                    'mensaje' => 'Comentario obligatorio para rechazar u observar.'
+                    'mensaje' => 'Explica brevemente qué debe corregir el vecino o por qué la publicación no puede ser aprobada. El comentario debe tener al menos 10 caracteres.'
                 ]);
             }
 
@@ -253,23 +253,60 @@ class apiSoporteProductosController
                 $this->json(401, ['ok' => false, 'error' => 'UNAUTHORIZED', 'mensaje' => 'Usuario soporte inválido.']);
             }
 
-            $m->registrarRevisionTablaExistente(
-                $id,
-                $codigoSoporte,
-                (int)$estadoAnterior,
-                (int)$estadoNuevo,
-                $comentario
-            );
+            $esDecisionFinal = ($accion === 'aprobar' || $accion === 'rechazar');
+            $pdo = $m->getDblink();
+            $txIniciada = false;
 
-            if ($accion === 'aprobar' || $accion === 'rechazar') {
-                $ok = $m->actualizarEstadoSoporte($id, (int)$estadoNuevo);
-                if (!$ok) {
-                    $this->json(500, [
-                        'ok' => false,
-                        'error' => 'UPDATE_FAILED',
-                        'mensaje' => 'No se pudo actualizar el estado del producto.'
-                    ]);
+            try {
+                // Aprobar/rechazar debe ser atómico: la trazabilidad y el cambio
+                // de estado se confirman juntos o se revierten juntos.
+                if ($esDecisionFinal) {
+                    if (!$pdo instanceof PDO) {
+                        throw new RuntimeException('Conexión de base de datos no disponible.');
+                    }
+                    $pdo->beginTransaction();
+                    $txIniciada = true;
                 }
+
+                // Recuperación idempotente: una versión anterior podía insertar la
+                // revisión y fallar luego al actualizar producto por HY093. Si la
+                // última revisión ya representa exactamente esta decisión y el
+                // producto sigue pendiente, reutilizamos esa trazabilidad en vez
+                // de duplicarla.
+                $revisionYaRegistrada = false;
+                if ($esDecisionFinal) {
+                    $ultima = $m->obtenerUltimaRevisionTablaExistente($id);
+                    if (is_array($ultima)) {
+                        $revisionYaRegistrada =
+                            (int)($ultima['estado_anterior'] ?? -1) === (int)$estadoAnterior &&
+                            (int)($ultima['estado_nuevo'] ?? -1) === (int)$estadoNuevo;
+                    }
+                }
+
+                if (!$revisionYaRegistrada) {
+                    $m->registrarRevisionTablaExistente(
+                        $id,
+                        $codigoSoporte,
+                        (int)$estadoAnterior,
+                        (int)$estadoNuevo,
+                        $comentario
+                    );
+                }
+
+                if ($esDecisionFinal) {
+                    $ok = $m->actualizarEstadoSoporte($id, (int)$estadoNuevo);
+                    if (!$ok) {
+                        throw new RuntimeException('No se pudo actualizar el estado del producto.');
+                    }
+
+                    $pdo->commit();
+                    $txIniciada = false;
+                }
+            } catch (Throwable $eRevision) {
+                if ($txIniciada && $pdo instanceof PDO && $pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                throw $eRevision;
             }
 
             $msg = match ($accion) {

@@ -504,7 +504,7 @@
     }, extra || {})));
   }
 
-  async function confirmAction({ title, subtitle, text, productText, note, confirmText, cancelText, tipo = 'info' }) {
+  async function confirmAction({ title, subtitle, text, productText, note, confirmText, cancelText, tipo = 'info', plainButtons = false }) {
     if (!window.Swal?.fire) {
       return window.confirm(text);
     }
@@ -518,8 +518,8 @@
         htmlProductNote('Pedido', productText || 'Solicitud seleccionada', note || '')
       ),
       showCancelButton: true,
-      confirmButtonText: confirmText || 'Sí, continuar',
-      cancelButtonText: cancelText || 'Cancelar'
+      confirmButtonText: plainButtons ? String(confirmText || 'Aceptar') : (confirmText || 'Sí, continuar'),
+      cancelButtonText: plainButtons ? String(cancelText || 'Cancelar') : (cancelText || 'Cancelar')
     }));
 
     return !!result.isConfirmed;
@@ -1189,7 +1189,7 @@
       text: 'Al aceptarlo, este pedido pasará a su flujo de atención independiente.',
       productText: item.titulo_publicacion || item.titulo_producto || `Pedido #${codigoPedido}`,
       note: 'Puedes aceptar y gestionar varios pedidos al mismo tiempo. Organiza cada atención según tu disponibilidad.',
-      confirmText: '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Aceptar</span>',
+      confirmText: 'Aceptar',
       cancelText: '<i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancelar</span>'
     });
 
@@ -1246,19 +1246,19 @@
         title: 'Marcar listo para entrega',
         subtitle: 'Confirmar nuevo avance',
         text: 'Usa esta opción solo cuando el pedido realmente ya esté listo para ser entregado.',
-        confirmText: 'Sí, marcar listo'
+        confirmText: 'Aceptar'
       },
       en_camino: {
         title: 'Marcar en camino',
         subtitle: 'Confirmar salida del pedido',
         text: 'Usa esta opción cuando el pedido ya salió hacia el punto de entrega.',
-        confirmText: 'Sí, marcar en camino'
+        confirmText: 'Aceptar'
       },
       en_punto_entrega: {
         title: 'Marcar punto de entrega',
         subtitle: 'Confirmar llegada al destino',
         text: 'Usa esta opción cuando ya llegaste al punto acordado con el comprador.',
-        confirmText: '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Aceptar</span>'
+        confirmText: 'Aceptar'
       },
       entregado_vendedor: {
         title: 'Marcar entregado',
@@ -1299,7 +1299,8 @@
       note: 'Mantén el estado alineado con el avance real del pedido para evitar confusión al comprador.',
       confirmText: meta.confirmText,
       cancelText: 'Cancelar',
-      tipo: meta.tipo || 'info'
+      tipo: meta.tipo || 'info',
+      plainButtons: ['listo_para_entrega','en_camino','en_punto_entrega','entregado_vendedor'].includes(String(nuevoEstado || '').trim())
     });
 
     if (!ok) return;
@@ -1397,7 +1398,7 @@
       html: construirHtmlDetalle(item),
       width: 760,
       showConfirmButton: true,
-      confirmButtonText: '<i class="bi bi-x-circle" aria-hidden="true"></i><span>Cerrar</span>',
+      confirmButtonText: 'Cerrar',
       showCancelButton: false,
       showDenyButton: false
     }));
