@@ -557,7 +557,7 @@
     return `<i class="bi ${icon}" aria-hidden="true"></i><span>${escapeHtml(text)}</span>`;
   }
 
-  async function confirmAction({ title, subtitle, text, productText, note, confirmText, cancelText, plainButtons = false }) {
+  async function confirmAction({ title, subtitle, text, productText, note, confirmText, cancelText, plainButtons = false, showCancelButton = true }) {
     if (!window.Swal?.fire) {
       return window.confirm(text);
     }
@@ -570,7 +570,7 @@
         text,
         htmlProductNote('Pedido', productText || 'Solicitud seleccionada', note || '')
       ),
-      showCancelButton: true,
+      showCancelButton: showCancelButton === true,
       confirmButtonText: plainButtons
         ? String(confirmText || 'Aceptar')
         : actionButtonHtml(confirmText || 'Aceptar', 'confirm'),
@@ -1708,7 +1708,8 @@
       productText: item.titulo_publicacion || `Pedido #${id}`,
       note: 'Puedes mantener varios pedidos aceptados en paralelo y avanzar cada uno según su estado real.',
       confirmText: 'Aceptar',
-      cancelText: 'Cancelar'
+      cancelText: 'Cancelar',
+      plainButtons: true
     });
 
     if (!ok) return;
@@ -1733,7 +1734,8 @@
           'La solicitud no pudo pasar a atención',
           json?.mensaje || 'Valida el estado actual del pedido e inténtalo nuevamente.',
           {
-            htmlExtra: htmlProductNote('Pedido', item.titulo_publicacion || `Pedido #${id}`)
+            htmlExtra: htmlProductNote('Pedido', item.titulo_publicacion || `Pedido #${id}`),
+            plainButtons: true
           }
         );
         return;
@@ -1793,7 +1795,8 @@
           'La solicitud sigue pendiente',
           json?.mensaje || 'No se pudo registrar el rechazo de la solicitud.',
           {
-            htmlExtra: htmlProductNote('Pedido', item.titulo_publicacion || `Pedido #${id}`)
+            htmlExtra: htmlProductNote('Pedido', item.titulo_publicacion || `Pedido #${id}`),
+            plainButtons: true
           }
         );
         return;
@@ -1809,7 +1812,8 @@
             'Pedido',
             item.titulo_publicacion || `Pedido #${id}`,
             'Las demás solicitudes pendientes continúan disponibles para que las atiendas de forma independiente.'
-          )
+          ),
+          plainButtons: true
         }
       );
 
@@ -2006,7 +2010,8 @@
       note: 'Mantén el estado alineado con el avance real del pedido para evitar confusión al comprador.',
       confirmText: meta.confirmText,
       cancelText: 'Cancelar',
-      plainButtons: ['listo_para_entrega','en_camino','en_punto_entrega','entregado_vendedor'].includes(String(estado || '').trim())
+      plainButtons: ['listo_para_entrega','en_camino','en_punto_entrega','entregado_vendedor'].includes(String(estado || '').trim()),
+      showCancelButton: String(estado || '').trim() !== 'listo_para_entrega'
     });
 
     if (!ok) return;
@@ -2106,25 +2111,32 @@
         background-image:none !important;
       }
 
+      .swal2-popup.ev-mpv-swal-popup-detail{
+        width:min(94vw,774px) !important;
+        max-width:774px !important;
+        padding:25px 22px 20px !important;
+      }
+
       .ev-mpv-modal-detail-v2{
         text-align:left;
         max-width:100%;
+        font-size:.90rem;
       }
 
       .ev-mpv-modal-hero{
         display:grid;
-        grid-template-columns:minmax(180px, 220px) minmax(0, 1fr);
-        gap:16px;
+        grid-template-columns:minmax(162px, 198px) minmax(0, 1fr);
+        gap:14px;
         align-items:stretch;
-        margin-bottom:14px;
+        margin-bottom:12px;
       }
 
       .ev-mpv-modal-media-card{
         border:1px solid rgba(229,231,235,.94);
-        border-radius:24px;
+        border-radius:22px;
         background:#ffffff;
         box-shadow:0 12px 26px rgba(15,23,42,.06);
-        padding:10px;
+        padding:9px;
         display:flex;
         flex-direction:column;
         gap:10px;
@@ -2133,7 +2145,7 @@
 
       .ev-mpv-modal-detail-v2 .ev-mpv-modal-media{
         width:100% !important;
-        height:172px !important;
+        height:155px !important;
         border-radius:18px !important;
         background:#F8FAFC !important;
         box-shadow:none !important;
@@ -2154,43 +2166,43 @@
         display:inline-flex;
         align-items:center;
         gap:6px;
-        min-height:30px;
-        padding:6px 9px;
+        min-height:27px;
+        padding:5px 8px;
         border-radius:999px;
         background:#F8FAFC;
         border:1px solid #E5E7EB;
         color:#334155;
-        font-size:12px;
+        font-size:11px;
         font-weight:850;
       }
 
       .ev-mpv-modal-main-card{
         border:1px solid rgba(229,231,235,.94);
-        border-radius:24px;
+        border-radius:22px;
         background:#ffffff;
         box-shadow:0 12px 26px rgba(15,23,42,.05);
-        padding:14px;
+        padding:13px;
         min-width:0;
       }
 
       .ev-mpv-modal-detail-v2 .ev-mpv-modal-head{
-        margin-bottom:12px !important;
+        margin-bottom:10px !important;
       }
 
       .ev-mpv-modal-detail-v2 .ev-mpv-modal-title{
-        font-size:1.18rem !important;
+        font-size:1.06rem !important;
         line-height:1.16 !important;
       }
 
       .ev-mpv-modal-detail-v2 .ev-mpv-modal-grid{
         grid-template-columns:repeat(2, minmax(0,1fr)) !important;
-        gap:9px !important;
+        gap:8px !important;
       }
 
       .ev-mpv-modal-detail-v2 .ev-mpv-modal-item{
         background:#ffffff !important;
         border-color:#E9EEF5 !important;
-        min-height:78px;
+        min-height:70px;
       }
 
       .ev-mpv-modal-detail-v2 .ev-mpv-modal-item span{
@@ -2206,7 +2218,7 @@
       }
 
       .ev-mpv-modal-detail-v2 .ev-mpv-modal-stack{
-        margin-top:14px !important;
+        margin-top:12px !important;
       }
 
       .ev-mpv-modal-detail-v2 .ev-mpv-modal-stack,
@@ -2221,7 +2233,7 @@
         }
 
         .ev-mpv-modal-detail-v2 .ev-mpv-modal-media{
-          height:210px !important;
+          height:190px !important;
         }
 
         .ev-mpv-modal-detail-v2 .ev-mpv-modal-grid{
@@ -2351,7 +2363,7 @@
       showCloseButton: false,
       closeButtonAriaLabel: 'Cerrar',
       html: buildDetalleHtml(item),
-      width: 860,
+      width: 774,
       confirmButtonText: 'Cerrar',
       showCancelButton: false,
       showDenyButton: puedeCancelar,

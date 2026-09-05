@@ -96,7 +96,7 @@ if ($esAdminMarketplace && $codigoConjunto <= 0) {
       <div class="modal-header ev-mp-modal-header">
         <h5 class="modal-title d-flex align-items-center gap-2">
           <i class="bi bi-chat-square-quote"></i>
-          <span>Solicitar cotización</span>
+          <span>Solicitar servicio</span>
         </h5>
         <button type="button" class="btn-close btn-close-white ev-modal-close-icon" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
@@ -143,9 +143,8 @@ if ($esAdminMarketplace && $codigoConjunto <= 0) {
         </div>
 
         <div class="modal-footer ev-mp-modal-footer d-flex justify-content-end gap-2 flex-wrap">
-          <button type="button" class="btn-ev-neutral" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i>Cancelar</button>
+          <button type="button" class="btn-ev-neutral" data-bs-dismiss="modal">Cancelar</button>
           <button type="submit" class="btn-ev-primary">
-            <i class="bi bi-send"></i>
             Enviar solicitud
           </button>
         </div>

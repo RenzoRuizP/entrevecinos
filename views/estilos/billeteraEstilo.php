@@ -837,4 +837,50 @@
   #ev_recargas_table tr[data-ev-recarga-id]{grid-template-columns:1fr}
   #ev_recargas_table tr[data-ev-recarga-id] td{grid-column:1/-1!important}
 }
+
+/* EV 2026-09-03 — contexto de recarga para compra preparada pendiente */
+.ev-wallet-recharge-form-card.is-purchase-recharge-target{
+  border-color:rgba(234,124,18,.38)!important;
+  box-shadow:0 20px 44px rgba(234,124,18,.14),0 8px 20px rgba(15,23,42,.06)!important;
+  outline:3px solid rgba(234,124,18,.07);
+  outline-offset:2px;
+  transition:border-color .2s ease,box-shadow .2s ease,outline-color .2s ease;
+}
+.ev-wallet-purchase-recharge-context{
+  display:flex;
+  align-items:flex-start;
+  gap:11px;
+  margin:0 0 16px;
+  padding:12px 14px;
+  border:1px solid rgba(234,124,18,.24);
+  border-radius:16px;
+  background:#FFF9F2;
+  color:#6B7280;
+  font-size:.84rem;
+  line-height:1.45;
+}
+.ev-wallet-purchase-recharge-context>i{
+  width:34px;
+  height:34px;
+  flex:0 0 34px;
+  display:grid;
+  place-items:center;
+  border-radius:11px;
+  background:#fff;
+  border:1px solid rgba(234,124,18,.22);
+  color:var(--ev-wallet-naranja);
+}
+.ev-wallet-purchase-recharge-context strong{
+  display:block;
+  margin-bottom:3px;
+  color:var(--ev-wallet-verde-900);
+  font-weight:900;
+}
+.ev-wallet-purchase-recharge-context span{display:block;overflow-wrap:anywhere;}
+.ev-wallet-purchase-recharge-context b{color:#9A3412;font-weight:900;}
+@media(max-width:575.98px){
+  .ev-wallet-recharge-form-card.is-purchase-recharge-target{outline-width:2px;outline-offset:1px;}
+  .ev-wallet-purchase-recharge-context{padding:11px 12px;border-radius:14px;font-size:.81rem;}
+  .ev-wallet-purchase-recharge-context>i{width:32px;height:32px;flex-basis:32px;}
+}
 </style>

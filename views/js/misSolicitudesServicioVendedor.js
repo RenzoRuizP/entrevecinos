@@ -12,6 +12,7 @@
   const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').toString().replace(/\/+$/, '');
   const POLLING_MS = 10000;
   const PLACEHOLDER = `${BASE}/public/img/placeholder-ev.png`;
+  const PENDING_SERVICE_KEY = 'ev_notificacion_servicio_pendiente';
 
   let tabActiva = 'pendientes';
   let pollingTimer = null;
@@ -402,6 +403,56 @@
     refs.tabCerradas?.classList.toggle('d-none', tab !== 'cerradas');
   }
 
+  function leerDestinoServicioNotificacion() {
+    try {
+      const raw = sessionStorage.getItem(PENDING_SERVICE_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      const id = Number(data?.codigo_solicitud_servicio || 0);
+      const age = Date.now() - Number(data?.created_at || 0);
+      if (id <= 0 || age < 0 || age > 5 * 60 * 1000) {
+        sessionStorage.removeItem(PENDING_SERVICE_KEY);
+        return null;
+      }
+      return data;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function focusById(codigoSolicitud) {
+    const id = Number(codigoSolicitud || 0);
+    if (!id) return false;
+
+    const card = document.querySelector(`.ev-ssv-card[data-id="${id}"]`);
+    if (!card) return false;
+
+    const refs = getRefs();
+    let tab = 'pendientes';
+    if (card.closest('#ssvListaEsperando')) tab = 'esperando';
+    if (card.closest('#ssvListaCerradas')) tab = 'cerradas';
+    mostrarTab(refs, tab);
+
+    document.querySelectorAll('.ev-ssv-card.ev-service-notification-target').forEach((node) => {
+      node.classList.remove('ev-service-notification-target');
+    });
+    card.classList.add('ev-service-notification-target');
+
+    try { sessionStorage.removeItem(PENDING_SERVICE_KEY); } catch (_) {}
+
+    window.setTimeout(() => {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 70);
+    window.setTimeout(() => card.classList.remove('ev-service-notification-target'), 2600);
+    return true;
+  }
+
+  function enfocarDestinoServicioPendiente() {
+    const pending = leerDestinoServicioNotificacion();
+    if (!pending) return false;
+    return focusById(Number(pending.codigo_solicitud_servicio || 0));
+  }
+
   async function fetchLista() {
     const resp = await fetch(`${BASE}/api/servicios/solicitudes/proveedor`, { method: 'GET', credentials: 'include', headers: { Accept: 'application/json' }, cache: 'no-store' });
     const json = await resp.json().catch(() => ({}));
@@ -436,6 +487,7 @@
       pintar(esperando, refs.listaEsperando, refs.emptyEsperando);
       pintar(cerradas, refs.listaCerradas, refs.emptyCerradas);
       mostrarTab(refs, tabActiva);
+      window.setTimeout(enfocarDestinoServicioPendiente, 60);
     } catch (e) {
       console.error('[SOLICITUDES_SERVICIO_VENDEDOR]', e);
       refs.error?.classList.remove('d-none');
@@ -773,6 +825,11 @@
         box-shadow:0 22px 48px rgba(15,23,42,.14)!important;
         border-color:#198754!important;
       }
+      .ev-ssc-card.ev-service-notification-target,.ev-ssv-card.ev-service-notification-target{
+        border-color:#16A34A!important;
+        box-shadow:0 0 0 4px rgba(22,163,74,.14),0 24px 52px rgba(15,89,47,.18)!important;
+        transform:translateY(-3px)!important;
+      }
       .ev-ssc-card-media,.ev-ssv-card-media{
         border-color:rgba(15,89,47,.10)!important;
         box-shadow:0 10px 24px rgba(15,23,42,.10)!important;
@@ -864,6 +921,6 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden && document.querySelector('.ev-ssv-page')) cargar({ silent: true }); });
   document.addEventListener('ev:content-loaded', () => { if (document.querySelector('.ev-ssv-page')) init(); else { vistaActiva = false; stopPolling(); } });
 
-  window.EVSolicitudesServicioVendedor = { init, refresh: () => cargar({ silent: true }) };
+  window.EVSolicitudesServicioVendedor = { init, refresh: () => cargar({ silent: true }), focusById };
   if (document.querySelector('.ev-ssv-page')) init();
 })();

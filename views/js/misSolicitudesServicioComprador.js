@@ -13,6 +13,7 @@
   const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').toString().replace(/\/+$/, '');
   const POLLING_MS = 10000;
   const PLACEHOLDER = `${BASE}/public/img/placeholder-ev.png`;
+  const PENDING_SERVICE_KEY = 'ev_notificacion_servicio_pendiente';
 
   let tabActiva = 'responder';
   let pollingTimer = null;
@@ -615,6 +616,56 @@
     refs.tabCerradas?.classList.toggle('d-none', tab !== 'cerradas');
   }
 
+  function leerDestinoServicioNotificacion() {
+    try {
+      const raw = sessionStorage.getItem(PENDING_SERVICE_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      const id = Number(data?.codigo_solicitud_servicio || 0);
+      const age = Date.now() - Number(data?.created_at || 0);
+      if (id <= 0 || age < 0 || age > 5 * 60 * 1000) {
+        sessionStorage.removeItem(PENDING_SERVICE_KEY);
+        return null;
+      }
+      return data;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function focusById(codigoSolicitud) {
+    const id = Number(codigoSolicitud || 0);
+    if (!id) return false;
+
+    const card = document.querySelector(`.ev-ssc-card[data-id="${id}"]`);
+    if (!card) return false;
+
+    const refs = getRefs();
+    let tab = 'responder';
+    if (card.closest('#sscListaCoordinacion')) tab = 'coordinacion';
+    if (card.closest('#sscListaCerradas')) tab = 'cerradas';
+    mostrarTab(refs, tab);
+
+    document.querySelectorAll('.ev-ssc-card.ev-service-notification-target').forEach((node) => {
+      node.classList.remove('ev-service-notification-target');
+    });
+    card.classList.add('ev-service-notification-target');
+
+    try { sessionStorage.removeItem(PENDING_SERVICE_KEY); } catch (_) {}
+
+    window.setTimeout(() => {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 70);
+    window.setTimeout(() => card.classList.remove('ev-service-notification-target'), 2600);
+    return true;
+  }
+
+  function enfocarDestinoServicioPendiente() {
+    const pending = leerDestinoServicioNotificacion();
+    if (!pending) return false;
+    return focusById(Number(pending.codigo_solicitud_servicio || 0));
+  }
+
   async function fetchLista() {
     const resp = await fetch(`${BASE}/api/servicios/solicitudes/solicitante`, {
       method: 'GET',
@@ -677,6 +728,7 @@
       pintar(cerradas, refs.listaCerradas, refs.emptyCerradas);
 
       mostrarTab(refs, tabActiva);
+      window.setTimeout(enfocarDestinoServicioPendiente, 60);
     } catch (error) {
       console.error('[SOLICITUDES_SERVICIO_COMPRADOR]', error);
       refs.error?.classList.remove('d-none');
@@ -1242,6 +1294,11 @@ ${propuesta.fecha_propuesta ? `<strong>Fecha:</strong> ${escapeHtml(formatFecha(
         box-shadow:0 22px 48px rgba(15,23,42,.14)!important;
         border-color:#198754!important;
       }
+      .ev-ssc-card.ev-service-notification-target,.ev-ssv-card.ev-service-notification-target{
+        border-color:#16A34A!important;
+        box-shadow:0 0 0 4px rgba(22,163,74,.14),0 24px 52px rgba(15,89,47,.18)!important;
+        transform:translateY(-3px)!important;
+      }
       .ev-ssc-card-media,.ev-ssv-card-media{
         border-color:rgba(15,89,47,.10)!important;
         box-shadow:0 10px 24px rgba(15,23,42,.10)!important;
@@ -1355,7 +1412,8 @@ ${propuesta.fecha_propuesta ? `<strong>Fecha:</strong> ${escapeHtml(formatFecha(
 
   window.EVSolicitudesServicioComprador = {
     init,
-    refresh: () => cargar()
+    refresh: () => cargar(),
+    focusById
   };
 
   if (document.querySelector('.ev-ssc-page')) {

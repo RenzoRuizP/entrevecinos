@@ -20,6 +20,8 @@
   const SOLICITUD_POLLING_MS = 5000;
   const SEGUNDOS_CANCELACION_SOLICITUD = 120;
   const SEGUNDOS_TIMEOUT_SOLICITUD = 240;
+  const COMPRA_PREPARADA_PENDIENTE_KEY = 'ev_compra_preparada_pendiente_v1';
+  const COMPRA_PREPARADA_TTL_MS = 48 * 60 * 60 * 1000;
 
   let CONDO_NOMBRE_RESUMEN = (typeof window !== 'undefined' && window.EV_CONDOMINIO_NOMBRE)
     ? window.EV_CONDOMINIO_NOMBRE
@@ -214,6 +216,73 @@
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '');
+  }
+
+
+  function redondearMonto(valor) {
+    return Math.round((Number(valor || 0) + Number.EPSILON) * 100) / 100;
+  }
+
+  function guardarCompraPreparadaPendiente(data = {}) {
+    const codigoProducto = Number(data.codigo_producto || 0);
+    const montoRequerido = redondearMonto(data.monto_requerido || 0);
+    const saldoActual = redondearMonto(data.saldo_actual || 0);
+    if (codigoProducto <= 0 || montoRequerido <= 0) return null;
+
+    const payload = {
+      codigo_producto: codigoProducto,
+      titulo_producto: String(data.titulo_producto || 'Producto').trim(),
+      cantidad: Math.max(1, Number(data.cantidad || 1)),
+      tipo_entrega: String(data.tipo_entrega || 'inmediata').trim(),
+      fecha_programada: String(data.fecha_programada || '').trim(),
+      direccion_entrega: String(data.direccion_entrega || '').trim(),
+      mensaje_comprador: String(data.mensaje_comprador || '').trim(),
+      monto_requerido: montoRequerido,
+      saldo_actual: saldoActual,
+      monto_faltante: redondearMonto(Math.max(0, montoRequerido - saldoActual)),
+      etapa: 'recarga_requerida',
+      codigo_recarga: 0,
+      created_at: Date.now(),
+      updated_at: Date.now()
+    };
+
+    try {
+      sessionStorage.setItem(COMPRA_PREPARADA_PENDIENTE_KEY, JSON.stringify(payload));
+      return payload;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function leerCompraPreparadaPendiente() {
+    try {
+      const raw = sessionStorage.getItem(COMPRA_PREPARADA_PENDIENTE_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      const age = Date.now() - Number(data?.updated_at || data?.created_at || 0);
+      if (Number(data?.codigo_producto || 0) <= 0 || age < 0 || age > COMPRA_PREPARADA_TTL_MS) {
+        sessionStorage.removeItem(COMPRA_PREPARADA_PENDIENTE_KEY);
+        return null;
+      }
+      return data;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function actualizarCompraPreparadaPendiente(patch = {}) {
+    const actual = leerCompraPreparadaPendiente();
+    if (!actual) return null;
+    const nuevo = { ...actual, ...patch, updated_at: Date.now() };
+    try { sessionStorage.setItem(COMPRA_PREPARADA_PENDIENTE_KEY, JSON.stringify(nuevo)); } catch (_) {}
+    return nuevo;
+  }
+
+  function limpiarCompraPreparadaPendiente(codigoProducto = 0) {
+    const actual = leerCompraPreparadaPendiente();
+    if (!actual) return;
+    if (codigoProducto > 0 && Number(actual.codigo_producto || 0) !== Number(codigoProducto)) return;
+    try { sessionStorage.removeItem(COMPRA_PREPARADA_PENDIENTE_KEY); } catch (_) {}
   }
 
   function formatPrecio(valor) {
@@ -932,7 +1001,14 @@
     window.location.href = `${BASE}/MenuPrincipal?ev_goto=${encodeURIComponent(ruta)}`;
   }
 
-  async function notifySaldoInsuficiente(montoRequerido, saldoActual) {
+  async function notifySaldoInsuficiente(montoRequerido, saldoActual, contextoCompra = {}) {
+    const montoFaltante = redondearMonto(Math.max(0, Number(montoRequerido || 0) - Number(saldoActual || 0)));
+    guardarCompraPreparadaPendiente({
+      ...contextoCompra,
+      monto_requerido: montoRequerido,
+      saldo_actual: saldoActual
+    });
+
     const result = await notify(
       'warning',
       'Saldo insuficiente',
@@ -944,7 +1020,7 @@
         cancelButtonText: 'Cancelar',
         productLabel: 'Billetera',
         productText: `Saldo actual: ${formatPrecio(saldoActual)}`,
-        note: `Para continuar necesitas al menos <strong>${formatPrecio(montoRequerido)}</strong> disponibles. Puedes ir a Recargar saldo para completar la operación.`
+        note: `Te faltan <strong>${formatPrecio(montoFaltante)}</strong>. Al ir a Recargar saldo completaremos automáticamente ese monto para que puedas continuar con esta compra.`
       }
     );
 
@@ -2826,6 +2902,15 @@
     const precioUnitario = Number(precioUnitarioEl?.value || 0);
     const totalPedido = Number((precioUnitario * cantidad).toFixed(2));
     const tituloProducto = String(nombreProductoEl?.value || 'tu solicitud');
+    const contextoCompraPreparada = {
+      codigo_producto: codigoProducto,
+      titulo_producto: tituloProducto,
+      cantidad,
+      tipo_entrega: tipoEntrega,
+      fecha_programada: fechaProgramada,
+      direccion_entrega: direccionEntrega,
+      mensaje_comprador: mensajeComprador
+    };
 
     if (!codigoProducto) {
       await notify('warning', 'Validación', 'No se encontró la publicación seleccionada.', {
@@ -2886,7 +2971,7 @@
 
         if (saldoActual !== null && saldoActual < totalPedido) {
           swalCloseIfVisible();
-          await notifySaldoInsuficiente(totalPedido, saldoActual);
+          await notifySaldoInsuficiente(totalPedido, saldoActual, contextoCompraPreparada);
           return;
         }
       }
@@ -2955,7 +3040,7 @@
         if (apiError === 'SALDO_INSUFICIENTE_BILLETERA') {
           const saldoActual = Number(json?.saldo_actual || 0);
           const montoRequerido = Number(json?.monto_requerido || totalPedido);
-          await notifySaldoInsuficiente(montoRequerido, saldoActual);
+          await notifySaldoInsuficiente(montoRequerido, saldoActual, contextoCompraPreparada);
           return;
         }
 
@@ -2984,6 +3069,7 @@
       }
 
       const data = json?.data || {};
+      limpiarCompraPreparadaPendiente(codigoProducto);
       const form = document.getElementById('mp_form_solicitud_pedido');
       try { form?.reset(); } catch (_) {}
 
@@ -3874,6 +3960,69 @@
     }
   }
 
+
+  function aplicarContextoCompraPendienteAlFormulario(contexto) {
+    if (!contexto) return;
+    const cantidadEl = document.getElementById('mp_sp_cantidad');
+    const tipoEntregaEl = document.getElementById('mp_sp_tipo_entrega');
+    const fechaProgramadaEl = document.getElementById('mp_sp_fecha_programada');
+    const direccionEl = document.getElementById('mp_sp_direccion');
+    const mensajeEl = document.getElementById('mp_sp_mensaje');
+
+    if (cantidadEl) cantidadEl.value = String(Math.max(1, Number(contexto.cantidad || 1)));
+    if (tipoEntregaEl) tipoEntregaEl.value = String(contexto.tipo_entrega || 'inmediata');
+    if (fechaProgramadaEl) fechaProgramadaEl.value = String(contexto.fecha_programada || '');
+    if (direccionEl) direccionEl.value = String(contexto.direccion_entrega || '');
+    if (mensajeEl) mensajeEl.value = String(contexto.mensaje_comprador || '');
+
+    recalcularTotalSolicitud();
+    actualizarVisibilidadEntregaProgramada();
+  }
+
+  async function restaurarCompraPreparadaPendiente() {
+    const contexto = leerCompraPreparadaPendiente();
+    if (!contexto || contexto.etapa !== 'lista_para_continuar') return false;
+    if (solicitudFlow.activo || !estaVistaMarketplaceActiva()) return false;
+
+    const detalle = await obtenerDetalleProducto(Number(contexto.codigo_producto || 0));
+    if (!detalle) {
+      limpiarCompraPreparadaPendiente(Number(contexto.codigo_producto || 0));
+      return false;
+    }
+
+    const { producto, imagenes } = detalle;
+    if (normalizarTipoPublicacion(producto) === 'servicio') {
+      limpiarCompraPreparadaPendiente(Number(contexto.codigo_producto || 0));
+      return false;
+    }
+
+    if (Number(producto?.es_producto_propio || 0) === 1 || Number(producto?.vendedor_disponible ?? producto?.disponibilidad_pedidos_vendedor ?? 0) !== 1) {
+      await notify(
+        'info',
+        'Compra pendiente no disponible',
+        'La publicación ya no está disponible para recibir este pedido. Puedes continuar revisando otras publicaciones del Marketplace.',
+        {
+          subtitle: 'No se pudo retomar la solicitud',
+          productLabel: 'Producto',
+          productText: contexto.titulo_producto || producto?.titulo || 'Producto EV'
+        }
+      );
+      limpiarCompraPreparadaPendiente(Number(contexto.codigo_producto || 0));
+      return false;
+    }
+
+    window.EV_MP_DETALLE_ACTUAL = {
+      ...producto,
+      imagenes: Array.isArray(imagenes) ? imagenes : [],
+      vendedor_disponible: Number(producto?.vendedor_disponible ?? producto?.disponibilidad_pedidos_vendedor ?? 0) === 1 ? 1 : 0
+    };
+
+    abrirModalSolicitudDesdeProducto(window.EV_MP_DETALLE_ACTUAL);
+    aplicarContextoCompraPendienteAlFormulario(contexto);
+    actualizarCompraPreparadaPendiente({ etapa: 'reanudada', resumed_at: Date.now() });
+    return true;
+  }
+
   async function initMarketplace() {
     ensureMarketplaceSwalCleanStyles();
     if (!capturarRefs()) {
@@ -3903,6 +4052,7 @@
 
     await cargarPublicaciones();
     await restoreSolicitudActiva();
+    await restaurarCompraPreparadaPendiente();
 
     ultimoPollingMarketplaceAt = nowMs();
     iniciarPollingDisponibilidad();
@@ -3915,7 +4065,8 @@
     refreshDisponibilidad: refrescarDisponibilidadMarketplace,
     restoreSolicitudActiva: restoreSolicitudActiva,
     stopPollingDisponibilidad: detenerPollingDisponibilidad,
-    pauseBriefly: marcarInteraccionUi
+    pauseBriefly: marcarInteraccionUi,
+    resumePreparedPurchase: restaurarCompraPreparadaPendiente
   };
 
   log('Cargado. BASE:', BASE || '(vacío)', '| Condominio:', CONDO_NOMBRE_RESUMEN);

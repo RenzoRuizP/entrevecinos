@@ -4,6 +4,8 @@
 
   const BASE = (window.EV?.baseUrl ?? window.BASE_URL ?? '').replace(/\/$/, '');
   const NOTIF_WALLET_TARGET_KEY = 'ev_notificacion_billetera_destino';
+  const COMPRA_PREPARADA_PENDIENTE_KEY = 'ev_compra_preparada_pendiente_v1';
+  const COMPRA_PREPARADA_TTL_MS = 48 * 60 * 60 * 1000;
   const LOG_PREFIX = '[BILLETERA]';
   // IMPORTANTE: billetera.js se carga con el shell de MenuPrincipal, antes de que
   // la vista /billetera inyecte EV_WALLET_CONFIG. Por eso esta configuración debe
@@ -17,6 +19,8 @@
   const BC_NAME = 'EV_CHANNEL';
   let bc = null;
   try { bc = ('BroadcastChannel' in window) ? new BroadcastChannel(BC_NAME) : null; } catch (_) { bc = null; }
+  let compraPendientePollingTimer = null;
+  const COMPRA_PENDIENTE_POLLING_MS = 15000;
 
   let refs = {
     wrapper: null,
@@ -81,7 +85,10 @@
 
   let state = {
     misRecargas: [],
-    retiro: null
+    retiro: null,
+    saldoActual: 0,
+    saldoCargado: false,
+    compraPendienteModalAbierto: false
   };
 
   const QR_CONFIG = {
@@ -163,6 +170,158 @@
     refs.btnGuardarCuentaRetiro = document.getElementById('btnGuardarCuentaRetiro');
 
     return true;
+  }
+
+
+  function redondearMonto(valor) {
+    return Math.round((Number(valor || 0) + Number.EPSILON) * 100) / 100;
+  }
+
+  function leerCompraPreparadaPendiente() {
+    try {
+      const raw = sessionStorage.getItem(COMPRA_PREPARADA_PENDIENTE_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      const age = Date.now() - Number(data?.updated_at || data?.created_at || 0);
+      if (Number(data?.codigo_producto || 0) <= 0 || age < 0 || age > COMPRA_PREPARADA_TTL_MS) {
+        sessionStorage.removeItem(COMPRA_PREPARADA_PENDIENTE_KEY);
+        return null;
+      }
+      return data;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function actualizarCompraPreparadaPendiente(patch = {}) {
+    const actual = leerCompraPreparadaPendiente();
+    if (!actual) return null;
+    const nuevo = { ...actual, ...patch, updated_at: Date.now() };
+    try { sessionStorage.setItem(COMPRA_PREPARADA_PENDIENTE_KEY, JSON.stringify(nuevo)); } catch (_) {}
+    return nuevo;
+  }
+
+  function aplicarContextoCompraPendienteRecarga() {
+    if (walletSection() !== 'recargar') return false;
+    const contexto = leerCompraPreparadaPendiente();
+    if (!contexto || !['recarga_requerida', 'validacion_soporte'].includes(String(contexto.etapa || ''))) return false;
+
+    const saldoReferencia = state.saldoCargado
+      ? Number(state.saldoActual || 0)
+      : Number(contexto.saldo_actual || 0);
+    const faltanteCalculado = redondearMonto(Math.max(0, Number(contexto.monto_requerido || 0) - saldoReferencia));
+    const montoFaltante = state.saldoCargado
+      ? faltanteCalculado
+      : (faltanteCalculado > 0
+          ? faltanteCalculado
+          : redondearMonto(Number(contexto.monto_faltante || 0)));
+    const etapa = String(contexto.etapa || '');
+    const card = refs.recargaForm?.closest('.ev-wallet-recharge-form-card');
+
+    if (card) {
+      card.classList.add('is-purchase-recharge-target');
+      let banner = card.querySelector('.ev-wallet-purchase-recharge-context');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.className = 'ev-wallet-purchase-recharge-context';
+        const heading = card.querySelector('.ev-wallet-section-heading');
+        if (heading?.parentNode) heading.insertAdjacentElement('afterend', banner);
+        else card.prepend(banner);
+      }
+      banner.innerHTML = etapa === 'validacion_soporte'
+        ? `
+          <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+          <div>
+            <strong>Tu pago está en validación</strong>
+            <span>Soporte EV revisará el comprobante de <b>${esc(contexto.titulo_producto || 'tu compra')}</b>. No necesitas registrar otra recarga.</span>
+          </div>
+        `
+        : `
+          <i class="bi bi-bag-check" aria-hidden="true"></i>
+          <div>
+            <strong>Completa el saldo para continuar tu compra</strong>
+            <span>Te faltan <b>${formatearMonto(montoFaltante)}</b> para <b>${esc(contexto.titulo_producto || 'el producto seleccionado')}</b>.</span>
+          </div>
+        `;
+      window.requestAnimationFrame(() => card.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+    }
+
+    if (refs.recargaMonto && etapa === 'recarga_requerida' && montoFaltante > 0) {
+      refs.recargaMonto.value = montoFaltante.toFixed(2);
+      refs.recargaMonto.setAttribute('data-ev-prefill-compra', '1');
+    }
+
+    return true;
+  }
+
+  function limpiarResaltadoCompraPendiente() {
+    const card = refs.recargaForm?.closest('.ev-wallet-recharge-form-card');
+    card?.classList.remove('is-purchase-recharge-target');
+    card?.querySelector('.ev-wallet-purchase-recharge-context')?.remove();
+    refs.recargaMonto?.removeAttribute('data-ev-prefill-compra');
+  }
+
+  async function evaluarCompraPendienteParaContinuar() {
+    if (walletSection() !== 'recargar' || state.compraPendienteModalAbierto) return false;
+    const contexto = leerCompraPreparadaPendiente();
+    const etapa = String(contexto?.etapa || '');
+    if (!contexto || !['recarga_requerida', 'validacion_soporte'].includes(etapa)) return false;
+
+    const recargaId = Number(contexto.codigo_recarga || 0);
+    const recarga = recargaId > 0
+      ? (state.misRecargas || []).find((item) => Number(item.id || 0) === recargaId)
+      : null;
+    const recargaAprobada = String(recarga?.estado || '').toLowerCase() === 'aprobada';
+    const saldoSuficiente = Number(state.saldoActual || 0) + 0.00001 >= Number(contexto.monto_requerido || 0);
+    const puedeContinuar = saldoSuficiente && (etapa === 'recarga_requerida' || recargaAprobada);
+
+    if (!puedeContinuar) return false;
+
+    detenerPollingCompraPendiente();
+    state.compraPendienteModalAbierto = true;
+    limpiarResaltadoCompraPendiente();
+    actualizarCompraPreparadaPendiente({ etapa: 'lista_para_continuar', saldo_actual: state.saldoActual });
+
+    try {
+      const result = window.Swal?.fire
+        ? await swalFireEV({
+            icon: 'success',
+            title: 'Saldo disponible',
+            html: `Tu recarga fue validada y ya cuentas con el saldo necesario para continuar con <strong>${esc(contexto.titulo_producto || 'tu compra')}</strong>.`,
+            confirmButtonText: 'Continuar compra',
+            showCancelButton: false,
+            allowOutsideClick: false,
+            allowEscapeKey: false
+          })
+        : { isConfirmed: window.confirm('Tu saldo ya está disponible. ¿Deseas continuar tu compra?') };
+
+      if (result?.isConfirmed) {
+        navegarWallet('/marketplace');
+      }
+    } finally {
+      state.compraPendienteModalAbierto = false;
+    }
+
+    return true;
+  }
+
+
+  function detenerPollingCompraPendiente() {
+    if (compraPendientePollingTimer) {
+      window.clearInterval(compraPendientePollingTimer);
+      compraPendientePollingTimer = null;
+    }
+  }
+
+  function iniciarPollingCompraPendiente() {
+    detenerPollingCompraPendiente();
+    const contexto = leerCompraPreparadaPendiente();
+    if (walletSection() !== 'recargar' || String(contexto?.etapa || '') !== 'validacion_soporte') return;
+
+    compraPendientePollingTimer = window.setInterval(async () => {
+      if (document.hidden || walletSection() !== 'recargar' || !document.querySelector('.ev-wallet-wrapper')) return;
+      await Promise.all([cargarSaldo(), cargarMisRecargas()]);
+    }, COMPRA_PENDIENTE_POLLING_MS);
   }
 
   function formatearMonto(monto) {
@@ -489,8 +648,20 @@
       if (await manejarAuthEspecial(resp, json)) return;
       if (!resp.ok || !json.ok) return;
 
-      const saldo = (json.saldo_actual ?? json.saldo ?? 0);
+      const saldo = Number(json.saldo_actual ?? json.saldo ?? 0);
+      state.saldoActual = saldo;
+      state.saldoCargado = true;
       refs.saldo.textContent = formatearMonto(saldo);
+
+      const compraPendiente = leerCompraPreparadaPendiente();
+      if (compraPendiente && String(compraPendiente.etapa || '') === 'recarga_requerida') {
+        const faltante = redondearMonto(Math.max(0, Number(compraPendiente.monto_requerido || 0) - saldo));
+        actualizarCompraPreparadaPendiente({ saldo_actual: saldo, monto_faltante: faltante });
+        aplicarContextoCompraPendienteRecarga();
+      }
+
+      window.setTimeout(() => { evaluarCompraPendienteParaContinuar(); }, 40);
+      return saldo;
 
     } catch (err) {
       error('Excepción al cargar saldo:', err);
@@ -699,6 +870,7 @@
       </div>
     `;
     window.setTimeout(enfocarRecargaDestinoNotificacion, 90);
+    window.setTimeout(() => { evaluarCompraPendienteParaContinuar(); }, 60);
   }
 
   async function cargarMisRecargas() {
@@ -1308,9 +1480,35 @@
         return;
       }
 
-      swalOk(data.mensaje || (esSubsanacion ? 'Recarga corregida y reenviada.' : 'Recarga registrada.'));
+      const compraPendiente = leerCompraPreparadaPendiente();
+      const esRecargaDeCompra = !esSubsanacion
+        && compraPendiente
+        && String(compraPendiente.etapa || '') === 'recarga_requerida';
+
+      if (esRecargaDeCompra) {
+        actualizarCompraPreparadaPendiente({
+          etapa: 'validacion_soporte',
+          codigo_recarga: Number(data.id || 0),
+          monto_recarga: monto
+        });
+        await swalFireEV({
+          icon: 'info',
+          title: 'Pago en validación',
+          text: 'Soporte EV está validando tu comprobante. Cuando la recarga sea aprobada y el saldo esté disponible, te avisaremos para que continúes exactamente con la compra que dejaste pendiente.',
+          confirmButtonText: 'Aceptar',
+          showCancelButton: false,
+          allowOutsideClick: false,
+          allowEscapeKey: false
+        });
+      } else {
+        await swalOk(data.mensaje || (esSubsanacion ? 'Recarga corregida y reenviada.' : 'Recarga registrada.'));
+      }
 
       resetModalRecarga();
+      if (esRecargaDeCompra) {
+        aplicarContextoCompraPendienteRecarga();
+        iniciarPollingCompraPendiente();
+      }
 
       const modalEl = document.getElementById('modalRecargarSaldo');
       if (modalEl && window.bootstrap?.Modal) {
@@ -1346,6 +1544,7 @@
         e.preventDefault();
         resetModalRecarga();
         actualizarQRDesdeSelect();
+        aplicarContextoCompraPendienteRecarga();
         refs.recargaTipo?.focus();
       });
     }
@@ -1449,9 +1648,13 @@
   }
 
   function inicializarVista() {
-    if (!capturarRefs()) return;
+    if (!capturarRefs()) {
+      detenerPollingCompraPendiente();
+      return;
+    }
 
     state.retiro = null;
+    state.saldoCargado = false;
     const section = walletSection();
     log(`Vista Billetera/${section} detectada. BASE_URL:`, BASE || '(vacía)');
 
@@ -1465,6 +1668,7 @@
     }
 
     resetModalRecarga();
+    if (section === 'recargar') aplicarContextoCompraPendienteRecarga();
     if (section === 'resumen') {
       cargarSaldo();
       cargarMovimientos();
@@ -1502,6 +1706,7 @@
     engancharEventosRecarga();
     engancharEventosRetiro();
     escucharEventosRefresh();
+    iniciarPollingCompraPendiente();
   }
 
   document.addEventListener('DOMContentLoaded', () => {

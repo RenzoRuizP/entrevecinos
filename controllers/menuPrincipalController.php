@@ -168,6 +168,79 @@ class MenuPrincipalController
         if ($esVecino) {
             $menus = $configuracionPlataforma->filtrarMenus($menus, $usuario);
 
+            /*
+             * Billetera es un bloque principal del vecino, no un ítem de Vender.
+             * Normalizamos también en memoria para que una BD desactualizada no
+             * vuelva a anidar /billetera dentro de otro menú.
+             */
+            $rutasBilletera = ['/billetera', '/billetera/recargar', '/billetera/retirar'];
+
+            foreach ($menus as &$menuVecino) {
+                $submenusLimpios = [];
+                foreach (($menuVecino['submenus'] ?? []) as $submenuVecino) {
+                    $rutaSubmenu = '/' . trim((string)($submenuVecino['ruta'] ?? ''), '/');
+                    if (!in_array(strtolower($rutaSubmenu), $rutasBilletera, true)) {
+                        $submenusLimpios[] = $submenuVecino;
+                    }
+                }
+                $menuVecino['submenus'] = $submenusLimpios;
+            }
+            unset($menuVecino);
+
+            $menus = array_values(array_filter($menus, static function (array $menuVecino): bool {
+                return !empty($menuVecino['submenus']);
+            }));
+
+            if ($evBilleteraDisponible) {
+                $submenusBilletera = [[
+                    'codigo_menu_item' => 989103,
+                    'nombre' => 'Resumen',
+                    'icono' => 'bi bi-grid',
+                    'ruta' => '/billetera',
+                    'orden' => 1,
+                ]];
+
+                if ($evRecargasDisponibles) {
+                    $submenusBilletera[] = [
+                        'codigo_menu_item' => 989104,
+                        'nombre' => 'Recargar saldo',
+                        'icono' => 'bi bi-plus-circle',
+                        'ruta' => '/billetera/recargar',
+                        'orden' => 2,
+                    ];
+                }
+
+                $submenusBilletera[] = [
+                    'codigo_menu_item' => 989105,
+                    'nombre' => 'Retirar saldo',
+                    'icono' => 'bi bi-bank',
+                    'ruta' => '/billetera/retirar',
+                    'orden' => 3,
+                ];
+
+                $menuBilletera = [
+                    'codigo_menu' => 989003,
+                    'nombre' => 'Billetera',
+                    'icono' => 'bi bi-wallet2',
+                    'orden' => 4,
+                    'submenus' => $submenusBilletera,
+                ];
+
+                $indiceComunidad = null;
+                foreach ($menus as $indiceMenu => $menuExistente) {
+                    if (strcasecmp(trim((string)($menuExistente['nombre'] ?? '')), 'Comunidad') === 0) {
+                        $indiceComunidad = $indiceMenu;
+                        break;
+                    }
+                }
+
+                if ($indiceComunidad === null) {
+                    $menus[] = $menuBilletera;
+                } else {
+                    array_splice($menus, $indiceComunidad, 0, [$menuBilletera]);
+                }
+            }
+
             $tieneInicio = false;
             foreach ($menus as $menuExistente) {
                 foreach (($menuExistente['submenus'] ?? []) as $submenuExistente) {

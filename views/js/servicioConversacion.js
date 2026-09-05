@@ -859,7 +859,7 @@
     return ask('Cancelar coordinación', {
       html: cancellationOptionsHtml(),
       confirmText: '<i class="bi bi-check2-circle"></i> Aceptar',
-      cancelText: '<i class="bi bi-x-circle"></i> Cancelar',
+      cancelText: config.cancelText || '<i class="bi bi-x-circle"></i> Cancelar',
       didOpen: (popup) => {
         const otherWrap = popup.querySelector('#evScCancelOther');
         const otherText = popup.querySelector('#evScCancelOtherText');
@@ -1339,7 +1339,8 @@
       key: 'provider_decline',
       intro: 'Selecciona el motivo por el que no podrás continuar con esta solicitud. El comprador será notificado.',
       ariaLabel: 'Motivo para no continuar',
-      confirmText: '<i class="bi bi-check2-circle"></i> Aceptar',
+      confirmText: 'Aceptar',
+      cancelText: 'Cancelar',
       otherLabel: 'Describe el motivo',
       otherPlaceholder: 'Explica brevemente por qué no podrás continuar.',
       otherValidation: 'Describe el otro motivo con al menos 5 caracteres.',

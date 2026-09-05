@@ -708,7 +708,7 @@
   }
 
   function obtenerTextoBotonAlertaComprador(estado) {
-    if (estado === 'entregado_vendedor') return 'Aceptar';
+    if (estado === 'entregado_vendedor') return 'Entregado';
     if (estado === 'en_punto_entrega') return 'Ver pedido';
     if (estado === 'sin_respuesta_vendedor') return 'Revisar';
     return 'Revisar pedido';
@@ -1091,7 +1091,7 @@
     } catch (_) {}
   }
 
-  async function confirmarEntregaDesdeAlertaComprador(codigoPedido, fallback = {}) {
+  async function confirmarEntregaDesdeAlertaComprador(codigoPedido, fallback = {}, options = {}) {
     const id = Number(codigoPedido || 0);
     if (!id || !window.Swal?.fire) return;
 
@@ -1119,13 +1119,15 @@
         return;
       }
 
-      await Swal.fire({
-        icon: 'success',
-        title: 'Entrega confirmada',
-        text: json?.mensaje || 'La entrega fue confirmada correctamente.',
-        confirmButtonText: 'Aceptar',
-        confirmButtonColor: '#EA7C12'
-      });
+      if (options.skipSuccessModal !== true) {
+        await Swal.fire({
+          icon: 'success',
+          title: 'Entrega confirmada',
+          text: json?.mensaje || 'La entrega fue confirmada correctamente.',
+          confirmButtonText: 'Aceptar',
+          confirmButtonColor: '#EA7C12'
+        });
+      }
 
       let pendiente = json?.data?.calificacion_pendiente || null;
       if (!pendiente || Number(pendiente.codigo_calificacion || 0) <= 0) {
@@ -1147,6 +1149,61 @@
         icon: 'error',
         title: 'No se pudo confirmar',
         text: 'No se pudo confirmar la entrega en este momento.',
+        confirmButtonColor: '#EA7C12'
+      });
+    }
+  }
+
+  async function reportarNoEntregadoDesdeAlertaComprador(codigoPedido, fallback = {}) {
+    const id = Number(codigoPedido || 0);
+    if (!id || !window.Swal?.fire) return;
+
+    try {
+      const { resp, json } = await fetchJsonConTimeout(`${BASE}/api/pedidos/${encodeURIComponent(id)}/reportar-no-entregado`, {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({})
+      });
+
+      if (!resp.ok || json?.ok === false) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'No se pudo registrar',
+          text: json?.mensaje || 'No se pudo registrar que el pedido no fue entregado.',
+          confirmButtonText: 'Aceptar',
+          confirmButtonColor: '#EA7C12'
+        });
+        await refrescarMisPedidosCompradorSiDisponible();
+        return;
+      }
+
+      let pendiente = json?.data?.calificacion_pendiente || null;
+      if (!pendiente || Number(pendiente.codigo_calificacion || 0) <= 0) {
+        pendiente = await obtenerCalificacionPendientePedidoShell(id);
+      }
+
+      if (pendiente && Number(pendiente.codigo_calificacion || 0) > 0) {
+        await abrirModalCalificacionShell(pendiente, {
+          codigo_pedido: id,
+          titulo_publicacion: pendiente.titulo_publicacion || fallback.titulo_publicacion || fallback.titulo_producto || 'Pedido EV',
+          nombre_calificado: pendiente.nombre_calificado || fallback.nombre_calificado || 'Vecino'
+        });
+      }
+
+      await refrescarMisPedidosCompradorSiDisponible();
+    } catch (e) {
+      console.warn('[EV][Shell][NoEntregado] No se pudo registrar la incidencia:', e);
+      await Swal.fire({
+        icon: 'error',
+        title: 'No se pudo registrar',
+        text: 'No se pudo registrar que el pedido no fue entregado en este momento.',
+        confirmButtonText: 'Aceptar',
         confirmButtonColor: '#EA7C12'
       });
     }
@@ -1234,9 +1291,11 @@
     const confirmButtonLabel = usaIconosAlineados
       ? `<i class="bi bi-eye" aria-hidden="true"></i><span>${escapeHtml(confirmText)}</span>`
       : escapeHtml(confirmText);
-    const cancelButtonLabel = usaIconosAlineados
-      ? '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Entendido</span>'
-      : 'Entendido';
+    const cancelButtonLabel = estado === 'entregado_vendedor'
+      ? 'No entregado'
+      : (usaIconosAlineados
+          ? '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Entendido</span>'
+          : 'Entendido');
     const r = await Swal.fire({
       icon,
       title: titulo,
@@ -1263,6 +1322,7 @@
       confirmButtonText: confirmButtonLabel,
       cancelButtonText: cancelButtonLabel,
       buttonsStyling: false,
+      reverseButtons: estado === 'entregado_vendedor',
       customClass: {
         container: 'ev-swal-container',
         popup: 'ev-swal-popup ev-shell-order-alert-popup',
@@ -1277,9 +1337,9 @@
 
     await marcarLeidaPromise;
 
-    if (r.isConfirmed) {
-      const codigoPedido = Number(payload.codigo_pedido || alerta.referencia_id || 0);
+    const codigoPedido = Number(payload.codigo_pedido || alerta.referencia_id || 0);
 
+    if (r.isConfirmed) {
       if (estado === 'entregado_vendedor') {
         await confirmarEntregaDesdeAlertaComprador(codigoPedido, {
           titulo_publicacion: producto,
@@ -1291,6 +1351,27 @@
       await irAMisPedidosComprador(codigoPedido, {
         abrirDetalle: estado === 'sin_respuesta_vendedor'
       });
+      return;
+    }
+
+    if (estado === 'entregado_vendedor' && r.dismiss === Swal.DismissReason.cancel) {
+      const ayudaResult = window.EVAyudaEV?.open
+        ? await window.EVAyudaEV.open()
+        : await Swal.fire({
+            title: 'Ayuda EV',
+            text: 'Contacta a Soporte EV por WhatsApp al 956 969 182.',
+            confirmButtonText: 'Aceptar',
+            showCancelButton: false,
+            allowOutsideClick: false,
+            allowEscapeKey: false
+          });
+
+      if (ayudaResult?.isConfirmed) {
+        await reportarNoEntregadoDesdeAlertaComprador(
+          codigoPedido,
+          { titulo_publicacion: producto, titulo_producto: producto }
+        );
+      }
     }
   }
 

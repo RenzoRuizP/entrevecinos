@@ -815,8 +815,8 @@
 
 .ev-mpc-btn-detail:hover,
 .ev-mpc-btn-detail:focus-visible{
-  color:#fff;
-  box-shadow:0 16px 30px rgba(234,124,18,.30);
+  color:var(--ev-verde-oscuro);
+  box-shadow:0 12px 24px rgba(15,89,47,.12);
 }
 
 .ev-mpc-swal-popup{
@@ -1469,20 +1469,20 @@
 
 .ev-mpc-btn-detail:hover,
 .ev-mpc-btn-detail:focus-visible{
-  background:linear-gradient(135deg,var(--ev-naranja),#F59E0B);
-  border-color:var(--ev-naranja);
-  color:#fff;
-  box-shadow:0 15px 30px rgba(234,124,18,.28);
+  background:#F0FDF4;
+  border-color:rgba(22,163,74,.42);
+  color:var(--ev-verde-oscuro);
+  box-shadow:0 12px 24px rgba(15,89,47,.12);
   transform:translateY(-1px);
   filter:none;
 }
 
 .ev-mpc-btn-detail:active{
-  background:linear-gradient(135deg,var(--ev-naranja-oscuro),var(--ev-naranja));
-  border-color:var(--ev-naranja-oscuro);
-  color:#fff;
+  background:#EAF8EF;
+  border-color:rgba(15,89,47,.42);
+  color:var(--ev-verde-oscuro);
   transform:translateY(0) scale(.985);
-  box-shadow:0 9px 20px rgba(234,124,18,.22);
+  box-shadow:0 8px 18px rgba(15,89,47,.10);
 }
 
 @media (hover:none){

@@ -273,6 +273,106 @@ final class Calificacion extends Conexion
         }
     }
 
+    public function generarPendienteCompradorPorPedidoNoEntregado(int $codigoPedido, int $codigoUsuarioComprador): array
+    {
+        try {
+            if ($codigoPedido <= 0 || $codigoUsuarioComprador <= 0) {
+                return [
+                    'ok' => false,
+                    'error' => 'PARAMETROS_INVALIDOS',
+                    'mensaje' => 'Pedido o comprador inválido.'
+                ];
+            }
+
+            $sqlPedido = "
+                SELECT
+                    p.codigo_pedido,
+                    p.codigo_usuario_comprador,
+                    p.codigo_usuario_vendedor,
+                    p.estado_actual
+                FROM pedido p
+                WHERE p.codigo_pedido = :codigo_pedido
+                  AND p.codigo_usuario_comprador = :codigo_usuario_comprador
+                  AND p.estado_actual = 'entregado_vendedor'
+                LIMIT 1
+            ";
+
+            $stPedido = $this->dblink->prepare($sqlPedido);
+            $stPedido->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+            $stPedido->bindValue(':codigo_usuario_comprador', $codigoUsuarioComprador, PDO::PARAM_INT);
+            $stPedido->execute();
+            $pedido = $stPedido->fetch(PDO::FETCH_ASSOC);
+
+            if (!$pedido) {
+                return [
+                    'ok' => false,
+                    'error' => 'PEDIDO_NO_DISPONIBLE_PARA_REPORTE',
+                    'mensaje' => 'El pedido ya no se encuentra pendiente de confirmación de entrega.'
+                ];
+            }
+
+            $codigoVendedor = (int)($pedido['codigo_usuario_vendedor'] ?? 0);
+            if ($codigoVendedor <= 0 || $codigoVendedor === $codigoUsuarioComprador) {
+                return [
+                    'ok' => false,
+                    'error' => 'USUARIOS_INVALIDOS',
+                    'mensaje' => 'No se pudo habilitar la calificación para este pedido.'
+                ];
+            }
+
+            $fechaLimiteSql = "DATE_ADD(NOW(), INTERVAL " . self::DIAS_PLAZO_CALIFICACION . " DAY)";
+            $sql = "
+                INSERT INTO calificacion
+                (
+                    codigo_pedido,
+                    codigo_usuario_calificador,
+                    codigo_usuario_calificado,
+                    rol_calificador,
+                    rol_calificado,
+                    tipo_calificacion,
+                    fecha_habilitacion,
+                    fecha_limite,
+                    estado
+                )
+                VALUES
+                (
+                    :codigo_pedido,
+                    :codigo_comprador,
+                    :codigo_vendedor,
+                    'comprador',
+                    'vendedor',
+                    'comprador_a_vendedor',
+                    NOW(),
+                    {$fechaLimiteSql},
+                    'pendiente'
+                )
+                ON DUPLICATE KEY UPDATE
+                    fecha_habilitacion = IF(estado = 'enviada', fecha_habilitacion, NOW()),
+                    fecha_limite = IF(estado = 'enviada', fecha_limite, VALUES(fecha_limite)),
+                    estado = IF(estado = 'enviada', estado, 'pendiente'),
+                    updated_at = NOW()
+            ";
+
+            $st = $this->dblink->prepare($sql);
+            $st->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+            $st->bindValue(':codigo_comprador', $codigoUsuarioComprador, PDO::PARAM_INT);
+            $st->bindValue(':codigo_vendedor', $codigoVendedor, PDO::PARAM_INT);
+            $st->execute();
+
+            return [
+                'ok' => true,
+                'data' => $this->obtenerPendientePorPedidoUsuario($codigoPedido, $codigoUsuarioComprador)
+            ];
+        } catch (Throwable $e) {
+            error_log('[EV][Calificacion][generarPendienteCompradorPorPedidoNoEntregado] ' . $e->getMessage());
+            return [
+                'ok' => false,
+                'error' => 'ERROR_GENERAR_CALIFICACION_NO_ENTREGADO',
+                'mensaje' => 'No se pudo habilitar la calificación del pedido.'
+            ];
+        }
+    }
+
     public function obtenerPendientePorPedidoUsuario(int $codigoPedido, int $codigoUsuario): ?array
     {
         try {

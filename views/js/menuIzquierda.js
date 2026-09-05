@@ -807,6 +807,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+
+  async function abrirAyudaEV() {
+    if (window.Swal?.fire) {
+      return Swal.fire({
+        title: 'Ayuda EV',
+        html: `
+          <div class="ev-help-modal-icon" aria-hidden="true"><i class="bi bi-headset"></i></div>
+          <div class="ev-help-modal-copy">
+            <strong>Estamos para ayudarte</strong>
+            <p>Escríbenos por WhatsApp y cuéntanos brevemente qué necesitas. El equipo de Soporte EV te orientará.</p>
+            <a class="ev-help-modal-contact" href="https://wa.me/51956969182" target="_blank" rel="noopener noreferrer"><i class="bi bi-whatsapp"></i><span>956 969 182</span></a>
+          </div>
+        `,
+        confirmButtonText: 'Aceptar',
+        confirmButtonColor: '#EA7C12',
+        showConfirmButton: true,
+        showCancelButton: false,
+        showDenyButton: false,
+        showCloseButton: false,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        customClass: {
+          popup: 'ev-help-modal-popup',
+          title: 'ev-help-modal-title',
+          htmlContainer: 'ev-help-modal-html',
+          confirmButton: 'ev-help-modal-confirm',
+          closeButton: 'ev-swal-close'
+        }
+      });
+    }
+
+    alert('Ayuda EV\n\nEscríbenos por WhatsApp al 956 969 182 y cuéntanos brevemente qué necesitas. Soporte EV te orientará.');
+    return { isConfirmed: true };
+  }
+
+  window.EVAyudaEV = Object.assign(window.EVAyudaEV || {}, {
+    open: abrirAyudaEV
+  });
+
   document.addEventListener('click', async (e) => {
     if (window.__EV_AUTH_REDIRECTING__ === true) return;
 
@@ -886,30 +925,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const ayuda = e.target.closest('#btnEvAyudaSidebar');
     if (ayuda) {
       e.preventDefault();
-      if (window.Swal?.fire) {
-        Swal.fire({
-          title: 'Ayuda EV',
-          html: `
-            <div class="ev-help-modal-icon" aria-hidden="true"><i class="bi bi-headset"></i></div>
-            <div class="ev-help-modal-copy">
-              <strong>Estamos para ayudarte</strong>
-              <p>Escríbenos por WhatsApp y cuéntanos brevemente qué necesitas. El equipo de Soporte EV te orientará.</p>
-              <a class="ev-help-modal-contact" href="https://wa.me/51956969182" target="_blank" rel="noopener noreferrer"><i class="bi bi-whatsapp"></i><span>956 969 182</span></a>
-            </div>
-          `,
-          confirmButtonText: 'Aceptar',
-          confirmButtonColor: '#EA7C12',
-          showConfirmButton: true,
-          showCancelButton: false,
-          showDenyButton: false,
-          showCloseButton: false,
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-          customClass: { popup: 'ev-help-modal-popup', title: 'ev-help-modal-title', htmlContainer: 'ev-help-modal-html', confirmButton: 'ev-help-modal-confirm', closeButton: 'ev-swal-close' }
-        });
-      } else {
-        alert('Ayuda EV\n\nEscríbenos por WhatsApp al 956 969 182 y cuéntanos brevemente qué necesitas. Soporte EV te orientará.');
-      }
+      await abrirAyudaEV();
       return;
     }
 

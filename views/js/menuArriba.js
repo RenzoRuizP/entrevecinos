@@ -422,7 +422,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Regla UX:
   // Click en avatar -> abre modal.
   // Click en "Seleccionar nueva foto" -> abre archivos.
-  // Click en "Guardar foto" -> recién sube y actualiza.
+  // Click en "Guardar" -> recién sube y actualiza.
   // ============================================================
 
   function avatarActualUrl() {
@@ -436,6 +436,15 @@ document.addEventListener('DOMContentLoaded', () => {
   function nombreArchivoSeguro(file) {
     if (!file) return '';
     return String(file.name || 'imagen seleccionada').replace(/\s+/g, ' ').trim();
+  }
+
+  function escapeAvatarHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 
   function formatearPeso(bytes) {
@@ -706,10 +715,14 @@ document.addEventListener('DOMContentLoaded', () => {
         border:1px solid #D8F1E1;
       }
 
-      .ev-avatar-file-card-copy{min-width:0}
+      .ev-avatar-file-card-copy{min-width:0;max-width:100%;overflow:hidden}
 
       .ev-avatar-file-card strong{
         display:block;
+        max-width:100%;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
         color:#0F592F;
         font-size:.9rem;
         font-weight:950;
@@ -799,20 +812,29 @@ document.addEventListener('DOMContentLoaded', () => {
         display:inline-flex;
         align-items:center;
         justify-content:center;
-        gap:7px;
         border-radius:14px;
         padding:8px 16px;
-        color:#111827;
+        color:#475569;
         background:#fff;
-        border:1px solid #E5E7EB;
+        border:1px solid #CBD5E1;
+        box-shadow:0 8px 18px rgba(15,23,42,.06);
         font-size:.84rem;
         font-weight:950;
+        transition:transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease, color .16s ease;
       }
 
-      .ev-avatar-btn-cancel:hover{
-        color:#0F592F;
+      .ev-avatar-btn-cancel:hover,
+      .ev-avatar-btn-cancel:focus-visible{
+        color:#111827;
         background:#F8FAFC;
-        border-color:#CBD5E1;
+        border-color:#94A3B8;
+        box-shadow:0 12px 24px rgba(15,23,42,.10);
+        transform:translateY(-1px);
+      }
+
+      .ev-avatar-btn-cancel:active{
+        transform:translateY(0) scale(.985);
+        box-shadow:0 6px 14px rgba(15,23,42,.08);
       }
 
       .user-menu img,
@@ -847,6 +869,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         .ev-avatar-btn{
           width:100%;
+        }
+
+        .ev-avatar-file-card strong{
+          font-size:.84rem;
         }
       }
     `;
@@ -923,13 +949,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 <div class="ev-avatar-actions">
                   <button type="button" class="ev-avatar-btn ev-avatar-btn-select" id="evAvatarBtnSelect">
-                    <i class="bi bi-folder2-open"></i>
                     Seleccionar foto
                   </button>
 
                   <button type="button" class="ev-avatar-btn ev-avatar-btn-save" id="evAvatarBtnSave" disabled>
-                    <i class="bi bi-check2-circle"></i>
-                    Guardar foto
+                    Guardar
                   </button>
                 </div>
               </section>
@@ -943,7 +967,6 @@ document.addEventListener('DOMContentLoaded', () => {
             </span>
 
             <button type="button" class="ev-avatar-btn-cancel" data-bs-dismiss="modal">
-              <i class="bi bi-x-circle" aria-hidden="true"></i>
               Cancelar
             </button>
           </footer>
@@ -1004,7 +1027,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnSave) {
       btnSave.disabled = true;
       btnSave.classList.remove('is-loading');
-      btnSave.innerHTML = '<i class="bi bi-check2-circle"></i> Guardar foto';
+      btnSave.textContent = 'Guardar';
     }
   }
 
@@ -1086,7 +1109,7 @@ document.addEventListener('DOMContentLoaded', () => {
       info.innerHTML = `
         <span class="ev-avatar-file-card-icon" aria-hidden="true"><i class="bi bi-check2"></i></span>
         <span class="ev-avatar-file-card-copy">
-          <strong>${nombreArchivoSeguro(file)}</strong>
+          <strong title="${escapeAvatarHtml(nombreArchivoSeguro(file))}">${escapeAvatarHtml(nombreArchivoSeguro(file))}</strong>
           <small>${formatearPeso(file.size)} · Lista para guardar.</small>
         </span>
       `;
@@ -1196,7 +1219,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (btnSave) {
         btnSave.disabled = false;
-        btnSave.innerHTML = '<i class="bi bi-check2-circle"></i> Guardar foto';
+        btnSave.textContent = 'Guardar';
       }
     } finally {
       if (btnSelect) {

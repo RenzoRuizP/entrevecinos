@@ -231,7 +231,7 @@ $evWalletShellUrl = static function (string $ruta): string {
                     </div>
                     <div class="col-md-6">
                       <label class="form-label" for="recarga_monto">Monto a recargar</label>
-                      <input type="number" min="1" step="0.1" class="form-control" id="recarga_monto" name="recarga_monto" placeholder="Ej. 10.00">
+                      <input type="number" min="0.01" step="0.01" class="form-control" id="recarga_monto" name="recarga_monto" placeholder="Ej. 10.00">
                     </div>
                     <div class="col-12">
                       <label class="form-label" for="recarga_operacion">ID de operación</label>
@@ -438,7 +438,7 @@ $evWalletShellUrl = static function (string $ruta): string {
         <p class="text-muted small mb-0 mt-3">Nuestro equipo te ayudará a resolver cualquier problema con tu cuenta o billetera.</p>
       </div>
       <div class="modal-footer ev-login-modal-footer justify-content-between">
-        <button type="button" class="btn ev-btn-modal-outline" data-bs-dismiss="modal"><i class="bi bi-x-circle me-1"></i> Cerrar</button>
+        <button type="button" class="btn ev-btn-modal-outline" data-bs-dismiss="modal"><i class="bi bi-x-circle me-1"></i> Cancelar</button>
         <a href="tel:956969182" class="btn ev-btn-modal-primary ev-btn-modal-cta"><i class="bi bi-telephone me-1"></i> Llamar ahora</a>
       </div>
     </div>

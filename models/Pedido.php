@@ -3354,6 +3354,93 @@ class Pedido extends Conexion
         }
     }
 
+    public function reportarNoEntregadoPorComprador(int $codigoPedido, int $codigoUsuarioComprador): array
+    {
+        try {
+            $this->dblink->beginTransaction();
+
+            $pedido = $this->obtenerSolicitudComprador($codigoPedido, $codigoUsuarioComprador, true);
+
+            if (!$pedido) {
+                $this->dblink->rollBack();
+                return [
+                    'ok' => false,
+                    'error' => 'PEDIDO_NO_ENCONTRADO',
+                    'mensaje' => 'No se encontró el pedido.'
+                ];
+            }
+
+            if ((string)$pedido['estado_actual'] !== 'entregado_vendedor') {
+                $this->dblink->rollBack();
+                return [
+                    'ok' => false,
+                    'error' => 'ESTADO_NO_REPORTABLE',
+                    'mensaje' => 'Este pedido ya no se encuentra pendiente de confirmación de entrega.'
+                ];
+            }
+
+            $detalle = 'El comprador indicó que no recibió el pedido marcado como entregado. Se mostró Ayuda EV para contacto con soporte.';
+
+            $up = $this->dblink->prepare("
+                UPDATE pedido
+                SET motivo_estado = :motivo_estado
+                WHERE codigo_pedido = :codigo_pedido
+            ");
+            $up->bindValue(':motivo_estado', $detalle, PDO::PARAM_STR);
+            $up->bindValue(':codigo_pedido', $codigoPedido, PDO::PARAM_INT);
+            $up->execute();
+
+            $this->registrarHistorialEstado(
+                $codigoPedido,
+                (string)$pedido['fase'],
+                (string)$pedido['estado_actual'],
+                (string)$pedido['fase'],
+                (string)$pedido['estado_actual'],
+                $codigoUsuarioComprador,
+                'comprador',
+                'comprador_reporta_no_entregado',
+                $detalle
+            );
+
+            $this->dblink->commit();
+
+            $calificacionPendiente = null;
+            try {
+                $calificacionModel = new Calificacion();
+                $generada = $calificacionModel->generarPendienteCompradorPorPedidoNoEntregado(
+                    $codigoPedido,
+                    $codigoUsuarioComprador
+                );
+                if (($generada['ok'] ?? false) === true) {
+                    $calificacionPendiente = $generada['data'] ?? null;
+                }
+            } catch (Throwable $e) {
+                error_log('[EV][Pedido][reportarNoEntregadoPorComprador][calificacion] ' . $e->getMessage());
+            }
+
+            return [
+                'ok' => true,
+                'data' => [
+                    'codigo_pedido' => $codigoPedido,
+                    'estado_actual' => 'entregado_vendedor',
+                    'no_entregado_reportado' => 1,
+                    'calificacion_pendiente' => $calificacionPendiente
+                ]
+            ];
+        } catch (Throwable $e) {
+            if ($this->dblink->inTransaction()) {
+                $this->dblink->rollBack();
+            }
+
+            error_log('[EV][Pedido][reportarNoEntregadoPorComprador] ' . $e->getMessage());
+            return [
+                'ok' => false,
+                'error' => 'ERROR_REPORTAR_NO_ENTREGADO',
+                'mensaje' => 'No se pudo registrar que el pedido no fue entregado.'
+            ];
+        }
+    }
+
     // =========================================================
     // VALIDACIÓN PRODUCTO
     // =========================================================

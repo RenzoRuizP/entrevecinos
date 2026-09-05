@@ -550,9 +550,14 @@
     const categoria = String(item?.categoria || '').toLowerCase();
     const subcategoria = String(item?.subcategoria || '').toLowerCase();
     const codigoSolicitud = Number(payload?.codigo_solicitud_servicio || (categoria === 'servicio' ? item?.referencia_id : 0) || 0);
-    if (categoria !== 'servicio' || codigoSolicitud <= 0 || !SUBCATEGORIAS_GESTION_SERVICIO.has(subcategoria)) return false;
+    if (categoria !== 'servicio' || codigoSolicitud <= 0) return false;
     try {
-      sessionStorage.setItem(PENDING_SERVICE_KEY, JSON.stringify({ codigo_solicitud_servicio: codigoSolicitud, ruta, created_at: Date.now() }));
+      sessionStorage.setItem(PENDING_SERVICE_KEY, JSON.stringify({
+        codigo_solicitud_servicio: codigoSolicitud,
+        subcategoria,
+        ruta,
+        created_at: Date.now()
+      }));
       return true;
     } catch (_) {
       return false;
@@ -579,19 +584,25 @@
   async function intentarAbrirServicioPendiente() {
     const pending = leerServicioPendiente();
     if (!pending || !document.querySelector('.ev-ssc-page, .ev-ssv-page')) return false;
-    const deadline = Date.now() + 3500;
+
+    const codigoSolicitud = Number(pending.codigo_solicitud_servicio || 0);
+    const deadline = Date.now() + 4500;
+
     while (Date.now() < deadline) {
-      if (window.EVServicioOperacion?.open) {
+      const comprador = window.EVSolicitudesServicioComprador;
+      const vendedor = window.EVSolicitudesServicioVendedor;
+      const modulo = document.querySelector('.ev-ssc-page') ? comprador : vendedor;
+
+      if (modulo && typeof modulo.focusById === 'function') {
         try {
-          sessionStorage.removeItem(PENDING_SERVICE_KEY);
-          await window.EVServicioOperacion.open(Number(pending.codigo_solicitud_servicio));
-          return true;
-        } catch (_) {
-          return false;
-        }
+          const ubicado = await modulo.focusById(codigoSolicitud);
+          if (ubicado) return true;
+        } catch (_) {}
       }
+
       await new Promise(resolve => window.setTimeout(resolve, 120));
     }
+
     return false;
   }
 

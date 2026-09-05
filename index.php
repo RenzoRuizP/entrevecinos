@@ -1175,6 +1175,7 @@ $routes = [
     ['GET',  '#^/api/pedidos/(\d+)/estado$#', [apiPedidoController::class, 'obtenerEstadoSolicitud'], 'json'],
     ['POST', '#^/api/pedidos/(\d+)/cancelar$#', [apiPedidoController::class, 'cancelarSolicitud'], 'json'],
     ['POST', '#^/api/pedidos/(\d+)/confirmar-entrega$#', [apiPedidoController::class, 'confirmarEntrega'], 'json'],
+    ['POST', '#^/api/pedidos/(\d+)/reportar-no-entregado$#', [apiPedidoController::class, 'reportarNoEntregado'], 'json'],
     ['GET',  '#^/api/pedidos/mis-comprador$#', [apiPedidoController::class, 'listarMisPedidosComprador'], 'json'],
 
     ['GET',  '#^/api/pedidos/alertas$#', [apiPedidoController::class, 'listarAlertasPedido'], 'json'],

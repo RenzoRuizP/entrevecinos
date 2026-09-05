@@ -29,6 +29,34 @@
       .join(' ');
   }
 
+  function plainButtonLabel(value) {
+    const html = String(value ?? '');
+    if (!html) return '';
+
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return String(tmp.textContent || tmp.innerText || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function aplicarEstandarAceptarCancelar(config) {
+    const confirmLabel = plainButtonLabel(config.confirmButtonText).toLocaleLowerCase('es');
+    const cancelLabel = plainButtonLabel(config.cancelButtonText).toLocaleLowerCase('es');
+
+    // Estándar EV: los botones Aceptar / Cancelar nunca llevan iconos.
+    if (confirmLabel === 'aceptar') config.confirmButtonText = 'Aceptar';
+    if (cancelLabel === 'cancelar') config.cancelButtonText = 'Cancelar';
+
+    // Cuando ambas acciones conviven en el mismo modal, Cancelar va primero
+    // y Aceptar queda como acción primaria a la derecha.
+    if (config.showCancelButton === true && confirmLabel === 'aceptar' && cancelLabel === 'cancelar') {
+      config.reverseButtons = true;
+    }
+
+    return config;
+  }
+
   function injectStyles() {
     if (document.getElementById(STYLE_ID)) return;
 
@@ -569,6 +597,7 @@
       config.showCloseButton = false;
     }
 
+    aplicarEstandarAceptarCancelar(config);
     return config;
   }
 

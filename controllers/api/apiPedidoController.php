@@ -550,6 +550,62 @@ class apiPedidoController
         }
     }
 
+    public function reportarNoEntregado($codigoPedido): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(405, [
+                'ok' => false,
+                'mensaje' => 'Método no permitido.'
+            ]);
+            return;
+        }
+
+        try {
+            $codigoUsuarioComprador = $this->obtenerUsuarioAuth();
+            $codigoPedido = (int)$codigoPedido;
+
+            if ($codigoPedido <= 0) {
+                $this->json(400, [
+                    'ok' => false,
+                    'mensaje' => 'Código de pedido inválido.'
+                ]);
+                return;
+            }
+
+            $model = new Pedido();
+            $resultado = $model->reportarNoEntregadoPorComprador($codigoPedido, $codigoUsuarioComprador);
+
+            if (!($resultado['ok'] ?? false)) {
+                $error = (string)($resultado['error'] ?? 'ERROR_REPORTAR_NO_ENTREGADO');
+                $mensaje = (string)($resultado['mensaje'] ?? 'No se pudo registrar la incidencia de entrega.');
+                $status = match ($error) {
+                    'PEDIDO_NO_ENCONTRADO' => 404,
+                    'ESTADO_NO_REPORTABLE' => 409,
+                    default => 500
+                };
+
+                $this->json($status, [
+                    'ok' => false,
+                    'error' => $error,
+                    'mensaje' => $mensaje
+                ]);
+                return;
+            }
+
+            $this->json(200, [
+                'ok' => true,
+                'mensaje' => 'Se registró que el pedido no fue entregado.',
+                'data' => $resultado['data'] ?? null
+            ]);
+        } catch (Throwable $e) {
+            error_log('[EV][apiPedidoController][reportarNoEntregado] ' . $e->getMessage());
+            $this->json(500, [
+                'ok' => false,
+                'mensaje' => 'No se pudo registrar que el pedido no fue entregado.'
+            ]);
+        }
+    }
+
     // =========================================================
     // VENDEDOR - ENDPOINT LIVIANO PARA NOTIFICACIÓN GLOBAL
     // =========================================================
